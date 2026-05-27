@@ -304,7 +304,7 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
           >
             <div className="flex items-center gap-2 mb-2 border-b border-slate-800/60 pb-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-teal-400 tracking-wider uppercase">🔍 ENGINE DIAGNOSTICS</span>
+              <span className="text-[10px] font-bold text-teal-400 tracking-wider uppercase">ENGINE DIAGNOSTICS</span>
             </div>
             <div className="space-y-1">
               <div className="text-[11px] text-slate-200">
@@ -413,17 +413,7 @@ export default function IntelligenceEngine() {
               transition={{ duration: 0.5, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
               className="absolute -bottom-4 -left-4 bg-white dark:bg-slate-900 rounded-xl p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200/80 dark:border-slate-800"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-950/40 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-slate-900 dark:text-white">Ready for exam!</div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">Confidence: High</div>
-                </div>
-              </div>
+              
             </motion.div>
           </motion.div>
         </div>

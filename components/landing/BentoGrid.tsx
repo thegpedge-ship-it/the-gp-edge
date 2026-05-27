@@ -23,19 +23,19 @@ const cardVariants = {
 // ─── Looping Carousel Data ───────────────────────────────────────────────────
 const carouselCycles = [
   [
-    { name: "Type 2 Diabetes", category: "Endocrine", icon: "🩸" },
-    { name: "Hypertension", category: "Cardiovascular", icon: "❤️" },
-    { name: "Asthma", category: "Respiratory", icon: "🫁" },
+    { name: "Type 2 Diabetes", category: "Endocrine" },
+    { name: "Hypertension", category: "Cardiovascular" },
+    { name: "Asthma", category: "Respiratory" },
   ],
   [
-    { name: "Hypothyroidism", category: "Endocrine", icon: "🔬" },
-    { name: "Atrial Fibrillation", category: "Cardiovascular", icon: "💓" },
-    { name: "Sleep Apnea", category: "Respiratory", icon: "😴" },
+    { name: "Hypothyroidism", category: "Endocrine" },
+    { name: "Atrial Fibrillation", category: "Cardiovascular" },
+    { name: "Sleep Apnea", category: "Respiratory" },
   ],
   [
-    { name: "Osteoporosis", category: "Musculoskeletal", icon: "🦴" },
-    { name: "Bipolar Disorder", category: "Mental Health", icon: "🧠" },
-    { name: "Rosacea", category: "Dermatology", icon: "🌸" },
+    { name: "Osteoporosis", category: "Musculoskeletal" },
+    { name: "Bipolar Disorder", category: "Mental Health" },
+    { name: "Rosacea", category: "Dermatology" },
   ],
 ];
 
@@ -110,10 +110,7 @@ function ConditionCarousel() {
                 key={item.name}
                 className="flex items-center justify-between px-2.5 py-2 rounded-lg bg-white border border-slate-100 flex-1"
               >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm leading-none">{item.icon}</span>
-                  <span className="text-xs font-medium text-slate-700">{item.name}</span>
-                </div>
+                <span className="text-xs font-medium text-slate-700">{item.name}</span>
                 <span className="text-[10px] text-teal-600 font-semibold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100/80">
                   {item.category}
                 </span>
@@ -270,9 +267,7 @@ function MBSBillingCardInline() {
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-teal-500/10 text-teal-700 text-xs font-semibold border border-teal-500/15">
-            Free
-          </span>
+          
           <span className="text-xs text-teal-600 font-medium">Full access</span>
         </div>
 
@@ -349,7 +344,7 @@ function MBSBillingCardInline() {
 
                   {/* Timeframe tag */}
                   <div className="flex items-center gap-1.5 mb-3">
-                    <span className="text-xs text-slate-500">⏱️ 20 - 39 mins</span>
+                    <span className="text-xs text-slate-500">20 - 39 mins</span>
                   </div>
 
                   {/* Simplified Criteria */}
@@ -501,14 +496,9 @@ function ClinicalAutofillsCardInline() {
       variants={cardVariants}
       className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-white rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-slate-300 active:scale-[0.99] transition-all duration-300"
     >
-      {/* Decorative gradient */}
-      <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-slate-100 to-transparent rounded-full" />
-
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-4">
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-            Free tier
-          </span>
+          
         </div>
 
         <h3 className="font-sans text-xl lg:text-2xl font-bold text-slate-900 mb-2 tracking-[-0.01em]">
@@ -631,27 +621,27 @@ function ClinicalAutofillsCardInline() {
 // Organised into intentional rows so the layout always looks deliberate.
 const tagRows = [
   [
-    { name: "Diabetes", icon: "🩸", delay: 0.00 },
-    { name: "HTN", icon: "❤️", delay: 0.05 },
+    { name: "Diabetes", delay: 0.00 },
+    { name: "HTN", delay: 0.05 },
   ],
   [
-    { name: "Asthma", icon: "🫁", delay: 0.10 },
-    { name: "GORD", icon: "🔥", delay: 0.15 },
+    { name: "Asthma", delay: 0.10 },
+    { name: "GORD", delay: 0.15 },
   ],
   [
-    { name: "Depression", icon: "🧠", delay: 0.20 },
-    { name: "Melanoma", icon: "🌿", delay: 0.25 },
+    { name: "Depression", delay: 0.20 },
+    { name: "Melanoma", delay: 0.25 },
   ],
   [
-    { name: "Heart Failure", icon: "💓", delay: 0.30 },
-    { name: "COPD", icon: "💨", delay: 0.35 },
+    { name: "Heart Failure", delay: 0.30 },
+    { name: "COPD", delay: 0.35 },
   ],
   [
-    { name: "UTI", icon: "💧", delay: 0.40 },
-    { name: "Migraine", icon: "⚡", delay: 0.45 },
+    { name: "UTI", delay: 0.40 },
+    { name: "Migraine", delay: 0.45 },
   ],
   [
-    { name: "Hypothyroidism", icon: "🔬", delay: 0.50 },
+    { name: "Hypothyroidism", delay: 0.50 },
   ],
 ];
 
@@ -683,8 +673,6 @@ function AdaptiveExamPrepCardInline() {
         { id: "C", text: "Left circumflex (LCx)" }
       ],
       correctId: "B",
-      selectedId: "B",
-      cursorDest: { x: "30px", y: "55px" },
       isCorrect: true
     },
     {
@@ -698,8 +686,6 @@ function AdaptiveExamPrepCardInline() {
         { id: "C", text: "Inhaled fluticasone" }
       ],
       correctId: "A",
-      selectedId: "C",
-      cursorDest: { x: "30px", y: "85px" },
       isCorrect: false
     },
     {
@@ -713,8 +699,6 @@ function AdaptiveExamPrepCardInline() {
         { id: "C", text: "PHQ-9" }
       ],
       correctId: "C",
-      selectedId: "C",
-      cursorDest: { x: "30px", y: "85px" },
       isCorrect: true
     }
   ];
@@ -1326,16 +1310,11 @@ export default function BentoGrid() {
             variants={cardVariants}
             className="col-span-12 lg:col-span-7 relative bg-white rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-slate-300 active:scale-[0.99] transition-all duration-300"
           >
-            {/* Subtle grid pattern */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#f8fafc_1px,transparent_1px),linear-gradient(to_bottom,#f8fafc_1px,transparent_1px)] bg-[size:16px_16px] opacity-60" />
-
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-start gap-5">
               {/* Left: Header + Carousel */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">
-                    Free tier
-                  </span>
+
                 </div>
 
                 <h3 className="font-sans text-xl lg:text-2xl font-bold text-slate-900 mb-2 tracking-[-0.01em]">
@@ -1364,9 +1343,8 @@ export default function BentoGrid() {
                           viewport={{ once: true }}
                           transition={{ duration: 0.32, delay: 0.35 + condition.delay, ease: [0.22, 1, 0.36, 1] }}
                           whileHover={{ y: -2, scale: 1.04, transition: { duration: 0.14 } }}
-                          className="group flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer bg-white border border-slate-200/80 text-slate-700 shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50/60 transition-all duration-200 active:scale-[0.96]"
+                          className="group flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center cursor-pointer bg-white border border-slate-200/80 text-slate-700 shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50/60 transition-all duration-200 active:scale-[0.96]"
                         >
-                          <span className="text-sm leading-none flex-shrink-0">{condition.icon}</span>
                           <span className="group-hover:text-teal-700 transition-colors truncate">{condition.name}</span>
                         </motion.div>
                       ))}

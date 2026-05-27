@@ -4,18 +4,18 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 
 const conditionTags = [
-  { name: "Diabetes", icon: "🩸" },
-  { name: "HTN", icon: "❤️" },
-  { name: "Asthma", icon: "🫁" },
-  { name: "GORD", icon: "🔥" },
-  { name: "Osteoarthritis", icon: "🦴" },
-  { name: "Depression", icon: "🧠" },
-  { name: "Melanoma", icon: "🌿" },
-  { name: "Heart Failure", icon: "💓" },
-  { name: "COPD", icon: "💨" },
-  { name: "UTI", icon: "💧" },
-  { name: "Migraine", icon: "⚡" },
-  { name: "Hypothyroidism", icon: "🔬" },
+  { name: "Diabetes", icon: "" },
+  { name: "HTN", icon: "" },
+  { name: "Asthma", icon: "" },
+  { name: "GORD", icon: "" },
+  { name: "Osteoarthritis", icon: "" },
+  { name: "Depression", icon: "" },
+  { name: "Melanoma", icon: "" },
+  { name: "Heart Failure", icon: "" },
+  { name: "COPD", icon: "" },
+  { name: "UTI", icon: "" },
+  { name: "Migraine", icon: "" },
+  { name: "Hypothyroidism", icon: "" },
 ];
 
 const carouselCycles = [
@@ -46,12 +46,12 @@ const categoryColors: Record<string, string> = {
 };
 
 const categoryIcons: Record<string, string> = {
-  Endocrine: "🧬",
-  Cardiovascular: "❤️",
-  Respiratory: "🫁",
-  Musculoskeletal: "🦴",
-  "Mental Health": "🧠",
-  Dermatology: "✨",
+  Endocrine: "",
+  Cardiovascular: "",
+  Respiratory: "",
+  Musculoskeletal: "",
+  "Mental Health": "",
+  Dermatology: "",
 };
 
 export default function MedicalDirectoryCard() {
@@ -72,9 +72,6 @@ export default function MedicalDirectoryCard() {
       }}
       className="col-span-12 lg:col-span-7 relative bg-white rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-slate-300 active:scale-[0.99] transition-all duration-300"
     >
-      {/* Subtle grid pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#f8fafc_1px,transparent_1px),linear-gradient(to_bottom,#f8fafc_1px,transparent_1px)] bg-[size:16px_16px] opacity-60" />
-
       <div className="relative z-10 flex flex-col lg:flex-row lg:items-start gap-6">
         {/* Left side - Content and Carousel */}
         <div className="flex-1">
@@ -129,7 +126,7 @@ export default function MedicalDirectoryCard() {
                       className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-white border border-slate-100 shadow-sm"
                     >
                       <div className="flex items-center gap-2.5">
-                        <span className="text-base">{categoryIcons[condition.category]}</span>
+                        {categoryIcons[condition.category] && <span className="text-base">{categoryIcons[condition.category]}</span>}
                         <span className="text-sm font-medium text-slate-700">{condition.name}</span>
                       </div>
                       <span className={`text-[10px] font-semibold px-2 py-1 rounded-full border ${categoryColors[condition.category]}`}>
@@ -171,7 +168,7 @@ export default function MedicalDirectoryCard() {
                 whileHover={{ scale: 1.05 }}
                 className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 shadow-sm hover:shadow-md hover:border-teal-300 active:scale-[0.96] transition-all cursor-pointer flex items-center gap-1.5"
               >
-                <span className="text-sm">{tag.icon}</span>
+                {tag.icon && <span className="text-sm">{tag.icon}</span>}
                 <span className="text-[11px] font-medium">{tag.name}</span>
               </motion.div>
             ))}

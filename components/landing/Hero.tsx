@@ -62,51 +62,14 @@ interface StatConfig {
   label: string;
   variant: "default" | "teal" | "dark";
   delay: number;
-  iconType: "filetext" | "pill" | "zap" | "stethoscope";
 }
 
 const stats: StatConfig[] = [
-  { rawValue: 4800, suffix: "+", label: "Questions", variant: "default", delay: 0.0, iconType: "filetext" },
-  { rawValue: 180, suffix: "+", label: "MBS Items", variant: "teal", delay: 0.1, iconType: "pill" },
-  { rawValue: 2600, suffix: "+", label: "Autofills", variant: "dark", delay: 0.2, iconType: "zap" },
-  { rawValue: 300, suffix: "+", label: "Conditions", variant: "default", delay: 0.3, iconType: "stethoscope" },
+  { rawValue: 4800, suffix: "+", label: "Questions", variant: "default", delay: 0.0 },
+  { rawValue: 180, suffix: "+", label: "MBS Items", variant: "teal", delay: 0.1 },
+  { rawValue: 2600, suffix: "+", label: "Autofills", variant: "dark", delay: 0.2 },
+  { rawValue: 300, suffix: "+", label: "Conditions", variant: "default", delay: 0.3 },
 ];
-
-// Icon component mapping
-const StatIcon = ({ type, variant }: { type: StatConfig["iconType"]; variant: StatConfig["variant"] }) => {
-  const isTeal = variant === "teal";
-  const isDark = variant === "dark";
-
-  let src = "";
-  let alt = "";
-
-  switch (type) {
-    case "filetext":
-      src = "/assets/hero_questions.png";
-      alt = "Questions";
-      break;
-    case "pill":
-      src = "/assets/hero_mbs.png";
-      alt = "MBS Items";
-      break;
-    case "zap":
-      src = "/assets/hero_autofills.png";
-      alt = "Autofills";
-      break;
-    case "stethoscope":
-      src = "/assets/hero_conditions.png";
-      alt = "Conditions";
-      break;
-  }
-
-  const imgClass = isTeal
-    ? "w-6 h-6 object-contain invert mix-blend-screen brightness-200"
-    : isDark
-      ? "w-6 h-6 object-contain invert mix-blend-screen contrast-125"
-      : "w-6 h-6 object-contain mix-blend-multiply";
-
-  return <img src={src} alt={alt} className={imgClass} />;
-};
 
 function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
   const { display, ref } = useCountUp(stat.rawValue, 2.0, 0.4 + stat.delay);
@@ -147,16 +110,6 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
       )}
 
       <div className="relative z-10">
-        {/* Icon badge - refined circular container */}
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center mb-3 ${
-          isTeal 
-            ? "bg-white/20" 
-            : isDark 
-              ? "bg-slate-700/80 border border-slate-600" 
-              : "bg-slate-50 border border-slate-100 shadow-sm"
-          }`}>
-          <StatIcon type={stat.iconType} variant={stat.variant} />
-        </div>
 
         {/* Count-up number */}
         <div
@@ -279,27 +232,9 @@ export default function Hero() {
               {/* Inner glow */}
               <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 pointer-events-none" />
 
-              {/* Ghosted logo - top left corner branding */}
-              <div className="absolute top-4 left-4 w-5 h-5 z-10">
-                <Image
-                  src="/assets/logo.jpeg"
-                  alt="The GP Edge"
-                  fill
-                  className="rounded-[6px] object-cover opacity-40 grayscale"
-                  priority
-                />
-              </div>
-
               {/* Dashboard header */}
               <div className="relative flex items-center justify-between mb-4 pl-6">
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Dashboard Snapshot</span>
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-teal-600">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500"></span>
-                  </span>
-                  Live
-                </span>
               </div>
 
               {/* Stats Grid */}
@@ -307,17 +242,6 @@ export default function Hero() {
                 {stats.map((stat, index) => (
                   <StatCard key={stat.label} stat={stat} index={index} />
                 ))}
-              </div>
-
-              {/* Bottom label */}
-              <div className="relative mt-4 pt-4 border-t border-slate-200/40 flex items-center justify-between">
-                <span className="text-[11px] font-medium text-slate-400">Updated in real-time</span>
-                <span className="text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </svg>
-                  All systems active
-                </span>
               </div>
             </div>
           </motion.div>

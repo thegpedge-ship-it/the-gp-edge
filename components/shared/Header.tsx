@@ -26,12 +26,7 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
       {/* Navigation - Standard links + VIP Exam Prep */}
       <nav className="hidden md:flex items-center gap-6">
         {/* Standard Links - Subtle & Clean */}
-        <a
-          href="#tools"
-          className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
-        >
-          Tools
-        </a>
+        
         
         {/* VIP Exam Prep Highlight - Animated Gradient */}
         <a
@@ -43,10 +38,10 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
         
         {/* Standard Links - Subtle & Clean */}
         <a
-          href="#billing"
+          href="#gp-toolkit"
           className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
         >
-          Billing
+          GP Toolkit
         </a>
         <a
           href="#about"
