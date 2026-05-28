@@ -3,13 +3,22 @@
 import { motion } from "framer-motion";
 import Logo from "./Logo";
 
-export default function Header() {
+interface HeaderProps {
+  variant?: "fixed" | "static";
+}
+
+export default function Header({ variant = "fixed" }: HeaderProps) {
+  const positionClass =
+    variant === "static"
+      ? "sticky top-4 z-30 mx-4 sm:mx-6 mt-4 sm:mt-6"
+      : "fixed top-6 inset-x-0 mx-auto w-[95%] max-w-5xl z-50";
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed top-6 inset-x-0 mx-auto w-[95%] max-w-5xl z-50 bg-white/70 backdrop-blur-xl border border-white/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between"
+      className={`${positionClass} bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/40 dark:border-slate-700/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between`}
     >
       {/* Logo */}
       <Logo size="sm" />

@@ -38,7 +38,7 @@ export default function Sidebar() {
       initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="hidden lg:flex fixed left-8 top-28 bottom-8 w-80 flex-col rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-glass dark:shadow-glass-dark z-40 overflow-hidden"
+      className="hidden lg:flex sticky top-0 h-screen flex-col bg-slate-50 dark:bg-slate-900 border-r border-slate-200/70 dark:border-slate-800 z-40 overflow-hidden"
     >
       <div className="overflow-y-auto flex-1 p-7 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {/* Profile header */}
