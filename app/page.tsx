@@ -1,8 +1,8 @@
-import Header from "@/components/Header";
-import Hero from "@/components/Hero";
-import BentoGrid from "@/components/BentoGrid";
-import IntelligenceEngine from "@/components/IntelligenceEngine";
-import Footer from "@/components/Footer";
+import Header from "@/components/shared/Header";
+import Hero from "@/components/landing/Hero";
+import BentoGrid from "@/components/landing/BentoGrid";
+import IntelligenceEngine from "@/components/landing/IntelligenceEngine";
+import Footer from "@/components/shared/Footer";
 
 export default function Home() {
   return (
