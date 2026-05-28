@@ -38,28 +38,34 @@ export default function Sidebar() {
       initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="hidden lg:flex fixed left-6 top-6 bottom-6 w-80 flex-col rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-glass dark:shadow-glass-dark z-40 overflow-hidden"
+      className="hidden lg:flex fixed left-8 top-28 bottom-8 w-80 flex-col rounded-3xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-2xl border border-white/40 dark:border-slate-700/40 shadow-glass dark:shadow-glass-dark z-40 overflow-hidden"
     >
-      <div className="overflow-y-auto flex-1 px-6 py-7">
+      <div className="overflow-y-auto flex-1 p-7 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {/* Profile header */}
         <div className="flex flex-col items-center text-center">
           <div className="relative">
             <div
               className={`relative rounded-full ${
                 isPremium
-                  ? "p-[3px] bg-gradient-to-tr from-amber-300 via-yellow-400 to-amber-500 shadow-lg shadow-amber-400/40"
+                  ? "p-[3px] bg-gradient-to-tr from-amber-300 via-yellow-400 to-amber-500"
                   : ""
               }`}
             >
               <div
                 className={`w-24 h-24 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white font-serif text-3xl ${
-                  isPremium ? "ring-2 ring-white dark:ring-slate-900" : "shadow-lg shadow-teal-600/20"
+                  isPremium ? "ring-2 ring-white dark:ring-slate-900" : ""
                 }`}
               >
                 {user.initials}
               </div>
             </div>
-            <span className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-slate-900" />
+            {isPremium && (
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center ring-4 ring-white dark:ring-slate-900">
+                <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l2.39 7.36H22l-6.18 4.49L18.21 21 12 16.51 5.79 21l2.39-7.15L2 9.36h7.61z" />
+                </svg>
+              </div>
+            )}
           </div>
 
           <h2 className="font-serif text-2xl text-slate-900 dark:text-slate-50 mt-3 leading-tight">
@@ -67,40 +73,39 @@ export default function Sidebar() {
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{user.bio}</p>
 
-          <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+          <div className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-500/20">
             <svg className="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 24 24">
               <path d="M5 16L3 5l5.5 4L12 4l3.5 5L21 5l-2 11H5zm0 2h14v3H5v-3z" />
             </svg>
-            <span className="text-[12px] font-bold text-slate-900 dark:text-slate-50">
+            <span className="text-[12px] font-bold text-amber-700 dark:text-amber-400">
               Rank #{user.rank}
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
-              · top {percentile}%
+            <span className="text-[10px] text-amber-600/70 dark:text-amber-300/70">
+              · Top {percentile}%
             </span>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 mt-4 w-full">
-            <button type="button" className="px-3 py-1.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-semibold hover:bg-slate-800 dark:hover:bg-slate-100 transition">
-              Edit profile
-            </button>
-            <button type="button" className="px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-[11px] font-semibold hover:bg-slate-200 dark:hover:bg-slate-700 transition">
-              Settings
-            </button>
-          </div>
         </div>
 
-        {/* About */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 space-y-2">
-          <Row icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2M5 21H3m4-14h10v4H7V7zm0 8h2v2H7v-2zm4 0h2v2h-2v-2z" />} label={user.role} />
-          <Row icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 21s-7-7-7-12a7 7 0 0114 0c0 5-7 12-7 12zm0-9a3 3 0 100-6 3 3 0 000 6z" />} label={user.hospital} />
-          <Row icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />} label={user.examTarget} />
-          <Row icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h14a2 2 0 012 2v3a2 2 0 01-2 2H5a2 2 0 01-2-2V5zm0 8a2 2 0 012-2h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6z" />} label={user.contact.racgpId} />
+        {/* Profile + Settings pill buttons */}
+        <div className="mt-5 space-y-2">
+          <PillButton
+            icon={
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l9-9 9 9M5 10v10h4v-6h6v6h4V10" />
+            }
+            label="My Profile"
+          />
+          <PillButton
+            icon={
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.32 4.06a1.65 1.65 0 013.36 0l.18.74a1.65 1.65 0 002.05 1.18l.73-.22a1.65 1.65 0 011.95 2.43l-.38.66a1.65 1.65 0 00.6 2.27l.66.38a1.65 1.65 0 010 2.94l-.66.38a1.65 1.65 0 00-.6 2.27l.38.66a1.65 1.65 0 01-1.95 2.43l-.73-.22a1.65 1.65 0 00-2.05 1.18l-.18.74a1.65 1.65 0 01-3.36 0l-.18-.74a1.65 1.65 0 00-2.05-1.18l-.73.22a1.65 1.65 0 01-1.95-2.43l.38-.66a1.65 1.65 0 00-.6-2.27l-.66-.38a1.65 1.65 0 010-2.94l.66-.38a1.65 1.65 0 00.6-2.27l-.38-.66a1.65 1.65 0 011.95-2.43l.73.22a1.65 1.65 0 002.05-1.18l.18-.74zM12 15a3 3 0 100-6 3 3 0 000 6z" />
+            }
+            label="Settings"
+          />
         </div>
 
-        {/* Readiness ring */}
+        {/* Study Readiness */}
         <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
           <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-3">
-            Exam readiness
+            Study Readiness
           </p>
           <div className="flex items-center gap-4">
             <div className="relative w-24 h-24 flex-shrink-0">
@@ -131,25 +136,48 @@ export default function Sidebar() {
                 <span className="text-[9px] uppercase tracking-widest text-slate-400 mt-0.5">ready</span>
               </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">+4% this week</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-snug">
-                Next mock in <span className="font-semibold text-slate-700 dark:text-slate-200">{upcomingExam.daysAway} days</span>
+            <div className="flex-1 min-w-0 space-y-1">
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                ↑ +4%
               </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                Streak: <span className="font-semibold text-amber-600 dark:text-amber-400">{stats[1].value} days 🔥</span>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">vs last week</p>
+              <p className="text-[11px] text-slate-700 dark:text-slate-200 mt-1.5 leading-snug">
+                Next mock in <span className="font-bold">{upcomingExam.daysAway} days</span>
+              </p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
+                Streak: <span className="font-bold text-amber-600 dark:text-amber-400">{stats[1].value} days 🔥</span>
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Info pills */}
+        <div className="mt-5 space-y-2">
+          <InfoPill
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 14l9-5-9-5-9 5 9 5zm0 0v7m-7-3.5l7 3.5 7-3.5" />}
+            label={user.role}
+          />
+          <InfoPill
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 21s-7-7-7-12a7 7 0 0114 0c0 5-7 12-7 12zm0-9a3 3 0 100-6 3 3 0 000 6z" />}
+            label={user.hospital}
+          />
+          <InfoPill
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3M3 11h18M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />}
+            label={user.examTarget}
+          />
+          <InfoPill
+            icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 14a4 4 0 10-8 0m8 0H8m8 0v4a2 2 0 01-2 2h-4a2 2 0 01-2-2v-4m2-4a2 2 0 100-4 2 2 0 000 4z" />}
+            label={user.contact.racgpId}
+          />
         </div>
 
         {/* Activity heatmap */}
         <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-baseline justify-between mb-3">
             <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500">
-              Activity · last 12 weeks
+              Activity · 12 weeks
             </p>
-            <span className="text-[10px] text-slate-400">{heatmap.filter((v) => v > 0).length} active days</span>
+            <span className="text-[10px] text-slate-400">{heatmap.filter((v) => v > 0).length}d active</span>
           </div>
           <div className="grid grid-cols-12 gap-1">
             {Array.from({ length: 12 }).map((_, w) => (
@@ -169,13 +197,6 @@ export default function Sidebar() {
                 })}
               </div>
             ))}
-          </div>
-          <div className="flex items-center justify-end gap-1 mt-2">
-            <span className="text-[9px] text-slate-400">Less</span>
-            {[0, 1, 2, 3, 4].map((v) => (
-              <span key={v} className={`w-2.5 h-2.5 rounded-[2px] ${heatColor(v)}`} />
-            ))}
-            <span className="text-[9px] text-slate-400">More</span>
           </div>
         </div>
 
@@ -258,13 +279,38 @@ export default function Sidebar() {
   );
 }
 
-function Row({ icon, label }: { icon: JSX.Element; label: string }) {
+function PillButton({ icon, label }: { icon: JSX.Element; label: string }) {
   return (
-    <div className="flex items-center gap-2.5 text-[12px] text-slate-600 dark:text-slate-300">
-      <svg className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        {icon}
+    <button
+      type="button"
+      className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-100 dark:border-slate-700/60 transition"
+    >
+      <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {icon}
+        </svg>
+      </span>
+      <span className="flex-1 text-left text-sm font-semibold text-slate-800 dark:text-slate-100">
+        {label}
+      </span>
+      <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
-      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function InfoPill({ icon, label }: { icon: JSX.Element; label: string }) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+      <span className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm flex-shrink-0">
+        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {icon}
+        </svg>
+      </span>
+      <span className="flex-1 text-[12px] font-medium text-slate-700 dark:text-slate-200 truncate">
+        {label}
+      </span>
     </div>
   );
 }

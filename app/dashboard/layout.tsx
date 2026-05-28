@@ -1,3 +1,4 @@
+import Header from "@/components/shared/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -8,9 +9,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="absolute top-1/3 -right-32 w-[400px] h-[400px] rounded-full bg-emerald-200/30 dark:bg-emerald-900/20 blur-3xl" />
       </div>
 
+      <Header />
       <Sidebar />
 
-      <main className="lg:ml-[22rem] p-6 lg:p-8">
+      <main className="lg:ml-[23rem] px-6 sm:px-8 pt-28 pb-8">
         {children}
       </main>
     </div>

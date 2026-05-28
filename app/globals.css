@@ -1,5 +1,5 @@
 /* stylelint-disable at-rule-no-unknown */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -8,10 +8,14 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply font-sans antialiased;
+    font-feature-settings: "kern", "liga", "calt", "ss01";
   }
 }
 

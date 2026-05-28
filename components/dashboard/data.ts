@@ -66,40 +66,65 @@ export const subscription = {
 export const stats = [
   {
     key: "readiness",
-    label: "Exam readiness",
+    label: "Exam Readiness",
     value: "72%",
     delta: "+4%",
     trend: "up" as const,
     accent: "emerald" as const,
-    caption: "vs. last week",
+    caption: "vs last week",
+    icon: "target" as const,
+    spark: [55, 58, 57, 62, 60, 64, 66, 65, 68, 70, 69, 72],
   },
   {
     key: "streak",
-    label: "Study streak",
+    label: "Study Streak",
     value: "18",
-    delta: "days",
+    unit: "days",
+    delta: "Personal best: 23 days",
     trend: "up" as const,
     accent: "amber" as const,
-    caption: "Personal best: 23",
+    caption: "",
+    icon: "flame" as const,
+    spark: [4, 5, 7, 6, 8, 10, 12, 11, 13, 15, 16, 18],
   },
   {
     key: "accuracy",
-    label: "Avg accuracy",
+    label: "Avg Accuracy",
     value: "78.4%",
     delta: "+2.1%",
     trend: "up" as const,
     accent: "violet" as const,
-    caption: "Last 30 days",
+    caption: "vs last 30 days",
+    icon: "trend" as const,
+    spark: [62, 65, 64, 68, 71, 70, 73, 75, 74, 76, 78, 78.4],
   },
   {
     key: "attempts",
-    label: "Quiz attempts",
+    label: "Quiz Attempts",
     value: "1,284",
     delta: "+92",
     trend: "up" as const,
-    accent: "cyan" as const,
+    accent: "sky" as const,
     caption: "this week",
+    icon: "doc" as const,
+    spark: [820, 880, 940, 990, 1040, 1090, 1130, 1170, 1192, 1220, 1245, 1284],
   },
+];
+
+export const greeting = {
+  emoji: "👋",
+  salutation: "Good morning, Sarah!",
+  title: "Your study",
+  highlight: "cockpit",
+  subtext: "Keep going! You're doing great. ✨",
+};
+
+export const quickActionChips = [
+  { key: "practice", label: "Start Practice", icon: "book" as const, accent: "emerald" as const },
+  { key: "review", label: "Topic Review", icon: "doc" as const, accent: "amber" as const },
+  { key: "weak", label: "Weak Areas", icon: "target" as const, accent: "violet" as const },
+  { key: "saved", label: "Saved Questions", icon: "bookmark" as const, accent: "sky" as const },
+  { key: "performance", label: "Performance", icon: "chart" as const, accent: "rose" as const },
 ];
 
 export const continueSession = {
