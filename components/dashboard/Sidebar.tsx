@@ -27,6 +27,10 @@ const badgeIcons: Record<string, JSX.Element> = {
   bolt: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />,
 };
 
+const navLinks = [
+  { href: "/dashboard", label: "Dashboard", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l9-9 9 9M5 10v10h4v-6h6v6h4V10" /> },
+];
+
 export default function Sidebar() {
   const readiness = parseInt(stats[0].value);
   const ring = { r: 38, c: 2 * Math.PI * 38 };
@@ -86,11 +90,18 @@ export default function Sidebar() {
           </div>
         </div>
 
+        {/* Navigation Links */}
+        <div className="mt-5 space-y-2">
+          {navLinks.map((link) => (
+            <NavLink key={link.href} href={link.href} icon={link.icon} label={link.label} />
+          ))}
+        </div>
+
         {/* Profile + Settings pill buttons */}
         <div className="mt-5 space-y-2">
           <PillButton
             icon={
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l9-9 9 9M5 10v10h4v-6h6v6h4V10" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             }
             label="My Profile"
           />
@@ -312,5 +323,26 @@ function InfoPill({ icon, label }: { icon: JSX.Element; label: string }) {
         {label}
       </span>
     </div>
+  );
+}
+
+function NavLink({ href, icon, label }: { href: string; icon: JSX.Element; label: string }) {
+  return (
+    <a
+      href={href}
+      className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-900/20 border border-slate-100 dark:border-slate-700/60 hover:border-teal-200 dark:hover:border-teal-800 transition"
+    >
+      <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          {icon}
+        </svg>
+      </span>
+      <span className="flex-1 text-left text-sm font-semibold text-slate-800 dark:text-slate-100">
+        {label}
+      </span>
+      <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      </svg>
+    </a>
   );
 }

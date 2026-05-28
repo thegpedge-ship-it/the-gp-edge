@@ -22,7 +22,7 @@ const itemVariants = {
 };
 
 // Count-up hook using framer-motion animate
-function useCountUp(target: number, duration: number = 2.2, delay: number = 0.5) {
+function useCountUp(target: number, duration: number = 1.5, delay: number = 0.3) {
   const [display, setDisplay] = useState(0);
   const [started, setStarted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,7 +34,7 @@ function useCountUp(target: number, duration: number = 2.2, delay: number = 0.5)
           setStarted(true);
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.2 }
     );
     if (ref.current) observer.observe(ref.current as HTMLElement);
     return () => observer.disconnect();

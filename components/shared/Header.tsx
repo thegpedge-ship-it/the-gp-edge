@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import Link from "next/link";
 import Logo from "./Logo";
 
 interface HeaderProps {
@@ -43,6 +44,12 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
         >
           GP Toolkit
         </a>
+        <Link
+          href="/dashboard/billing"
+          className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
+        >
+          MBS Billing
+        </Link>
         <a
           href="#about"
           className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
@@ -53,21 +60,21 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
 
       {/* CTA Buttons */}
       <div className="flex items-center gap-4">
-        <a
+        <Link
           href="/login"
           className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200"
         >
           Log in
-        </a>
-        <a
-          href="/signup"
+        </Link>
+        <Link
+          href="/dashboard"
           className="inline-flex items-center gap-1.5 text-sm font-semibold bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-full shadow-md shadow-teal-600/20 transition-all duration-200 hover:-translate-y-0.5"
         >
-          Get started
+          Dashboard
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
-        </a>
+        </Link>
       </div>
     </motion.header>
   );

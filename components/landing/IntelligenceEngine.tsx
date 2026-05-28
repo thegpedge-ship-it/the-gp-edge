@@ -82,69 +82,69 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
       setIsLocked(false);
       setShowTooltip(false);
 
-      // Wait 1.0s in calm rest state
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait 0.5s in calm rest state (reduced from 1.0s)
+      await new Promise((resolve) => setTimeout(resolve, 500));
       if (!isMounted) return;
 
       // Phase 1: Start Scanning
       setShowScanLine(true);
 
-      // Slide to Cardiology (Y = 28px) over 0.4s
+      // Slide to Cardiology (Y = 28px) over 0.3s (reduced from 0.4s)
       setActiveRow("cardiology");
-      await animate(scanY, 28, { duration: 0.4, ease: "linear" });
+      await animate(scanY, 28, { duration: 0.3, ease: "linear" });
       if (!isMounted) return;
 
-      // Slide to Respiratory (Y = 84px) over 0.4s
+      // Slide to Respiratory (Y = 84px) over 0.3s (reduced from 0.4s)
       setActiveRow("respiratory");
-      await animate(scanY, 84, { duration: 0.4, ease: "linear" });
+      await animate(scanY, 84, { duration: 0.3, ease: "linear" });
       if (!isMounted) return;
 
-      // Slide to Mental Health (Y = 140px) over 0.4s
+      // Slide to Mental Health (Y = 140px) over 0.3s (reduced from 0.4s)
       setActiveRow("mental-health");
-      await animate(scanY, 140, { duration: 0.4, ease: "linear" });
+      await animate(scanY, 140, { duration: 0.3, ease: "linear" });
       if (!isMounted) return;
 
       // Phase 2: Category Detection & Focus Lock
       setIsLocked(true);
 
-      // Hold scan line at lock position for 0.8s
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      // Hold scan line at lock position for 0.5s (reduced from 0.8s)
+      await new Promise((resolve) => setTimeout(resolve, 500));
       if (!isMounted) return;
 
       // Phase 3: Tooltip Verdict Reveal
       setShowTooltip(true);
 
-      // Hold for 1.5s
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Hold for 1.0s (reduced from 1.5s)
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (!isMounted) return;
 
       // Phase 4: Left-Pane Synchronized Highlight
       setHighlightFeatures(true);
 
-      // Hold for 1.0s
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Hold for 0.7s (reduced from 1.0s)
+      await new Promise((resolve) => setTimeout(resolve, 700));
       if (!isMounted) return;
 
       // Phase 5: Cooldown & Reset
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       if (!isMounted) return;
 
-      // Fade out sequence (500ms)
+      // Fade out sequence (400ms, reduced from 500ms)
       setShowTooltip(false);
       setShowScanLine(false);
       setIsLocked(false);
       setHighlightFeatures(false);
       
       // Let the scan line animate back to 0 so it's ready for next loop
-      animate(scanY, 0, { duration: 0.5, ease: "easeOut" });
+      animate(scanY, 0, { duration: 0.4, ease: "easeOut" });
       
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 400));
       if (!isMounted) return;
       
       setActiveRow(null);
 
-      // Wait 0.5s before restarting loop
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Wait 0.3s before restarting loop (reduced from 0.5s)
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       if (isMounted) {
         runAnimation();
@@ -404,17 +404,7 @@ export default function IntelligenceEngine() {
             className="relative"
           >
             <FloatingDashboard setHighlightFeatures={setHighlightFeatures} />
-
-            {/* Floating notification badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-              className="absolute -bottom-4 -left-4 bg-white dark:bg-slate-900 rounded-xl p-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200/80 dark:border-slate-800"
-            >
-              
-            </motion.div>
+            
           </motion.div>
         </div>
       </div>
