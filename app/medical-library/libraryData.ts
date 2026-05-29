@@ -32,14 +32,14 @@ export interface MedicalCondition {
 }
 
 export const bodySystems = [
-  { id: "Cardiology", name: "Cardiology", icon: "❤️", color: "from-rose-500 to-rose-600", lightBg: "bg-rose-50 dark:bg-rose-950/20", textColor: "text-rose-600 dark:text-rose-400" },
-  { id: "Respiratory", name: "Respiratory", icon: "🫁", color: "from-sky-500 to-sky-600", lightBg: "bg-sky-50 dark:bg-sky-950/20", textColor: "text-sky-600 dark:text-sky-400" },
-  { id: "Endocrine", name: "Endocrine", icon: "🩸", color: "from-violet-500 to-violet-600", lightBg: "bg-violet-50 dark:bg-violet-950/20", textColor: "text-violet-600 dark:text-violet-400" },
-  { id: "Gastrointestinal", name: "Gastrointestinal", icon: "🍕", color: "from-amber-500 to-amber-600", lightBg: "bg-amber-50 dark:bg-amber-950/20", textColor: "text-amber-600 dark:text-amber-400" },
-  { id: "Psychiatry", name: "Psychiatry", icon: "🧠", color: "from-indigo-500 to-indigo-600", lightBg: "bg-indigo-50 dark:bg-indigo-950/20", textColor: "text-indigo-600 dark:text-indigo-400" },
-  { id: "Dermatology", name: "Dermatology", icon: "✨", color: "from-emerald-500 to-emerald-600", lightBg: "bg-emerald-50 dark:bg-emerald-950/20", textColor: "text-emerald-600 dark:text-emerald-400" },
-  { id: "Women's Health", name: "Women's Health", icon: "🤰", color: "from-fuchsia-500 to-fuchsia-600", lightBg: "bg-fuchsia-50 dark:bg-fuchsia-950/20", textColor: "text-fuchsia-600 dark:text-fuchsia-400" },
-  { id: "Paediatrics", name: "Paediatrics", icon: "👶", color: "from-teal-500 to-teal-600", lightBg: "bg-teal-50 dark:bg-teal-950/20", textColor: "text-teal-600 dark:text-teal-400" },
+  { id: "Cardiology", name: "Cardiology", iconName: "Heart", color: "from-rose-500 to-rose-600", lightBg: "bg-rose-50 dark:bg-rose-950/20", textColor: "text-rose-600 dark:text-rose-400" },
+  { id: "Respiratory", name: "Respiratory", iconName: "Activity", color: "from-sky-500 to-sky-600", lightBg: "bg-sky-50 dark:bg-sky-950/20", textColor: "text-sky-600 dark:text-sky-400" },
+  { id: "Endocrine", name: "Endocrine", iconName: "Droplet", color: "from-violet-500 to-violet-600", lightBg: "bg-violet-50 dark:bg-violet-950/20", textColor: "text-violet-600 dark:text-violet-400" },
+  { id: "Gastrointestinal", name: "Gastrointestinal", iconName: "Apple", color: "from-amber-500 to-amber-600", lightBg: "bg-amber-50 dark:bg-amber-950/20", textColor: "text-amber-600 dark:text-amber-400" },
+  { id: "Psychiatry", name: "Psychiatry", iconName: "Brain", color: "from-indigo-500 to-indigo-600", lightBg: "bg-indigo-50 dark:bg-indigo-950/20", textColor: "text-indigo-600 dark:text-indigo-400" },
+  { id: "Dermatology", name: "Dermatology", iconName: "Sparkles", color: "from-emerald-500 to-emerald-600", lightBg: "bg-emerald-50 dark:bg-emerald-950/20", textColor: "text-emerald-600 dark:text-emerald-400" },
+  { id: "Women's Health", name: "Women's Health", iconName: "User", color: "from-fuchsia-500 to-fuchsia-600", lightBg: "bg-fuchsia-50 dark:bg-fuchsia-950/20", textColor: "text-fuchsia-600 dark:text-fuchsia-400" },
+  { id: "Paediatrics", name: "Paediatrics", iconName: "Baby", color: "from-teal-500 to-teal-600", lightBg: "bg-teal-50 dark:bg-teal-950/20", textColor: "text-teal-600 dark:text-teal-400" },
 ];
 
 export const mockConditions: MedicalCondition[] = [

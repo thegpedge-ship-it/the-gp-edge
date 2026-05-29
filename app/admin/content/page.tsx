@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
@@ -58,11 +59,9 @@ export default function ContentPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newSystem, setNewSystem] = useState("Endocrine");
   const [newCategory, setNewCategory] = useState("");
-  const [newType, setNewType] = useState<MedicalContent["type"]>("Condition");
   
   // Custom Condition items
   const [symptomsInput, setSymptomsInput] = useState("");
-  const [diagnosisInput, setDiagnosisInput] = useState("");
   const [treatmentInput, setTreatmentInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
 
@@ -91,9 +90,7 @@ export default function ContentPage() {
     setNewTitle("");
     setNewSystem("Endocrine");
     setNewCategory("");
-    setNewType("Condition");
     setSymptomsInput("");
-    setDiagnosisInput("");
     setTreatmentInput("");
     setNotesInput("");
     setUploadProgress(0);
@@ -177,7 +174,7 @@ export default function ContentPage() {
             onClick={() => { resetForm(); setShowAddModal(true); }}
             className="px-4 py-2.5 bg-white text-sm font-semibold text-teal-800 rounded-full hover:bg-teal-50 transition-all shadow-sm flex items-center gap-2"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            <Lucide.Plus className="w-4 h-4" />
             Add Content
           </button>
         </div>
@@ -186,15 +183,15 @@ export default function ContentPage() {
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: "📋", color: "text-teal-600 dark:text-teal-400" },
-          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: "⚡", color: "text-violet-600 dark:text-violet-400" },
-          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: "🔀", color: "text-amber-600 dark:text-amber-400" },
-          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: "🔗", color: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: <Lucide.Clipboard className="w-5 h-5" />, color: "text-teal-600 dark:text-teal-400" },
+          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: <Lucide.Zap className="w-5 h-5" />, color: "text-violet-600 dark:text-violet-400" },
+          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: <Lucide.GitMerge className="w-5 h-5" />, color: "text-amber-600 dark:text-amber-400" },
+          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: <Lucide.Link className="w-5 h-5" />, color: "text-emerald-600 dark:text-emerald-400" },
         ].map((s) => (
           <div key={s.label} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 p-4 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
             <div className="relative z-10 flex items-center gap-3">
-              <span className="text-2xl">{s.icon}</span>
+              <span className={`text-slate-500 ${s.color}`}>{s.icon}</span>
               <div>
                 <p className={`text-2xl font-serif ${s.color}`}>{s.value}</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{s.label}</p>
@@ -207,14 +204,14 @@ export default function ContentPage() {
       {/* Filters */}
       <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 max-w-sm">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all dark:text-slate-200" />
         </div>
         <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
           <option value="all">All Systems</option>
           {systems.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-355">
           <option value="all">All Types</option>
           <option value="Condition">Condition</option>
           <option value="Guideline">Guideline</option>
@@ -223,7 +220,7 @@ export default function ContentPage() {
           <option value="Document">Document</option>
           <option value="Note">Note</option>
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-355">
           <option value="all">All Status</option>
           <option value="published">Published</option>
           <option value="review">Review</option>
@@ -255,25 +252,25 @@ export default function ContentPage() {
               <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-4 text-xs text-slate-500">
+                <div className="flex items-center gap-4 text-xs text-slate-505">
                   <span className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                    <Lucide.Link className="w-3.5 h-3.5 text-slate-400" />
                     {item.references} refs
                   </span>
                   <span className="flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <Lucide.HelpCircle className="w-3.5 h-3.5 text-slate-400" />
                     {item.usedInQuestions} Q
                   </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                   {item.status === "draft" && (
                     <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all" title="Send to Review">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      <Lucide.ChevronRight className="w-4 h-4" />
                     </button>
                   )}
                   {item.status === "review" && (
                     <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "published"); }} className="p-1 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all" title="Publish">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <Lucide.Check className="w-4 h-4" />
                     </button>
                   )}
                 </div>
@@ -302,7 +299,7 @@ export default function ContentPage() {
                   <p className="text-xs text-slate-400">Create new directory elements, PDFs, or summaries</p>
                 </div>
                 <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white transition">
-                  ✕
+                  <Lucide.X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -316,35 +313,41 @@ export default function ContentPage() {
                     
                     <div className="grid grid-cols-1 gap-3">
                       <button
-                        onClick={() => { setModalStep("condition"); setNewType("Condition"); }}
+                        onClick={() => { setModalStep("condition"); }}
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-500/80 hover:bg-teal-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="text-2xl bg-teal-50 dark:bg-teal-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">🩺</span>
+                        <span className="bg-teal-50 dark:bg-teal-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.Stethoscope className="w-6 h-6 text-teal-650" />
+                        </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Clinical Condition / Guideline</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
+                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
                         </div>
                       </button>
 
                       <button
-                        onClick={() => { setModalStep("document"); setNewType("Document"); }}
+                        onClick={() => { setModalStep("document"); }}
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-500/80 hover:bg-sky-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="text-2xl bg-sky-50 dark:bg-sky-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">📄</span>
+                        <span className="bg-sky-50 dark:bg-sky-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-sky-600" />
+                        </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-600 transition">Clinical Document (PDF)</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
+                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
                         </div>
                       </button>
 
                       <button
-                        onClick={() => { setModalStep("note"); setNewType("Note"); }}
+                        onClick={() => { setModalStep("note"); }}
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-violet-500/80 hover:bg-violet-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="text-2xl bg-violet-50 dark:bg-violet-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">📝</span>
+                        <span className="bg-violet-50 dark:bg-violet-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-violet-600" />
+                        </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-violet-600 transition">Structured Note</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
+                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
                         </div>
                       </button>
                     </div>
@@ -363,7 +366,7 @@ export default function ContentPage() {
                         <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
                         <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
                           <option value="Endocrine">Endocrine</option>
-                          <option value="Cardiovascular">Cardiology</option>
+                          <option value="Cardiology">Cardiology</option>
                           <option value="Respiratory">Respiratory</option>
                           <option value="Gastroenterology">Gastrointestinal</option>
                           <option value="Psychiatry">Psychiatry</option>
@@ -433,7 +436,7 @@ export default function ContentPage() {
                           onClick={simulateFileUpload}
                           className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-sky-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-850 hover:bg-sky-50/10 transition-all flex flex-col items-center justify-center"
                         >
-                          <span className="text-3xl mb-1.5">📥</span>
+                          <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
                         </div>
@@ -455,7 +458,9 @@ export default function ContentPage() {
 
                       {uploadState === "success" && (
                         <div className="border border-emerald-250 dark:border-emerald-900/40 rounded-2xl p-5 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2 flex items-start gap-3">
-                          <span className="text-xl bg-emerald-100 dark:bg-emerald-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">✓</span>
+                          <span className="text-xl bg-emerald-100 dark:bg-emerald-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                            <Lucide.Check className="w-4 h-4 text-emerald-600" />
+                          </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
                             <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
@@ -466,11 +471,11 @@ export default function ContentPage() {
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-505 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
                       <button 
                         onClick={() => handleSaveContent("Document")} 
                         disabled={uploadState !== "success"}
-                        className="px-4 py-2 bg-sky-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-sky-500 shadow"
+                        className="px-4 py-2 bg-sky-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-sky-505 shadow"
                       >
                         Save PDF Document
                       </button>
@@ -512,8 +517,8 @@ export default function ContentPage() {
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold hover:bg-violet-500 shadow">Save Note</button>
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-505 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold hover:bg-violet-505 shadow">Save Note</button>
                     </div>
                   </div>
                 )}
@@ -536,7 +541,7 @@ export default function ContentPage() {
             >
               <div className="p-6 text-slate-800 dark:text-slate-200">
                 <button onClick={() => setSelectedContent(null)} className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <Lucide.X className="w-5 h-5" />
                 </button>
                 <div className="flex items-center gap-2 mb-4">
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
@@ -557,8 +562,8 @@ export default function ContentPage() {
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Content Preview</h3>
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
                     <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      {["B", "I", "U", "H1", "H2", "•", "1.", "🔗", "📷"].map((btn) => (
-                        <button key={btn} className="w-8 h-8 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
+                      {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
+                        <button key={btn} className="h-8 px-2 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
                       ))}
                     </div>
                     <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
@@ -570,7 +575,7 @@ export default function ContentPage() {
 
                 <div className="flex gap-2">
                   <button className="flex-1 px-4 py-2.5 bg-teal-500 text-sm font-semibold text-white rounded-xl hover:bg-teal-600 transition-all">Edit Content</button>
-                  <button className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-850 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Duplicate</button>
+                  <button className="px-4 py-2.5 text-sm font-medium text-slate-650 dark:text-slate-400 border border-slate-200 dark:border-slate-850 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Duplicate</button>
                 </div>
               </div>
             </motion.div>

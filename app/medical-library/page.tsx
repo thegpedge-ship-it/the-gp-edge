@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 import { bodySystems, mockConditions, MedicalCondition } from "./libraryData";
 
 const containerVariants = {
@@ -13,6 +14,12 @@ const itemVariants = {
   hidden: { opacity: 0, y: 15 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
 };
+
+function SystemIcon({ name, className }: { name: string; className?: string }) {
+  const IconComponent = (Lucide as any)[name];
+  if (!IconComponent) return null;
+  return <IconComponent className={className} />;
+}
 
 export default function MedicalLibraryPage() {
   const [conditions, setConditions] = useState<MedicalCondition[]>(mockConditions);
@@ -99,9 +106,7 @@ export default function MedicalLibraryPage() {
         
         {/* Search Bar */}
         <div className="relative w-full md:max-w-md">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+          <Lucide.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" />
           <input
             type="text"
             placeholder="Search by condition, symptoms, or guidelines..."
@@ -112,11 +117,9 @@ export default function MedicalLibraryPage() {
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 p-0.5"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <Lucide.X className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -177,8 +180,8 @@ export default function MedicalLibraryPage() {
                 }`}
               >
                 <div className="flex justify-between items-start mb-4">
-                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg ${system.lightBg}`}>
-                    {system.icon}
+                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${system.lightBg}`}>
+                    <SystemIcon name={system.iconName} className={`w-4.5 h-4.5 ${system.textColor}`} />
                   </span>
                   <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded-md ${
                     count > 0 
@@ -212,7 +215,7 @@ export default function MedicalLibraryPage() {
         
         {filteredConditions.length === 0 ? (
           <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800 p-12 text-center max-w-lg mx-auto">
-            <span className="text-4xl">🔍</span>
+            <Lucide.Search className="w-12 h-12 text-slate-400 mx-auto mb-2" />
             <h3 className="font-serif text-lg text-slate-900 dark:text-slate-200 mt-3 font-semibold">No medical content found</h3>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Try adjusting your filters, system category, or searching for other symptoms.
@@ -268,16 +271,12 @@ export default function MedicalLibraryPage() {
                       <div className="flex items-center gap-1.5">
                         {condition.isPremium && (
                           <span className="bg-amber-100 dark:bg-amber-500/10 border border-amber-200/40 dark:border-amber-500/25 p-1 rounded-lg text-amber-600 dark:text-amber-400" title="Premium Content">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
+                            <Lucide.Lock className="w-3.5 h-3.5" />
                           </span>
                         )}
                         {condition.document && (
                           <span className="bg-sky-100 dark:bg-sky-500/10 border border-sky-200/40 dark:border-sky-500/25 p-1 rounded-lg text-sky-600 dark:text-sky-400" title="Attachment PDF available">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
+                            <Lucide.FileText className="w-3.5 h-3.5" />
                           </span>
                         )}
                       </div>
@@ -310,17 +309,13 @@ export default function MedicalLibraryPage() {
                   {/* Card Footer */}
                   <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800/85 flex items-center justify-between text-xs text-slate-500 dark:text-slate-450">
                     <span className="flex items-center gap-1 font-mono text-[10px]">
-                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <Lucide.Clock className="w-3.5 h-3.5 text-slate-400" />
                       {condition.lastUpdated}
                     </span>
                     
                     <span className="text-teal-600 dark:text-teal-400 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
                       Read Library
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                      </svg>
+                      <Lucide.ArrowRight className="w-3 h-3" />
                     </span>
                   </div>
                 </motion.div>
@@ -362,21 +357,19 @@ export default function MedicalLibraryPage() {
                   onClick={() => setSelectedCondition(null)}
                   className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all"
                 >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <Lucide.X className="w-5 h-5" />
                 </button>
 
                 <div className="flex items-center gap-2 mb-2 relative z-10 flex-wrap">
                   <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30">
                     {selectedCondition.type}
                   </span>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-350 border border-slate-700">
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-355 border border-slate-700">
                     {selectedCondition.system}
                   </span>
                   {selectedCondition.isPremium && (
                     <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
-                      <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      <Lucide.Lock className="w-2.5 h-2.5" />
                       Premium Library
                     </span>
                   )}
@@ -420,15 +413,15 @@ export default function MedicalLibraryPage() {
                 {activeTab === "symptoms" && (
                   <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <span className="text-teal-500 font-serif">●</span> Clinical Signs & Symptoms
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Clinical Signs & Symptoms
                     </h3>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedCondition.symptoms.map((symptom, i) => (
                         <div key={i} className="flex gap-2.5 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 p-3 rounded-xl shadow-sm">
                           <span className="w-5 h-5 rounded-full bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400 font-bold text-xs flex items-center justify-center shrink-0">
-                            ✓
+                            <Lucide.Check className="w-3 h-3" />
                           </span>
-                          <span className="text-xs text-slate-650 dark:text-slate-300 font-medium leading-relaxed">{symptom}</span>
+                          <span className="text-xs text-slate-650 dark:text-slate-350 font-medium leading-relaxed">{symptom}</span>
                         </div>
                       ))}
                     </ul>
@@ -439,7 +432,7 @@ export default function MedicalLibraryPage() {
                 {activeTab === "diagnosis" && (
                   <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <span className="text-teal-500 font-serif">●</span> Diagnosis & Assessment Criteria
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Diagnosis & Assessment Criteria
                     </h3>
                     <div className="space-y-3">
                       {selectedCondition.diagnosisCriteria.map((crit, i) => (
@@ -458,7 +451,7 @@ export default function MedicalLibraryPage() {
                 {activeTab === "treatment" && (
                   <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      <span className="text-teal-500 font-serif">●</span> Management & Treatment Regimen
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Management & Treatment Regimen
                     </h3>
                     <div className="space-y-3">
                       {selectedCondition.treatmentOptions.map((opt, i) => (
@@ -475,7 +468,7 @@ export default function MedicalLibraryPage() {
                   <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
                     <div className="bg-amber-50/60 dark:bg-amber-950/10 border border-amber-200/60 dark:border-amber-900/30 rounded-xl p-5">
                       <h4 className="text-xs font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <span>💡</span> Clinical Pearls & Guidelines
+                        <Lucide.Lightbulb className="w-4 h-4 text-amber-500 shrink-0" /> Clinical Pearls & Guidelines
                       </h4>
                       <p className="text-xs text-amber-950 dark:text-amber-200/90 leading-relaxed font-light whitespace-pre-line">
                         {selectedCondition.clinicalNotes}
@@ -518,9 +511,7 @@ export default function MedicalLibraryPage() {
                     {/* PDF Toolbar */}
                     <div className="bg-[#0f172a] text-slate-200 rounded-xl px-4 py-2.5 border border-slate-800 flex items-center justify-between gap-3 text-xs flex-wrap shadow-md">
                       <div className="flex items-center gap-2">
-                        <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M11.363 8.68l1.727 2.6c.133.2.333.3.6.3H19.5c.267 0 .467-.1.6-.3s.133-.4.0-.6l-4.509-6.8a.715.715 0 00-1.2 0l-3.028 4.568v.232zM4.5 3h6.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V21a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z" />
-                        </svg>
+                        <Lucide.FileText className="w-4 h-4 text-red-500" />
                         <span className="font-semibold truncate max-w-[200px] text-slate-300" title={selectedCondition.document.filename}>
                           {selectedCondition.document.filename}
                         </span>
@@ -536,7 +527,7 @@ export default function MedicalLibraryPage() {
                           disabled={pdfPage === 1}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent"
                         >
-                          ◀
+                          <Lucide.ChevronLeft className="w-4 h-4" />
                         </button>
                         <span className="font-mono text-xs">
                           Page {pdfPage} of {selectedCondition.document.totalPages}
@@ -546,7 +537,7 @@ export default function MedicalLibraryPage() {
                           disabled={pdfPage === selectedCondition.document.totalPages}
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent"
                         >
-                          ▶
+                          <Lucide.ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
 
@@ -557,7 +548,7 @@ export default function MedicalLibraryPage() {
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-sm font-bold"
                           title="Zoom Out"
                         >
-                          －
+                          <Lucide.Minus className="w-4 h-4" />
                         </button>
                         <span className="font-mono w-10 text-center text-[11px]">{pdfZoom}%</span>
                         <button
@@ -565,7 +556,7 @@ export default function MedicalLibraryPage() {
                           className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-sm font-bold"
                           title="Zoom In"
                         >
-                          ＋
+                          <Lucide.Plus className="w-4 h-4" />
                         </button>
                       </div>
                       
@@ -576,7 +567,7 @@ export default function MedicalLibraryPage() {
                           className="p-1.5 rounded-lg hover:bg-slate-800"
                           title="Download PDF"
                         >
-                          📥
+                          <Lucide.Download className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
@@ -642,7 +633,7 @@ export default function MedicalLibraryPage() {
 
                               <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-[11px] space-y-1.5">
                                 <p className="font-bold text-slate-800 flex items-center gap-1">
-                                  <span>ℹ️</span> Medical Directory System Tags:
+                                  <Lucide.Info className="w-4 h-4 text-teal-600" /> Medical Directory System Tags:
                                 </p>
                                 <ul className="list-disc pl-4 space-y-1 text-slate-650">
                                   <li>Category Class: {selectedCondition.category}</li>
@@ -725,7 +716,7 @@ export default function MedicalLibraryPage() {
 
                         {pdfPage > 3 && (
                           <div className="space-y-6 text-center py-20 text-slate-400 text-xs font-light">
-                            <span className="text-4xl block mb-2">📄</span>
+                            <Lucide.FileText className="w-12 h-12 text-slate-400 mx-auto mb-2" />
                             <p className="font-bold text-slate-650">Appendix and references page</p>
                             <p className="max-w-xs mx-auto text-[11px] mt-1">For references, review the detailed Clinical References tab in the slide-over selector.</p>
                           </div>
