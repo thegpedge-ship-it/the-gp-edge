@@ -45,7 +45,7 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
           GP Toolkit
         </a>
         <Link
-          href="/dashboard/billing"
+          href="/billing"
           className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
         >
           MBS Billing
