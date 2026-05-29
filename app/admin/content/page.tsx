@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 
@@ -12,7 +12,7 @@ interface MedicalContent {
   name: string;
   category: string;
   system: string;
-  type: "Condition" | "Guideline" | "Protocol" | "Pathway";
+  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note";
   status: "published" | "draft" | "review";
   lastUpdated: string;
   author: string;
@@ -34,13 +34,13 @@ const mockContent: MedicalContent[] = [
 ];
 
 const typeColors: Record<string, string> = {
-  Condition: "bg-blue-50 text-blue-700 border-blue-200",
-  Guideline: "bg-teal-50 text-teal-700 border-teal-200",
-  Protocol: "bg-violet-50 text-violet-700 border-violet-200",
-  Pathway: "bg-amber-50 text-amber-700 border-amber-200",
+  Condition: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-450 dark:border-blue-800/40",
+  Guideline: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/20 dark:text-teal-450 dark:border-teal-800/40",
+  Protocol: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/20 dark:text-violet-450 dark:border-violet-800/40",
+  Pathway: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-450 dark:border-amber-800/40",
+  Document: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/20 dark:text-sky-450 dark:border-sky-800/40",
+  Note: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:text-fuchsia-450 dark:border-fuchsia-800/40",
 };
-
-const systems = Array.from(new Set(mockContent.map((c) => c.system)));
 
 export default function ContentPage() {
   const [content, setContent] = useState(mockContent);
@@ -49,6 +49,30 @@ export default function ContentPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedContent, setSelectedContent] = useState<MedicalContent | null>(null);
+
+  // Content Upload Modal Wizard
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [modalStep, setModalStep] = useState<"select" | "condition" | "document" | "note">("select");
+  
+  // New entry states
+  const [newTitle, setNewTitle] = useState("");
+  const [newSystem, setNewSystem] = useState("Endocrine");
+  const [newCategory, setNewCategory] = useState("");
+  const [newType, setNewType] = useState<MedicalContent["type"]>("Condition");
+  
+  // Custom Condition items
+  const [symptomsInput, setSymptomsInput] = useState("");
+  const [diagnosisInput, setDiagnosisInput] = useState("");
+  const [treatmentInput, setTreatmentInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
+
+  // PDF upload simulation
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState("");
+
+  const systems = Array.from(new Set(content.map((c) => c.system)));
 
   const filtered = content.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.system.toLowerCase().includes(searchQuery.toLowerCase());
@@ -62,8 +86,77 @@ export default function ContentPage() {
     setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c)));
   };
 
+  // Reset Modal Form
+  const resetForm = () => {
+    setNewTitle("");
+    setNewSystem("Endocrine");
+    setNewCategory("");
+    setNewType("Condition");
+    setSymptomsInput("");
+    setDiagnosisInput("");
+    setTreatmentInput("");
+    setNotesInput("");
+    setUploadProgress(0);
+    setUploadState("idle");
+    setUploadedFileName("");
+    setUploadedFileSize("");
+    setModalStep("select");
+  };
+
+  // Trigger File Upload simulation
+  const simulateFileUpload = () => {
+    setUploadState("uploading");
+    setUploadProgress(0);
+    setUploadedFileName("Clinical_Guideline_Ref_" + Math.floor(Math.random() * 900 + 100) + ".pdf");
+    setUploadedFileSize((Math.random() * 1.5 + 0.5).toFixed(1) + " MB");
+  };
+
+  // Handle uploading progress bar loop
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (uploadState === "uploading") {
+      timer = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(timer);
+            setUploadState("success");
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 150);
+    }
+    return () => clearInterval(timer);
+  }, [uploadState]);
+
+  // Submit and save content
+  const handleSaveContent = (type: MedicalContent["type"]) => {
+    if (!newTitle.trim()) {
+      alert("Please fill in the title field.");
+      return;
+    }
+
+    const newItem: MedicalContent = {
+      id: content.length + 1,
+      name: newTitle,
+      system: newSystem,
+      category: newCategory.trim() || "Clinical Reference",
+      type: type,
+      status: "published",
+      lastUpdated: "Just now",
+      author: "Dr. Siddhant Udavant",
+      references: type === "Condition" ? 3 : 1,
+      usedInQuestions: 0,
+    };
+
+    setContent((prev) => [newItem, ...prev]);
+    setShowAddModal(false);
+    resetForm();
+  };
+
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+      
       {/* Header */}
       <motion.div
         variants={itemVariants}
@@ -80,7 +173,10 @@ export default function ContentPage() {
           <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
             <span className="text-xs font-semibold text-teal-200">{content.length} items</span>
           </div>
-          <button className="px-4 py-2.5 bg-white text-sm font-semibold text-teal-800 rounded-full hover:bg-teal-50 transition-all shadow-sm flex items-center gap-2">
+          <button 
+            onClick={() => { resetForm(); setShowAddModal(true); }}
+            className="px-4 py-2.5 bg-white text-sm font-semibold text-teal-800 rounded-full hover:bg-teal-50 transition-all shadow-sm flex items-center gap-2"
+          >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             Add Content
           </button>
@@ -90,18 +186,18 @@ export default function ContentPage() {
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
-          { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: "📋", color: "text-teal-600" },
-          { label: "Protocols", value: content.filter((c) => c.type === "Protocol").length, icon: "⚡", color: "text-violet-600" },
-          { label: "Pathways", value: content.filter((c) => c.type === "Pathway").length, icon: "🔀", color: "text-amber-600" },
-          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: "🔗", color: "text-emerald-600" },
+          { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: "📋", color: "text-teal-600 dark:text-teal-400" },
+          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: "⚡", color: "text-violet-600 dark:text-violet-400" },
+          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: "🔀", color: "text-amber-600 dark:text-amber-400" },
+          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: "🔗", color: "text-emerald-600 dark:text-emerald-400" },
         ].map((s) => (
-          <div key={s.label} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-4 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
+          <div key={s.label} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 p-4 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
             <div className="relative z-10 flex items-center gap-3">
               <span className="text-2xl">{s.icon}</span>
               <div>
                 <p className={`text-2xl font-serif ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-slate-500 font-medium">{s.label}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{s.label}</p>
               </div>
             </div>
           </div>
@@ -112,19 +208,22 @@ export default function ContentPage() {
       <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 max-w-sm">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" />
+          <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all dark:text-slate-200" />
         </div>
-        <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600">
+        <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
           <option value="all">All Systems</option>
           {systems.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600">
+        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
           <option value="all">All Types</option>
+          <option value="Condition">Condition</option>
           <option value="Guideline">Guideline</option>
           <option value="Protocol">Protocol</option>
           <option value="Pathway">Pathway</option>
+          <option value="Document">Document</option>
+          <option value="Note">Note</option>
         </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
           <option value="all">All Status</option>
           <option value="published">Published</option>
           <option value="review">Review</option>
@@ -141,21 +240,21 @@ export default function ContentPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-200/60 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-300 cursor-pointer"
+            className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-200/60 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-300 cursor-pointer"
             onClick={() => setSelectedContent(item)}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${typeColors[item.type]}`}>{item.type}</span>
                   <StatusBadge variant={item.status} />
                 </div>
-                <span className="text-[10px] text-slate-400 font-medium">{item.lastUpdated}</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{item.lastUpdated}</span>
               </div>
-              <h3 className="font-serif text-base text-slate-900 mb-1 leading-tight group-hover:text-teal-700 transition-colors">{item.name}</h3>
-              <p className="text-xs text-slate-400 mb-4">{item.system} · {item.category}</p>
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{item.name}</h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1">
                     <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
@@ -168,12 +267,12 @@ export default function ContentPage() {
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                   {item.status === "draft" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 transition-all" title="Send to Review">
+                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all" title="Send to Review">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                     </button>
                   )}
                   {item.status === "review" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "published"); }} className="p-1 rounded-lg text-emerald-500 hover:bg-emerald-50 transition-all" title="Publish">
+                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "published"); }} className="p-1 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all" title="Publish">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                     </button>
                   )}
@@ -184,6 +283,247 @@ export default function ContentPage() {
         ))}
       </motion.div>
 
+      {/* Content Upload wizard Modal */}
+      <AnimatePresence>
+        {showAddModal && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.3 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-50 cursor-pointer" onClick={() => setShowAddModal(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[85vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl z-50 overflow-y-auto flex flex-col"
+            >
+              
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-[#090d16] text-white">
+                <div>
+                  <h3 className="font-serif text-lg font-bold">Add Clinical Content</h3>
+                  <p className="text-xs text-slate-400">Create new directory elements, PDFs, or summaries</p>
+                </div>
+                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white transition">
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-4 flex-1">
+                
+                {/* STEP 1: Select Type */}
+                {modalStep === "select" && (
+                  <div className="space-y-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Select Content Type</p>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <button
+                        onClick={() => { setModalStep("condition"); setNewType("Condition"); }}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-500/80 hover:bg-teal-50/10 transition-all text-left flex items-start gap-4 group"
+                      >
+                        <span className="text-2xl bg-teal-50 dark:bg-teal-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">🩺</span>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Clinical Condition / Guideline</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => { setModalStep("document"); setNewType("Document"); }}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-500/80 hover:bg-sky-50/10 transition-all text-left flex items-start gap-4 group"
+                      >
+                        <span className="text-2xl bg-sky-50 dark:bg-sky-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">📄</span>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-600 transition">Clinical Document (PDF)</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
+                        </div>
+                      </button>
+
+                      <button
+                        onClick={() => { setModalStep("note"); setNewType("Note"); }}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-violet-500/80 hover:bg-violet-50/10 transition-all text-left flex items-start gap-4 group"
+                      >
+                        <span className="text-2xl bg-violet-50 dark:bg-violet-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">📝</span>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-violet-600 transition">Structured Note</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2A: Create Condition */}
+                {modalStep === "condition" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Condition Name</label>
+                        <input type="text" placeholder="e.g. Chronic Kidney Disease" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
+                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
+                          <option value="Endocrine">Endocrine</option>
+                          <option value="Cardiovascular">Cardiology</option>
+                          <option value="Respiratory">Respiratory</option>
+                          <option value="Gastroenterology">Gastrointestinal</option>
+                          <option value="Psychiatry">Psychiatry</option>
+                          <option value="Dermatology">Dermatology</option>
+                          <option value="Women's Health">Women's Health</option>
+                          <option value="Paediatrics">Paediatrics</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Category / Area</label>
+                      <input type="text" placeholder="e.g. Chronic Disease, Emergency Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Symptoms (one per line)</label>
+                      <textarea rows={2} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Treatment Options (one per line)</label>
+                      <textarea rows={2} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-semibold hover:bg-teal-500 shadow">Save Condition</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2B: Upload PDF Document */}
+                {modalStep === "document" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Document Title</label>
+                        <input type="text" placeholder="e.g. ACS Emergency Protocol Guide" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
+                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
+                          <option value="Endocrine">Endocrine</option>
+                          <option value="Cardiology">Cardiology</option>
+                          <option value="Respiratory">Respiratory</option>
+                          <option value="Gastroenterology">Gastrointestinal</option>
+                          <option value="Psychiatry">Psychiatry</option>
+                          <option value="Dermatology">Dermatology</option>
+                          <option value="Women's Health">Women's Health</option>
+                          <option value="Paediatrics">Paediatrics</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Category</label>
+                      <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                    </div>
+
+                    {/* PDF Drag and Drop Simulator */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1.5">PDF Document Attachment</label>
+                      
+                      {uploadState === "idle" && (
+                        <div 
+                          onClick={simulateFileUpload}
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-sky-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-850 hover:bg-sky-50/10 transition-all flex flex-col items-center justify-center"
+                        >
+                          <span className="text-3xl mb-1.5">📥</span>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
+                        </div>
+                      )}
+
+                      {uploadState === "uploading" && (
+                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-850 space-y-3">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span className="text-slate-700 dark:text-slate-350 truncate max-w-[220px]">{uploadedFileName}</span>
+                            <span className="text-slate-400 font-mono">{uploadProgress}%</span>
+                          </div>
+                          
+                          <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                          </div>
+                          <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
+                        </div>
+                      )}
+
+                      {uploadState === "success" && (
+                        <div className="border border-emerald-250 dark:border-emerald-900/40 rounded-2xl p-5 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2 flex items-start gap-3">
+                          <span className="text-xl bg-emerald-100 dark:bg-emerald-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">✓</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
+                            <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
+                            <button onClick={simulateFileUpload} className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold hover:underline mt-1">Replace file</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button 
+                        onClick={() => handleSaveContent("Document")} 
+                        disabled={uploadState !== "success"}
+                        className="px-4 py-2 bg-sky-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-sky-500 shadow"
+                      >
+                        Save PDF Document
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* STEP 2C: Create Note */}
+                {modalStep === "note" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Note Title</label>
+                        <input type="text" placeholder="e.g. Clinical pearl on Otitis Media" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
+                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
+                          <option value="Endocrine">Endocrine</option>
+                          <option value="Cardiology">Cardiology</option>
+                          <option value="Respiratory">Respiratory</option>
+                          <option value="Gastroenterology">Gastrointestinal</option>
+                          <option value="Psychiatry">Psychiatry</option>
+                          <option value="Dermatology">Dermatology</option>
+                          <option value="Women's Health">Women's Health</option>
+                          <option value="Paediatrics">Paediatrics</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Note Category / Tag</label>
+                      <input type="text" placeholder="e.g. Clinical Pearl, Fact Sheet" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Structured Note Content</label>
+                      <textarea rows={4} placeholder="Draft clinical reference note..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                    </div>
+
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold hover:bg-violet-500 shadow">Save Note</button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Detail slide-over */}
       <AnimatePresence>
         {selectedContent && (
@@ -192,45 +532,45 @@ export default function ContentPage() {
             <motion.div
               initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white/95 backdrop-blur-2xl border-l border-white z-50 shadow-2xl overflow-y-auto"
+              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-l border-white dark:border-slate-850 z-50 shadow-2xl overflow-y-auto"
             >
-              <div className="p-6">
-                <button onClick={() => setSelectedContent(null)} className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
+              <div className="p-6 text-slate-800 dark:text-slate-200">
+                <button onClick={() => setSelectedContent(null)} className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
                 <div className="flex items-center gap-2 mb-4">
                   <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
                   <StatusBadge variant={selectedContent.status} />
                 </div>
-                <h2 className="font-serif text-xl text-slate-900 mb-2">{selectedContent.name}</h2>
-                <p className="text-sm text-slate-500 mb-6">{selectedContent.system} · {selectedContent.category}</p>
+                <h2 className="font-serif text-xl text-slate-900 dark:text-slate-100 mb-2">{selectedContent.name}</h2>
+                <p className="text-sm text-slate-505 dark:text-slate-400 mb-6">{selectedContent.system} · {selectedContent.category}</p>
 
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">References</p><p className="text-xl font-serif text-slate-900">{selectedContent.references}</p></div>
-                  <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Used in Questions</p><p className="text-xl font-serif text-slate-900">{selectedContent.usedInQuestions}</p></div>
-                  <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Author</p><p className="text-sm font-semibold text-slate-700">{selectedContent.author}</p></div>
-                  <div className="bg-slate-50 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Last Updated</p><p className="text-sm font-semibold text-slate-700">{selectedContent.lastUpdated}</p></div>
+                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">References</p><p className="text-xl font-serif text-slate-900 dark:text-slate-200">{selectedContent.references}</p></div>
+                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Used in Questions</p><p className="text-xl font-serif text-slate-900 dark:text-slate-200">{selectedContent.usedInQuestions}</p></div>
+                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Author</p><p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p></div>
+                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Last Updated</p><p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p></div>
                 </div>
 
                 {/* Content Editor Preview */}
                 <div className="mb-6">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Content Preview</h3>
-                  <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                       {["B", "I", "U", "H1", "H2", "•", "1.", "🔗", "📷"].map((btn) => (
-                        <button key={btn} className="w-8 h-8 text-xs font-bold text-slate-500 bg-slate-50 rounded-lg hover:bg-teal-50 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
+                        <button key={btn} className="w-8 h-8 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
                       ))}
                     </div>
-                    <div className="prose prose-sm text-slate-700 max-w-none">
-                      <p className="text-sm text-slate-600 leading-relaxed">This is a preview of the clinical content for <strong>{selectedContent.name}</strong>. In a full implementation, this would contain the detailed medical content, references, and clinical guidelines.</p>
-                      <p className="text-sm text-slate-500 leading-relaxed mt-2">Key points, evidence levels, and management algorithms would be displayed here with proper formatting.</p>
+                    <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
+                      <p className="text-sm leading-relaxed">This is a preview of the clinical content for <strong>{selectedContent.name}</strong>. In a full implementation, this would contain the detailed medical content, references, and clinical guidelines.</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-2">Key points, evidence levels, and management algorithms would be displayed here with proper formatting.</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <button className="flex-1 px-4 py-2.5 bg-teal-500 text-sm font-semibold text-white rounded-xl hover:bg-teal-600 transition-all">Edit Content</button>
-                  <button className="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Duplicate</button>
+                  <button className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-850 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Duplicate</button>
                 </div>
               </div>
             </motion.div>

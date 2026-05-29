@@ -45,6 +45,12 @@ export default function Header({ variant = "fixed" }: HeaderProps) {
           GP Toolkit
         </a>
         <Link
+          href="/medical-library"
+          className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
+        >
+          Medical Library
+        </Link>
+        <Link
           href="/billing"
           className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
         >
