@@ -11,7 +11,7 @@ interface HeaderProps {
 export default function Header({ variant = "fixed" }: HeaderProps) {
   const positionClass =
     variant === "static"
-      ? "sticky top-4 z-30 mx-4 sm:mx-6 mt-4 sm:mt-6"
+      ? "sticky top-4 z-30 w-[80%] mx-auto mt-4 sm:mt-6"
       : "fixed top-6 inset-x-0 mx-auto w-[95%] max-w-5xl z-50";
 
   return (

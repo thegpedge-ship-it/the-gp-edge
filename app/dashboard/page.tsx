@@ -11,6 +11,7 @@ import AIRecommendationsCard from "@/components/dashboard/AIRecommendationsCard"
 import DailyPracticeCard from "@/components/dashboard/DailyPracticeCard";
 import ExamPathsCard from "@/components/dashboard/ExamPathsCard";
 import ActivityCard from "@/components/dashboard/ActivityCard";
+import ActivityHeatmapCard from "@/components/dashboard/ActivityHeatmapCard";
 import QuickAccessCard from "@/components/dashboard/QuickAccessCard";
 import { stats } from "@/components/dashboard/data";
 
@@ -35,6 +36,10 @@ export default function DashboardPage() {
             delay={0.05 * i}
           />
         ))}
+      </section>
+
+      <section className="mb-6">
+        <ActivityHeatmapCard />
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">

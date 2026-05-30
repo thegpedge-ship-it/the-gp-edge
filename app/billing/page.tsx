@@ -19,11 +19,11 @@ export default function BillingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <Header />
+      <Header variant="static" />
 
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 pt-32 pb-6">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
             <span className="bg-teal-50 text-teal-700 px-2.5 py-1 rounded-md font-medium border border-teal-100">
               MBS Learning System
