@@ -55,13 +55,13 @@ const activityTypeIcon: Record<string, React.ReactNode> = {
     </div>
   ),
   billing: (
-    <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+      <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
     </div>
   ),
   upload: (
-    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+      <svg className="w-4 h-4 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
     </div>
   ),
   achievement: (
@@ -70,13 +70,13 @@ const activityTypeIcon: Record<string, React.ReactNode> = {
     </div>
   ),
   signup: (
-    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+    <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center">
+      <svg className="w-4 h-4 text-teal-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
     </div>
   ),
   flag: (
-    <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
+      <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
     </div>
   ),
 };
@@ -130,14 +130,14 @@ export default function DashboardPage() {
           title="Premium Subscribers"
           value="1,456"
           trend={{ value: "23%", positive: true }}
-          accentColor="violet"
+          accentColor="slate"
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>}
         />
         <StatCard
           title="Quiz Attempts"
           value="89,234"
           trend={{ value: "5%", positive: true }}
-          accentColor="amber"
+          accentColor="emerald"
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
         />
       </motion.div>
@@ -163,18 +163,18 @@ export default function DashboardPage() {
         </div>
 
         <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-amber-50/10 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-500">Weakest Topic</p>
                 <p className="text-lg font-bold text-slate-900 mt-0.5">Mental Health</p>
               </div>
             </div>
-            <p className="text-xs text-amber-600 font-semibold">58% accuracy across 342 attempts</p>
+            <p className="text-xs text-slate-600 font-semibold">58% accuracy across 342 attempts</p>
           </div>
         </div>
 
@@ -259,10 +259,10 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weakest Topics */}
         <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-amber-50/5 pointer-events-none rounded-2xl" />
+          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" />
               <h3 className="text-sm font-bold text-slate-900">Weakest Topics</h3>
             </div>
             <div className="space-y-4">
@@ -272,7 +272,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-semibold text-slate-700">{t.topic}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-400 font-semibold">{t.attempts} attempts</span>
-                      <span className="text-sm font-bold text-amber-600">{t.accuracy}%</span>
+                      <span className="text-sm font-bold text-slate-650">{t.accuracy}%</span>
                     </div>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                       initial={{ width: 0 }}
                       animate={{ width: `${t.accuracy}%` }}
                       transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full"
+                      className="h-full bg-gradient-to-r from-slate-400 to-slate-500 rounded-full"
                     />
                   </div>
                 </div>
@@ -379,7 +379,7 @@ export default function DashboardPage() {
                     initial={{ height: 0 }}
                     animate={{ height: `${h}%` }}
                     transition={{ duration: 0.4, delay: i * 0.02 }}
-                    className={`flex-1 rounded-sm ${h > 70 ? "bg-amber-300" : "bg-emerald-300"}`}
+                    className={`flex-1 rounded-sm ${h > 70 ? "bg-teal-300" : "bg-emerald-300"}`}
                   />
                 );
               })}

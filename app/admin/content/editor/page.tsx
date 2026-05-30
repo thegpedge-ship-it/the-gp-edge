@@ -47,10 +47,10 @@ const versionHistory = [
 ];
 
 const calloutStyles: Record<string, { bg: string; border: string; icon: string; label: string; text: string }> = {
-  info: { bg: "bg-blue-50/70", border: "border-blue-200", icon: "ℹ️", label: "Guideline", text: "text-blue-900" },
-  billing: { bg: "bg-amber-50/70", border: "border-amber-200", icon: "💰", label: "Billing", text: "text-amber-900" },
-  pearl: { bg: "bg-violet-50/70", border: "border-violet-200", icon: "💎", label: "Clinical Pearl", text: "text-violet-900" },
-  warning: { bg: "bg-red-50/70", border: "border-red-200", icon: "⚠️", label: "Warning", text: "text-red-900" },
+  info: { bg: "bg-teal-50/70", border: "border-teal-200", icon: "ℹ️", label: "Guideline", text: "text-teal-900" },
+  billing: { bg: "bg-slate-50/70", border: "border-slate-200", icon: "💰", label: "Billing", text: "text-slate-900" },
+  pearl: { bg: "bg-emerald-50/70", border: "border-emerald-250", icon: "💎", label: "Clinical Pearl", text: "text-emerald-900" },
+  warning: { bg: "bg-green-50/70", border: "border-green-200", icon: "⚠️", label: "Warning", text: "text-green-900" },
 };
 
 export default function ContentEditorPage() {
@@ -177,8 +177,8 @@ export default function ContentEditorPage() {
 
   const statusColors = {
     draft: { bg: "bg-slate-100", text: "text-slate-600", dot: "bg-slate-400" },
-    review: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-    published: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+    review: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+    published: { bg: "bg-teal-50", text: "text-teal-700", dot: "bg-teal-500" },
   };
 
   return (
@@ -277,7 +277,7 @@ export default function ContentEditorPage() {
             {/* Content type badge */}
             <div className="flex items-center gap-2 mb-6">
               <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-teal-50 text-teal-700 border-teal-200">Guideline</span>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-blue-50 text-blue-700 border-blue-200">Endocrine</span>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-750 border-emerald-200">Endocrine</span>
               <span className="text-xs text-slate-400 font-medium ml-auto">Last saved: 2 mins ago</span>
             </div>
 

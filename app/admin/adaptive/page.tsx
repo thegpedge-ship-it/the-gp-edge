@@ -58,8 +58,8 @@ export default function AdaptivePage() {
             <div className="space-y-6">
               {[
                 { label: "Weak Topic Priority", desc: "How aggressively to target weak areas", value: weakTopicWeight, set: setWeakTopicWeight, color: "teal" },
-                { label: "Difficulty Scaling", desc: "How quickly difficulty ramps up", value: difficultyScaling, set: setDifficultyScaling, color: "amber" },
-                { label: "Recency Bias", desc: "Weight given to recently studied topics", value: recencyBias, set: setRecencyBias, color: "violet" },
+                { label: "Difficulty Scaling", desc: "How quickly difficulty ramps up", value: difficultyScaling, set: setDifficultyScaling, color: "slate" },
+                { label: "Recency Bias", desc: "Weight given to recently studied topics", value: recencyBias, set: setRecencyBias, color: "emerald" },
               ].map((s) => (
                 <div key={s.label}>
                   <div className="flex items-center justify-between mb-2">
@@ -67,7 +67,7 @@ export default function AdaptivePage() {
                       <p className="text-sm font-medium text-slate-700">{s.label}</p>
                       <p className="text-xs text-slate-400">{s.desc}</p>
                     </div>
-                    <span className={`text-sm font-bold ${s.color === "teal" ? "text-teal-600" : s.color === "amber" ? "text-amber-600" : "text-violet-600"}`}>{s.value}%</span>
+                    <span className={`text-sm font-bold ${s.color === "teal" ? "text-teal-600" : s.color === "slate" ? "text-slate-600" : "text-emerald-600"}`}>{s.value}%</span>
                   </div>
                   <input type="range" min={0} max={100} value={s.value} onChange={(e) => s.set(Number(e.target.value))} className="w-full h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-teal-500" />
                 </div>

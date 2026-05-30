@@ -203,7 +203,7 @@ export default function QuestionsPage() {
             >
               {/* Ambient Glows */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500/10 rounded-full blur-[80px] pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-64 h-64 bg-violet-500/5 rounded-full blur-[80px] pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-[80px] pointer-events-none" />
 
               <div className="p-6 relative z-10">
                 {/* Header */}

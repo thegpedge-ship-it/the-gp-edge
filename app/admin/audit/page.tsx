@@ -89,7 +89,7 @@ export default function AuditPage() {
                         <div><p className="text-sm font-semibold text-slate-800">{a.name}</p><p className="text-xs text-slate-400">{a.email}</p></div>
                       </div>
                     </td>
-                    <td className="px-4 py-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.role === "Super Admin" ? "bg-violet-50 text-violet-700 border border-violet-200" : a.role === "Admin" ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>{a.role}</span></td>
+                    <td className="px-4 py-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${a.role === "Super Admin" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : a.role === "Admin" ? "bg-teal-50 text-teal-700 border border-teal-200" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>{a.role}</span></td>
                     <td className="px-4 py-4 text-xs text-slate-500 max-w-[200px]">{a.permissions}</td>
                     <td className="px-4 py-4 text-sm text-slate-500">{a.lastLogin}</td>
                   </tr>

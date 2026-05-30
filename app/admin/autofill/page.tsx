@@ -39,13 +39,13 @@ type ViewMode = "grid" | "table";
 
 /* ---------- System color mapping ---------- */
 const systemColors: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
-  Respiratory: { bg: "bg-sky-50", text: "text-sky-600", border: "border-sky-100", gradient: "from-sky-500 to-cyan-600" },
-  Endocrine: { bg: "bg-violet-50", text: "text-violet-600", border: "border-violet-100", gradient: "from-violet-500 to-purple-600" },
-  Psychiatry: { bg: "bg-indigo-50", text: "text-indigo-600", border: "border-indigo-100", gradient: "from-indigo-500 to-blue-600" },
-  Dermatology: { bg: "bg-amber-50", text: "text-amber-600", border: "border-amber-100", gradient: "from-amber-500 to-orange-600" },
-  "Women's Health": { bg: "bg-pink-50", text: "text-pink-600", border: "border-pink-100", gradient: "from-pink-500 to-rose-600" },
-  Paediatrics: { bg: "bg-rose-50", text: "text-rose-600", border: "border-rose-100", gradient: "from-rose-500 to-pink-600" },
-  Cardiovascular: { bg: "bg-red-50", text: "text-red-600", border: "border-red-100", gradient: "from-red-500 to-rose-600" },
+  Respiratory: { bg: "bg-teal-50", text: "text-teal-600", border: "border-teal-100", gradient: "from-teal-500 to-emerald-500" },
+  Endocrine: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", gradient: "from-emerald-500 to-green-500" },
+  Psychiatry: { bg: "bg-green-50", text: "text-green-600", border: "border-green-100", gradient: "from-green-500 to-teal-500" },
+  Dermatology: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200", gradient: "from-slate-500 to-slate-600" },
+  "Women's Health": { bg: "bg-teal-50/50", text: "text-teal-700", border: "border-teal-100/50", gradient: "from-teal-600 to-slate-500" },
+  Paediatrics: { bg: "bg-emerald-50/50", text: "text-emerald-700", border: "border-emerald-100/50", gradient: "from-emerald-500 to-slate-500" },
+  Cardiovascular: { bg: "bg-green-50/50", text: "text-green-700", border: "border-green-100/50", gradient: "from-green-600 to-teal-600" },
   Gastroenterology: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", gradient: "from-emerald-500 to-teal-600" },
   Musculoskeletal: { bg: "bg-teal-50", text: "text-teal-600", border: "border-teal-100", gradient: "from-teal-500 to-emerald-600" },
   MBS: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", gradient: "from-slate-500 to-slate-700" },
@@ -139,9 +139,9 @@ export default function AutofillPage() {
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Active Templates", value: templates.filter((t) => t.status === "active").length, color: "text-teal-600", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
-          { label: "Total Fields", value: templates.reduce((sum, t) => sum + t.fields, 0), color: "text-violet-600", icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
+          { label: "Total Fields", value: templates.reduce((sum, t) => sum + t.fields, 0), color: "text-green-600", icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
           { label: "Total Usage", value: totalUsage.toLocaleString(), color: "text-emerald-600", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
-          { label: "Avg Fields/Template", value: Math.round(templates.reduce((sum, t) => sum + t.fields, 0) / templates.length), color: "text-amber-600", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
+          { label: "Avg Fields/Template", value: Math.round(templates.reduce((sum, t) => sum + t.fields, 0) / templates.length), color: "text-slate-600", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
         ].map((s) => (
           <div key={s.label} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 hover:-translate-y-0.5 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
@@ -262,14 +262,14 @@ export default function AutofillPage() {
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
                         title="Duplicate"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
                         title="Edit"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -331,7 +331,7 @@ export default function AutofillPage() {
                         <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all" title="Edit">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-                        <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all" title="Duplicate">
+                        <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" title="Duplicate">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                         </button>
                       </div>

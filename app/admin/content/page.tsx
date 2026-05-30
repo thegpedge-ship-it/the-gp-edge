@@ -35,12 +35,12 @@ const mockContent: MedicalContent[] = [
 ];
 
 const typeColors: Record<string, string> = {
-  Condition: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-450 dark:border-blue-800/40",
-  Guideline: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/20 dark:text-teal-450 dark:border-teal-800/40",
-  Protocol: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/20 dark:text-violet-450 dark:border-violet-800/40",
-  Pathway: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-450 dark:border-amber-800/40",
-  Document: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/20 dark:text-sky-450 dark:border-sky-800/40",
-  Note: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:text-fuchsia-450 dark:border-fuchsia-800/40",
+  Condition: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800/40",
+  Guideline: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-800/40",
+  Protocol: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800/40",
+  Pathway: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700/60",
+  Document: "bg-emerald-50/50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/10 dark:text-emerald-350 dark:border-emerald-900/20",
+  Note: "bg-teal-50/50 text-teal-800 border-teal-100 dark:bg-teal-950/10 dark:text-teal-350 dark:border-teal-900/20",
 };
 
 export default function ContentPage() {
@@ -184,9 +184,9 @@ export default function ContentPage() {
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[
           { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: <Lucide.Clipboard className="w-5 h-5" />, color: "text-teal-600 dark:text-teal-400" },
-          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: <Lucide.Zap className="w-5 h-5" />, color: "text-violet-600 dark:text-violet-400" },
-          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: <Lucide.GitMerge className="w-5 h-5" />, color: "text-amber-600 dark:text-amber-400" },
-          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: <Lucide.Link className="w-5 h-5" />, color: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: <Lucide.Zap className="w-5 h-5" />, color: "text-emerald-600 dark:text-emerald-400" },
+          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: <Lucide.GitMerge className="w-5 h-5" />, color: "text-green-600 dark:text-green-400" },
+          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: <Lucide.Link className="w-5 h-5" />, color: "text-slate-600 dark:text-slate-400" },
         ].map((s) => (
           <div key={s.label} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 p-4 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
@@ -327,26 +327,26 @@ export default function ContentPage() {
 
                       <button
                         onClick={() => { setModalStep("document"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-sky-500/80 hover:bg-sky-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/80 hover:bg-emerald-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-sky-50 dark:bg-sky-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-sky-600" />
+                        <span className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-emerald-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-600 transition">Clinical Document (PDF)</h4>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition">Clinical Document (PDF)</h4>
                           <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
                         </div>
                       </button>
 
                       <button
                         onClick={() => { setModalStep("note"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-violet-500/80 hover:bg-violet-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-green-500/80 hover:bg-green-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-violet-50 dark:bg-violet-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-violet-600" />
+                        <span className="bg-green-50 dark:bg-green-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-green-650" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-violet-600 transition">Structured Note</h4>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-green-600 transition">Structured Note</h4>
                           <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
                         </div>
                       </button>
@@ -434,7 +434,7 @@ export default function ContentPage() {
                       {uploadState === "idle" && (
                         <div 
                           onClick={simulateFileUpload}
-                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-sky-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-850 hover:bg-sky-50/10 transition-all flex flex-col items-center justify-center"
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-850 hover:bg-teal-50/10 transition-all flex flex-col items-center justify-center"
                         >
                           <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
@@ -450,7 +450,7 @@ export default function ContentPage() {
                           </div>
                           
                           <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-sky-400 to-blue-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                            <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all" style={{ width: `${uploadProgress}%` }} />
                           </div>
                           <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
                         </div>
@@ -475,7 +475,7 @@ export default function ContentPage() {
                       <button 
                         onClick={() => handleSaveContent("Document")} 
                         disabled={uploadState !== "success"}
-                        className="px-4 py-2 bg-sky-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-sky-505 shadow"
+                        className="px-4 py-2 bg-teal-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-teal-500 shadow"
                       >
                         Save PDF Document
                       </button>
@@ -518,7 +518,7 @@ export default function ContentPage() {
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-505 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs font-semibold hover:bg-violet-505 shadow">Save Note</button>
+                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-500 shadow">Save Note</button>
                     </div>
                   </div>
                 )}

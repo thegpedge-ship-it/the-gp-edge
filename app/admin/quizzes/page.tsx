@@ -69,21 +69,21 @@ function ScoreGauge({ value, passingScore, size = 64 }: { value: number; passing
 
 /* ---------- Topic pill accent colors ---------- */
 const topicColors: Record<string, string> = {
-  Cardiology: "bg-rose-50 text-rose-600 border-rose-100",
-  Respiratory: "bg-sky-50 text-sky-600 border-sky-100",
-  "Mental Health": "bg-violet-50 text-violet-600 border-violet-100",
-  Dermatology: "bg-amber-50 text-amber-600 border-amber-100",
-  Paediatrics: "bg-pink-50 text-pink-600 border-pink-100",
-  "MBS Billing": "bg-emerald-50 text-emerald-600 border-emerald-100",
+  Cardiology: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  Respiratory: "bg-teal-50 text-teal-600 border-teal-100",
+  "Mental Health": "bg-green-50 text-green-650 border-green-100",
+  Dermatology: "bg-slate-100 text-slate-700 border-slate-200",
+  Paediatrics: "bg-teal-50/50 text-teal-700 border-teal-100/50",
+  "MBS Billing": "bg-emerald-50/50 text-emerald-700 border-emerald-100/50",
 };
 
 const cardGradients = [
   "from-teal-500 to-emerald-600",
-  "from-violet-500 to-purple-600",
-  "from-rose-500 to-pink-600",
-  "from-amber-500 to-orange-600",
-  "from-sky-500 to-cyan-600",
-  "from-indigo-500 to-blue-600",
+  "from-emerald-600 to-green-600",
+  "from-green-500 to-teal-500",
+  "from-slate-500 to-slate-600",
+  "from-teal-600 to-slate-600",
+  "from-emerald-500 to-teal-600",
 ];
 
 export default function QuizzesPage() {
@@ -139,8 +139,8 @@ export default function QuizzesPage() {
         {[
           { label: "Total Quizzes", value: mockQuizzes.length, color: "text-teal-600", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" },
           { label: "Total Attempts", value: "4,278", color: "text-emerald-600", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
-          { label: "Avg Completion Rate", value: "84%", color: "text-violet-600", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
-          { label: "Avg Score", value: "69%", color: "text-amber-600", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
+          { label: "Avg Completion Rate", value: "84%", color: "text-green-600", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
+          { label: "Avg Score", value: "69%", color: "text-slate-600", icon: "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" },
         ].map((s) => (
           <div key={s.label} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:shadow-teal-500/5 hover:-translate-y-0.5 transition-all duration-300">
             <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
@@ -245,7 +245,7 @@ export default function QuizzesPage() {
                       <button className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all" title="Edit Quiz">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
-                      <button className="p-1.5 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-all" title="View Analytics">
+                      <button className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" title="View Analytics">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                       </button>
                     </div>
