@@ -3,13 +3,6 @@
 import { motion } from "framer-motion";
 import { performance } from "./data";
 
-const barColor: Record<string, string> = {
-  emerald: "from-emerald-400 to-teal-500",
-  cyan: "from-cyan-400 to-sky-500",
-  violet: "from-violet-400 to-fuchsia-500",
-  amber: "from-amber-400 to-orange-500",
-};
-
 export default function PerformanceCard() {
   return (
     <motion.div
@@ -61,7 +54,7 @@ export default function PerformanceCard() {
                 initial={{ width: 0 }}
                 animate={{ width: `${row.mastery}%` }}
                 transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.3 + i * 0.05 }}
-                className={`h-full rounded-full bg-gradient-to-r ${barColor[row.color]}`}
+                className="h-full rounded-full bg-emerald-400 dark:bg-emerald-500"
               />
             </div>
           </div>

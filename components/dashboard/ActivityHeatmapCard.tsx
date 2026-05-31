@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { studyActivity } from "./data";
 
 const MONTHS = 12; // trailing one year
@@ -12,8 +12,9 @@ const MIN_CELL = 8; // never smaller than this
 const MAX_CELL = 12; // keep squares compact even on wide cards
 const DEFAULT_CELL = 11; // SSR / pre-measure cell size
 
-// Fixed month names — avoids server/client locale mismatches (hydration errors).
+// Fixed month/weekday names — avoids server/client locale mismatches (hydration errors).
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Map a day's solved-question count to a 0–4 intensity level.
 const levelFor = (count: number) => {
@@ -85,7 +86,7 @@ const buildMonths = (): MonthBlock[] => {
         level: levelFor(count),
         date,
         future: date > anchor,
-        label: `${date.getDate()} ${MONTH_SHORT[date.getMonth()]} ${date.getFullYear()}`,
+        label: `${WEEKDAY_SHORT[date.getDay()]}, ${date.getDate()} ${MONTH_SHORT[date.getMonth()]} ${date.getFullYear()}`,
       };
     });
 
@@ -121,10 +122,18 @@ const useCellSize = (ref: React.RefObject<HTMLDivElement>, totalCols: number, bl
 };
 
 export default function ActivityHeatmapCard() {
+  const cardRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const months = buildMonths();
   const totalCols = months.reduce((s, b) => s + b.columns.length, 0);
   const cell = useCellSize(gridRef, totalCols, months.length);
+
+  const [tip, setTip] = useState<{ x: number; y: number; label: string; count: number } | null>(null);
+  const showTip = (e: MouseEvent, day: Day) => {
+    const rect = cardRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setTip({ x: e.clientX - rect.left, y: e.clientY - rect.top, label: day.label, count: day.count });
+  };
 
   const allDays = months.flatMap((b) => b.days).filter((d) => !d.future);
   const activeDays = allDays.filter((d) => d.count > 0).length;
@@ -143,10 +152,11 @@ export default function ActivityHeatmapCard() {
 
   return (
     <motion.div
+      ref={cardRef}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-sm p-6"
+      className="relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-sm p-6"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
@@ -175,8 +185,10 @@ export default function ActivityHeatmapCard() {
                     {col.map((d) => (
                       <div
                         key={d.key}
-                        title={`${d.label}: ${d.count} question${d.count === 1 ? "" : "s"}`}
-                        className={`rounded-[4px] ${d.future ? "opacity-0" : heatClass(d.level)}`}
+                        onMouseEnter={d.future ? undefined : (e) => showTip(e, d)}
+                        onMouseMove={d.future ? undefined : (e) => showTip(e, d)}
+                        onMouseLeave={() => setTip(null)}
+                        className={`rounded-[4px] ${d.future ? "opacity-0" : `${heatClass(d.level)} cursor-pointer hover:ring-2 hover:ring-emerald-500/40`}`}
                         style={{ width: cell, height: cell }}
                       />
                     ))}
@@ -196,6 +208,19 @@ export default function ActivityHeatmapCard() {
         ))}
         <span className="ml-1">More</span>
       </div>
+
+      {/* Hover tooltip */}
+      {tip && (
+        <div
+          className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 dark:bg-slate-700 text-white px-2.5 py-1.5 shadow-lg whitespace-nowrap"
+          style={{ left: tip.x, top: tip.y - 10 }}
+        >
+          <span className="block text-[11px] font-semibold leading-tight">
+            {tip.count} question{tip.count === 1 ? "" : "s"}
+          </span>
+          <span className="block text-[10px] text-slate-300 leading-tight">{tip.label}</span>
+        </div>
+      )}
     </motion.div>
   );
 }

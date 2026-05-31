@@ -22,25 +22,6 @@ const trendPill: Record<Trend, string> = {
   down: "bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400",
 };
 
-const icons: Record<IconKey, JSX.Element> = {
-  target: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="5" />
-      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-    </>
-  ),
-  flame: (
-    <path d="M12 2s4 4 4 8-2 6-4 6-4-2-4-6 4-8 4-8zm0 14a4 4 0 11-4-4" />
-  ),
-  trend: (
-    <path d="M3 17l6-6 4 4 8-8M14 7h7v7" />
-  ),
-  doc: (
-    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-  ),
-};
-
 interface Props {
   label: string;
   value: string;
@@ -78,6 +59,7 @@ export default function StatTile({
   delay = 0,
 }: Props) {
   void accent;
+  void icon;
   const W = 280;
   const H = 64;
   const { line, area } = buildSpark(spark, W, H);
@@ -94,7 +76,7 @@ export default function StatTile({
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
       className="rounded-3xl p-px bg-gradient-to-br from-emerald-300/70 via-slate-200/50 to-teal-300/70 dark:from-emerald-500/40 dark:via-slate-700/50 dark:to-teal-500/40 shadow-sm hover:shadow-[0_10px_30px_-8px_rgba(16,185,129,0.35)] transition-shadow duration-300"
     >
-      <div className="relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white dark:bg-slate-800">
+      <div className="group relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white dark:bg-slate-800">
         {/* Left accent bar */}
         <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-500 z-10" />
 
@@ -133,12 +115,9 @@ export default function StatTile({
 
         {/* Content */}
         <div className="relative z-[1] pl-7 pr-5 py-5">
-          {/* Icon + label */}
-          <div className="flex items-center gap-2 mb-3">
-            <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              {icons[icon]}
-            </svg>
-            <p className="text-[12px] font-medium text-slate-500 dark:text-slate-400 truncate">
+          {/* Label */}
+          <div className="mb-3">
+            <p className="text-[13px] font-normal text-slate-900 dark:text-slate-100 truncate">
               {label}
             </p>
           </div>
@@ -153,18 +132,19 @@ export default function StatTile({
             )}
           </div>
 
-          {/* Delta pill */}
-          <div className="mt-3">
-            <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${trendPill[trend]}`}>
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={arrow} />
-              </svg>
-              {delta}
-            </span>
-            {caption && (
-              <span className="text-[11px] text-slate-400 ml-1.5">{caption}</span>
-            )}
-          </div>
+        </div>
+
+        {/* Delta + description — bottom-right, on hover only */}
+        <div className="pointer-events-none absolute bottom-3 right-[5px] z-[2] flex items-center gap-0 opacity-75">
+          <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${trendPill[trend]}`}>
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d={arrow} />
+            </svg>
+            {delta}
+          </span>
+          {caption && (
+            <span className="text-[11px] text-slate-400 dark:text-slate-500">{caption}</span>
+          )}
         </div>
       </div>
     </motion.div>

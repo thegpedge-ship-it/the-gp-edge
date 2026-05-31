@@ -26,7 +26,7 @@ export default function WeakStrongTopicsCard() {
           </div>
           <ul className="space-y-2.5">
             {weakTopics.map((t) => (
-              <li key={t.name} className="rounded-xl border border-rose-100 dark:border-rose-900/30 bg-rose-50/50 dark:bg-rose-900/10 px-3 py-2.5">
+              <li key={t.name} className="rounded-xl border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-900/10 px-3 py-2.5">
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>
                 <div className="flex items-baseline justify-between mt-1">
                   <span className="text-[11px] text-slate-500">{t.attempts} attempts</span>
@@ -44,7 +44,7 @@ export default function WeakStrongTopicsCard() {
           </div>
           <ul className="space-y-2.5">
             {strongTopics.map((t) => (
-              <li key={t.name} className="rounded-xl border border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-2.5">
+              <li key={t.name} className="rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-2.5">
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>
                 <div className="flex items-baseline justify-between mt-1">
                   <span className="text-[11px] text-slate-500">{t.attempts} attempts</span>

@@ -94,7 +94,7 @@ export const stats = [
     label: "Study Streak",
     value: "18",
     unit: "days",
-    delta: "Personal best: 23 days",
+    delta: "Max streak: 23 days",
     trend: "up" as const,
     accent: "amber" as const,
     caption: "",
