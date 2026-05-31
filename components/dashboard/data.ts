@@ -18,30 +18,55 @@ export const user = {
 };
 
 export const badges = [
-  { key: "first-mock", name: "First Mock", earned: "12 Jan", accent: "emerald" as const, icon: "trophy" },
-  { key: "100q", name: "100 Questions", earned: "18 Jan", accent: "violet" as const, icon: "spark" },
-  { key: "streak-7", name: "7-day Streak", earned: "24 Jan", accent: "amber" as const, icon: "flame" },
-  { key: "streak-14", name: "14-day Streak", earned: "31 Jan", accent: "amber" as const, icon: "flame" },
-  { key: "cardio-pro", name: "Cardio Pro", earned: "9 Feb", accent: "rose" as const, icon: "heart" },
-  { key: "1000q", name: "1,000 Questions", earned: "22 Apr", accent: "violet" as const, icon: "spark" },
-  { key: "mbs-master", name: "MBS Master", earned: "3 May", accent: "cyan" as const, icon: "bolt" },
-  { key: "perfect-block", name: "Perfect Block", earned: "21 May", accent: "emerald" as const, icon: "trophy" },
+  { key: "first-steps", name: "First Steps", earned: "12 Jan", img: "/assets/badges/first_steps_badge.png" },
+  { key: "on-target", name: "On Target", earned: "9 Feb", img: "/assets/badges/on_target_badge.png" },
+  { key: "top-performer", name: "Top Performer", earned: "3 May", img: "/assets/badges/top_performer_badge.png" },
+  { key: "unstoppable", name: "Unstoppable", earned: "21 May", img: "/assets/badges/unstoppable_badge.png" },
+  { key: "gpedge", name: "GP Edge", earned: "22 May", img: "/assets/badges/gpedge_badge.png" },
 ];
 
-// 12 weeks × 7 days = 84 cells. Values 0–4 represent activity intensity.
-export const heatmap = [
-  0, 1, 0, 2, 1, 0, 0,
-  1, 2, 1, 0, 0, 1, 1,
-  0, 0, 1, 2, 2, 1, 0,
-  1, 1, 2, 3, 2, 1, 0,
-  0, 1, 2, 2, 3, 2, 1,
-  2, 2, 3, 3, 2, 1, 1,
-  1, 2, 2, 3, 3, 2, 2,
-  2, 3, 3, 4, 3, 2, 1,
-  3, 3, 4, 4, 3, 3, 2,
-  2, 3, 4, 4, 4, 3, 2,
-  3, 4, 4, 3, 4, 3, 3,
-  4, 4, 3, 4, 4, 3, 4,
+// Study activity log. Each entry is a day the user practised and how many
+// questions they solved. Feed real data here (any dates, any order) and the
+// Study Activity heatmap rebuilds itself for the trailing 12 weeks.
+
+
+export const studyActivity: { date: string; count: number }[] = [
+  { date: "2026-03-09", count: 8 },
+  { date: "2026-03-10", count: 1 },
+  { date: "2026-03-11", count: 5 },
+  { date: "2026-03-13", count: 12 },
+  { date: "2026-03-16", count: 6 },
+  { date: "2026-03-18", count: 15 },
+  { date: "2026-03-20", count: 10 },
+  { date: "2026-03-23", count: 14 },
+  { date: "2026-04-01", count: 11 },
+  { date: "2026-04-03", count: 7 },
+  { date: "2026-04-06", count: 18 },
+  { date: "2026-04-08", count: 13 },
+  { date: "2026-04-10", count: 9 },
+  { date: "2026-04-13", count: 20 },
+  { date: "2026-04-15", count: 16 },
+  { date: "2026-04-17", count: 12 },
+  { date: "2026-04-20", count: 22 },
+  { date: "2026-04-22", count: 18 },
+  { date: "2026-04-24", count: 14 },
+  { date: "2026-04-27", count: 25 },
+  { date: "2026-04-29", count: 19 },
+  { date: "2026-05-01", count: 21 },
+  { date: "2026-05-04", count: 28 },
+  { date: "2026-05-06", count: 24 },
+  { date: "2026-05-08", count: 17 },
+  { date: "2026-05-11", count: 30 },
+  { date: "2026-05-13", count: 26 },
+  { date: "2026-05-15", count: 22 },
+  { date: "2026-05-18", count: 33 },
+  { date: "2026-05-20", count: 29 },
+  { date: "2026-05-22", count: 25 },
+  { date: "2026-05-25", count: 34 },
+  { date: "2026-05-27", count: 31 },
+  { date: "2026-05-28", count: 20 },
+  { date: "2026-05-29", count: 38 },
+  { date: "2026-05-30", count: 27 },
 ];
 
 export const subjectCoverage = {
@@ -64,17 +89,6 @@ export const subscription = {
 };
 
 export const stats = [
-  {
-    key: "readiness",
-    label: "Exam Readiness",
-    value: "72%",
-    delta: "+4%",
-    trend: "up" as const,
-    accent: "emerald" as const,
-    caption: "vs last week",
-    icon: "target" as const,
-    spark: [55, 58, 57, 62, 60, 64, 66, 65, 68, 70, 69, 72],
-  },
   {
     key: "streak",
     label: "Study Streak",
@@ -109,6 +123,18 @@ export const stats = [
     icon: "doc" as const,
     spark: [820, 880, 940, 990, 1040, 1090, 1130, 1170, 1192, 1220, 1245, 1284],
   },
+  {
+    key: "mocks",
+    label: "Mock Exams",
+    value: "6",
+    unit: "done",
+    delta: "+2",
+    trend: "up" as const,
+    accent: "emerald" as const,
+    caption: "this month",
+    icon: "target" as const,
+    spark: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
+  },
 ];
 
 export const greeting = {
@@ -116,7 +142,7 @@ export const greeting = {
   salutation: "Good morning, Sarah!",
   title: "Your study",
   highlight: "cockpit",
-  subtext: "Keep going! You're doing great. ✨",
+  subtext: "Keep going! You're doing great.",
 };
 
 export const quickActionChips = [

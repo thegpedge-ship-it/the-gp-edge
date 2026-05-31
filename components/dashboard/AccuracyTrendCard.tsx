@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { accuracyTrend } from "./data";
+import { accuracyTrend, user } from "./data";
 
 export default function AccuracyTrendCard() {
   const { points, labels, current, delta } = accuracyTrend;
@@ -24,7 +24,7 @@ export default function AccuracyTrendCard() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7"
+      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6 flex flex-col h-full"
     >
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -47,7 +47,7 @@ export default function AccuracyTrendCard() {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full h-32" preserveAspectRatio="none">
+      <svg viewBox={`0 0 ${W} ${H + 14}`} className="w-full h-24" preserveAspectRatio="none">
         <defs>
           <linearGradient id="trendArea" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.25" />
@@ -89,6 +89,19 @@ export default function AccuracyTrendCard() {
         {labels.filter((_, i) => i % 2 === 0).map((l) => (
           <span key={l}>{l}</span>
         ))}
+      </div>
+
+      {/* Note — fills the remaining height so the card is never empty */}
+      <div className="mt-auto pt-5">
+        <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 flex items-center gap-3">
+          <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3a6 6 0 00-3.6 10.8c.4.3.6.8.6 1.3v.4h6v-.4c0-.5.2-1 .6-1.3A6 6 0 0012 3z" />
+            <path d="M9 19h6M10 21.5h4" />
+          </svg>
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            Up every week this month, {user.firstName}. Keep showing up — consistency wins.
+          </p>
+        </div>
       </div>
     </motion.div>
   );

@@ -1,16 +1,9 @@
 import Topbar from "@/components/dashboard/Topbar";
 import StatTile from "@/components/dashboard/StatTile";
-import ContinueCard from "@/components/dashboard/ContinueCard";
 import CountdownCard from "@/components/dashboard/CountdownCard";
-import QuickActionsCard from "@/components/dashboard/QuickActionsCard";
-import WeeklyProgressCard from "@/components/dashboard/WeeklyProgressCard";
 import AccuracyTrendCard from "@/components/dashboard/AccuracyTrendCard";
 import PerformanceCard from "@/components/dashboard/PerformanceCard";
 import WeakStrongTopicsCard from "@/components/dashboard/WeakStrongTopicsCard";
-import AIRecommendationsCard from "@/components/dashboard/AIRecommendationsCard";
-import DailyPracticeCard from "@/components/dashboard/DailyPracticeCard";
-import ExamPathsCard from "@/components/dashboard/ExamPathsCard";
-import ActivityCard from "@/components/dashboard/ActivityCard";
 import ActivityHeatmapCard from "@/components/dashboard/ActivityHeatmapCard";
 import QuickAccessCard from "@/components/dashboard/QuickAccessCard";
 import { stats } from "@/components/dashboard/data";
@@ -42,43 +35,19 @@ export default function DashboardPage() {
         <ActivityHeatmapCard />
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <ContinueCard />
-        </div>
-        <CountdownCard />
-      </section>
-
       <section className="mb-6">
-        <QuickActionsCard />
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <WeeklyProgressCard />
-        </div>
-        <AccuracyTrendCard />
+        <CountdownCard />
       </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2">
           <PerformanceCard />
         </div>
-        <ExamPathsCard />
+        <AccuracyTrendCard />
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="lg:col-span-2">
-          <WeakStrongTopicsCard />
-        </div>
-        <AIRecommendationsCard />
-      </section>
-
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <DailyPracticeCard />
-        <div className="lg:col-span-2">
-          <ActivityCard />
-        </div>
+      <section className="mb-6">
+        <WeakStrongTopicsCard />
       </section>
 
       <section className="mb-6">

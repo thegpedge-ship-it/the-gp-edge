@@ -16,9 +16,9 @@ export default function PerformanceCard() {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7"
+      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6"
     >
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
             Subject mastery
@@ -35,10 +35,10 @@ export default function PerformanceCard() {
         </button>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {performance.map((row, i) => (
           <div key={row.subject}>
-            <div className="flex items-baseline justify-between mb-1.5">
+            <div className="flex items-baseline justify-between mb-1">
               <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {row.subject}
               </span>

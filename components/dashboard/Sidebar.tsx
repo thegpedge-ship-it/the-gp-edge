@@ -1,51 +1,98 @@
 "use client";
 
+import { useEffect, useRef, type RefObject } from "react";
 import { motion } from "framer-motion";
-import { user, subscription, badges, heatmap, subjectCoverage, stats, upcomingExam } from "./data";
+import Image from "next/image";
+import { user, subscription, badges } from "./data";
 
-const heatColor = (v: number) => {
-  if (v === 0) return "bg-slate-100 dark:bg-slate-800";
-  if (v === 1) return "bg-emerald-200 dark:bg-emerald-900/60";
-  if (v === 2) return "bg-emerald-400 dark:bg-emerald-700";
-  if (v === 3) return "bg-emerald-500 dark:bg-emerald-500";
-  return "bg-emerald-600 dark:bg-emerald-400";
-};
+// Header clearance (the Header is `sticky top-4`, ~80px tall) + a small gap.
+const TOP_SPACING = 96;
+const BOTTOM_SPACING = 24;
 
-const badgeAccent: Record<string, string> = {
-  emerald: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-  violet: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-400",
-  amber: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-  rose: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-400",
-  cyan: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-400",
-};
+/**
+ * Scroll-direction-aware sticky sidebar (the "Twitter/Trello" behaviour):
+ * both columns scroll together, and the sidebar pins at whichever end you
+ * reach — its top when scrolling up, its bottom when scrolling down — so a
+ * sidebar taller than the viewport is still fully reachable.
+ *
+ * Implementation: it stays `position: sticky` and we only nudge the sticky
+ * `top` within its valid range based on scroll delta (throttled via rAF), so
+ * the browser still does the actual compositing.
+ *
+ *  - Fits in the viewport -> always pinned near the top (`TOP_SPACING`).
+ *  - Taller than viewport -> `top` slides between `TOP_SPACING` (pin top) and
+ *    `vh - h - BOTTOM_SPACING` (pin bottom) as you scroll.
+ */
+function useStickyTop(ref: RefObject<HTMLDivElement>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
 
-const badgeIcons: Record<string, JSX.Element> = {
-  trophy: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 21h8m-4-4v4m-4-9a4 4 0 008 0V4H8v8zm-4-4h4m12 0h-4" />,
-  spark: <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z" />,
-  flame: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 2s4 4 4 8-2 6-4 6-4-2-4-6 4-8 4-8zm0 14a4 4 0 11-4-4" />,
-  heart: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />,
-  bolt: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />,
-};
+    let lastY = window.scrollY;
+    let ticking = false;
 
-const navLinks = [
-  { href: "/dashboard", label: "Dashboard", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 12l9-9 9 9M5 10v10h4v-6h6v6h4V10" /> },
-  { href: "/medical-library", label: "Medical Library", icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /> },
-];
+    const apply = () => {
+      ticking = false;
+      const h = el.offsetHeight;
+      if (h === 0) return; // hidden (mobile)
+      const vh = window.innerHeight;
+
+      // Short enough to fit: keep it pinned at the top.
+      if (h <= vh - TOP_SPACING - BOTTOM_SPACING) {
+        el.style.top = `${TOP_SPACING}px`;
+        lastY = window.scrollY;
+        return;
+      }
+
+      const minTop = vh - h - BOTTOM_SPACING; // fully scrolled -> bottom pinned
+      const y = window.scrollY;
+      const dy = y - lastY;
+      lastY = y;
+
+      const cur = parseFloat(el.style.top || "") || TOP_SPACING;
+      const next = Math.min(TOP_SPACING, Math.max(minTop, cur - dy));
+      el.style.top = `${next}px`;
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        requestAnimationFrame(apply);
+      }
+    };
+
+    apply();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", apply);
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(apply) : null;
+    ro?.observe(el);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", apply);
+      ro?.disconnect();
+    };
+  }, [ref]);
+}
 
 export default function Sidebar() {
-  const readiness = parseInt(stats[0].value);
-  const ring = { r: 38, c: 2 * Math.PI * 38 };
   const isPremium = subscription.plan === "Premium";
   const percentile = Math.max(1, Math.round((user.rank / user.totalUsers) * 100));
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  useStickyTop(wrapperRef);
 
   return (
-    <motion.aside
-      initial={{ opacity: 0, x: -16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="hidden lg:flex sticky top-28 max-h-[calc(100vh-8rem)] flex-col bg-slate-50 dark:bg-slate-900 rounded-3xl shadow-2xl shadow-slate-900/10 dark:shadow-black/40 z-30 overflow-hidden ml-4 sm:ml-6 mt-8 mb-4 sm:mb-6"
+    <div
+      ref={wrapperRef}
+      className="hidden lg:block lg:sticky self-start z-20 ml-4 sm:ml-6 mt-8 mb-4 sm:mb-6"
     >
-      <div className="overflow-y-auto flex-1 p-7 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <motion.aside
+        initial={{ opacity: 0, x: -16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col bg-slate-50 dark:bg-slate-900 rounded-3xl shadow-2xl shadow-slate-900/10 dark:shadow-black/40 overflow-hidden"
+      >
+        <div className="p-7">
         {/* Profile header */}
         <div className="flex flex-col items-center text-center">
           <div className="relative">
@@ -91,13 +138,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Navigation Links */}
-        <div className="mt-5 space-y-2">
-          {navLinks.map((link) => (
-            <NavLink key={link.href} href={link.href} icon={link.icon} label={link.label} />
-          ))}
-        </div>
-
         {/* Profile + Settings pill buttons */}
         <div className="mt-5 space-y-2">
           <PillButton
@@ -114,57 +154,8 @@ export default function Sidebar() {
           />
         </div>
 
-        {/* Study Readiness */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-3">
-            Study Readiness
-          </p>
-          <div className="flex items-center gap-4">
-            <div className="relative w-24 h-24 flex-shrink-0">
-              <svg className="w-24 h-24 -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={ring.r} fill="none" stroke="currentColor" strokeWidth="7" className="text-slate-100 dark:text-slate-800" />
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r={ring.r}
-                  fill="none"
-                  stroke="url(#readinessGrad)"
-                  strokeWidth="7"
-                  strokeLinecap="round"
-                  strokeDasharray={ring.c}
-                  initial={{ strokeDashoffset: ring.c }}
-                  animate={{ strokeDashoffset: ring.c * (1 - readiness / 100) }}
-                  transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-                />
-                <defs>
-                  <linearGradient id="readinessGrad" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#14b8a6" />
-                    <stop offset="100%" stopColor="#10b981" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-serif text-2xl text-slate-900 dark:text-slate-50 leading-none">{readiness}%</span>
-                <span className="text-[9px] uppercase tracking-widest text-slate-400 mt-0.5">ready</span>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                ↑ +4%
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">vs last week</p>
-              <p className="text-[11px] text-slate-700 dark:text-slate-200 mt-1.5 leading-snug">
-                Next mock in <span className="font-bold">{upcomingExam.daysAway} days</span>
-              </p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                Streak: <span className="font-bold text-amber-600 dark:text-amber-400">{stats[1].value} days 🔥</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Info pills */}
-        <div className="mt-5 space-y-2">
+        <div className="mt-4 space-y-1.5">
           <InfoPill
             icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 14l9-5-9-5-9 5 9 5zm0 0v7m-7-3.5l7 3.5 7-3.5" />}
             label={user.role}
@@ -183,69 +174,6 @@ export default function Sidebar() {
           />
         </div>
 
-        {/* Activity heatmap */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500">
-              Activity · 12 weeks
-            </p>
-            <span className="text-[10px] text-slate-400">{heatmap.filter((v) => v > 0).length}d active</span>
-          </div>
-          <div className="grid grid-cols-12 gap-1">
-            {Array.from({ length: 12 }).map((_, w) => (
-              <div key={w} className="flex flex-col gap-1">
-                {Array.from({ length: 7 }).map((_, d) => {
-                  const v = heatmap[w * 7 + d] ?? 0;
-                  return (
-                    <motion.div
-                      key={d}
-                      initial={{ opacity: 0, scale: 0.6 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.25, delay: 0.5 + (w * 7 + d) * 0.004 }}
-                      title={`${v} sessions`}
-                      className={`w-full aspect-square rounded-[3px] ${heatColor(v)}`}
-                    />
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Subject coverage */}
-        <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-baseline justify-between mb-3">
-            <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500">
-              Topic coverage
-            </p>
-            <span className="text-[10px] text-slate-400">
-              {subjectCoverage.covered}/{subjectCoverage.totalTopics}
-            </span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden flex">
-            {subjectCoverage.buckets.map((b, i) => (
-              <motion.div
-                key={b.label}
-                initial={{ width: 0 }}
-                animate={{ width: `${(b.count / subjectCoverage.totalTopics) * 100}%` }}
-                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.6 + i * 0.06 }}
-                className={b.color}
-              />
-            ))}
-          </div>
-          <ul className="mt-3 space-y-1.5">
-            {subjectCoverage.buckets.map((b) => (
-              <li key={b.label} className="flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${b.color}`} />
-                  <span className="text-slate-600 dark:text-slate-300">{b.label}</span>
-                </span>
-                <span className="font-semibold text-slate-700 dark:text-slate-200">{b.count}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
         {/* Badges */}
         <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
           <div className="flex items-baseline justify-between mb-3">
@@ -256,7 +184,7 @@ export default function Sidebar() {
               View all
             </button>
           </div>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {badges.map((b, i) => (
               <motion.div
                 key={b.key}
@@ -266,12 +194,16 @@ export default function Sidebar() {
                 title={`${b.name} · ${b.earned}`}
                 className="group flex flex-col items-center"
               >
-                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${badgeAccent[b.accent]}`}>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    {badgeIcons[b.icon]}
-                  </svg>
+                <div className="relative w-11 h-11 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105">
+                  <Image
+                    src={b.img}
+                    alt={b.name}
+                    fill
+                    sizes="44px"
+                    className="object-contain drop-shadow-sm"
+                  />
                 </div>
-                <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 text-center leading-tight">
+                <span className="text-[8px] text-slate-500 dark:text-slate-400 mt-1 text-center leading-tight">
                   {b.name}
                 </span>
               </motion.div>
@@ -286,8 +218,9 @@ export default function Sidebar() {
             Synced {user.lastSyncedMin}m ago
           </p>
         </div>
-      </div>
-    </motion.aside>
+        </div>
+      </motion.aside>
+    </div>
   );
 }
 
@@ -314,36 +247,15 @@ function PillButton({ icon, label }: { icon: JSX.Element; label: string }) {
 
 function InfoPill({ icon, label }: { icon: JSX.Element; label: string }) {
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
-      <span className="w-8 h-8 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm flex-shrink-0">
-        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/60">
+      <span className="w-6 h-6 rounded-lg bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm flex-shrink-0">
+        <svg className="w-3.5 h-3.5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           {icon}
         </svg>
       </span>
-      <span className="flex-1 text-[12px] font-medium text-slate-700 dark:text-slate-200 truncate">
+      <span className="flex-1 text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate">
         {label}
       </span>
     </div>
-  );
-}
-
-function NavLink({ href, icon, label }: { href: string; icon: JSX.Element; label: string }) {
-  return (
-    <a
-      href={href}
-      className="group w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-teal-50 dark:hover:bg-teal-900/20 border border-slate-100 dark:border-slate-700/60 hover:border-teal-200 dark:hover:border-teal-800 transition"
-    >
-      <span className="w-9 h-9 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
-        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          {icon}
-        </svg>
-      </span>
-      <span className="flex-1 text-left text-sm font-semibold text-slate-800 dark:text-slate-100">
-        {label}
-      </span>
-      <svg className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
-    </a>
   );
 }
