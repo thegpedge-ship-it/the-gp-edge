@@ -10,7 +10,7 @@ export const user = {
   rank: 142,
   totalUsers: 8420,
   joinedLabel: "Joined Jan 2026",
-  bio: "Preparing for AKT/KFP · Cardiology enthusiast",
+  bio: "RACGP Candidate · PGY3 · Royal North Shore",
   contact: {
     email: "s.chen@gpedge.au",
     racgpId: "RACGP-89241",
