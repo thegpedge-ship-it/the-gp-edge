@@ -10,9 +10,9 @@ import {
   Target,
   Calendar,
   TrendingUp,
-  Clock,
   CheckCircle2,
   Award,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,19 +44,14 @@ function DefaultAvatar({ className = "" }: { className?: string }) {
 
 // ─── Info row used in credentials / details ─────────────────────────────────────
 function DetailRow({
-  icon,
   label,
   value,
 }: {
-  icon: React.ReactNode;
   label: string;
   value: string;
 }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-0">
-      <span className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">
-        {icon}
-      </span>
       <div className="flex-1 min-w-0">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-0.5">
           {label}
@@ -75,13 +70,13 @@ function StatChip({
 }: {
   value: string;
   label: string;
-  accent?: "teal" | "violet" | "amber" | "sky";
+  accent?: "teal" | "emerald" | "amber" | "slate";
 }) {
   const colors: Record<string, string> = {
-    teal:   "bg-teal-50   border-teal-100   text-teal-700",
-    violet: "bg-violet-50 border-violet-100 text-violet-700",
-    amber:  "bg-amber-50  border-amber-100  text-amber-700",
-    sky:    "bg-sky-50    border-sky-100    text-sky-700",
+    teal:   "bg-teal-500/10 dark:bg-brand-500/10 border-teal-500/20 dark:border-brand-500/20 text-teal-600 dark:text-brand-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
+    amber:   "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
+    slate:   "glass border-slate-200/60 dark:border-slate-800/80 text-slate-700 dark:text-slate-300",
   };
   return (
     <div className={`flex flex-col items-center justify-center px-4 py-3.5 rounded-2xl border ${colors[accent]}`}>
@@ -181,6 +176,16 @@ export default function ProfilePage() {
                 </span>
               </div>
             </div>
+
+            {/* Joined date at bottom right */}
+            <div className="absolute bottom-7 right-8 text-right hidden sm:block">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                Member Since
+                <p className="text-sm font-bold text-slate-800 leading-none">
+                  {user.joinedLabel.replace("Joined ", "")}
+                </p>
+              </p>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -190,9 +195,9 @@ export default function ProfilePage() {
          ══════════════════════════════════════════════════════════════════════ */}
       <motion.div {...fadeUp(0.1)}>
         <div className="grid grid-cols-4 gap-4">
-          <StatChip value={stats[0].value} label="Study Streak" accent="amber" />
-          <StatChip value={stats[1].value} label="Avg Accuracy" accent="violet" />
-          <StatChip value={stats[2].value} label="Quiz Attempts" accent="sky" />
+          <StatChip value={stats[0].value} label="Study Streak" accent="slate" />
+          <StatChip value={stats[1].value} label="Avg Accuracy" accent="emerald" />
+          <StatChip value={stats[2].value} label="Quiz Attempts" accent="slate" />
           <StatChip value={stats[3].value} label="Mock Exams" accent="teal" />
         </div>
       </motion.div>
@@ -206,9 +211,6 @@ export default function ProfilePage() {
         <motion.div {...fadeUp(0.14)}>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">
-                <ShieldCheck size={15} />
-              </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
                   Medical Credentials
@@ -217,10 +219,10 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="px-6 py-1">
-              <DetailRow icon={<Hash size={14} />}    label="RACGP Number"      value={user.contact.racgpId} />
-              <DetailRow icon={<Hash size={14} />}    label="AHPRA Number"      value="MED0001234567" />
-              <DetailRow icon={<GraduationCap size={14} />} label="Training Level"    value="PGY3 — Registrar" />
-              <DetailRow icon={<MapPin size={14} />}  label="Practice Location" value={`${user.hospital}, Sydney NSW`} />
+              <DetailRow label="RACGP Number"      value={user.contact.racgpId} />
+              <DetailRow label="AHPRA Number"      value="MED0001234567" />
+              <DetailRow label="Training Level"    value="PGY3 — Registrar" />
+              <DetailRow label="Practice Location" value={`${user.hospital}, Sydney NSW`} />
             </div>
           </div>
         </motion.div>
@@ -229,9 +231,6 @@ export default function ProfilePage() {
         <motion.div {...fadeUp(0.14)}>
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">
-                <Target size={15} />
-              </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
                   Exam Preparation
@@ -280,9 +279,6 @@ export default function ProfilePage() {
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">
-                <Award size={15} />
-              </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
                   Achievements & Badges
@@ -319,46 +315,32 @@ export default function ProfilePage() {
 
       {/* ── Quick actions ─────────────────────────────────────────────────────── */}
       <motion.div {...fadeUp(0.22)}>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             href="/dashboard/settings"
             id="profile-goto-settings"
-            className="flex items-center gap-3 px-5 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
-                       hover:border-teal-200 hover:bg-teal-50/40 transition-all duration-150 group"
+            className="flex items-center justify-between gap-4 px-6 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
+                       hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
           >
-            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors flex-shrink-0">
-              <CheckCircle2 size={16} />
-            </span>
             <div>
-              <p className="text-sm font-semibold text-slate-800">Edit Settings</p>
-              <p className="text-xs text-slate-500">Update credentials</p>
+              <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Edit Settings</p>
+              <p className="text-xs text-slate-500 mt-0.5">Update credentials</p>
             </div>
+            <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
           </Link>
 
           <Link
             href="/dashboard"
             id="profile-goto-dashboard"
-            className="flex items-center gap-3 px-5 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
-                       hover:border-teal-200 hover:bg-teal-50/40 transition-all duration-150 group"
+            className="flex items-center justify-between gap-4 px-6 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
+                       hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
           >
-            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors flex-shrink-0">
-              <TrendingUp size={16} />
-            </span>
             <div>
-              <p className="text-sm font-semibold text-slate-800">Dashboard</p>
-              <p className="text-xs text-slate-500">View study cockpit</p>
+              <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Dashboard</p>
+              <p className="text-xs text-slate-500 mt-0.5">View study cockpit</p>
             </div>
+            <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
           </Link>
-
-          <div className="flex items-center gap-3 px-5 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
-            <span className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
-              <Clock size={16} />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">{user.joinedLabel}</p>
-              <p className="text-xs text-slate-500">Member since</p>
-            </div>
-          </div>
         </div>
       </motion.div>
 
