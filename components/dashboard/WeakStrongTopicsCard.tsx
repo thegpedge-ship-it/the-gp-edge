@@ -1,16 +1,15 @@
-"use client";
-
-import { motion } from "framer-motion";
+import { memo } from "react";
 import { weakTopics, strongTopics } from "./data";
 
-export default function WeakStrongTopicsCard() {
+/**
+ * WeakStrongTopicsCard — topic analysis panel.
+ * - Server Component (no interactivity, no hooks needed).
+ * - Wrapped in React.memo.
+ * - No entry animation — handled by PageTransition.
+ */
+const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7"
-    >
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7">
       <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
         Topic analysis
       </p>
@@ -26,7 +25,10 @@ export default function WeakStrongTopicsCard() {
           </div>
           <ul className="space-y-2.5">
             {weakTopics.map((t) => (
-              <li key={t.name} className="rounded-xl border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-900/10 px-3 py-2.5">
+              <li
+                key={t.name}
+                className="rounded-xl border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-900/10 px-3 py-2.5"
+              >
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>
                 <div className="flex items-baseline justify-between mt-1">
                   <span className="text-[11px] text-slate-500">{t.attempts} attempts</span>
@@ -44,7 +46,10 @@ export default function WeakStrongTopicsCard() {
           </div>
           <ul className="space-y-2.5">
             {strongTopics.map((t) => (
-              <li key={t.name} className="rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-2.5">
+              <li
+                key={t.name}
+                className="rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-2.5"
+              >
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>
                 <div className="flex items-baseline justify-between mt-1">
                   <span className="text-[11px] text-slate-500">{t.attempts} attempts</span>
@@ -55,6 +60,8 @@ export default function WeakStrongTopicsCard() {
           </ul>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
+
+export default WeakStrongTopicsCard;

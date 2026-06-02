@@ -1,66 +1,20 @@
 "use client";
 
-import { motion } from "framer-motion";
 import {
   GraduationCap,
   MapPin,
   BookOpen,
-  Hash,
-  ShieldCheck,
-  Target,
   Calendar,
-  TrendingUp,
-  CheckCircle2,
-  Award,
   ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { user, badges, stats, examPaths } from "@/components/dashboard/data";
-
-// ─── Animation helper ───────────────────────────────────────────────────────────
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.48, delay, ease: [0.22, 1, 0.36, 1] },
-});
-
-// ─── Professional neutral avatar (matches sidebar & settings) ───────────────────
-function DefaultAvatar({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 96 96"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="Default profile avatar"
-    >
-      <circle cx="48" cy="48" r="48" fill="#E2F0EE" />
-      <circle cx="48" cy="33" r="15" fill="#8BBDB8" />
-      <path d="M10 84c0-15.464 17.01-28 38-28s38 12.536 38 28" fill="#8BBDB8" />
-    </svg>
-  );
-}
-
-// ─── Info row used in credentials / details ─────────────────────────────────────
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-0">
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-0.5">
-          {label}
-        </p>
-        <p className="text-sm font-semibold text-slate-800 leading-tight truncate">{value}</p>
-      </div>
-    </div>
-  );
-}
+import Avatar from "@/components/ui/Avatar";
+import FadeIn from "@/components/ui/FadeIn";
+import PageCard from "@/components/ui/PageCard";
+import CardHeader from "@/components/ui/CardHeader";
+import PageHeading from "@/components/ui/PageHeading";
 
 // ─── Stat chip ──────────────────────────────────────────────────────────────────
 function StatChip({
@@ -73,15 +27,29 @@ function StatChip({
   accent?: "teal" | "emerald" | "amber" | "slate";
 }) {
   const colors: Record<string, string> = {
-    teal:   "bg-teal-500/10 dark:bg-brand-500/10 border-teal-500/20 dark:border-brand-500/20 text-teal-600 dark:text-brand-400",
+    teal: "bg-teal-500/10 border-teal-500/20 text-teal-600",
     emerald: "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400",
-    amber:   "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
-    slate:   "glass border-slate-200/60 dark:border-slate-800/80 text-slate-700 dark:text-slate-300",
+    amber: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
+    slate: "bg-white border-slate-200 text-slate-700 dark:text-slate-300",
   };
   return (
     <div className={`flex flex-col items-center justify-center px-4 py-3.5 rounded-2xl border ${colors[accent]}`}>
       <span className="text-xl font-bold leading-none">{value}</span>
       <span className="text-[11px] font-medium mt-1 opacity-80 text-center leading-tight">{label}</span>
+    </div>
+  );
+}
+
+// ─── Info row ────────────────────────────────────────────────────────────────────
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest leading-none mb-0.5">
+          {label}
+        </p>
+        <p className="text-sm font-semibold text-slate-800 leading-tight truncate">{value}</p>
+      </div>
     </div>
   );
 }
@@ -94,20 +62,17 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-6 pb-6">
 
       {/* ── Page header ──────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0)}>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">My Profile</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Your professional identity and exam preparation overview
-        </p>
-      </motion.div>
+      <FadeIn delay={0}>
+        <PageHeading
+          title="My Profile"
+          subtitle="Your professional identity and exam preparation overview"
+        />
+      </FadeIn>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          PROFILE HERO — banner + avatar + identity
-         ══════════════════════════════════════════════════════════════════════ */}
-      <motion.div {...fadeUp(0.06)}>
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-
-          {/* Banner — dark clinical gradient matching sidebar */}
+      {/* ══ PROFILE HERO ══════════════════════════════════════════════════════ */}
+      <FadeIn delay={0.06}>
+        <PageCard className="rounded-3xl">
+          {/* Banner */}
           <div className="relative h-40 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-teal-950 to-slate-900" />
             <div
@@ -134,16 +99,16 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Identity strip — avatar overlaps banner */}
+          {/* Identity strip */}
           <div className="px-8 pb-7 relative">
             {/* Avatar */}
             <div className="absolute -top-14 left-8">
               <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl bg-[#E2F0EE]">
-                <DefaultAvatar className="w-full h-full" />
+                <Avatar className="w-full h-full" />
               </div>
             </div>
 
-            {/* Edit profile button — top right */}
+            {/* Edit profile button */}
             <div className="flex justify-end pt-4">
               <Link
                 href="/dashboard/settings"
@@ -156,7 +121,7 @@ export default function ProfilePage() {
               </Link>
             </div>
 
-            {/* Name + credentials — positioned to the right of the avatar */}
+            {/* Name + credentials */}
             <div className="ml-36 mt-1">
               <h2 className="text-2xl font-bold text-slate-900 leading-tight tracking-tight">
                 Dr. {user.firstName} {user.lastName}
@@ -177,67 +142,49 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Joined date at bottom right */}
+            {/* Joined date */}
             <div className="absolute bottom-7 right-8 text-right hidden sm:block">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
                 Member Since
-                <p className="text-sm font-bold text-slate-800 leading-none">
-                  {user.joinedLabel.replace("Joined ", "")}
-                </p>
+              </p>
+              <p className="text-sm font-bold text-slate-800 leading-none">
+                {user.joinedLabel.replace("Joined ", "")}
               </p>
             </div>
           </div>
-        </div>
-      </motion.div>
+        </PageCard>
+      </FadeIn>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          STATS ROW — compact performance snapshot
-         ══════════════════════════════════════════════════════════════════════ */}
-      <motion.div {...fadeUp(0.1)}>
+      {/* ══ STATS ROW ══════════════════════════════════════════════════════════ */}
+      <FadeIn delay={0.10}>
         <div className="grid grid-cols-4 gap-4">
           <StatChip value={stats[0].value} label="Study Streak" accent="slate" />
           <StatChip value={stats[1].value} label="Avg Accuracy" accent="emerald" />
           <StatChip value={stats[2].value} label="Quiz Attempts" accent="slate" />
           <StatChip value={stats[3].value} label="Mock Exams" accent="teal" />
         </div>
-      </motion.div>
+      </FadeIn>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          TWO-COLUMN: Credentials + Exam Readiness
-         ══════════════════════════════════════════════════════════════════════ */}
+      {/* ══ TWO-COLUMN: Credentials + Exam Readiness ══════════════════════════ */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
 
-        {/* ── Medical Credentials ─────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.14)}>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div>
-                <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
-                  Medical Credentials
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Professional registration details</p>
-              </div>
-            </div>
+        {/* Medical Credentials */}
+        <FadeIn delay={0.14}>
+          <PageCard className="h-full">
+            <CardHeader title="Medical Credentials" subtitle="Professional registration details" />
             <div className="px-6 py-1">
               <DetailRow label="RACGP Number"      value={user.contact.racgpId} />
               <DetailRow label="AHPRA Number"      value="MED0001234567" />
               <DetailRow label="Training Level"    value="PGY3 — Registrar" />
               <DetailRow label="Practice Location" value={`${user.hospital}, Sydney NSW`} />
             </div>
-          </div>
-        </motion.div>
+          </PageCard>
+        </FadeIn>
 
-        {/* ── Exam Readiness ───────────────────────────────────────────────── */}
-        <motion.div {...fadeUp(0.14)}>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-              <div>
-                <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
-                  Exam Preparation
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Active exam targets and readiness</p>
-              </div>
-            </div>
+        {/* Exam Readiness */}
+        <FadeIn delay={0.14}>
+          <PageCard className="h-full">
+            <CardHeader title="Exam Preparation" subtitle="Active exam targets and readiness" />
             <div className="px-6 py-3 space-y-4">
               {examPaths.map((exam) => {
                 const pct = exam.readiness;
@@ -268,36 +215,27 @@ export default function ProfilePage() {
                 <p className="text-[12px] font-semibold text-teal-800">{user.examTarget}</p>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </PageCard>
+        </FadeIn>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          BADGES & ACHIEVEMENTS
-         ══════════════════════════════════════════════════════════════════════ */}
-      <motion.div {...fadeUp(0.18)}>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">
-                  Achievements & Badges
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">Earned milestones</p>
-              </div>
-            </div>
-            <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors">
-              View all
-            </button>
-          </div>
+      {/* ══ BADGES & ACHIEVEMENTS ══════════════════════════════════════════════ */}
+      <FadeIn delay={0.18}>
+        <PageCard>
+          <CardHeader
+            title="Achievements & Badges"
+            subtitle="Earned milestones"
+            action={
+              <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors">
+                View all
+              </button>
+            }
+          />
           <div className="px-6 py-5">
             <div className="flex gap-6 flex-wrap">
-              {badges.map((b, i) => (
-                <motion.div
+              {badges.map((b) => (
+                <div
                   key={b.key}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: 0.7 + i * 0.06 }}
                   className="group flex flex-col items-center gap-1.5"
                   title={`${b.name} · Earned ${b.earned}`}
                 >
@@ -306,15 +244,15 @@ export default function ProfilePage() {
                   </div>
                   <span className="text-[11px] font-medium text-slate-600 text-center leading-tight">{b.name}</span>
                   <span className="text-[10px] text-slate-400">{b.earned}</span>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </motion.div>
+        </PageCard>
+      </FadeIn>
 
       {/* ── Quick actions ─────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0.22)}>
+      <FadeIn delay={0.22}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
             href="/dashboard/settings"
@@ -342,7 +280,7 @@ export default function ProfilePage() {
             <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
           </Link>
         </div>
-      </motion.div>
+      </FadeIn>
 
     </div>
   );

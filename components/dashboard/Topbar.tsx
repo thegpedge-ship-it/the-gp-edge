@@ -1,17 +1,16 @@
-"use client";
-
-import { motion } from "framer-motion";
 import Image from "next/image";
 import { greeting } from "./data";
 
+/**
+ * Topbar — dashboard welcome banner.
+ * Server Component — no "use client" needed; no interactivity.
+ * No entry animation: the PageTransition wrapper in DashboardShell handles the
+ * page-level fade-in. Animating the Topbar independently would cause it to
+ * re-animate on every dashboard navigation.
+ */
 export default function Topbar() {
   return (
-    <motion.section
-      initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/40 dark:from-emerald-900/20 dark:via-slate-800/40 dark:to-teal-900/20 border border-emerald-100/60 dark:border-emerald-800/40 p-8 lg:p-10 mb-6"
-    >
+    <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/40 dark:from-emerald-900/20 dark:via-slate-800/40 dark:to-teal-900/20 border border-emerald-100/60 dark:border-emerald-800/40 p-8 lg:p-10 mb-6">
       {/* Decorative blobs */}
       <div className="absolute -top-16 right-1/3 w-64 h-64 rounded-full bg-emerald-200/40 dark:bg-emerald-700/20 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-teal-200/30 dark:bg-teal-700/15 blur-3xl pointer-events-none" />
@@ -34,10 +33,7 @@ export default function Topbar() {
         </div>
 
         {/* Welcome illustration */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        <div
           className="hidden lg:block relative w-[440px] aspect-[857/291] flex-shrink-0"
           style={{ willChange: "transform" }}
         >
@@ -49,9 +45,8 @@ export default function Topbar() {
             sizes="440px"
             className="object-contain"
           />
-        </motion.div>
+        </div>
       </div>
-    </motion.section>
+    </section>
   );
 }
-

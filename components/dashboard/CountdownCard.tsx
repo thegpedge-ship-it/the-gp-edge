@@ -1,22 +1,20 @@
-"use client";
-
-import { motion } from "framer-motion";
+import { memo } from "react";
 import type { ReactNode } from "react";
 import { upcomingExam } from "./data";
 
-export default function CountdownCard() {
+/**
+ * CountdownCard — upcoming exam countdown banner.
+ * - No entry animation — handled by PageTransition.
+ * - Wrapped in React.memo.
+ */
+const CountdownCard = memo(function CountdownCard() {
   const e = upcomingExam;
   const hrs = Math.floor(e.durationMin / 60);
   const mins = e.durationMin % 60;
   const duration = mins ? `${hrs}h ${mins}m` : `${hrs}h`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
-      className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 dark:from-emerald-900/30 dark:via-slate-900 dark:to-teal-900/30 border border-emerald-100/70 dark:border-emerald-800/40 p-6 lg:p-7 shadow-sm"
-    >
+    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/60 dark:from-emerald-900/30 dark:via-slate-900 dark:to-teal-900/30 border border-emerald-100/70 dark:border-emerald-800/40 p-6 lg:p-7 shadow-sm">
       {/* Decorative blobs */}
       <div className="absolute -top-12 -right-8 w-44 h-44 rounded-full bg-emerald-200/40 dark:bg-emerald-700/15 blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-1/3 w-40 h-40 rounded-full bg-teal-200/30 dark:bg-teal-700/10 blur-3xl pointer-events-none" />
@@ -31,7 +29,6 @@ export default function CountdownCard() {
             </span>
           </div>
 
-          {/* Title (beside emblem) */}
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-[0.2em] font-semibold text-teal-700 dark:text-teal-300 mb-1.5">
               Next mock
@@ -68,7 +65,7 @@ export default function CountdownCard() {
         <div className="flex flex-shrink-0 gap-2">
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-all duration-300 active:scale-[0.97]"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-semibold text-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-all duration-200 active:scale-[0.97]"
           >
             View study plan
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -77,9 +74,9 @@ export default function CountdownCard() {
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
 
 function Chip({ children }: { children: ReactNode }) {
   return (
@@ -88,3 +85,5 @@ function Chip({ children }: { children: ReactNode }) {
     </span>
   );
 }
+
+export default CountdownCard;

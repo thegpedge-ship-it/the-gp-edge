@@ -5,6 +5,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Platform Animation Tokens ──────────────────────────────────────────────
+ * All animations use the same cubic-bezier easing for a coherent, premium feel.
+ * Never use linear or ease-in-out for UI transitions — they feel mechanical.
+ *
+ * --transition-page  : Route-level content fade-in (handled by PageTransition)
+ * --transition-enter : Component-level entrances (cards, modals, drawers)
+ * --transition-fast  : Micro-interactions (hover states, active states)
+ * ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ease-primary:      cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-page:   opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+                       transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-enter:  all 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast:   all 150ms ease;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

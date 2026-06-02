@@ -1,16 +1,18 @@
 "use client";
 
+import { memo } from "react";
 import { motion } from "framer-motion";
 import { performance } from "./data";
 
-export default function PerformanceCard() {
+/**
+ * PerformanceCard — subject mastery bar chart.
+ * - Wrapped in React.memo.
+ * - No entry animation — handled by PageTransition.
+ * - Bar animations kept (content-level, not page-entry).
+ */
+const PerformanceCard = memo(function PerformanceCard() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6"
-    >
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
@@ -53,13 +55,15 @@ export default function PerformanceCard() {
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${row.mastery}%` }}
-                transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.3 + i * 0.05 }}
+                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 + i * 0.04 }}
                 className="h-full rounded-full bg-emerald-400 dark:bg-emerald-500"
               />
             </div>
           </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
+
+export default PerformanceCard;

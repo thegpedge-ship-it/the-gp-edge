@@ -96,9 +96,7 @@ export const stats = [
     unit: "days",
     delta: "Max streak: 23 days",
     trend: "up" as const,
-    accent: "amber" as const,
     caption: "",
-    icon: "flame" as const,
     spark: [4, 5, 7, 6, 8, 10, 12, 11, 13, 15, 16, 18],
   },
   {
@@ -107,9 +105,7 @@ export const stats = [
     value: "78.4%",
     delta: "+2.1%",
     trend: "up" as const,
-    accent: "violet" as const,
     caption: "vs last 30 days",
-    icon: "trend" as const,
     spark: [62, 65, 64, 68, 71, 70, 73, 75, 74, 76, 78, 78.4],
   },
   {
@@ -118,9 +114,7 @@ export const stats = [
     value: "1,284",
     delta: "+92",
     trend: "up" as const,
-    accent: "sky" as const,
     caption: "this week",
-    icon: "doc" as const,
     spark: [820, 880, 940, 990, 1040, 1090, 1130, 1170, 1192, 1220, 1245, 1284],
   },
   {
@@ -130,9 +124,7 @@ export const stats = [
     unit: "done",
     delta: "+2",
     trend: "up" as const,
-    accent: "emerald" as const,
     caption: "this month",
-    icon: "target" as const,
     spark: [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
   },
 ];
@@ -290,16 +282,4 @@ export const notifications = [
   { id: 3, type: "content" as const, title: "New case set: Paediatric rashes", meta: "12 KFP stems added to your queue.", timeAgo: "Yesterday", unread: false },
 ];
 
-export const nav = [
-  { key: "dashboard", label: "Dashboard", active: true },
-  { key: "exams", label: "Mock Exams", active: false, badge: "New" },
-  { key: "mbs", label: "MBS Explorer", active: false },
-  { key: "autofills", label: "Autofills", active: false },
-  { key: "cases", label: "Case Library", active: false },
-  { key: "progress", label: "Progress", active: false },
-];
-
-export const bottomNav = [
-  { key: "settings", label: "Settings" },
-  { key: "help", label: "Help & support" },
-];
+// nav and bottomNav removed — unused exports. Navigation is driven by Sidebar.tsx NAV constant.

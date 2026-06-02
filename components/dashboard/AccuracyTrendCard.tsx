@@ -1,31 +1,35 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { accuracyTrend, user } from "./data";
 
-export default function AccuracyTrendCard() {
+/**
+ * AccuracyTrendCard — 12-week accuracy trend chart.
+ * - SVG path computations are memoized.
+ * - Wrapped in React.memo.
+ * - No entry animation — handled by PageTransition.
+ */
+const AccuracyTrendCard = memo(function AccuracyTrendCard() {
   const { points, labels, current, delta } = accuracyTrend;
-  const min = Math.min(...points) - 4;
-  const max = Math.max(...points) + 2;
   const W = 300;
   const H = 90;
 
-  const toX = (i: number) => (i / (points.length - 1)) * W;
-  const toY = (v: number) => H - ((v - min) / (max - min)) * H;
+  const { linePath, areaPath } = useMemo(() => {
+    const min = Math.min(...points) - 4;
+    const max = Math.max(...points) + 2;
+    const toX = (i: number) => (i / (points.length - 1)) * W;
+    const toY = (v: number) => H - ((v - min) / (max - min)) * H;
 
-  const linePath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(p).toFixed(1)}`)
-    .join(" ");
-
-  const areaPath = `${linePath} L${W},${H} L0,${H} Z`;
+    const linePath = points
+      .map((p, i) => `${i === 0 ? "M" : "L"}${toX(i).toFixed(1)},${toY(p).toFixed(1)}`)
+      .join(" ");
+    const areaPath = `${linePath} L${W},${H} L0,${H} Z`;
+    return { linePath, areaPath };
+  }, [points]);
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-      className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6 flex flex-col h-full"
-    >
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6 flex flex-col h-full">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
@@ -59,7 +63,7 @@ export default function AccuracyTrendCard() {
           fill="url(#trendArea)"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
         />
         <motion.path
           d={linePath}
@@ -70,19 +74,25 @@ export default function AccuracyTrendCard() {
           strokeLinejoin="round"
           initial={{ pathLength: 0 }}
           animate={{ pathLength: 1 }}
-          transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
+          transition={{ duration: 1.0, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
         />
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={toX(i)}
-            cy={toY(p)}
-            r={i === points.length - 1 ? 3.5 : 0}
-            fill="#0d9488"
-            stroke="white"
-            strokeWidth={1.5}
-          />
-        ))}
+        {points.map((p, i) => {
+          const min = Math.min(...points) - 4;
+          const max = Math.max(...points) + 2;
+          const toX = (idx: number) => (idx / (points.length - 1)) * W;
+          const toY = (v: number) => H - ((v - min) / (max - min)) * H;
+          return (
+            <circle
+              key={i}
+              cx={toX(i)}
+              cy={toY(p)}
+              r={i === points.length - 1 ? 3.5 : 0}
+              fill="#0d9488"
+              stroke="white"
+              strokeWidth={1.5}
+            />
+          );
+        })}
       </svg>
 
       <div className="flex justify-between text-[10px] text-slate-400 mt-1">
@@ -91,7 +101,6 @@ export default function AccuracyTrendCard() {
         ))}
       </div>
 
-      {/* Note — fills the remaining height so the card is never empty */}
       <div className="mt-auto pt-5">
         <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 px-4 py-3 flex items-center gap-3">
           <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
@@ -103,6 +112,8 @@ export default function AccuracyTrendCard() {
           </p>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
-}
+});
+
+export default AccuracyTrendCard;

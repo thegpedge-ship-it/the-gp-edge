@@ -1,22 +1,21 @@
 "use client";
 
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { studyActivity } from "./data";
 
-const MONTHS = 12; // trailing one year
-const ROWS = 7; // days stacked per column
-const GAP = 3; // px between cells (and columns within a month)
-const BLOCK_GAP = 9; // px gap between month blocks — the "cut"
-const MIN_CELL = 8; // never smaller than this
-const MAX_CELL = 12; // keep squares compact even on wide cards
-const DEFAULT_CELL = 11; // SSR / pre-measure cell size
+const MONTHS = 12;
+const ROWS = 7;
+const GAP = 3;
+const BLOCK_GAP = 9;
+const MIN_CELL = 8;
+const MAX_CELL = 12;
+const DEFAULT_CELL = 11;
 
-// Fixed month/weekday names — avoids server/client locale mismatches (hydration errors).
 const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Map a day's solved-question count to a 0–4 intensity level.
 const levelFor = (count: number) => {
   if (count <= 0) return 0;
   if (count < 10) return 1;
@@ -25,7 +24,6 @@ const levelFor = (count: number) => {
   return 4;
 };
 
-// Green scale tuned for both light and dark themes (gray → bright green).
 const heatClass = (lvl: number) =>
   [
     "bg-slate-200 dark:bg-slate-800",
@@ -35,7 +33,6 @@ const heatClass = (lvl: number) =>
     "bg-emerald-600 dark:bg-emerald-400",
   ][lvl];
 
-// Parse "YYYY-MM-DD" as a local date (no timezone drift).
 const parseDate = (s: string) => {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d);
@@ -55,13 +52,11 @@ interface Day {
 
 interface MonthBlock {
   label: string;
-  columns: Day[][]; // each column holds up to 7 sequential days
+  columns: Day[][];
   days: Day[];
 }
 
-// Build the trailing 12 months. Each month is its own block: its days (1..end)
-// are chunked into columns of 7, so the sequence visibly "cuts" at each month.
-const buildMonths = (): MonthBlock[] => {
+function buildMonths(): MonthBlock[] {
   const counts = new Map(studyActivity.map((a) => [a.date, a.count]));
   const anchorKey = studyActivity.reduce(
     (max, a) => (a.date > max ? a.date : max),
@@ -95,16 +90,14 @@ const buildMonths = (): MonthBlock[] => {
 
     return { label: MONTH_SHORT[first.getMonth()], columns, days };
   });
-};
+}
 
-// Measure the container and derive a square cell size that fills the full width,
-// accounting for the within-month and between-month gaps.
-const useCellSize = (ref: React.RefObject<HTMLDivElement>, totalCols: number, blocks: number) => {
+function useCellSize(ref: React.RefObject<HTMLDivElement>, totalCols: number, blocks: number) {
   const [size, setSize] = useState(DEFAULT_CELL);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const innerGaps = totalCols - blocks; // column gaps inside blocks
+    const innerGaps = totalCols - blocks;
     const measure = () => {
       const w = el.clientWidth;
       if (w > 0) {
@@ -119,13 +112,22 @@ const useCellSize = (ref: React.RefObject<HTMLDivElement>, totalCols: number, bl
     return () => ro.disconnect();
   }, [ref, totalCols, blocks]);
   return size;
-};
+}
 
-export default function ActivityHeatmapCard() {
+/**
+ * ActivityHeatmapCard — Study activity GitHub-style heatmap.
+ * - buildMonths() is now memoized — runs once, not on every render.
+ * - Derived stats (allDays, activeDays, totalQuestions, maxStreak) are memoized.
+ * - Wrapped in React.memo.
+ * - No entry animation — handled by PageTransition.
+ */
+const ActivityHeatmapCard = memo(function ActivityHeatmapCard() {
   const cardRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const months = buildMonths();
-  const totalCols = months.reduce((s, b) => s + b.columns.length, 0);
+
+  // Memoize month data — pure computation, only runs once
+  const months = useMemo(() => buildMonths(), []);
+  const totalCols = useMemo(() => months.reduce((s, b) => s + b.columns.length, 0), [months]);
   const cell = useCellSize(gridRef, totalCols, months.length);
 
   const [tip, setTip] = useState<{ x: number; y: number; label: string; count: number } | null>(null);
@@ -135,32 +137,30 @@ export default function ActivityHeatmapCard() {
     setTip({ x: e.clientX - rect.left, y: e.clientY - rect.top, label: day.label, count: day.count });
   };
 
-  const allDays = months.flatMap((b) => b.days).filter((d) => !d.future);
-  const activeDays = allDays.filter((d) => d.count > 0).length;
-  const totalQuestions = allDays.reduce((sum, d) => sum + d.count, 0);
-
-  let maxStreak = 0;
-  let run = 0;
-  for (const d of allDays) {
-    if (d.count > 0) {
-      run += 1;
-      maxStreak = Math.max(maxStreak, run);
-    } else {
-      run = 0;
+  // Memoize derived stats
+  const { allDays, activeDays, totalQuestions, maxStreak } = useMemo(() => {
+    const allDays = months.flatMap((b) => b.days).filter((d) => !d.future);
+    const activeDays = allDays.filter((d) => d.count > 0).length;
+    const totalQuestions = allDays.reduce((sum, d) => sum + d.count, 0);
+    let maxStreak = 0;
+    let run = 0;
+    for (const d of allDays) {
+      if (d.count > 0) { run += 1; maxStreak = Math.max(maxStreak, run); }
+      else { run = 0; }
     }
-  }
+    return { allDays, activeDays, totalQuestions, maxStreak };
+  }, [months]);
 
   return (
-    <motion.div
+    <div
       ref={cardRef}
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       className="relative bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/70 dark:border-slate-800 shadow-sm p-6"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
         <h3 className="text-base font-semibold text-slate-900 dark:text-slate-50">
-          <span className="text-emerald-600 dark:text-emerald-400">{totalQuestions.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}</span>{" "}
+          <span className="text-emerald-600 dark:text-emerald-400">
+            {totalQuestions.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+          </span>{" "}
           questions answered in the past year
         </h3>
         <div className="flex items-center gap-5 text-xs text-slate-500 dark:text-slate-400">
@@ -221,6 +221,8 @@ export default function ActivityHeatmapCard() {
           <span className="block text-[10px] text-slate-300 leading-tight">{tip.label}</span>
         </div>
       )}
-    </motion.div>
+    </div>
   );
-}
+});
+
+export default ActivityHeatmapCard;

@@ -14,7 +14,7 @@ export default function DashboardPage() {
       <Topbar />
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-        {stats.map((s, i) => (
+        {stats.map((s) => (
           <StatTile
             key={s.key}
             label={s.label}
@@ -22,11 +22,8 @@ export default function DashboardPage() {
             unit={"unit" in s ? (s as { unit?: string }).unit : undefined}
             delta={s.delta}
             trend={s.trend}
-            accent={s.accent}
             caption={s.caption}
-            icon={s.icon}
             spark={s.spark}
-            delay={0.05 * i}
           />
         ))}
       </section>

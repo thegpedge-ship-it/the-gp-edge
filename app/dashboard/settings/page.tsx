@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
 import {
   User,
   Shield,
@@ -22,40 +21,14 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
-// ─── Animation helper ───────────────────────────────────────────────────────────
-const fadeUp = (delay = 0) => ({
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.48, delay, ease: [0.22, 1, 0.36, 1] },
-});
-
-// ─── Professional neutral avatar SVG ───────────────────────────────────────────
-// Clean corporate silhouette — never shows initials or cartoon imagery.
-// Consistent with the sidebar DefaultAvatar.
-function DefaultAvatar({ className = "" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 96 96"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      aria-label="Default profile avatar"
-    >
-      <circle cx="48" cy="48" r="48" fill="#E2F0EE" />
-      <circle cx="48" cy="33" r="15" fill="#8BBDB8" />
-      <path d="M10 84c0-15.464 17.01-28 38-28s38 12.536 38 28" fill="#8BBDB8" />
-    </svg>
-  );
-}
+import Avatar from "@/components/ui/Avatar";
+import FadeIn from "@/components/ui/FadeIn";
+import PageCard from "@/components/ui/PageCard";
+import CardHeader from "@/components/ui/CardHeader";
+import PageHeading from "@/components/ui/PageHeading";
 
 // ─── Form primitives ────────────────────────────────────────────────────────────
-function FieldLabel({
-  htmlFor,
-  children,
-}: {
-  htmlFor: string;
-  children: React.ReactNode;
-}) {
+function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
   return (
     <label
       htmlFor={htmlFor}
@@ -133,31 +106,6 @@ function SelectInput({
   );
 }
 
-// ─── Section card ───────────────────────────────────────────────────────────────
-function SectionCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden ${className}`}>
-      {children}
-    </div>
-  );
-}
-
-// ─── Section header inside card ─────────────────────────────────────────────────
-function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title: string; subtitle: string }) {
-  return (
-    <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
-      <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">
-        {icon}
-      </div>
-      <div>
-        <h3 className="font-semibold text-slate-900 text-[14px] leading-tight">{title}</h3>
-        <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>
-      </div>
-    </div>
-  );
-}
-
-// ─── Action row (security / danger) ────────────────────────────────────────────
 function ActionRow({
   icon,
   label,
@@ -204,7 +152,6 @@ function ActionRow({
   );
 }
 
-// ─── Save button ───────────────────────────────────────────────────────────────
 function SaveButton({ id, label = "Save Changes" }: { id: string; label?: string }) {
   return (
     <button
@@ -233,20 +180,18 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6 pb-6">
 
       {/* ── Page title ─────────────────────────────────────────────────────── */}
-      <motion.div {...fadeUp(0)}>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Settings</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Manage your account and exam preparation preferences
-        </p>
-      </motion.div>
+      <FadeIn delay={0}>
+        <PageHeading
+          title="Settings"
+          subtitle="Manage your account and exam preparation preferences"
+        />
+      </FadeIn>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          PROFILE HEADER — cover banner + editable avatar + identity
-         ══════════════════════════════════════════════════════════════════════ */}
-      <motion.div {...fadeUp(0.06)}>
+      {/* ══ PROFILE HEADER ════════════════════════════════════════════════════ */}
+      <FadeIn delay={0.06}>
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
 
-          {/* ── Cover banner — clean clinical gradient, no stock photography ── */}
+          {/* Cover banner */}
           <div
             className="relative h-32 cursor-pointer group overflow-hidden"
             onMouseEnter={() => setCoverHovered(true)}
@@ -255,19 +200,11 @@ export default function SettingsPage() {
             role="button"
             aria-label="Update cover photo"
           >
-            {/* Base gradient */}
             <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-teal-50/80 to-emerald-50/50" />
-
-            {/* Depth blobs */}
             <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full bg-teal-100/60 blur-3xl pointer-events-none" />
             <div className="absolute -bottom-6 left-1/3 w-44 h-44 rounded-full bg-emerald-100/50 blur-3xl pointer-events-none" />
-
-            {/* Top rule */}
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-200/70 to-transparent" />
-            {/* Bottom rule */}
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
-
-            {/* Subtle GP Edge branding watermark */}
             <div className="absolute bottom-3 right-5 flex items-center gap-1.5 select-none pointer-events-none opacity-[0.18]">
               <div className="w-5 h-5 rounded-md bg-teal-700 flex items-center justify-center">
                 <span className="text-white text-[8px] font-bold tracking-tight">GP</span>
@@ -277,7 +214,6 @@ export default function SettingsPage() {
               </span>
             </div>
 
-            {/* Hover overlay with action buttons */}
             <div
               className={`absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] flex items-center justify-center gap-2
                           transition-opacity duration-200 ${coverHovered ? "opacity-100" : "opacity-0"}`}
@@ -313,10 +249,9 @@ export default function SettingsPage() {
             />
           </div>
 
-          {/* ── Identity strip — avatar overlaps banner ─────────────────────── */}
+          {/* Identity strip */}
           <div className="px-7 pb-6 relative">
-
-            {/* Editable avatar — overlaps the banner by 50% */}
+            {/* Editable avatar */}
             <div
               className="absolute -top-10 left-7 cursor-pointer group"
               onMouseEnter={() => setAvatarHovered(true)}
@@ -326,10 +261,8 @@ export default function SettingsPage() {
               aria-label="Update profile photo"
             >
               <div className="w-20 h-20 rounded-full overflow-hidden ring-[3px] ring-white shadow-md bg-[#E2F0EE]">
-                <DefaultAvatar className="w-full h-full" />
+                <Avatar className="w-full h-full" />
               </div>
-
-              {/* Camera hover overlay */}
               <div
                 className={`absolute inset-0 rounded-full bg-slate-900/50 flex flex-col items-center justify-center
                             transition-opacity duration-200 ${avatarHovered ? "opacity-100" : "opacity-0"}`}
@@ -337,7 +270,6 @@ export default function SettingsPage() {
                 <Camera size={16} className="text-white" />
                 <span className="text-[9px] text-white font-semibold mt-0.5">Change</span>
               </div>
-
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -347,7 +279,7 @@ export default function SettingsPage() {
               />
             </div>
 
-            {/* Photo management buttons — top right */}
+            {/* Photo management buttons */}
             <div className="flex items-start justify-end pt-2.5 gap-2 flex-wrap">
               <button
                 type="button"
@@ -381,7 +313,7 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Name + professional context (indented to clear avatar) */}
+            {/* Name + professional context */}
             <div className="ml-28 mt-0.5">
               <h2 className="text-[18px] font-bold text-slate-900 leading-snug">
                 Dr. Sarah Chen
@@ -403,20 +335,18 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </FadeIn>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          FORM SECTIONS — 2-column responsive grid
-         ══════════════════════════════════════════════════════════════════════ */}
+      {/* ══ FORM SECTIONS ════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 items-start">
 
-        {/* ── LEFT COLUMN ──────────────────────────────────────────────────── */}
+        {/* ── LEFT COLUMN ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-5">
 
           {/* Account Information */}
-          <motion.div {...fadeUp(0.1)}>
-            <SectionCard>
-              <SectionHeader
+          <FadeIn delay={0.1}>
+            <PageCard>
+              <CardHeader
                 icon={<User size={15} />}
                 title="Account Information"
                 subtitle="Manage your personal login details"
@@ -460,13 +390,13 @@ export default function SettingsPage() {
                   <SaveButton id="save-account-btn" />
                 </div>
               </div>
-            </SectionCard>
-          </motion.div>
+            </PageCard>
+          </FadeIn>
 
           {/* Medical Credentials */}
-          <motion.div {...fadeUp(0.14)}>
-            <SectionCard>
-              <SectionHeader
+          <FadeIn delay={0.14}>
+            <PageCard>
+              <CardHeader
                 icon={<Shield size={15} />}
                 title="Medical Credentials"
                 subtitle="Your professional registration and training details"
@@ -504,17 +434,17 @@ export default function SettingsPage() {
                   <SaveButton id="save-credentials-btn" label="Save Credentials" />
                 </div>
               </div>
-            </SectionCard>
-          </motion.div>
+            </PageCard>
+          </FadeIn>
         </div>
 
         {/* ── RIGHT COLUMN ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-5">
 
           {/* Exam Preparation */}
-          <motion.div {...fadeUp(0.1)}>
-            <SectionCard>
-              <SectionHeader
+          <FadeIn delay={0.1}>
+            <PageCard>
+              <CardHeader
                 icon={<Target size={15} />}
                 title="Exam Preparation"
                 subtitle="Customise your study plan and readiness tracking"
@@ -550,13 +480,13 @@ export default function SettingsPage() {
                   <SaveButton id="save-exam-btn" label="Save Preferences" />
                 </div>
               </div>
-            </SectionCard>
-          </motion.div>
+            </PageCard>
+          </FadeIn>
 
           {/* Security & Account */}
-          <motion.div {...fadeUp(0.14)}>
-            <SectionCard>
-              <SectionHeader
+          <FadeIn delay={0.14}>
+            <PageCard>
+              <CardHeader
                 icon={<Lock size={15} />}
                 title="Security & Account"
                 subtitle="Manage access and active sessions"
@@ -575,20 +505,18 @@ export default function SettingsPage() {
                   sublabel="Sign out from all active sessions"
                 />
               </div>
-            </SectionCard>
-          </motion.div>
+            </PageCard>
+          </FadeIn>
 
           {/* Danger Zone */}
-          <motion.div {...fadeUp(0.18)}>
+          <FadeIn delay={0.18}>
             <div className="bg-red-50/60 rounded-2xl border border-red-100 shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-red-100 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center flex-shrink-0">
                   <AlertTriangle size={14} className="text-red-500" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-red-700 text-[14px] leading-tight">
-                    Danger Zone
-                  </h3>
+                  <h3 className="font-semibold text-red-700 text-[14px] leading-tight">Danger Zone</h3>
                   <p className="text-xs text-red-400 mt-0.5">Irreversible account actions</p>
                 </div>
               </div>
@@ -611,20 +539,22 @@ export default function SettingsPage() {
                 />
               </button>
             </div>
-          </motion.div>
+          </FadeIn>
         </div>
       </div>
 
-      {/* ── Privacy footer ─────────────────────────────────────────────────────── */}
-      <motion.p {...fadeUp(0.22)} className="text-center text-xs text-slate-400 pb-2">
-        Your data is private, encrypted, and never shared with third parties.{" "}
-        <a
-          href="#"
-          className="text-teal-600 hover:text-teal-700 underline underline-offset-2 transition-colors"
-        >
-          Learn more in our Privacy Policy.
-        </a>
-      </motion.p>
+      {/* Privacy footer */}
+      <FadeIn delay={0.22}>
+        <p className="text-center text-xs text-slate-400 pb-2">
+          Your data is private, encrypted, and never shared with third parties.{" "}
+          <a
+            href="#"
+            className="text-teal-600 hover:text-teal-700 underline underline-offset-2 transition-colors"
+          >
+            Learn more in our Privacy Policy.
+          </a>
+        </p>
+      </FadeIn>
     </div>
   );
 }
