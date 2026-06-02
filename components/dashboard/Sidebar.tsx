@@ -201,20 +201,6 @@ export default function Sidebar() {
               gap:           0,
             }}
           >
-            {/* ── GP Edge Logo Mark ── */}
-            <div
-              title="The GP Edge"
-              style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: "linear-gradient(135deg, #0f2027 0%, #0d4a49 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0, marginBottom: 8,
-                boxShadow: "0 2px 8px rgba(15,23,42,0.18)",
-              }}
-            >
-              <span style={{ color: "#99f6e4", fontSize: 9, fontWeight: 800, letterSpacing: "0.03em" }}>GP</span>
-            </div>
-
             {/* ── Avatar ── */}
             <div style={{
               width: 38, height: 38, borderRadius: "50%",
