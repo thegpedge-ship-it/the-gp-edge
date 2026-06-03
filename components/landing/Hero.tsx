@@ -154,7 +154,7 @@ export default function Hero() {
         <div className="absolute bottom-[10%] -left-[100px] w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/60 to-teal-100/40 rounded-full blur-[80px]" />
       </div>
 
-      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-16 lg:pt-40 lg:pb-20">
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 lg:pt-36 pb-16 lg:pb-20">
         <motion.div
           variants={containerVariants}
           initial="hidden"

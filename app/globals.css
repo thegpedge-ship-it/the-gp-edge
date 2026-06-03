@@ -1,17 +1,37 @@
 /* stylelint-disable at-rule-no-unknown */
-@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Instrument+Serif:ital@0;1&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Platform Animation Tokens ──────────────────────────────────────────────
+ * All animations use the same cubic-bezier easing for a coherent, premium feel.
+ * Never use linear or ease-in-out for UI transitions — they feel mechanical.
+ *
+ * --transition-page  : Route-level content fade-in (handled by PageTransition)
+ * --transition-enter : Component-level entrances (cards, modals, drawers)
+ * --transition-fast  : Micro-interactions (hover states, active states)
+ * ─────────────────────────────────────────────────────────────────────────── */
+:root {
+  --ease-primary:      cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-page:   opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+                       transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-enter:  all 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-fast:   all 150ms ease;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     @apply font-sans antialiased;
+    font-feature-settings: "kern", "liga", "calt", "ss01";
   }
 }
 
