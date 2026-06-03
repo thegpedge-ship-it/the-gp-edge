@@ -528,7 +528,7 @@ function MobileDrawer({ pathname }: { pathname: string }) {
         onClick={() => setOpen(true)}
         aria-label="Open navigation"
         style={{
-          position: "fixed", top: 72, left: 12, zIndex: 40,
+          position: "fixed", top: 90, left: 12, zIndex: 40,
           width: 38, height: 38, borderRadius: 10,
           background: "#fff", border: "1px solid #e2e8f0",
           display: "flex", alignItems: "center", justifyContent: "center",

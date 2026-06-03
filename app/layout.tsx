@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import Header from "@/components/shared/Header";
 
 export const metadata: Metadata = {
   title: "The GP Edge | Smart Exam Prep for GP Registrars",
@@ -38,6 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen">
+        <Header />
         {children}
       </body>
     </html>
