@@ -41,7 +41,7 @@ export default function StatusBadge({ variant, label, showDot = true }: StatusBa
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${variantStyles[variant]}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border ${variantStyles[variant]}`}
     >
       {showDot && <span className={`w-1.5 h-1.5 rounded-full ${dotStyles[variant]}`} />}
       {displayLabel}

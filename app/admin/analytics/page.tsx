@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -37,24 +38,22 @@ export default function AnalyticsPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div
+      <PageBanner
+        title="Educational"
+        highlightedText="Analytics"
+        subtitle="Track academic performance across topics and difficulty levels"
+        illustrationPath="/assets/admin_analytics_illustration.png"
+        pillText="Analytics"
+        actions={
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-transparent dark:border-slate-800/40">
+            <span>10 topics tracked</span>
+          </div>
+        }
         variants={itemVariants}
-        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
-        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
-        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">Educational Analytics</h1>
-          <p className="text-sm text-teal-100 font-light">Track academic performance across topics and difficulty levels</p>
-        </div>
-        <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
-          <span className="text-xs font-semibold text-teal-200">10 topics tracked</span>
-        </div>
-      </motion.div>
+      />
 
       {/* Topic performance grid */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
+      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="px-6 py-4 border-b border-slate-200/40">
@@ -102,7 +101,7 @@ export default function AnalyticsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Difficulty analytics */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
           <div className="relative z-10">
             <h3 className="text-sm font-bold text-slate-900 mb-5">Performance by Difficulty</h3>
@@ -126,7 +125,7 @@ export default function AnalyticsPage() {
         </motion.div>
 
         {/* Readiness distribution */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
           <div className="relative z-10">
             <h3 className="text-sm font-bold text-slate-900 mb-5">Readiness Score Distribution</h3>
@@ -144,24 +143,24 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Topic coverage heatmap */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <h3 className="text-sm font-bold text-slate-900 mb-5">Topic Coverage Heatmap</h3>
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
           {topicPerformance.map((t) => (
             <div key={t.topic} className="text-center" title={`${t.topic}: ${t.questions} questions`}>
-              <div className={`aspect-square rounded-xl flex items-center justify-center text-white text-xs font-bold ${t.accuracy >= 80 ? "bg-emerald-400" : t.accuracy >= 65 ? "bg-amber-400" : "bg-red-400"}`}>
+              <div className={`aspect-square rounded-xl flex items-center justify-center text-white text-xs font-bold shadow-sm ${t.accuracy >= 80 ? "bg-emerald-400" : t.accuracy >= 65 ? "bg-slate-400" : "bg-slate-300"}`}>
                 {t.questions}
               </div>
               <p className="text-[9px] text-slate-400 mt-1 truncate">{t.topic}</p>
             </div>
           ))}
         </div>
-        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-100">
+        <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-slate-100/80">
           <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-emerald-400" /><span className="text-[10px] text-slate-400">≥80%</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-amber-400" /><span className="text-[10px] text-slate-400">65-79%</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-red-400" /><span className="text-[10px] text-slate-400">&lt;65%</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-slate-400" /><span className="text-[10px] text-slate-400">65-79%</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-slate-300" /><span className="text-[10px] text-slate-400">&lt;65%</span></div>
         </div>
       </div>
       </motion.div>

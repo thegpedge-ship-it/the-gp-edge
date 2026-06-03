@@ -293,6 +293,20 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
 
       {/* Collapse toggle */}
       <div className="flex-shrink-0 border-t border-slate-200/50 p-3 bg-white/40">
+        {/* Environment tag */}
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center gap-1.5 mb-2 px-2"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] text-slate-400 font-medium tracking-wide">v2.1 · Production</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <button
           onClick={onToggle}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent transition-all duration-200"

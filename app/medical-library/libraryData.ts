@@ -39,7 +39,7 @@ export const bodySystems = [
   { id: "Psychiatry", name: "Psychiatry", iconName: "Brain", color: "from-teal-600 to-teal-700", lightBg: "bg-teal-100/50 dark:bg-teal-950/10", textColor: "text-teal-700 dark:text-teal-400" },
   { id: "Dermatology", name: "Dermatology", iconName: "Sparkles", color: "from-green-600 to-green-700", lightBg: "bg-green-100/50 dark:bg-green-950/10", textColor: "text-green-700 dark:text-green-400" },
   { id: "Women's Health", name: "Women's Health", iconName: "User", color: "from-slate-500 to-slate-600", lightBg: "bg-slate-100 dark:bg-slate-900/60", textColor: "text-slate-600 dark:text-slate-300" },
-  { id: "Paediatrics", name: "Paediatrics", iconName: "Baby", color: "from-emerald-400 to-emerald-500", lightBg: "bg-emerald-50 dark:bg-emerald-950/20", textColor: "text-emerald-650 dark:text-emerald-350" },
+  { id: "Paediatrics", name: "Paediatrics", iconName: "Baby", color: "from-emerald-400 to-emerald-500", lightBg: "bg-emerald-50 dark:bg-emerald-950/20", textColor: "text-emerald-600 dark:text-emerald-400" },
 ];
 
 export const mockConditions: MedicalCondition[] = [

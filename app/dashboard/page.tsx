@@ -1,4 +1,5 @@
 import Topbar from "@/components/dashboard/Topbar";
+import NewQuestionsNotificationCard from "@/components/dashboard/NewQuestionsNotificationCard";
 import StatTile from "@/components/dashboard/StatTile";
 import CountdownCard from "@/components/dashboard/CountdownCard";
 import AccuracyTrendCard from "@/components/dashboard/AccuracyTrendCard";
@@ -12,6 +13,8 @@ export default function DashboardPage() {
   return (
     <>
       <Topbar />
+
+      <NewQuestionsNotificationCard />
 
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         {stats.map((s) => (
