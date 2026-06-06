@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
   Shield,
@@ -79,29 +80,97 @@ function TextInput({
 function SelectInput({
   id,
   defaultValue,
-  children,
+  options,
 }: {
   id: string;
-  defaultValue?: string;
-  children: React.ReactNode;
+  defaultValue: string;
+  options: { value: string; label: string }[];
 }) {
+  const [value, setValue] = useState(defaultValue);
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((opt) => opt.value === value) || options[0];
+
   return (
-    <div className="relative">
-      <select
-        id={id}
-        defaultValue={defaultValue}
-        className="w-full pl-4 pr-10 py-3 rounded-xl border border-slate-200 bg-white
+    <div ref={containerRef} className="relative select-none">
+      <input type="hidden" id={id} name={id} value={value} />
+      
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white
                    text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/40
                    focus:border-teal-500 hover:border-slate-300 transition-all duration-150
-                   shadow-sm appearance-none cursor-pointer"
+                   shadow-sm text-left font-medium"
       >
-        {children}
-      </select>
-      <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none">
-        <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <span className="truncate">{selectedOption.label}</span>
+        <svg
+          className={`w-4 h-4 text-slate-400 transition-transform duration-200 ml-2 shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
-      </div>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 4, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-0 right-0 z-50 overflow-hidden bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto"
+          >
+            <div className="p-1">
+              {options.map((option) => {
+                const isSelected = option.value === value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      setValue(option.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors text-left ${
+                      isSelected
+                        ? "bg-teal-50 text-teal-600 font-semibold"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <span className="truncate">{option.label}</span>
+                    {isSelected && (
+                      <svg
+                        className="w-4 h-4 text-teal-500 shrink-0 ml-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -415,14 +484,18 @@ export default function SettingsPage() {
 
                 <div>
                   <FieldLabel htmlFor="training-level">Current Training Level</FieldLabel>
-                  <SelectInput id="training-level" defaultValue="PGY3">
-                    <option value="PGY1">PGY1 — Intern</option>
-                    <option value="PGY2">PGY2 — Resident</option>
-                    <option value="PGY3">PGY3 — Registrar</option>
-                    <option value="PGY4">PGY4 — Senior Registrar</option>
-                    <option value="Fellow">Fellow — FRACGP</option>
-                    <option value="Consultant">Consultant — GP Principal</option>
-                  </SelectInput>
+                  <SelectInput
+                    id="training-level"
+                    defaultValue="PGY3"
+                    options={[
+                      { value: "PGY1", label: "PGY1 — Intern" },
+                      { value: "PGY2", label: "PGY2 — Resident" },
+                      { value: "PGY3", label: "PGY3 — Registrar" },
+                      { value: "PGY4", label: "PGY4 — Senior Registrar" },
+                      { value: "Fellow", label: "Fellow — FRACGP" },
+                      { value: "Consultant", label: "Consultant — GP Principal" },
+                    ]}
+                  />
                 </div>
 
                 <div>
@@ -452,12 +525,16 @@ export default function SettingsPage() {
               <div className="px-6 py-5 space-y-4">
                 <div>
                   <FieldLabel htmlFor="target-exam">Primary Target Exam</FieldLabel>
-                  <SelectInput id="target-exam" defaultValue="AKT">
-                    <option value="AKT">AKT (Applied Knowledge Test)</option>
-                    <option value="KFP">KFP (Key Feature Problem)</option>
-                    <option value="Both">AKT + KFP Combined</option>
-                    <option value="OSCE">OSCE</option>
-                  </SelectInput>
+                  <SelectInput
+                    id="target-exam"
+                    defaultValue="AKT"
+                    options={[
+                      { value: "AKT", label: "AKT (Applied Knowledge Test)" },
+                      { value: "KFP", label: "KFP (Key Feature Problem)" },
+                      { value: "Both", label: "AKT + KFP Combined" },
+                      { value: "OSCE", label: "OSCE" },
+                    ]}
+                  />
                 </div>
 
                 <div>

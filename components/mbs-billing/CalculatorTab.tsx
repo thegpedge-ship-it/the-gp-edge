@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { mbsItems } from "./data";
+import CustomSelect from "@/components/admin/CustomSelect";
 
 export default function CalculatorTab() {
   const [calcItemId, setCalcItemId] = useState("36");
@@ -30,17 +31,15 @@ export default function CalculatorTab() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Item Number
                 </label>
-                <select
+                <CustomSelect
                   value={calcItemId}
-                  onChange={(e) => setCalcItemId(e.target.value)}
-                  className="w-full h-12 px-4 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-medium focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none font-sans"
-                >
-                  {mbsItems.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      Item {item.id} ΓÇö {item.humanTitle}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setCalcItemId}
+                  options={mbsItems.map((item) => ({
+                    value: item.id,
+                    label: `Item ${item.id} — ${item.humanTitle}`,
+                  }))}
+                  className="w-full font-sans text-slate-900 font-medium"
+                />
               </div>
 
               <div>

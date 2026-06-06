@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import StatCard from "@/components/admin/StatCard";
 import StatusBadge from "@/components/admin/StatusBadge";
-import PageBanner from "@/components/shared/PageBanner";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -40,12 +40,10 @@ export default function BillingPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
+      <AdminPageHeader
         title="Billing &"
         highlightedText="Subscription"
         subtitle="Manage Stripe payments, subscriptions, and revenue"
-        illustrationPath="/assets/admin_billing_illustration.png"
-        pillText="Billing"
         actions={
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-transparent dark:border-slate-800/40">
             <span>MRR: $15,600</span>
@@ -57,26 +55,85 @@ export default function BillingPage() {
 
       {/* Revenue stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Monthly Recurring" value="$15,600" trend={{ value: "18%", positive: true }} accentColor="teal" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-        <StatCard title="Total Revenue" value="$58,200" trend={{ value: "34%", positive: true }} accentColor="emerald" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>} />
-        <StatCard title="Active Subscriptions" value="1,456" trend={{ value: "23%", positive: true }} accentColor="slate" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>} />
-        <StatCard title="Churn Rate" value="2.3%" trend={{ value: "0.5%", positive: false }} accentColor="slate" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>} />
+        <StatCard title="Average Revenue Per User" value="$14.50" trend={{ value: "8%", positive: true }} accentColor="teal" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} />
+        <StatCard title="Stripe Success Rate" value="99.4%" trend={{ value: "0.2%", positive: true }} accentColor="emerald" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>} />
+        <StatCard title="Pending Refunds" value="2 Requests" trend={{ value: "40%", positive: false }} accentColor="slate" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+        <StatCard title="Annual Plan Adoption" value="68%" trend={{ value: "12%", positive: true }} accentColor="teal" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue chart */}
+        {/* Subscription breakdown panel */}
         <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <h3 className="text-sm font-bold text-slate-900 mb-5">Monthly Revenue</h3>
-            <div className="flex items-end justify-between gap-4 h-48">
-              {monthlyRevenue.map((m, i) => (
-                <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-600">${(m.revenue / 1000).toFixed(1)}k</span>
-                  <motion.div initial={{ height: 0 }} animate={{ height: `${(m.revenue / maxRevenue) * 100}%` }} transition={{ duration: 0.6, delay: i * 0.1 }} className="w-full rounded-lg bg-gradient-to-t from-teal-500 to-emerald-400 shadow-sm" />
-                  <span className="text-xs font-medium text-slate-400">{m.month}</span>
+          <div className="relative z-10 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Subscription Plan Adoption</h3>
+                <p className="text-xs text-slate-400 mt-0.5 font-semibold">Distribution of premium users by payment tier</p>
+              </div>
+              <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/50 px-3 py-1 rounded-full">1,456 Active Subscriptions</span>
+            </div>
+
+            {/* Segmented Progress Bar */}
+            <div className="space-y-2">
+              <div className="h-4 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
+                <div className="h-full bg-gradient-to-r from-teal-500 to-teal-400" style={{ width: "68%" }} title="Premium Annual (68%)" />
+                <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: "32%" }} title="Premium Monthly (32%)" />
+              </div>
+              <div className="flex justify-between text-[11px] font-bold text-slate-500 px-1">
+                <span>Premium Annual: 68%</span>
+                <span>Premium Monthly: 32%</span>
+              </div>
+            </div>
+
+            {/* Plan Details Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
+                    <span className="text-xs font-bold text-slate-800">Premium Annual</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500">$199/yr</span>
                 </div>
-              ))}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-600">990 Users</span>
+                    <span className="text-teal-600 font-bold">$197,010/yr</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-teal-500" style={{ width: "68%" }} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="text-xs font-bold text-slate-800">Premium Monthly</span>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500">$24/mo</span>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-slate-600">466 Users</span>
+                    <span className="text-emerald-600 font-bold">$11,184/mo</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-400" style={{ width: "32%" }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Billing gateway health */}
+            <div className="flex items-center justify-between border-t border-slate-100/60 pt-4 text-xs font-semibold text-slate-500">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                <span>Stripe Gateway: Connected</span>
+              </div>
+              <span>Webhooks: Operational (100% success rate)</span>
             </div>
           </div>
         </motion.div>

@@ -55,7 +55,7 @@ export default function NewQuestionsNotificationCard() {
       >
         {/* Decorative ambient glowing backdrops */}
         <div className="absolute -top-12 -right-8 w-44 h-44 rounded-full bg-teal-200/20 dark:bg-teal-700/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-40 h-40 rounded-full bg-emerald-250/20 dark:bg-emerald-700/5 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-40 h-40 rounded-full bg-emerald-200/20 dark:bg-emerald-700/5 blur-3xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 pr-8">
           <div className="flex items-start gap-4 lg:gap-5">
@@ -90,7 +90,7 @@ export default function NewQuestionsNotificationCard() {
           <div className="flex items-center gap-2.5 shrink-0 self-end lg:self-center">
             <button
               onClick={handleDismiss}
-              className="px-5 py-2.5 bg-white/80 hover:bg-slate-50 dark:bg-slate-950/20 dark:hover:bg-slate-900 text-xs font-bold text-slate-650 dark:text-slate-350 border border-slate-200 dark:border-slate-800/50 rounded-full transition-all active:scale-[0.97]"
+              className="px-5 py-2.5 bg-white/80 hover:bg-slate-50 dark:bg-slate-950/20 dark:hover:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800/50 rounded-full transition-all active:scale-[0.97]"
             >
               Dismiss
             </button>
@@ -108,7 +108,7 @@ export default function NewQuestionsNotificationCard() {
         {/* Dismiss absolute X button positioned nicely inside the card */}
         <button
           onClick={handleDismiss}
-          className="absolute top-5 right-5 lg:top-6 lg:right-6 p-1.5 rounded-lg text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-all z-20"
+          className="absolute top-5 right-5 lg:top-6 lg:right-6 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-all z-20"
           aria-label="Close notification"
         >
           <X className="w-4 h-4" />

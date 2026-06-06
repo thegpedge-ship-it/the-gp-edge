@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import CustomSelect from "@/components/admin/CustomSelect";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -49,7 +50,7 @@ const versionHistory = [
 const calloutStyles: Record<string, { bg: string; border: string; icon: string; label: string; text: string }> = {
   info: { bg: "bg-teal-50/70", border: "border-teal-200", icon: "ℹ️", label: "Guideline", text: "text-teal-900" },
   billing: { bg: "bg-slate-50/70", border: "border-slate-200", icon: "💰", label: "Billing", text: "text-slate-900" },
-  pearl: { bg: "bg-emerald-50/70", border: "border-emerald-250", icon: "💎", label: "Clinical Pearl", text: "text-emerald-900" },
+  pearl: { bg: "bg-emerald-50/70", border: "border-emerald-200", icon: "💎", label: "Clinical Pearl", text: "text-emerald-900" },
   warning: { bg: "bg-green-50/70", border: "border-green-200", icon: "⚠️", label: "Warning", text: "text-green-900" },
 };
 
@@ -62,6 +63,8 @@ export default function ContentEditorPage() {
   const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published">("published");
   const [wordCount] = useState(483);
   const [charCount] = useState(3247);
+  const [selectedSystem, setSelectedSystem] = useState("Endocrine");
+  const [selectedCategory, setSelectedCategory] = useState("Chronic Disease");
 
   const renderBlock = (block: ContentBlock) => {
     const isActive = activeBlockId === block.id;
@@ -277,7 +280,7 @@ export default function ContentEditorPage() {
             {/* Content type badge */}
             <div className="flex items-center gap-2 mb-6">
               <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-teal-50 text-teal-700 border-teal-200">Guideline</span>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-750 border-emerald-200">Endocrine</span>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">Endocrine</span>
               <span className="text-xs text-slate-400 font-medium ml-auto">Last saved: 2 mins ago</span>
             </div>
 
@@ -308,7 +311,7 @@ export default function ContentEditorPage() {
               className="space-y-4"
             >
               {/* Sidebar tabs */}
-              <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
+              <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 relative z-20">
                 <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
                 <div className="relative z-10">
                   <div className="flex border-b border-slate-200/40">
@@ -331,22 +334,32 @@ export default function ContentEditorPage() {
                           <input type="text" defaultValue="Type 2 Diabetes Management" className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-1.5">System</label>
-                          <select className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600">
-                            <option>Endocrine</option>
-                            <option>Cardiovascular</option>
-                            <option>Respiratory</option>
-                            <option>Psychiatry</option>
-                          </select>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
+                          <CustomSelect
+                            value={selectedSystem}
+                            onChange={setSelectedSystem}
+                            options={[
+                              { value: "Endocrine", label: "Endocrine" },
+                              { value: "Cardiology", label: "Cardiology" },
+                              { value: "Respiratory", label: "Respiratory" },
+                              { value: "Psychiatry", label: "Psychiatry" },
+                            ]}
+                            className="w-full"
+                          />
                         </div>
                         <div>
-                          <label className="block text-xs font-semibold text-slate-600 mb-1.5">Category</label>
-                          <select className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600">
-                            <option>Chronic Disease</option>
-                            <option>Emergency</option>
-                            <option>Preventive</option>
-                            <option>Mental Health</option>
-                          </select>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                          <CustomSelect
+                            value={selectedCategory}
+                            onChange={setSelectedCategory}
+                            options={[
+                              { value: "Chronic Disease", label: "Chronic Disease" },
+                              { value: "Emergency", label: "Emergency" },
+                              { value: "Preventive", label: "Preventive" },
+                              { value: "Mental Health", label: "Mental Health" },
+                            ]}
+                            className="w-full"
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Author</label>

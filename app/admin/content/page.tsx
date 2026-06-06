@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
-import PageBanner from "@/components/shared/PageBanner";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import CustomSelect from "@/components/admin/CustomSelect";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -155,12 +156,10 @@ export default function ContentPage() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       
-      <PageBanner
+      <AdminPageHeader
         title="Medical"
         highlightedText="Content"
         subtitle={`Clinical guidelines, protocols, and care pathways · ${content.length} items`}
-        illustrationPath="/assets/admin_content_illustration.png"
-        pillText="Library"
         actions={
           <button 
             onClick={() => { resetForm(); setShowAddModal(true); }}
@@ -195,30 +194,45 @@ export default function ContentPage() {
       </motion.div>
 
       {/* Filters */}
-      <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center">
+      <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center relative z-20">
         <div className="relative flex-1 max-w-sm">
           <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all dark:text-slate-200" />
         </div>
-        <select value={systemFilter} onChange={(e) => setSystemFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-350">
-          <option value="all">All Systems</option>
-          {systems.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-355">
-          <option value="all">All Types</option>
-          <option value="Condition">Condition</option>
-          <option value="Guideline">Guideline</option>
-          <option value="Protocol">Protocol</option>
-          <option value="Pathway">Pathway</option>
-          <option value="Document">Document</option>
-          <option value="Note">Note</option>
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600 dark:text-slate-355">
-          <option value="all">All Status</option>
-          <option value="published">Published</option>
-          <option value="review">Review</option>
-          <option value="draft">Draft</option>
-        </select>
+        <CustomSelect
+          value={systemFilter}
+          onChange={setSystemFilter}
+          options={[
+            { value: "all", label: "All Systems" },
+            ...systems.map((s) => ({ value: s, label: s })),
+          ]}
+          className="w-48"
+        />
+        <CustomSelect
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={[
+            { value: "all", label: "All Types" },
+            { value: "Condition", label: "Condition" },
+            { value: "Guideline", label: "Guideline" },
+            { value: "Protocol", label: "Protocol" },
+            { value: "Pathway", label: "Pathway" },
+            { value: "Document", label: "Document" },
+            { value: "Note", label: "Note" },
+          ]}
+          className="w-48"
+        />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "All Status" },
+            { value: "published", label: "Published" },
+            { value: "review", label: "Review" },
+            { value: "draft", label: "Draft" },
+          ]}
+          className="w-48"
+        />
       </motion.div>
 
       {/* Content cards grid */}
@@ -245,7 +259,7 @@ export default function ContentPage() {
               <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-4 text-xs text-slate-505">
+                <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span className="flex items-center gap-1">
                     <Lucide.Link className="w-3.5 h-3.5 text-slate-400" />
                     {item.references} refs
@@ -310,11 +324,11 @@ export default function ContentPage() {
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-500/80 hover:bg-teal-50/10 transition-all text-left flex items-start gap-4 group"
                       >
                         <span className="bg-teal-50 dark:bg-teal-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.Stethoscope className="w-6 h-6 text-teal-650" />
+                          <Lucide.Stethoscope className="w-6 h-6 text-teal-600" />
                         </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Clinical Condition / Guideline</h4>
-                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
                         </div>
                       </button>
 
@@ -327,7 +341,7 @@ export default function ContentPage() {
                         </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition">Clinical Document (PDF)</h4>
-                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
                         </div>
                       </button>
 
@@ -336,11 +350,11 @@ export default function ContentPage() {
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-green-500/80 hover:bg-green-50/10 transition-all text-left flex items-start gap-4 group"
                       >
                         <span className="bg-green-50 dark:bg-green-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-green-650" />
+                          <Lucide.FileText className="w-6 h-6 text-green-600" />
                         </span>
                         <div>
                           <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-green-600 transition">Structured Note</h4>
-                          <p className="text-xs text-slate-505 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
                         </div>
                       </button>
                     </div>
@@ -352,36 +366,41 @@ export default function ContentPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Condition Name</label>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Condition Name</label>
                         <input type="text" placeholder="e.g. Chronic Kidney Disease" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
-                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
-                          <option value="Endocrine">Endocrine</option>
-                          <option value="Cardiology">Cardiology</option>
-                          <option value="Respiratory">Respiratory</option>
-                          <option value="Gastroenterology">Gastrointestinal</option>
-                          <option value="Psychiatry">Psychiatry</option>
-                          <option value="Dermatology">Dermatology</option>
-                          <option value="Women's Health">Women's Health</option>
-                          <option value="Paediatrics">Paediatrics</option>
-                        </select>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
+                        <CustomSelect
+                          value={newSystem}
+                          onChange={setNewSystem}
+                          options={[
+                            { value: "Endocrine", label: "Endocrine" },
+                            { value: "Cardiology", label: "Cardiology" },
+                            { value: "Respiratory", label: "Respiratory" },
+                            { value: "Gastroenterology", label: "Gastrointestinal" },
+                            { value: "Psychiatry", label: "Psychiatry" },
+                            { value: "Dermatology", label: "Dermatology" },
+                            { value: "Women's Health", label: "Women's Health" },
+                            { value: "Paediatrics", label: "Paediatrics" }
+                          ]}
+                          className="w-full"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Category / Area</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category / Area</label>
                       <input type="text" placeholder="e.g. Chronic Disease, Emergency Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Symptoms (one per line)</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Symptoms (one per line)</label>
                       <textarea rows={2} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Treatment Options (one per line)</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Treatment Options (one per line)</label>
                       <textarea rows={2} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
                     </div>
 
@@ -397,37 +416,42 @@ export default function ContentPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Document Title</label>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Document Title</label>
                         <input type="text" placeholder="e.g. ACS Emergency Protocol Guide" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
-                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
-                          <option value="Endocrine">Endocrine</option>
-                          <option value="Cardiology">Cardiology</option>
-                          <option value="Respiratory">Respiratory</option>
-                          <option value="Gastroenterology">Gastrointestinal</option>
-                          <option value="Psychiatry">Psychiatry</option>
-                          <option value="Dermatology">Dermatology</option>
-                          <option value="Women's Health">Women's Health</option>
-                          <option value="Paediatrics">Paediatrics</option>
-                        </select>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
+                        <CustomSelect
+                          value={newSystem}
+                          onChange={setNewSystem}
+                          options={[
+                            { value: "Endocrine", label: "Endocrine" },
+                            { value: "Cardiology", label: "Cardiology" },
+                            { value: "Respiratory", label: "Respiratory" },
+                            { value: "Gastroenterology", label: "Gastrointestinal" },
+                            { value: "Psychiatry", label: "Psychiatry" },
+                            { value: "Dermatology", label: "Dermatology" },
+                            { value: "Women's Health", label: "Women's Health" },
+                            { value: "Paediatrics", label: "Paediatrics" }
+                          ]}
+                          className="w-full"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Category</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category</label>
                       <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     {/* PDF Drag and Drop Simulator */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1.5">PDF Document Attachment</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">PDF Document Attachment</label>
                       
                       {uploadState === "idle" && (
                         <div 
                           onClick={simulateFileUpload}
-                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-850 hover:bg-teal-50/10 transition-all flex flex-col items-center justify-center"
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-teal-50/10 transition-all flex flex-col items-center justify-center"
                         >
                           <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
@@ -436,9 +460,9 @@ export default function ContentPage() {
                       )}
 
                       {uploadState === "uploading" && (
-                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-850 space-y-3">
+                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-800 space-y-3">
                           <div className="flex items-center justify-between text-xs font-bold">
-                            <span className="text-slate-700 dark:text-slate-350 truncate max-w-[220px]">{uploadedFileName}</span>
+                            <span className="text-slate-700 dark:text-slate-300 truncate max-w-[220px]">{uploadedFileName}</span>
                             <span className="text-slate-400 font-mono">{uploadProgress}%</span>
                           </div>
                           
@@ -450,7 +474,7 @@ export default function ContentPage() {
                       )}
 
                       {uploadState === "success" && (
-                        <div className="border border-emerald-250 dark:border-emerald-900/40 rounded-2xl p-5 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2 flex items-start gap-3">
+                        <div className="border border-emerald-200 dark:border-emerald-900/40 rounded-2xl p-5 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2 flex items-start gap-3">
                           <span className="text-xl bg-emerald-100 dark:bg-emerald-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
                             <Lucide.Check className="w-4 h-4 text-emerald-600" />
                           </span>
@@ -464,7 +488,7 @@ export default function ContentPage() {
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-505 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
                       <button 
                         onClick={() => handleSaveContent("Document")} 
                         disabled={uploadState !== "success"}
@@ -481,36 +505,41 @@ export default function ContentPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Note Title</label>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Title</label>
                         <input type="text" placeholder="e.g. Clinical pearl on Otitis Media" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Body System</label>
-                        <select value={newSystem} onChange={(e) => setNewSystem(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs text-slate-600 dark:text-slate-350">
-                          <option value="Endocrine">Endocrine</option>
-                          <option value="Cardiology">Cardiology</option>
-                          <option value="Respiratory">Respiratory</option>
-                          <option value="Gastroenterology">Gastrointestinal</option>
-                          <option value="Psychiatry">Psychiatry</option>
-                          <option value="Dermatology">Dermatology</option>
-                          <option value="Women's Health">Women's Health</option>
-                          <option value="Paediatrics">Paediatrics</option>
-                        </select>
+                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
+                        <CustomSelect
+                          value={newSystem}
+                          onChange={setNewSystem}
+                          options={[
+                            { value: "Endocrine", label: "Endocrine" },
+                            { value: "Cardiology", label: "Cardiology" },
+                            { value: "Respiratory", label: "Respiratory" },
+                            { value: "Gastroenterology", label: "Gastrointestinal" },
+                            { value: "Psychiatry", label: "Psychiatry" },
+                            { value: "Dermatology", label: "Dermatology" },
+                            { value: "Women's Health", label: "Women's Health" },
+                            { value: "Paediatrics", label: "Paediatrics" }
+                          ]}
+                          className="w-full"
+                        />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Note Category / Tag</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Category / Tag</label>
                       <input type="text" placeholder="e.g. Clinical Pearl, Fact Sheet" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-650 dark:text-slate-300 mb-1">Structured Note Content</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Structured Note Content</label>
                       <textarea rows={4} placeholder="Draft clinical reference note..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-505 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
                       <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-500 shadow">Save Note</button>
                     </div>
                   </div>
@@ -526,37 +555,62 @@ export default function ContentPage() {
       <AnimatePresence>
         {selectedContent && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" onClick={() => setSelectedContent(null)} />
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer" onClick={() => setSelectedContent(null)} />
             <motion.div
-              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border-l border-white dark:border-slate-850 z-50 shadow-2xl overflow-y-auto"
+              initial={{ x: "110%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "110%", opacity: 0 }}
+              transition={{ type: "spring", damping: 32, stiffness: 280 }}
+              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl rounded-2xl overflow-hidden flex flex-col"
             >
-              <div className="p-6 text-slate-800 dark:text-slate-200">
-                <button onClick={() => setSelectedContent(null)} className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
-                  <Lucide.X className="w-5 h-5" />
+              {/* Decorative top accent line */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
+
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
+                <button
+                  onClick={() => setSelectedContent(null)}
+                  className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
+                >
+                  <Lucide.X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
                 </button>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
                   <StatusBadge variant={selectedContent.status} />
                 </div>
-                <h2 className="font-serif text-xl text-slate-900 dark:text-slate-100 mb-2">{selectedContent.name}</h2>
-                <p className="text-sm text-slate-505 dark:text-slate-400 mb-6">{selectedContent.system} · {selectedContent.category}</p>
+                <h2 className="font-serif text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight pr-8">{selectedContent.name}</h2>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedContent.system} · {selectedContent.category}</p>
+              </div>
 
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">References</p><p className="text-xl font-serif text-slate-900 dark:text-slate-200">{selectedContent.references}</p></div>
-                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Used in Questions</p><p className="text-xl font-serif text-slate-900 dark:text-slate-200">{selectedContent.usedInQuestions}</p></div>
-                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Author</p><p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p></div>
-                  <div className="bg-slate-50 dark:bg-slate-850 rounded-xl p-4"><p className="text-xs text-slate-400 mb-1">Last Updated</p><p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p></div>
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide text-slate-800 dark:text-slate-200">
+                {/* Info grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">References</p>
+                    <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.references}</p>
+                  </div>
+                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Used in Questions</p>
+                    <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.usedInQuestions}</p>
+                  </div>
+                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Author</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p>
+                  </div>
+                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Last Updated</p>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p>
+                  </div>
                 </div>
 
                 {/* Content Editor Preview */}
-                <div className="mb-6">
-                  <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Content Preview</h3>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Content Preview</h3>
                   <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                       {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                        <button key={btn} className="h-8 px-2 text-xs font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
+                        <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
                       ))}
                     </div>
                     <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
@@ -565,11 +619,12 @@ export default function ContentPage() {
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="flex gap-2">
-                  <button className="flex-1 px-4 py-2.5 bg-teal-500 text-sm font-semibold text-white rounded-xl hover:bg-teal-600 transition-all">Edit Content</button>
-                  <button className="px-4 py-2.5 text-sm font-medium text-slate-650 dark:text-slate-400 border border-slate-200 dark:border-slate-850 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Duplicate</button>
-                </div>
+              {/* Footer */}
+              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+                <button className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">Edit Content</button>
+                <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
               </div>
             </motion.div>
           </>

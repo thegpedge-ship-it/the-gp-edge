@@ -1,10 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import StatCard from "@/components/admin/StatCard";
-import StatusBadge from "@/components/admin/StatusBadge";
-import LiveStudentSimulator from "@/components/admin/LiveStudentSimulator";
-import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -16,420 +14,283 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
 };
 
-const weeklyData = [
-  { day: "Mon", value: 65 },
-  { day: "Tue", value: 82 },
-  { day: "Wed", value: 71 },
-  { day: "Thu", value: 93 },
-  { day: "Fri", value: 88 },
-  { day: "Sat", value: 45 },
-  { day: "Sun", value: 78 },
+const monthlyRevenue = [
+  { month: "Jan", revenue: 8200 },
+  { month: "Feb", revenue: 9800 },
+  { month: "Mar", revenue: 11400 },
+  { month: "Apr", revenue: 13200 },
+  { month: "May", revenue: 15600 },
+  { month: "Jun", revenue: 17100 },
+];
+
+const userGrowth = [
+  { month: "Jan", users: 8420 },
+  { month: "Feb", users: 9180 },
+  { month: "Mar", users: 10050 },
+  { month: "Apr", users: 10890 },
+  { month: "May", users: 11740 },
+  { month: "Jun", users: 12847 },
 ];
 
 const recentActivity = [
-  { user: "Dr. Sarah Chen", action: "Completed AKT Mock Exam", time: "2 mins ago", type: "quiz" as const },
   { user: "Dr. James Wilson", action: "Subscribed to Premium", time: "15 mins ago", type: "billing" as const },
-  { user: "Dr. Priya Sharma", action: "Uploaded CSV (142 questions)", time: "1 hour ago", type: "upload" as const },
-  { user: "Dr. Michael Torres", action: "Reached 90% readiness score", time: "2 hours ago", type: "achievement" as const },
-  { user: "Dr. Emily Watson", action: "Created new account", time: "3 hours ago", type: "signup" as const },
+  { user: "Dr. Emily Watson", action: "Created new account", time: "1 hour ago", type: "signup" as const },
+  { user: "Dr. Priya Sharma", action: "Uploaded CSV (142 questions)", time: "2 hours ago", type: "upload" as const },
+  { user: "Dr. Michael Torres", action: "Upgraded to Annual plan", time: "3 hours ago", type: "billing" as const },
   { user: "Dr. Alex Kumar", action: "Flagged Question #2847", time: "4 hours ago", type: "flag" as const },
-];
-
-const weakTopics = [
-  { topic: "Mental Health", accuracy: 58, attempts: 342, trend: "down" },
-  { topic: "Dermatology", accuracy: 62, attempts: 289, trend: "up" },
-  { topic: "Paediatrics", accuracy: 64, attempts: 256, trend: "stable" },
-  { topic: "Women's Health", accuracy: 67, attempts: 198, trend: "up" },
-];
-
-const strongTopics = [
-  { topic: "Cardiology", accuracy: 92, attempts: 1204, trend: "up" },
-  { topic: "Respiratory", accuracy: 88, attempts: 987, trend: "up" },
-  { topic: "Musculoskeletal", accuracy: 85, attempts: 756, trend: "stable" },
-  { topic: "Gastroenterology", accuracy: 83, attempts: 654, trend: "up" },
+  { user: "Dr. Rachel Green", action: "Renewed subscription", time: "5 hours ago", type: "billing" as const },
 ];
 
 const activityTypeIcon: Record<string, React.ReactNode> = {
-  quiz: (
-    <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-    </div>
-  ),
   billing: (
-    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-    </div>
-  ),
-  upload: (
-    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-    </div>
-  ),
-  achievement: (
-    <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
-      <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
+      <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
     </div>
   ),
   signup: (
-    <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center">
-      <svg className="w-4 h-4 text-teal-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-500/20 flex items-center justify-center">
+      <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+    </div>
+  ),
+  upload: (
+    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
     </div>
   ),
   flag: (
-    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center">
-      <svg className="w-4 h-4 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+      <svg className="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
     </div>
   ),
 };
 
 export default function DashboardPage() {
-  const maxWeekly = Math.max(...weeklyData.map((d) => d.value));
+  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.revenue));
+  const maxUsers = Math.max(...userGrowth.map((d) => d.users));
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
-        title="Welcome back,"
-        highlightedText="Siddhant"
-        subtitle="Here's your platform overview and administrative statistics."
-        illustrationPath="/assets/admin_dashboard_illustration.png"
-        pillText="Admin Cockpit"
-        pillIcon={
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
-          </span>
-        }
-        actions={
-          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 font-semibold bg-slate-50 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-800/40">
-            <span>Last updated: just now</span>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500" />
-            </span>
-          </div>
-        }
+      {/* Welcome banner — Topbar style with illustration */}
+      <motion.section
         variants={itemVariants}
-      />
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/40 dark:from-emerald-900/20 dark:via-slate-800/40 dark:to-teal-900/20 border border-emerald-100/60 dark:border-emerald-800/40 p-8 lg:p-10"
+      >
+        {/* Decorative blobs */}
+        <div className="absolute -top-16 right-1/3 w-64 h-64 rounded-full bg-emerald-200/40 dark:bg-emerald-700/20 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-teal-200/30 dark:bg-teal-700/15 blur-3xl pointer-events-none" />
 
-      {/* Primary stat cards */}
+        <div className="relative flex items-center justify-between gap-6">
+          <div className="flex-1 min-w-0 max-w-xl">
+            <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
+              <span className="text-xl">👋</span>
+              Good morning, Siddhant!
+            </p>
+            <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
+              Your admin{" "}
+              <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">
+                cockpit
+              </span>
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+              Business overview and platform operations at a glance.
+            </p>
+          </div>
+
+          {/* Welcome illustration */}
+          <div
+            className="hidden lg:block relative w-[280px] aspect-[786/442] flex-shrink-0"
+            style={{ willChange: "transform" }}
+          >
+            <Image
+              src="/assets/admin_dashboard_illustration.png"
+              alt="Admin managing platform cockpit"
+              fill
+              priority
+              sizes="280px"
+              className="object-contain mix-blend-multiply"
+            />
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Revenue & business stat cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Users"
-          value="12,847"
-          trend={{ value: "12%", positive: true }}
+          title="Monthly Recurring Revenue"
+          value="$17,100"
+          trend={{ value: "18%", positive: true }}
+          accentColor="emerald"
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+        />
+        <StatCard
+          title="Total Revenue (YTD)"
+          value="$75,300"
+          trend={{ value: "34%", positive: true }}
           accentColor="teal"
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+        />
+        <StatCard
+          title="Active Subscribers"
+          value="1,456"
+          trend={{ value: "23%", positive: true }}
+          accentColor="emerald"
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
         />
         <StatCard
-          title="Active Users"
-          value="3,219"
-          trend={{ value: "8%", positive: true }}
-          accentColor="emerald"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-        />
-        <StatCard
-          title="Premium Subscribers"
-          value="1,456"
-          trend={{ value: "23%", positive: true }}
+          title="Churn Rate"
+          value="2.3%"
+          trend={{ value: "0.5%", positive: false }}
           accentColor="slate"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>}
-        />
-        <StatCard
-          title="Quiz Attempts"
-          value="89,234"
-          trend={{ value: "5%", positive: true }}
-          accentColor="emerald"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
+          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
         />
       </motion.div>
 
-      {/* Secondary stats row */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Avg Readiness</p>
-                <p className="text-xl font-bold text-slate-900 leading-none mt-1">74%</p>
-              </div>
-            </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full" style={{ width: "74%" }} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Weakest Topic</p>
-                <p className="text-lg font-bold text-slate-900 mt-0.5">Mental Health</p>
-              </div>
-            </div>
-            <p className="text-xs text-slate-600 font-semibold">58% accuracy across 342 attempts</p>
-          </div>
-        </div>
-
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-emerald-50/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-500">Strongest Topic</p>
-                <p className="text-lg font-bold text-slate-900 mt-0.5">Cardiology</p>
-              </div>
-            </div>
-            <p className="text-xs text-emerald-600 font-semibold">92% accuracy across 1,204 attempts</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Section divider */}
-      <div className="flex items-center gap-3 px-1">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/60 to-transparent" />
-      </div>
-
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Weekly activity chart */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Weekly Activity</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Quiz attempts per day</p>
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-100/80 rounded-lg p-1">
-                <button className="px-3 py-1 text-xs font-semibold text-white bg-teal-600 rounded-md shadow-sm">Week</button>
-                <button className="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700 rounded-md">Month</button>
-              </div>
-            </div>
-            <div className="flex items-end justify-between gap-3 h-48">
-              {weeklyData.map((d, i) => (
-                <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
-                  <span className="text-xs font-bold text-slate-600">{d.value}</span>
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${(d.value / maxWeekly) * 100}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                    className={`w-full rounded-lg ${
-                      d.value === maxWeekly
-                        ? "bg-gradient-to-t from-teal-600 to-teal-400 shadow-lg shadow-teal-500/10"
-                        : "bg-slate-100 hover:bg-teal-100/50 transition-colors"
-                    }`}
-                  />
-                  <span className={`text-xs font-semibold ${d.value === maxWeekly ? "text-teal-600" : "text-slate-400"}`}>
-                    {d.day}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Recent activity feed */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <h3 className="text-sm font-bold text-slate-900 mb-4">Recent Activity</h3>
-            <div className="space-y-0">
-              {recentActivity.map((activity, i) => (
-                <div key={i} className="flex items-start gap-3 relative pl-0 pb-4 last:pb-0">
-                  {/* Timeline connector */}
-                  {i < recentActivity.length - 1 && (
-                    <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200/60" />
-                  )}
-                  <div className="relative z-10 flex-shrink-0">
-                    {activityTypeIcon[activity.type]}
-                  </div>
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <p className="text-sm text-slate-700 font-semibold truncate leading-tight">{activity.user}</p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{activity.action}</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap flex-shrink-0 pt-0.5">{activity.time}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Topic performance */}
+      {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weakest Topics */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse" />
-              <h3 className="text-sm font-bold text-slate-900">Weakest Topics</h3>
+        {/* Monthly revenue chart */}
+        <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Revenue</p>
+              <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Monthly Revenue</h3>
             </div>
-            <div className="space-y-4">
-              {weakTopics.map((t) => (
-                <div key={t.topic}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-slate-700">{t.topic}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 font-semibold">{t.attempts} attempts</span>
-                      <span className="text-sm font-bold text-slate-650">{t.accuracy}%</span>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${t.accuracy}%` }}
-                      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full bg-gradient-to-r from-slate-400 to-slate-500 rounded-full"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-500 cursor-pointer transition-colors">2026 →</span>
+          </div>
+          <div className="flex items-end justify-between gap-3 h-44">
+            {monthlyRevenue.map((m, i) => (
+              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">${(m.revenue / 1000).toFixed(1)}k</span>
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
+                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className={`w-full rounded-lg ${i === monthlyRevenue.length - 1 ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-800/30"} transition-colors`}
+                />
+                <span className={`text-[11px] font-medium ${i === monthlyRevenue.length - 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
+              </div>
+            ))}
           </div>
         </motion.div>
 
-        {/* Strongest Topics */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-emerald-50/5 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="text-sm font-bold text-slate-900">Strongest Topics</h3>
+        {/* User growth chart */}
+        <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Growth</p>
+              <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">User Growth</h3>
             </div>
-            <div className="space-y-4">
-              {strongTopics.map((t) => (
-                <div key={t.topic}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-sm font-semibold text-slate-700">{t.topic}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400 font-semibold">{t.attempts} attempts</span>
-                      <span className="text-sm font-bold text-emerald-600">{t.accuracy}%</span>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${t.accuracy}%` }}
-                      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <span className="font-serif text-xl text-slate-900 dark:text-slate-50">12,847</span>
+          </div>
+          <div className="flex items-end justify-between gap-3 h-44">
+            {userGrowth.map((m, i) => (
+              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{(m.users / 1000).toFixed(1)}k</span>
+                <motion.div
+                  initial={{ height: 0 }}
+                  animate={{ height: `${(m.users / maxUsers) * 100}%` }}
+                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className={`w-full rounded-lg ${i === userGrowth.length - 1 ? "bg-gradient-to-t from-teal-500 to-emerald-400 shadow-lg shadow-teal-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-teal-100 dark:hover:bg-teal-800/30"} transition-colors`}
+                />
+                <span className={`text-[11px] font-medium ${i === userGrowth.length - 1 ? "text-teal-600 dark:text-teal-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
+              </div>
+            ))}
           </div>
         </motion.div>
       </div>
 
-      {/* Live Student Portal Preview */}
-      <motion.div variants={itemVariants} className="space-y-3">
-        <LiveStudentSimulator
-          weakTopicWeight={75}
-          difficultyScaling={60}
-          spacedRepetition={true}
-          topicPriorities={[
-            { topic: "Mental Health", weight: 85, auto: true },
-            { topic: "Dermatology", weight: 72, auto: true },
-            { topic: "Paediatrics", weight: 68, auto: false },
-            { topic: "Women's Health", weight: 60, auto: true },
-            { topic: "Respiratory", weight: 15, auto: true },
-            { topic: "Cardiology", weight: 10, auto: true },
-          ]}
-        />
-      </motion.div>
-
-      {/* System Health & Platform Overview */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* System health monitor */}
-        <div className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="text-sm font-bold text-slate-900">System Health</h3>
+      {/* Activity feed + Platform overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent activity */}
+        <motion.div variants={itemVariants} className="lg:col-span-2 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Activity</p>
+              <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Recent Activity</h3>
+            </div>
+          </div>
+          <div className="space-y-0">
+            {recentActivity.map((activity, i) => (
+              <div key={i} className="flex items-start gap-3 relative pl-0 pb-4 last:pb-0">
+                {i < recentActivity.length - 1 && (
+                  <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-100 dark:bg-slate-700" />
+                )}
+                <div className="relative z-10 flex-shrink-0">
+                  {activityTypeIcon[activity.type]}
+                </div>
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate leading-tight">{activity.user}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{activity.action}</p>
+                </div>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0 pt-0.5">{activity.time}</span>
               </div>
-              <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">All Systems Operational</span>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { name: "API Server", status: "operational", latency: "23ms", uptime: "99.98%" },
-                { name: "Database", status: "operational", latency: "5ms", uptime: "99.99%" },
-                { name: "CDN / Assets", status: "operational", latency: "12ms", uptime: "100%" },
-                { name: "Auth Service", status: "operational", latency: "45ms", uptime: "99.95%" },
-              ].map((service) => (
-                <div key={service.name} className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-100 hover:border-teal-200/60 transition-all group">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <p className="text-xs font-semibold text-slate-700">{service.name}</p>
-                  </div>
-                  <p className="text-lg font-serif text-slate-900 leading-none">{service.latency}</p>
-                  <p className="text-[10px] text-slate-400 font-medium mt-1">↑ {service.uptime} uptime</p>
-                </div>
-              ))}
-            </div>
-            {/* Mini response time chart */}
-            <div className="mt-4 flex items-end gap-[2px] h-8">
-              {Array.from({ length: 40 }).map((_, i) => {
-                const h = 15 + Math.random() * 80;
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ height: 0 }}
-                    animate={{ height: `${h}%` }}
-                    transition={{ duration: 0.4, delay: i * 0.02 }}
-                    className={`flex-1 rounded-sm ${h > 70 ? "bg-teal-300" : "bg-emerald-300"}`}
-                  />
-                );
-              })}
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">API response times — last 2 hours</p>
+            ))}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Quick platform stats */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
-          <div className="relative z-10">
-            <h3 className="text-sm font-bold text-slate-900 mb-4">Platform Overview</h3>
-            <div className="space-y-4">
-              {[
-                { label: "Question Bank", value: "4,847", sub: "2,341 published", pct: 72 },
-                { label: "Autofill Templates", value: "156", sub: "142 active", pct: 91 },
-                { label: "Clinical Content", value: "89", sub: "67 published", pct: 75 },
-                { label: "Storage Used", value: "2.4 GB", sub: "of 10 GB", pct: 24 },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-slate-600">{item.label}</span>
-                    <span className="text-sm font-bold text-slate-800">{item.value}</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${item.pct}%` }}
-                      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                      className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 rounded-full"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{item.sub}</p>
+        {/* Platform overview */}
+        <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
+          <div className="mb-4">
+            <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Platform</p>
+            <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Overview</h3>
+          </div>
+          <div className="space-y-4">
+            {[
+              { label: "Question Bank", value: "4,847", sub: "2,341 published", pct: 72 },
+              { label: "Autofill Templates", value: "156", sub: "142 active", pct: 91 },
+              { label: "Clinical Content", value: "89", sub: "67 published", pct: 75 },
+              { label: "Storage Used", value: "2.4 GB", sub: "of 10 GB", pct: 24 },
+            ].map((item) => (
+              <div key={item.label}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.label}</span>
+                  <span className="text-sm font-serif font-semibold text-slate-900 dark:text-slate-50">{item.value}</span>
                 </div>
-              ))}
+                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${item.pct}%` }}
+                    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                    className="h-full rounded-full bg-emerald-400 dark:bg-emerald-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{item.sub}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* System health */}
+      <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <div>
+              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Infrastructure</p>
+              <h3 className="font-serif text-xl text-slate-900 dark:text-slate-50">System Health</h3>
             </div>
           </div>
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            All Systems Operational
+          </span>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { name: "API Server", latency: "23ms", uptime: "99.98%" },
+            { name: "Database", latency: "5ms", uptime: "99.99%" },
+            { name: "CDN / Assets", latency: "12ms", uptime: "100%" },
+            { name: "Auth Service", latency: "45ms", uptime: "99.95%" },
+          ].map((service) => (
+            <div key={service.name} className="rounded-2xl bg-slate-50 dark:bg-slate-700/50 p-4 border border-slate-100 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700/50 transition-colors">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{service.name}</p>
+              </div>
+              <p className="font-serif text-lg text-slate-900 dark:text-slate-50 leading-none">{service.latency}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">↑ {service.uptime} uptime</p>
+            </div>
+          ))}
         </div>
       </motion.div>
     </motion.div>
