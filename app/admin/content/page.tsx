@@ -585,90 +585,90 @@ export default function ContentPage() {
       {/* Detail slide-over */}
       <AnimatePresence>
         {selectedContent && (
-          <div key="content-detail-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
-            <motion.div
-              key="content-detail-drawer-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
-              onClick={() => setSelectedContent(null)}
-            />
-            <motion.div
-              key="content-detail-drawer-content"
-              initial={{ x: "calc(100% + 2rem)", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
-              transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
-            >
-              {/* Decorative top accent line */}
-              <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
+          <motion.div
+            key="content-detail-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer"
+            onClick={() => setSelectedContent(null)}
+          />
+        )}
+        {selectedContent && (
+          <motion.div
+            key="content-detail-drawer-content"
+            initial={{ x: "calc(100% + 2rem)", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
+            transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
+            className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col z-50"
+          >
+            {/* Decorative top accent line */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
 
-              {/* Header */}
-              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
-                <button
-                  onClick={() => setSelectedContent(null)}
-                  className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
-                >
-                  <Lucide.X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-                </button>
-                <div className="flex items-center gap-2 mb-2.5">
-                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
-                  <StatusBadge variant={selectedContent.status} />
-                </div>
-                <h2 className="font-serif text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight pr-8">{selectedContent.name}</h2>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedContent.system} · {selectedContent.category}</p>
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
+              <button
+                onClick={() => setSelectedContent(null)}
+                className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
+              >
+                <Lucide.X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
+              </button>
+              <div className="flex items-center gap-2 mb-2.5">
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
+                <StatusBadge variant={selectedContent.status} />
               </div>
+              <h2 className="font-serif text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight pr-8">{selectedContent.name}</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedContent.system} · {selectedContent.category}</p>
+            </div>
 
-              {/* Scrollable Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide text-slate-800 dark:text-slate-200">
-                {/* Info grid */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">References</p>
-                    <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.references}</p>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Used in Questions</p>
-                    <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.usedInQuestions}</p>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Author</p>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-[10px] text-slate-405 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Last Updated</p>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p>
-                  </div>
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide text-slate-800 dark:text-slate-200">
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">References</p>
+                  <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.references}</p>
                 </div>
-
-                {/* Content Editor Preview */}
-                <div>
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Content Preview</h3>
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-                    <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                      {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                        <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
-                      ))}
-                    </div>
-                    <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
-                      <p className="text-sm leading-relaxed">This is a preview of the clinical content for <strong>{selectedContent.name}</strong>. In a full implementation, this would contain the detailed medical content, references, and clinical guidelines.</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-2">Key points, evidence levels, and management algorithms would be displayed here with proper formatting.</p>
-                    </div>
-                  </div>
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Used in Questions</p>
+                  <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.usedInQuestions}</p>
+                </div>
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Author</p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p>
+                </div>
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Last Updated</p>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-                <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">
-                  Edit Content
-                </Link>
-                <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
+              {/* Content Editor Preview */}
+              <div>
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Content Preview</h3>
+                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
+                  <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                    {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
+                      <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
+                    ))}
+                  </div>
+                  <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
+                    <p className="text-sm leading-relaxed">This is a preview of the clinical content for <strong>{selectedContent.name}</strong>. In a full implementation, this would contain the detailed medical content, references, and clinical guidelines.</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-2">Key points, evidence levels, and management algorithms would be displayed here with proper formatting.</p>
+                  </div>
+                </div>
               </div>
-            </motion.div>
-          </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+              <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">
+                Edit Content
+              </Link>
+              <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>

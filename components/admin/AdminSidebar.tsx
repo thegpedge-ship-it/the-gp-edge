@@ -154,16 +154,27 @@ interface AdminSidebarProps {
   onToggle: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
-export default function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobileClose }: AdminSidebarProps) {
+export default function AdminSidebar({
+  collapsed,
+  onToggle,
+  mobileOpen,
+  onMobileClose,
+  onMouseEnter,
+  onMouseLeave,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={`fixed left-0 top-0 bottom-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
         mobileOpen ? "translate-x-0" : "-translate-x-full"
-      } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px]`}
+      } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px] lg:flex ${mobileOpen ? "flex" : "hidden"}`}
     >
       {/* Logo area */}
       <div className="flex items-center h-16 px-4 border-b border-slate-200/50 dark:border-slate-800/50 flex-shrink-0 bg-white/40 dark:bg-slate-900/40">

@@ -59,7 +59,7 @@ function PDFViewerContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col overflow-hidden select-none">
+    <div className="h-screen bg-slate-900 text-slate-100 flex flex-col overflow-hidden select-none">
       {/* Print and custom styles */}
       <style jsx global>{`
         .global-nav-header {
@@ -190,162 +190,170 @@ function PDFViewerContent() {
       </header>
 
       {/* Main Canvas Scroll Area */}
-      <main className="flex-1 bg-slate-950 overflow-y-auto p-8 sm:p-12 flex justify-center items-start scrollbar-hide relative">
-        <div 
-          id="printable-pdf-area"
-          className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 relative origin-top transition-all duration-300 rounded-lg shrink-0 select-text"
+      <main className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex justify-center items-start relative">
+        <div
           style={{
-            transform: `scale(${pdfZoom / 100})`,
-            width: "720px",
-            minHeight: "940px",
-            transformOrigin: "top center",
-            marginBottom: `${Math.max(0, (pdfZoom / 100 - 1) * 940)}px`,
+            width: `${720 * (pdfZoom / 100)}px`,
+            height: `${940 * (pdfZoom / 100)}px`,
+            position: "relative",
+            flexShrink: 0,
           }}
         >
-          {/* Faint Confidential Watermark */}
-          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
-            <span className="font-sans font-black text-8xl tracking-widest text-slate-900">GP EDGE</span>
-          </div>
-
-          {/* Professional PDF Header */}
-          <div className="flex items-center justify-between border-b-2 border-teal-600 pb-4 mb-8 text-[11px] text-slate-500 font-semibold tracking-wider uppercase select-none">
-            <div className="flex items-center gap-1.5">
-              <span className="w-5.5 h-5.5 bg-teal-600 text-white rounded flex items-center justify-center text-[10px] font-bold">GP</span>
-              <span>Clinical Reference Guideline Library</span>
+          <div 
+            id="printable-pdf-area"
+            className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text"
+            style={{
+              transform: `scale(${pdfZoom / 100})`,
+              transformOrigin: "top left",
+              width: "720px",
+              height: "940px",
+            }}
+          >
+            {/* Faint Confidential Watermark */}
+            <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
+              <span className="font-sans font-black text-8xl tracking-widest text-slate-900">GP EDGE</span>
             </div>
-            <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
-          </div>
 
-          {/* PAGE 1 CONTENT */}
-          {pdfPage === 1 && (
-            <div className="space-y-8 text-xs leading-relaxed text-slate-700">
-              <div className="text-center">
-                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
-                <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
-                <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
+            {/* Professional PDF Header */}
+            <div className="flex items-center justify-between border-b-2 border-teal-600 pb-4 mb-8 text-[11px] text-slate-500 font-semibold tracking-wider uppercase select-none">
+              <div className="flex items-center gap-1.5">
+                <span className="w-5.5 h-5.5 bg-teal-600 text-white rounded flex items-center justify-center text-[10px] font-bold">GP</span>
+                <span>Clinical Reference Guideline Library</span>
               </div>
-              <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
-              
-              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 text-[11.5px] space-y-3">
-                <p className="font-bold text-slate-900 text-xs">Metadata Profile:</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-slate-400">Target System</p>
-                    <p className="font-semibold text-slate-700">{condition.system} Pathology</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-slate-400">Subcategory Classification</p>
-                    <p className="font-semibold text-slate-700">{condition.category}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-slate-400">Authoring Board</p>
-                    <p className="font-semibold text-slate-700">{condition.author}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-slate-400">Version Control</p>
-                    <p className="font-semibold text-slate-700">Release May 2026</p>
+              <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
+            </div>
+
+            {/* PAGE 1 CONTENT */}
+            {pdfPage === 1 && (
+              <div className="space-y-8 text-xs leading-relaxed text-slate-700">
+                <div className="text-center">
+                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
+                  <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
+                  <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
+                </div>
+                <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
+                
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 text-[11.5px] space-y-3">
+                  <p className="font-bold text-slate-900 text-xs">Metadata Profile:</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-slate-400">Target System</p>
+                      <p className="font-semibold text-slate-700">{condition.system} Pathology</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-slate-400">Subcategory Classification</p>
+                      <p className="font-semibold text-slate-700">{condition.category}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-slate-400">Authoring Board</p>
+                      <p className="font-semibold text-slate-700">{condition.author}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-slate-400">Version Control</p>
+                      <p className="font-semibold text-slate-700">Release May 2026</p>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3 pt-4 border-t border-slate-100">
-                <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Clinical Presentation Summary</h3>
-                <p className="text-slate-600 leading-relaxed font-medium">
-                  {condition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
-                </p>
+                <div className="space-y-3 pt-4 border-t border-slate-100">
+                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Clinical Presentation Summary</h3>
+                  <p className="text-slate-600 leading-relaxed font-medium">
+                    {condition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* PAGE 2 CONTENT */}
-          {pdfPage === 2 && (
-            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-              <div className="border-b border-slate-100 pb-3">
-                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
-                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
-              </div>
-              <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {condition.name}:</p>
-              <div className="space-y-3">
-                {condition.diagnosisCriteria.map((c, i) => (
-                  <div key={i} className="flex gap-4 border border-slate-200/80 p-4 rounded-xl bg-slate-50/50 shadow-sm">
-                    <span className="font-mono font-bold text-teal-700 shrink-0 text-sm">0{i + 1}</span>
-                    <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PAGE 3 CONTENT */}
-          {pdfPage === 3 && (
-            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-              <div className="border-b border-slate-100 pb-3">
-                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
-                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
-              </div>
-              <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {condition.name}:</p>
-              <div className="space-y-3.5">
-                {condition.treatmentOptions.map((opt, i) => (
-                  <div key={i} className="flex gap-4 items-start border border-slate-150 bg-slate-50/40 p-4 rounded-xl shadow-sm">
-                    <span className="w-5.5 h-5.5 rounded bg-teal-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                      {i + 1}
-                    </span>
-                    <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* PAGE 4+ CONTENT */}
-          {pdfPage >= 4 && (
-            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-              <div className="border-b border-slate-100 pb-3">
-                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
-                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
-              </div>
-              
-              <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
-                <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
-                  <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
-                  Key Summary Pearls:
-                </p>
-                <p className="font-medium whitespace-pre-line leading-relaxed">{condition.clinicalNotes}</p>
-              </div>
-
-              <div className="space-y-3 mt-6">
-                <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">References</h3>
-                <div className="divide-y divide-slate-100">
-                  {condition.references.map((ref) => (
-                    <div key={ref.id} className="py-3.5 flex items-start gap-3 text-[11px]">
-                      <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
-                      <div className="flex-1">
-                        <p className="text-slate-700 font-medium leading-relaxed">
-                          {ref.text}
-                        </p>
-                        {ref.url && (
-                          <a 
-                            href={ref.url} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            className="text-teal-600 font-semibold hover:underline mt-1 inline-block no-print text-[10px]"
-                          >
-                            Access Original Source →
-                          </a>
-                        )}
-                      </div>
+            {/* PAGE 2 CONTENT */}
+            {pdfPage === 2 && (
+              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                <div className="border-b border-slate-100 pb-3">
+                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
+                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
+                </div>
+                <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {condition.name}:</p>
+                <div className="space-y-3">
+                  {condition.diagnosisCriteria.map((c, i) => (
+                    <div key={i} className="flex gap-4 border border-slate-200/80 p-4 rounded-xl bg-slate-50/50 shadow-sm">
+                      <span className="font-mono font-bold text-teal-700 shrink-0 text-sm">0{i + 1}</span>
+                      <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Professional PDF Footer */}
-          <footer className="absolute bottom-12 left-12 right-12 border-t border-slate-200 pt-4 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
-            <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
-            <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
-          </footer>
+            {/* PAGE 3 CONTENT */}
+            {pdfPage === 3 && (
+              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                <div className="border-b border-slate-100 pb-3">
+                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
+                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
+                </div>
+                <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {condition.name}:</p>
+                <div className="space-y-3.5">
+                  {condition.treatmentOptions.map((opt, i) => (
+                    <div key={i} className="flex gap-4 items-start border border-slate-150 bg-slate-50/40 p-4 rounded-xl shadow-sm">
+                      <span className="w-5.5 h-5.5 rounded bg-teal-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                        {i + 1}
+                      </span>
+                      <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* PAGE 4+ CONTENT */}
+            {pdfPage >= 4 && (
+              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                <div className="border-b border-slate-100 pb-3">
+                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
+                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
+                </div>
+                
+                <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
+                  <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
+                    <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
+                    Key Summary Pearls:
+                  </p>
+                  <p className="font-medium whitespace-pre-line leading-relaxed">{condition.clinicalNotes}</p>
+                </div>
+
+                <div className="space-y-3 mt-6">
+                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">References</h3>
+                  <div className="divide-y divide-slate-100">
+                    {condition.references.map((ref) => (
+                      <div key={ref.id} className="py-3.5 flex items-start gap-3 text-[11px]">
+                        <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
+                        <div className="flex-1">
+                          <p className="text-slate-700 font-medium leading-relaxed">
+                            {ref.text}
+                          </p>
+                          {ref.url && (
+                            <a 
+                              href={ref.url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-teal-600 font-semibold hover:underline mt-1 inline-block no-print text-[10px]"
+                            >
+                              Access Original Source →
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Professional PDF Footer */}
+            <footer className="absolute bottom-12 left-12 right-12 border-t border-slate-200 pt-4 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
+              <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
+              <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
+            </footer>
+          </div>
         </div>
       </main>
     </div>

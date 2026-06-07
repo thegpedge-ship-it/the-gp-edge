@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
@@ -19,20 +20,20 @@ interface SystemStyle {
 
 const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
   Cardiology: {
-    glow: "from-emerald-500/10 dark:from-emerald-500/20",
-    border: "hover:border-emerald-400/80 dark:hover:border-emerald-500/40",
-    text: "text-emerald-600 dark:text-emerald-400",
-    accent: "bg-emerald-500",
-    borderLeft: "border-l-emerald-500",
-    gradient: "from-emerald-500 to-emerald-600",
+    glow: "from-green-500/10 dark:from-green-500/20",
+    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
+    text: "text-green-600 dark:text-green-400",
+    accent: "bg-green-500",
+    borderLeft: "border-l-green-500",
+    gradient: "from-green-500 to-green-600",
   },
   Respiratory: {
-    glow: "from-teal-500/10 dark:from-teal-500/20",
-    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
-    text: "text-teal-600 dark:text-teal-400",
-    accent: "bg-teal-500",
-    borderLeft: "border-l-teal-500",
-    gradient: "from-teal-500 to-teal-600",
+    glow: "from-green-500/10 dark:from-green-500/20",
+    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
+    text: "text-green-600 dark:text-green-400",
+    accent: "bg-green-500",
+    borderLeft: "border-l-green-500",
+    gradient: "from-green-500 to-green-600",
   },
   Endocrine: {
     glow: "from-green-500/10 dark:from-green-500/20",
@@ -43,20 +44,20 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
     gradient: "from-green-500 to-green-600",
   },
   Gastrointestinal: {
-    glow: "from-emerald-600/10 dark:from-emerald-600/20",
-    border: "hover:border-emerald-500/80 dark:hover:border-emerald-600/40",
-    text: "text-emerald-700 dark:text-emerald-400",
-    accent: "bg-emerald-600",
-    borderLeft: "border-l-emerald-600",
-    gradient: "from-emerald-600 to-emerald-700",
+    glow: "from-green-600/10 dark:from-green-600/20",
+    border: "hover:border-green-500/80 dark:hover:border-green-600/40",
+    text: "text-green-700 dark:text-green-400",
+    accent: "bg-green-600",
+    borderLeft: "border-l-green-600",
+    gradient: "from-green-600 to-green-700",
   },
   Psychiatry: {
-    glow: "from-teal-600/10 dark:from-teal-600/20",
-    border: "hover:border-teal-500/80 dark:hover:border-teal-600/40",
-    text: "text-teal-700 dark:text-teal-400",
-    accent: "bg-teal-600",
-    borderLeft: "border-l-teal-600",
-    gradient: "from-teal-600 to-teal-700",
+    glow: "from-green-600/10 dark:from-green-600/20",
+    border: "hover:border-green-500/80 dark:hover:border-green-600/40",
+    text: "text-green-700 dark:text-green-400",
+    accent: "bg-green-600",
+    borderLeft: "border-l-green-600",
+    gradient: "from-green-600 to-green-700",
   },
   Dermatology: {
     glow: "from-green-600/10 dark:from-green-600/20",
@@ -67,80 +68,124 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
     gradient: "from-green-600 to-green-700",
   },
   "Women's Health": {
-    glow: "from-slate-500/10 dark:from-slate-500/20",
-    border: "hover:border-slate-400/80 dark:hover:border-slate-500/40",
-    text: "text-slate-600 dark:text-slate-300",
-    accent: "bg-slate-500",
-    borderLeft: "border-l-slate-500",
-    gradient: "from-slate-500 to-slate-600",
+    glow: "from-green-500/10 dark:from-green-500/20",
+    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
+    text: "text-green-600 dark:text-green-400",
+    accent: "bg-green-500",
+    borderLeft: "border-l-green-500",
+    gradient: "from-green-500 to-green-600",
   },
   Paediatrics: {
-    glow: "from-emerald-400/10 dark:from-emerald-400/20",
-    border: "hover:border-emerald-300/80 dark:hover:border-emerald-400/40",
-    text: "text-emerald-600 dark:text-emerald-400",
-    accent: "bg-emerald-400",
-    borderLeft: "border-l-emerald-400",
-    gradient: "from-emerald-400 to-emerald-500",
+    glow: "from-green-400/10 dark:from-green-400/20",
+    border: "hover:border-green-300/80 dark:hover:border-green-400/40",
+    text: "text-green-600 dark:text-green-400",
+    accent: "bg-green-400",
+    borderLeft: "border-l-green-400",
+    gradient: "from-green-400 to-green-500",
   },
 };
 
 const getSystem = (id: SystemId): SystemStyle =>
   SYSTEM_CONFIG[id] ?? {
-    glow: "from-teal-500/10 dark:from-teal-500/20",
-    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
-    text: "text-teal-600 dark:text-teal-400",
-    accent: "bg-teal-500",
-    borderLeft: "border-l-teal-500",
-    gradient: "from-teal-500 to-teal-600",
+    glow: "from-green-500/10 dark:from-green-500/20",
+    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
+    text: "text-green-600 dark:text-green-400",
+    accent: "bg-green-500",
+    borderLeft: "border-l-green-500",
+    gradient: "from-green-500 to-green-600",
   };
 
-const containerVariants = {
+const gridVariants = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
+  visible: { opacity: 1, transition: { duration: 0.24 } },
+  exit: { opacity: 0, transition: { duration: 0.12 } },
 };
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
+const detailVariants = {
+  hidden: { opacity: 0, x: 12 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, x: 12, transition: { duration: 0.16 } },
 };
 
-function SystemIcon({ name, className }: { name: string; className?: string }) {
-  const IconComponent = (Lucide as Record<string, unknown>)[name] as React.ComponentType<{ className?: string }>;
-  if (!IconComponent) return null;
-  return <IconComponent className={className} />;
-}
-
-// ─── Slide-over tabs ─────────────────────────────────────────────────────────
-type SlideTab = "symptoms" | "diagnosis" | "treatment" | "notes" | "pdf";
+const cardVariants = {
+  hidden: { opacity: 0, y: 4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] } },
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MEDICAL LIBRARY PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function MedicalLibraryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading Medical Library...</div>}>
+      <MedicalLibraryContent />
+    </Suspense>
+  );
+}
+
+function MedicalLibraryContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedCondition, setSelectedCondition] = useState<MedicalCondition | null>(null);
-  const [activeTab, setActiveTab] = useState<SlideTab>("symptoms");
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
 
-  // Lock body scroll when drawer is open to prevent background scrolling lag
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    symptoms: true,
+    diagnosis: false,
+    treatment: false,
+    pearls: false,
+    references: false,
+  });
+
+  const toggleSection = useCallback((section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  }, []);
+
+  const selectedConditionId = searchParams.get("id");
+  const selectedCondition = useMemo(() => {
+    if (!selectedConditionId) return null;
+    return mockConditions.find((c) => c.id === selectedConditionId) ?? null;
+  }, [selectedConditionId]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(720);
+
   useEffect(() => {
-    if (selectedCondition) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      if (!entries || entries.length === 0) return;
+      const entry = entries[0];
+      const width = entry.contentRect.width;
+      if (width > 0) {
+        setContainerWidth(width);
+      }
+    });
+    observer.observe(containerRef.current);
+    
+    const width = containerRef.current.clientWidth;
+    const computedStyle = window.getComputedStyle(containerRef.current);
+    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+    const contentWidth = width - paddingLeft - paddingRight;
+    if (contentWidth > 0) {
+      setContainerWidth(contentWidth);
     }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+
+    return () => observer.disconnect();
   }, [selectedCondition]);
+
+  const scaleFactor = useMemo(() => {
+    return containerWidth / 720;
+  }, [containerWidth]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
 
   // Memoize system counts
   const systemCounts = useMemo(() => {
@@ -153,41 +198,51 @@ export default function MedicalLibraryPage() {
 
   // Memoize filtered conditions
   const filteredConditions = useMemo(() => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
     return mockConditions.filter((c) => {
       const matchesSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
         c.category.toLowerCase().includes(q) ||
+        c.system.toLowerCase().includes(q) ||
+        c.type.toLowerCase().includes(q) ||
         c.symptoms.some((s) => s.toLowerCase().includes(q)) ||
+        c.clinicalNotes.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q);
       const matchesSystem = selectedSystem === "all" || c.system === selectedSystem;
-      const matchesType =
-        selectedType === "all" ||
-        (selectedType === "condition" && c.type === "Condition") ||
-        (selectedType === "guideline" && c.type === "Guideline") ||
-        (selectedType === "document" && c.type === "Document") ||
-        (selectedType === "note" && c.type === "Note");
-      return matchesSearch && matchesSystem && matchesType;
+      return matchesSearch && matchesSystem;
     });
-  }, [searchQuery, selectedSystem, selectedType]);
+  }, [searchQuery, selectedSystem]);
 
   const handleOpenCondition = useCallback((condition: MedicalCondition) => {
-    setSelectedCondition(condition);
+    const params = new URLSearchParams(window.location.search);
+    params.set("id", condition.id);
+    router.push(`/dashboard/medical-library?${params.toString()}`);
     setPdfPage(1);
     setPdfZoom(100);
-    setActiveTab("symptoms");
-  }, []);
+  }, [router]);
+
+  const handleTagClick = useCallback((e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string) => {
+    e.stopPropagation();
+    const params = new URLSearchParams(window.location.search);
+    params.delete("id");
+    router.push(`/dashboard/medical-library?${params.toString()}`);
+    if (type === "system") {
+      setSelectedSystem(value);
+    } else if (type === "category" || type === "symptom") {
+      setSearchQuery(value);
+    }
+  }, [router]);
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="flex flex-col gap-6 pb-6">
 
-      {/* ── Hero header (Minimalist Style) ────────────────────────────────────── */}
+      {/* ── Page Header (Minimalist Style) ────────────────────────────────────── */}
       <div className="space-y-2 select-none">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-[10px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/30 dark:border-emerald-800/30 uppercase tracking-[0.12em]">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-950/30 text-[10px] font-bold text-green-700 dark:text-green-400 border border-green-200/30 dark:border-green-800/30 uppercase tracking-[0.12em]">
           <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
           </span>
           Reference Library
         </div>
@@ -199,418 +254,337 @@ export default function MedicalLibraryPage() {
         </p>
       </div>
 
-      {/* ── Search + filters ─────────────────────────────────────────────────── */}
-      <div className="relative p-5 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800 shadow-md flex flex-col lg:flex-row gap-4 items-center justify-between">
-        {/* Search */}
-        <div className="relative w-full lg:max-w-md">
-          <Lucide.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-400 dark:text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search by condition, symptoms, or guidelines..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-10 py-3 text-sm bg-white/70 dark:bg-slate-955/40 border border-slate-200 dark:border-slate-800/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-0.5"
-            >
-              <Lucide.X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Type filters */}
-        <div className="flex items-center gap-1 bg-slate-100/80 dark:bg-slate-950/60 backdrop-blur-md rounded-xl p-1 w-full lg:w-auto overflow-x-auto border border-slate-200/40 dark:border-slate-800/60">
-          {[
-            { id: "all", label: "All Content" },
-            { id: "condition", label: "Conditions" },
-            { id: "guideline", label: "Guidelines" },
-            { id: "document", label: "Documents" },
-            { id: "note", label: "Notes" },
-          ].map((type) => (
-            <button
-              key={type.id}
-              onClick={() => setSelectedType(type.id)}
-              className={`relative px-4 py-2 text-xs font-bold rounded-lg whitespace-nowrap transition-all duration-300 z-10 ${
-                selectedType === type.id
-                  ? "text-white shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-              }`}
-            >
-              {selectedType === type.id && (
-                <motion.div
-                  layoutId="activeTypeFilter"
-                  className="absolute inset-0 bg-gradient-to-r from-teal-600 to-teal-500 rounded-lg -z-10 shadow-md shadow-teal-600/15"
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                />
-              )}
-              {type.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Body system grid ──────────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-            Browse by Body System
-          </h2>
-          {selectedSystem !== "all" && (
-            <button
-              onClick={() => setSelectedSystem("all")}
-              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:text-teal-500 transition-colors flex items-center gap-1"
-            >
-              <Lucide.RotateCcw className="w-3 h-3" />
-              Reset Category
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-          {bodySystems.map((system) => {
-            const count = systemCounts.get(system.id) ?? 0;
-            const isSelected = selectedSystem === system.id;
-            const sys = getSystem(system.id);
-            return (
-              <button
-                key={system.id}
-                onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
-                className={`relative group rounded-2xl p-4 border text-left flex flex-col justify-between transition-all duration-300 overflow-hidden hover:scale-[1.03] active:scale-[0.97] ${
-                  isSelected
-                    ? "bg-gradient-to-br from-teal-500 via-teal-600 to-emerald-600 text-white shadow-xl shadow-teal-500/20 border-teal-400/30"
-                    : `bg-white/60 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-950 border-slate-200/60 dark:border-slate-800/80 shadow-sm hover:shadow-md ${sys.border}`
-                }`}
-              >
-                {/* Subtle top-right glow matching the system color on hover */}
-                {!isSelected && (
-                  <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${sys.glow} to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
-                )}
-
-                <div className="flex justify-end items-start mb-4 relative z-10">
-                  <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md transition-colors duration-300 ${
-                    isSelected
-                      ? "bg-white/20 text-white"
-                      : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400"
-                  }`}>
-                    {count}
-                  </span>
-                </div>
-                <div className="relative z-10">
-                  <p className={`text-xs font-bold truncate transition-colors duration-300 ${isSelected ? "text-white" : "text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white"}`}>
-                    {system.name}
-                  </p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Condition listing ─────────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-          Available Medical Libraries ({filteredConditions.length})
-        </h2>
-
-        {filteredConditions.length === 0 ? (
-          <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 p-12 text-center max-w-lg mx-auto">
-            <Lucide.Search className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-            <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">No medical content found</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting your filters, system category, or searching for other symptoms.</p>
-            <button
-              onClick={() => { setSearchQuery(""); setSelectedSystem("all"); setSelectedType("all"); }}
-              className="mt-5 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold text-xs rounded-full hover:shadow-lg hover:shadow-teal-500/20 active:scale-95 transition-all"
-            >
-              Clear All Filters
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filteredConditions.map((condition) => {
-              const systemConfig = bodySystems.find((s) => s.id === condition.system);
-              const sys = getSystem(condition.system);
-              return (
-                <motion.div
-                  key={condition.id}
-                  layoutId={`condition-card-${condition.id}`}
-                  className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-200/40 dark:border-slate-800/70 shadow-sm overflow-hidden relative group hover:shadow-md hover:-translate-y-1 active:scale-[0.99] transition-all duration-300 cursor-pointer flex flex-col justify-between ${sys.border}`}
-                  onClick={() => handleOpenCondition(condition)}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/5 pointer-events-none" />
-                  <div className={`absolute top-0 right-0 w-28 h-28 bg-gradient-to-br ${sys.glow} to-transparent rounded-full blur-xl pointer-events-none`} />
-
-                  {/* Left accent strip indicator */}
-                  <div className={`absolute left-0 top-0 bottom-0 w-[4px] bg-gradient-to-b ${sys.gradient} opacity-80`} />
-
-                  <div className="p-5 pl-6 relative z-10 flex-1 flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-start justify-between mb-3.5">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                            condition.type === "Guideline"
-                              ? "bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/15 dark:border-emerald-500/25"
-                              : condition.type === "Document"
-                              ? "bg-teal-500/10 dark:bg-teal-500/20 text-teal-600 dark:text-teal-400 border-teal-500/15 dark:border-teal-500/25"
-                              : condition.type === "Note"
-                              ? "bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/15 dark:border-green-500/25"
-                              : "bg-slate-500/10 dark:bg-slate-500/20 text-slate-600 dark:text-slate-300 border-slate-500/15 dark:border-slate-500/25"
-                          }`}>
-                            {condition.type}
-                          </span>
-                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-slate-200/40 dark:border-slate-800/40 ${systemConfig?.lightBg} ${systemConfig?.textColor}`}>
-                            {condition.system}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          {condition.isPremium && (
-                            <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1.5 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
-                              <Lucide.Lock className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                          {condition.document && (
-                            <span className="bg-teal-50 dark:bg-teal-950/40 border border-teal-200/30 dark:border-teal-900/30 p-1.5 rounded-lg text-teal-600 dark:text-teal-400" title="PDF available">
-                              <Lucide.FileText className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <h3 className={`font-sans text-base font-bold text-slate-900 dark:text-slate-100 mb-1 transition-colors duration-300 leading-snug tracking-tight ${
-                        condition.system === "Cardiology" ? "group-hover:text-emerald-600 dark:group-hover:text-emerald-400" :
-                        condition.system === "Respiratory" ? "group-hover:text-teal-600 dark:group-hover:text-teal-400" :
-                        condition.system === "Endocrine" ? "group-hover:text-green-600 dark:group-hover:text-green-400" :
-                        condition.system === "Gastrointestinal" ? "group-hover:text-emerald-700 dark:group-hover:text-emerald-400" :
-                        condition.system === "Psychiatry" ? "group-hover:text-teal-700 dark:group-hover:text-teal-400" :
-                        condition.system === "Dermatology" ? "group-hover:text-green-700 dark:group-hover:text-green-400" :
-                        condition.system === "Women's Health" ? "group-hover:text-slate-700 dark:group-hover:text-slate-400" :
-                        "group-hover:text-emerald-500 dark:group-hover:text-emerald-400"
-                      }`}>
-                        {condition.name}
-                      </h3>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mb-5 truncate font-medium">
-                        {condition.category}
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 mt-auto">
-                      <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Key Indicators</p>
-                      <div className="flex flex-wrap gap-1">
-                        {condition.symptoms.slice(0, 3).map((sym, i) => (
-                          <span key={i} className="text-[10px] bg-slate-100/60 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded border border-slate-200/30 dark:border-slate-700/30 truncate max-w-[150px]">
-                            {sym}
-                          </span>
-                        ))}
-                        {condition.symptoms.length > 3 && (
-                          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 px-1 py-0.5">+{condition.symptoms.length - 3} more</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="px-5 py-3.5 pl-6 bg-slate-50/80 dark:bg-slate-900/40 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs relative z-10">
-                    <span className="flex items-center gap-1 font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                      <Lucide.Clock className="w-3.5 h-3.5" />
-                      {condition.lastUpdated}
-                    </span>
-                    <span className={`font-semibold flex items-center gap-0.5 text-xs transition-colors duration-300 ${sys.text}`}>
-                      Read Library
-                      <Lucide.ArrowRight className="w-3.5 h-3.5 transform transition-transform duration-200 group-hover:translate-x-1" />
-                    </span>
-                  </div>
-
-                  <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100 dark:bg-slate-800/80 overflow-hidden">
-                    <div className={`h-full w-12 rounded-full transition-all duration-300 group-hover:w-full ${sys.accent}`} />
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ── Detail slide-over ─────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {selectedCondition && (
+      <AnimatePresence mode="wait">
+        {!selectedCondition ? (
+          /* ─── SEARCH GRID VIEW ─────────────────────────────────────────────────── */
           <motion.div
-            key="medical-detail-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-40 cursor-pointer"
-            onClick={() => setSelectedCondition(null)}
-          />
-        )}
-        {selectedCondition && (
-          <motion.div
-            key="medical-detail-drawer"
-            initial={{ x: "calc(100% + 2rem)", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
-            transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
-            className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl overflow-hidden flex flex-col rounded-2xl"
+            key="grid-view"
+            variants={gridVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="space-y-6"
           >
-            {/* Premium top gradient line */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600 shrink-0" />
+            {/* Merged Search & Type Filters Header Card */}
+            <div className="relative p-2.5 rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/80 shadow-md flex flex-col lg:flex-row gap-4 items-center justify-between">
+              {/* Search input (MBS billing style input) */}
+              <div className="relative flex-1 w-full">
+                <div className="relative flex items-center">
+                  <Lucide.Search className="absolute left-4 w-5 h-5 text-slate-400 dark:text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by condition, system, symptoms, or keyword..."
+                    className="w-full pl-12 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                      <Lucide.X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
 
-            {/* Slide-over header */}
-            <div className="p-6 border-b border-slate-200/60 dark:border-slate-800 relative bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 text-white shrink-0">
-              <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-bl from-teal-500/10 via-emerald-500/5 to-transparent blur-3xl pointer-events-none" />
-              <button
-                onClick={() => setSelectedCondition(null)}
-                className="absolute top-4 right-4 z-20 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-              >
-                <Lucide.X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center gap-2 mb-2 relative z-10 flex-wrap">
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-400 border border-teal-500/30">
-                  {selectedCondition.type}
-                </span>
-                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {selectedCondition.system}
-                </span>
-                {selectedCondition.isPremium && (
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 border border-slate-600 flex items-center gap-1">
-                    <Lucide.Lock className="w-2.5 h-2.5" />
-                    Premium Library
-                  </span>
+            {/* Body system grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  Browse by Body System
+                </h2>
+                {selectedSystem !== "all" && (
+                  <button
+                    onClick={() => setSelectedSystem("all")}
+                    className="text-xs font-bold text-green-600 dark:text-green-400 hover:text-green-500 transition-colors flex items-center gap-1"
+                  >
+                    <Lucide.RotateCcw className="w-3 h-3" />
+                    Reset Category
+                  </button>
                 )}
               </div>
-              <h2 className="font-sans text-2xl font-bold text-white tracking-tight relative z-10 pr-10">
-                {selectedCondition.name}
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200/50">
+                <button
+                  onClick={() => setSelectedSystem("all")}
+                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all ${
+                    selectedSystem === "all"
+                      ? "bg-slate-900 text-white border-slate-955 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
+                      : "bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955"
+                  }`}
+                >
+                  All Systems
+                </button>
+                {bodySystems.map((system) => {
+                  const count = systemCounts.get(system.id) ?? 0;
+                  const isSelected = selectedSystem === system.id;
+                  const sys = getSystem(system.id);
+                  return (
+                    <button
+                      key={system.id}
+                      onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
+                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 ${
+                        isSelected
+                          ? `bg-gradient-to-r ${sys.gradient} text-white border-transparent shadow-sm`
+                          : `bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955 ${sys.border}`
+                      }`}
+                    >
+                      <span>{system.name}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-100 dark:bg-slate-800/85 text-slate-500"
+                      }`}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Condition listing */}
+            <div className="space-y-4">
+              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                Available Medical Libraries ({filteredConditions.length})
               </h2>
-              <p className="text-xs text-slate-400 font-light mt-1.5 relative z-10 leading-relaxed">
-                {selectedCondition.category} · Updated {selectedCondition.lastUpdated} by {selectedCondition.author}
-              </p>
-            </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-slate-200/60 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-950/60 sticky top-0 z-10 overflow-x-auto shrink-0">
-              {[
-                { id: "symptoms", label: "Symptoms", icon: Lucide.Activity },
-                { id: "diagnosis", label: "Diagnosis", icon: Lucide.ClipboardCheck },
-                { id: "treatment", label: "Treatment", icon: Lucide.HeartPulse },
-                { id: "notes", label: "Clinical Notes", icon: Lucide.BookOpen },
-                ...(selectedCondition.document ? [{ id: "pdf", label: "Guideline PDF", icon: Lucide.FileText }] : []),
-              ].map((tab) => {
-                const Icon = tab.icon;
-                return (
+              {filteredConditions.length === 0 ? (
+                <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 p-12 text-center max-w-lg mx-auto">
+                  <Lucide.Search className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">No medical content found</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting your filters, system category, or searching for other symptoms.</p>
                   <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as SlideTab)}
-                    className={`relative flex-1 px-4 py-3.5 text-xs font-bold text-center transition-all whitespace-nowrap flex items-center justify-center gap-1.5 z-10 ${
-                      activeTab === tab.id
-                        ? "text-teal-600 dark:text-teal-400"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
+                    onClick={() => { setSearchQuery(""); setSelectedSystem("all"); }}
+                    className="mt-5 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-xs rounded-full hover:shadow-lg hover:shadow-green-500/20 active:scale-95 transition-all"
                   >
-                    {activeTab === tab.id && (
-                      <motion.div
-                        layoutId="activeSlideTab"
-                        className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-gradient-to-r from-teal-500 to-teal-400"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
+                    Clear All Filters
                   </button>
-                );
-              })}
-            </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {filteredConditions.map((condition) => {
+                    const sys = getSystem(condition.system);
+                    return (
+                      <motion.div
+                        key={condition.id}
+                        variants={cardVariants}
+                        initial="hidden"
+                        animate="visible"
+                        whileHover={{ y: -3 }}
+                        whileTap={{ scale: 0.99 }}
+                        className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                        onClick={() => handleOpenCondition(condition)}
+                      >
+                        <div>
+                          <div className="flex justify-between items-center mb-3">
+                            <span className="text-sm font-bold font-mono text-green-600 dark:text-green-400">
+                              {condition.id}
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {condition.isPremium && (
+                                <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
+                                  <Lucide.Lock className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-            {/* Tab content */}
-            <div className="p-6 flex-1 flex flex-col min-h-0 bg-slate-50/40 dark:bg-slate-900/40 text-slate-800 dark:text-slate-200">
+                          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
+                            {condition.name}
+                          </h3>
 
-              {activeTab === "symptoms" && (
-                <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Clinical Signs & Symptoms
-                  </h3>
-                  <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={containerVariants}>
-                    {selectedCondition.symptoms.map((symptom, i) => {
-                      const sc = bodySystems.find((s) => s.id === selectedCondition.system);
-                      return (
-                        <motion.div key={i} variants={itemVariants} className="flex gap-3 bg-white/70 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 p-3.5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                          <span className={`w-5 h-5 rounded-full ${sc?.lightBg || "bg-teal-50"} ${sc?.textColor || "text-teal-600"} font-bold text-xs flex items-center justify-center shrink-0`}>
-                            <Lucide.Check className="w-3 h-3" />
-                          </span>
-                          <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold leading-relaxed">{symptom}</span>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                </motion.div>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mb-4">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                            {condition.category}
+                          </p>
+
+                          <div className="space-y-1.5 mb-4">
+                            {condition.symptoms.slice(0, 2).map((sym, i) => (
+                              <p
+                                key={i}
+                                className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
+                              >
+                                <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+                                <span className="truncate">{sym}</span>
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-150 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
+                          <div
+                            onClick={(e) => handleTagClick(e, "system", condition.system)}
+                            className="flex flex-col cursor-pointer group/footer"
+                          >
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Last Updated</span>
+                            <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
               )}
+            </div>
+          </motion.div>
+        ) : (
+          /* ─── DETAIL VIEW ────────────────────────────────────────────────── */
+          <motion.div
+            key="detail-view"
+            variants={detailVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="space-y-5"
+          >
+            {/* Back Button */}
+            <button
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.delete("id");
+                router.push(`/dashboard/medical-library?${params.toString()}`);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900 border border-slate-200/40 dark:border-slate-800/50 text-xs font-semibold transition-all"
+            >
+              <Lucide.ArrowLeft className="w-4 h-4" />
+              Back to Search Grid
+            </button>
 
-              {activeTab === "diagnosis" && (
-                <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Diagnosis & Assessment Criteria
-                  </h3>
-                  <motion.div className="space-y-3" variants={containerVariants}>
-                    {selectedCondition.diagnosisCriteria.map((crit, i) => {
-                      const sc = bodySystems.find((s) => s.id === selectedCondition.system);
-                      return (
-                        <motion.div key={i} variants={itemVariants} className="bg-white/70 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 p-4 rounded-xl shadow-sm flex items-start gap-3 hover:shadow-md transition-shadow">
-                          <span className={`text-[10px] font-mono font-bold ${sc?.textColor || "text-teal-600"} bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm`}>
+            {/* Split Screen 12 Column Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Left Column: Clinical Info */}
+              <div className="lg:col-span-7">
+                <div className="glass dark:glass-strong rounded-3xl p-6 lg:p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg space-y-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+                  {/* Header info */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span
+                          onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
+                        >
+                          {selectedCondition.system}
+                        </span>
+                        {selectedCondition.isPremium && (
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 border border-slate-600 flex items-center gap-1">
+                            <Lucide.Lock className="w-2.5 h-2.5" />
+                            Premium Library
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight mt-1 leading-snug">
+                        {selectedCondition.name}
+                      </h2>
+                    </div>
+                  </div>
+
+                  {/* Metadata profile chips */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/30 dark:border-slate-800/30">
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Author</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.author}</span>
+                    </div>
+                    <div
+                      onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
+                      className="cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/85 p-1.5 rounded-xl transition-colors"
+                    >
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">System</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.system}</span>
+                    </div>
+                    <div className="p-1.5 rounded-xl">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Category</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.category}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Last Updated</span>
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.lastUpdated}</span>
+                    </div>
+                  </div>
+
+                  {/* Symptoms Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Clinical Signs & Symptoms</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {selectedCondition.symptoms.map((symptom, i) => (
+                        <div
+                          key={i}
+                          className="flex gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
+                        >
+                          <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
+                          <span>{symptom}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Diagnosis Steps Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Diagnosis & Assessment Criteria</h4>
+                    <div className="space-y-2.5">
+                      {selectedCondition.diagnosisCriteria.map((crit, i) => (
+                        <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
+                          <span className="text-[10px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm">
                             Step {i + 1}
                           </span>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{crit}</p>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                </motion.div>
-              )}
+                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">{crit}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              {activeTab === "treatment" && (
-                <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4 flex-1 overflow-y-auto scrollbar-hide">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Management & Treatment Regimen
-                  </h3>
-                  <motion.div className="space-y-3" variants={containerVariants}>
-                    {selectedCondition.treatmentOptions.map((opt, i) => {
-                      const sys = getSystem(selectedCondition.system);
-                      return (
-                        <motion.div key={i} variants={itemVariants} className={`bg-white/70 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 p-4 rounded-xl shadow-sm border-l-4 ${sys.borderLeft} hover:shadow-md transition-shadow flex items-start gap-3`}>
-                          <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
-                            {i + 1}
-                          </span>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold flex-1">{opt}</p>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                </motion.div>
-              )}
+                  {/* Treatment & Management Section */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Management & Treatment Regimen</h4>
+                    <div className="space-y-2.5">
+                      {selectedCondition.treatmentOptions.map((opt, i) => {
+                        const sys = getSystem(selectedCondition.system);
+                        return (
+                          <div key={i} className={`bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl border-l-4 ${sys.borderLeft} flex items-start gap-3`}>
+                            <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
+                              {i + 1}
+                            </span>
+                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold flex-1">{opt}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-              {activeTab === "notes" && (
-                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 flex-1 overflow-y-auto scrollbar-hide">
-                  <div className="bg-teal-500/5 dark:bg-teal-500/10 border border-teal-200/40 dark:border-teal-900/30 rounded-2xl p-5 shadow-sm">
-                    <h4 className="text-xs font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Lucide.Lightbulb className="w-4 h-4 text-teal-500 shrink-0" /> Clinical Pearls & Guidelines
+                  {/* Clinical Pearls & Guidelines */}
+                  <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
+                    <h4 className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Lucide.Lightbulb className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" /> Clinical Pearls & Guidelines
                     </h4>
-                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line font-medium">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line font-medium">
                       {selectedCondition.clinicalNotes}
                     </p>
                   </div>
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+
+                  {/* Clinical References */}
+                  <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
                       Clinical References ({selectedCondition.references.length})
                     </h4>
                     <div className="grid grid-cols-1 gap-2">
                       {selectedCondition.references.map((ref) => (
-                        <div key={ref.id} className="flex gap-3 bg-white/70 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
+                        <div key={ref.id} className="flex gap-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
                           <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center shrink-0 font-bold text-[10px] text-slate-500">
                             {ref.id}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="leading-snug font-semibold">{ref.text}</p>
                             {ref.url && (
-                              <a href={ref.url} target="_blank" rel="noreferrer" className="text-teal-600 dark:text-teal-400 hover:underline mt-1.5 inline-block text-[11px] font-bold">
+                              <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[11px] font-bold">
                                 Access Online Source →
                               </a>
                             )}
@@ -619,177 +593,237 @@ export default function MedicalLibraryPage() {
                       ))}
                     </div>
                   </div>
-                </motion.div>
-              )}
+                </div>
+              </div>
 
-              {activeTab === "pdf" && selectedCondition.document && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col space-y-4 flex-1 min-h-0 overflow-hidden">
-                  {/* PDF Toolbar */}
-                  <div className="bg-slate-900 dark:bg-slate-955 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none">
-                    <div className="flex items-center gap-2">
-                      <Lucide.FileText className="w-4 h-4 text-rose-500" />
-                      <span className="font-bold truncate max-w-[200px]" title={selectedCondition.document.filename}>
-                        {selectedCondition.document.filename}
-                      </span>
-                      <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono">
-                        {selectedCondition.document.fileSize}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
-                        <Lucide.ChevronLeft className="w-4 h-4" />
-                      </button>
-                      <span className="font-mono text-xs font-semibold">Page {pdfPage} of {selectedCondition.document.totalPages}</span>
-                      <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
-                        <Lucide.ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800">
-                          <Lucide.Minus className="w-4 h-4" />
+              {/* Right Column: PDF Viewer or Placeholder */}
+              <div className="lg:col-span-5 space-y-5">
+                {selectedCondition.document ? (
+                  <div className="flex flex-col space-y-4">
+                    {/* PDF Toolbar */}
+                    <div className="bg-slate-900 dark:bg-slate-955 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Lucide.FileText className="w-4 h-4 text-rose-500 shrink-0" />
+                        <span className="font-bold truncate max-w-[120px]" title={selectedCondition.document.filename}>
+                          {selectedCondition.document.filename}
+                        </span>
+                        <span className="text-[10px] bg-slate-800 text-slate-450 px-2 py-0.5 rounded font-mono shrink-0">
+                          {selectedCondition.document.fileSize}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                          <Lucide.ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="font-mono w-10 text-center text-[11px] font-bold">{pdfZoom}%</span>
-                        <button onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800">
-                          <Lucide.Plus className="w-4 h-4" />
+                        <span className="font-mono text-xs font-semibold">Page {pdfPage} of {selectedCondition.document.totalPages}</span>
+                        <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                          <Lucide.ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800">
+                          <Lucide.Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="font-mono text-[10px] font-bold">{pdfZoom}%</span>
+                        <button onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800">
+                          <Lucide.Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* PDF mock viewer */}
+                    <div
+                      ref={containerRef}
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px]"
+                    >
+                      <div
+                        style={{
+                          width: `${720 * currentZoomScale}px`,
+                          height: `${940 * currentZoomScale}px`,
+                          position: "relative",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <div
+                          className="bg-white text-slate-800 p-8 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text"
+                          style={{
+                            transform: `scale(${currentZoomScale})`,
+                            transformOrigin: "top left",
+                            width: "720px",
+                            height: "940px",
+                          }}
+                        >
+                          {/* Watermark */}
+                          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
+                            <span className="font-sans font-black text-8xl tracking-widest text-slate-900">GP EDGE</span>
+                          </div>
+
+                          {/* PDF Header */}
+                          <div className="flex items-center justify-between border-b-2 border-green-600 pb-2 mb-4 text-[10px] text-slate-500 font-semibold tracking-wider uppercase select-none">
+                            <div className="flex items-center gap-1">
+                              <span className="w-5 h-5 bg-green-600 text-white rounded flex items-center justify-center text-[9px] font-bold">GP</span>
+                              <span>Clinical Reference Guideline Library</span>
+                            </div>
+                            <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
+                          </div>
+
+                          {/* PAGE 1 CONTENT */}
+                          {pdfPage === 1 && (
+                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                              <div className="text-center">
+                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
+                                <h2 className="font-sans text-lg font-extrabold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
+                                <p className="text-[9px] text-slate-500 mt-0.5 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
+                              </div>
+                              <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">{selectedCondition.document.summary}</p>
+                              
+                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-2">
+                                <p className="font-bold text-slate-900">Metadata Profile:</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="space-y-0.5">
+                                    <p className="text-slate-400">Target System</p>
+                                    <p className="font-semibold text-slate-700">{selectedCondition.system} Pathology</p>
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className="text-slate-400">Subcategory Classification</p>
+                                    <p className="font-semibold text-slate-700">{selectedCondition.category}</p>
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className="text-slate-400">Authoring Board</p>
+                                    <p className="font-semibold text-slate-700">{selectedCondition.author}</p>
+                                  </div>
+                                  <div className="space-y-0.5">
+                                    <p className="text-slate-400">Version Control</p>
+                                    <p className="font-semibold text-slate-700">Release May 2026</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2 pt-2 border-t border-slate-100">
+                                <h3 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider">Clinical Presentation Summary</h3>
+                                <p className="text-slate-605 leading-relaxed font-medium">
+                                  {selectedCondition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* PAGE 2 CONTENT */}
+                          {pdfPage === 2 && (
+                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                              <div className="border-b border-slate-100 pb-2">
+                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
+                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
+                              </div>
+                              <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {selectedCondition.name}:</p>
+                              <div className="space-y-2">
+                                {selectedCondition.diagnosisCriteria.map((c, i) => (
+                                  <div key={i} className="flex gap-3 border border-slate-150 p-3 rounded-lg bg-slate-50/50 shadow-sm">
+                                    <span className="font-mono font-bold text-green-600 dark:text-green-500 shrink-0 text-xs">0{i + 1}</span>
+                                    <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* PAGE 3 CONTENT */}
+                          {pdfPage === 3 && (
+                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                              <div className="border-b border-slate-100 pb-2">
+                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
+                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
+                              </div>
+                              <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
+                              <div className="space-y-2">
+                                {selectedCondition.treatmentOptions.map((opt, i) => (
+                                  <div key={i} className="flex gap-3 items-start border border-slate-150 bg-slate-50/40 p-3 rounded-lg shadow-sm">
+                                    <span className="w-5 h-5 rounded bg-green-600 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                                      {i + 1}
+                                    </span>
+                                    <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* PAGE 4+ CONTENT */}
+                          {pdfPage >= 4 && (
+                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                              <div className="border-b border-slate-100 pb-2">
+                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
+                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
+                              </div>
+                              
+                              <div className="bg-green-50/80 dark:bg-green-950/20 border border-green-200/60 dark:border-green-900/30 p-3 rounded-lg text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-300 italic space-y-1">
+                                <p className="font-bold text-green-700 dark:text-green-400 not-italic mb-0.5 flex items-center gap-1 text-[10px]">
+                                  <Lucide.Lightbulb className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
+                                  Key Summary Pearls:
+                                </p>
+                                <p className="font-medium whitespace-pre-line leading-relaxed">{selectedCondition.clinicalNotes}</p>
+                              </div>
+
+                              <div className="space-y-2 mt-4">
+                                <h3 className="font-bold text-[9px] text-slate-400 uppercase tracking-widest">References</h3>
+                                <div className="divide-y divide-slate-100">
+                                  {selectedCondition.references.map((ref) => (
+                                    <div key={ref.id} className="py-2 flex items-start gap-2.5 text-[9.5px]">
+                                      <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
+                                      <div className="flex-1">
+                                        <p className="text-slate-700 font-medium leading-relaxed">
+                                          {ref.text}
+                                        </p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Footer */}
+                          <footer className="absolute bottom-6 left-8 right-8 border-t border-slate-200 pt-2 flex items-center justify-between text-[8px] text-slate-400 font-medium select-none uppercase tracking-wider">
+                            <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
+                            <span>{selectedCondition.id} · Page {pdfPage} of {selectedCondition.document.totalPages}</span>
+                          </footer>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col sm:flex-row gap-3">
                       <button
                         onClick={() => {
                           window.open(`/medical-library/view-pdf?id=${selectedCondition.id}`, "_blank");
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-[11px] transition-colors"
-                        title="Open in New Tab"
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-green-600 hover:bg-green-500 dark:bg-green-600 dark:hover:bg-green-500 text-white font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm"
                       >
-                        <Lucide.ExternalLink className="w-3.5 h-3.5" />
-                        <span>Open</span>
+                        <Lucide.ExternalLink className="w-4 h-4 shrink-0" />
+                        <span>Open Standalone PDF</span>
                       </button>
                       {selectedCondition.document.downloadUrl && (
                         <a
                           href={selectedCondition.document.downloadUrl}
                           download
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-[11px] transition-colors shadow-sm"
+                          className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm"
                         >
-                          <Lucide.Download className="w-3.5 h-3.5" />
-                          <span>Save</span>
+                          <Lucide.Download className="w-4 h-4 shrink-0" />
+                          <span>Save PDF Guidelines</span>
                         </a>
                       )}
                     </div>
                   </div>
-
-                  {/* PDF mock viewer */}
-                  <div className="border border-slate-200 dark:border-slate-800/80 rounded-xl shadow-xl bg-slate-100/60 dark:bg-slate-900/40 p-4 sm:p-6 flex flex-col items-center flex-1 overflow-y-auto">
-                    <div
-                      className="bg-white text-slate-800 p-8 sm:p-12 shadow-2xl border border-slate-200/80 relative origin-top transition-all duration-300 rounded-md shrink-0"
-                      style={{
-                        transform: `scale(${pdfZoom / 100})`,
-                        width: "600px",
-                        minHeight: "780px",
-                        marginBottom: `${Math.max(0, (pdfZoom / 100 - 1) * 780)}px`,
-                      }}
-                    >
-                      {/* Faint Confidential Watermark */}
-                      <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
-                        <span className="font-sans font-black text-7xl tracking-widest text-slate-900">GP EDGE</span>
-                      </div>
-
-                      {/* Professional PDF Header */}
-                      <div className="flex items-center justify-between border-b-2 border-teal-600 pb-4 mb-6 text-[10px] text-slate-500 font-semibold tracking-wider uppercase select-none">
-                        <div className="flex items-center gap-1.5">
-                          <span className="w-5 h-5 bg-teal-600 text-white rounded flex items-center justify-center text-[10px] font-bold">GP</span>
-                          <span>Clinical Reference Guideline Library</span>
-                        </div>
-                        <span className="text-red-600 font-bold">CONFIDENTIAL</span>
-                      </div>
-
-                      {pdfPage === 1 && (
-                        <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-                          <div className="text-center">
-                            <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
-                            <h2 className="font-sans text-2xl font-bold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
-                            <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
-                          </div>
-                          <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3.5 italic">{selectedCondition.document.summary}</p>
-                          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-[11px] space-y-2">
-                            <p className="font-bold text-slate-800">Metadata Profile:</p>
-                            <ul className="list-disc pl-4 space-y-1.5 text-slate-600 font-medium">
-                              <li><strong>Target System:</strong> {selectedCondition.system} Pathology</li>
-                              <li><strong>Subcategory Classification:</strong> {selectedCondition.category}</li>
-                              <li><strong>Authoring Board:</strong> {selectedCondition.author}</li>
-                              <li><strong>Version Control:</strong> Release May 2026</li>
-                            </ul>
-                          </div>
-                        </div>
-                      )}
-
-                      {pdfPage === 2 && (
-                        <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-                          <div className="border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
-                            <h2 className="font-sans text-xl font-bold text-slate-900 mt-0.5">Diagnostic Criteria</h2>
-                          </div>
-                          <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially:</p>
-                          <div className="space-y-2">
-                            {selectedCondition.diagnosisCriteria.slice(0, 4).map((c, i) => (
-                              <div key={i} className="flex gap-3 border border-slate-200 p-3 rounded-lg bg-slate-50/50">
-                                <span className="font-mono font-bold text-teal-700 shrink-0 text-xs">0{i + 1}</span>
-                                <p className="text-slate-600 font-medium">{c}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {pdfPage === 3 && (
-                        <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-                          <div className="border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
-                            <h2 className="font-sans text-xl font-bold text-slate-900 mt-0.5">Recommended Interventions</h2>
-                          </div>
-                          <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
-                          <div className="space-y-3">
-                            {selectedCondition.treatmentOptions.map((opt, i) => (
-                              <div key={i} className="flex gap-3.5 items-start border border-slate-100 bg-slate-50/30 p-3.5 rounded-lg">
-                                <span className="w-5 h-5 rounded bg-teal-600 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                                  {i + 1}
-                                </span>
-                                <p className="text-[11px] leading-relaxed text-slate-600 font-medium">{opt}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {pdfPage >= 4 && (
-                        <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-                          <div className="border-b border-slate-100 pb-2">
-                            <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
-                            <h2 className="font-sans text-xl font-bold text-slate-900 mt-0.5">Pearls & Bibliography</h2>
-                          </div>
-                          <div className="bg-teal-50 border border-teal-200/50 p-4 rounded-xl text-[11px] leading-relaxed text-slate-600 italic">
-                            <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1">
-                              <Lucide.Lightbulb className="w-3.5 h-3.5 text-teal-600" />
-                              Key Summary Pearls:
-                            </p>
-                            {selectedCondition.clinicalNotes}
-                          </div>
-                          <div className="space-y-2 mt-4">
-                            <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-wider">References</h3>
-                            {selectedCondition.references.map((ref) => (
-                              <div key={ref.id} className="border-t border-slate-100 pt-2 flex items-start gap-2 text-[10.5px]">
-                                <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
-                                <p className="text-slate-600 font-medium">
-                                  {ref.text} {ref.url && <span className="text-teal-600 underline font-mono text-[9.5px]">({ref.url})</span>}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                ) : (
+                  <div className="glass dark:glass-strong rounded-3xl p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg text-center text-slate-400 space-y-4">
+                    <Lucide.FileWarning className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No PDF Guideline Attached</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+                      This clinical item is a summary note and does not have an attached PDF document. Please refer to the clinical references in the left column.
+                    </p>
                   </div>
-                </motion.div>
-              )}
+                )}
+              </div>
             </div>
           </motion.div>
         )}

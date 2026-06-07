@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -15,6 +15,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { mbsItems, complexityConfig, MBSItem } from "@/components/mbs-billing/data";
 
 // ─── Animation configs ────────────────────────────────────────────────────────
@@ -38,11 +39,35 @@ const cardVariants = {
 };
 
 export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading Billing Guide...</div>}>
+      <BillingContent />
+    </Suspense>
+  );
+}
+
+function BillingContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<MBSItem | null>(null);
   const [customFee, setCustomFee] = useState<string>("");
   const [feeBuilderOpen, setFeeBuilderOpen] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
+
+  const selectedItemId = searchParams.get("item");
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) return null;
+    return mbsItems.find((item) => item.id === selectedItemId) ?? null;
+  }, [selectedItemId]);
+
+  // Sync customFee when selectedItem changes
+  useEffect(() => {
+    if (selectedItem) {
+      setCustomFee(selectedItem.scheduleFee.toFixed(2));
+      setFeeBuilderOpen(false);
+      setNotesExpanded(false);
+    }
+  }, [selectedItem]);
 
   // Memoize filtered items — avoid re-filtering on every render
   const filteredItems = useMemo(() => {
@@ -58,12 +83,11 @@ export default function BillingPage() {
     );
   }, [searchQuery]);
 
-  const handleSelectCard = (item: MBSItem) => {
-    setSelectedItem(item);
-    setCustomFee(item.scheduleFee.toFixed(2));
-    setFeeBuilderOpen(false);
-    setNotesExpanded(false);
-  };
+  const handleSelectCard = useCallback((item: MBSItem) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("item", item.id);
+    router.push(`/dashboard/billing?${params.toString()}`);
+  }, [router]);
 
   const parsedCustomFee = parseFloat(customFee) || 0;
 
@@ -188,7 +212,11 @@ export default function BillingPage() {
             className="space-y-5"
           >
             <button
-              onClick={() => setSelectedItem(null)}
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.delete("item");
+                router.push(`/dashboard/billing?${params.toString()}`);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900 border border-slate-200/40 dark:border-slate-800/50 text-xs font-semibold transition-all"
             >
               <ArrowLeft className="w-4 h-4" />

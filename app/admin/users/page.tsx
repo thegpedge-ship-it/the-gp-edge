@@ -249,13 +249,13 @@ export default function UsersPage() {
       {/* User detail slide-over */}
       <AnimatePresence>
         {selectedUser && (
-          <div key="admin-user-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
+          <>
             <motion.div
               key="admin-user-drawer-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 pointer-events-auto cursor-pointer"
               onClick={() => setSelectedUser(null)}
             />
             <motion.div
@@ -264,7 +264,7 @@ export default function UsersPage() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
               transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
+              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col z-50 pointer-events-auto"
             >
               {/* Decorative top accent line */}
               <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
@@ -372,7 +372,7 @@ export default function UsersPage() {
                 </div>
               </div>
             </motion.div>
-          </div>
+          </>
         )}
       </AnimatePresence>
     </motion.div>

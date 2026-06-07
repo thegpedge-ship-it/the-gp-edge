@@ -29,7 +29,7 @@ interface AutofillTemplate {
   status: "active" | "draft" | "suspended";
   author: string;
   version: string;
-  sampleFields: { name: string; type: string; required: boolean }[];
+  sampleFields: { name: string; type: string; required: boolean; placeholder?: string; options?: string[] }[];
 }
 
 const mockTemplates: AutofillTemplate[] = [
@@ -611,133 +611,143 @@ export default function AutofillPage() {
         </div>
       )}
 
-      {/* Template detail slide-over */}
       <AnimatePresence>
         {selectedTemplate && (
-          <div key="autofill-detail-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
-            <motion.div
-              key="autofill-detail-drawer-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
-              onClick={() => setSelectedTemplate(null)}
-            />
-            <motion.div 
-              key="autofill-detail-drawer-content"
-              initial={{ x: "100%", opacity: 0.8 }} 
-              animate={{ x: 0, opacity: 1 }} 
-              exit={{ x: "100%", opacity: 0.8 }} 
-              transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }} 
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col rounded-2xl pointer-events-auto"
-            >
-              {/* Decorative top accent line */}
-              <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
-              
-              {/* Header */}
-              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
-                <button 
-                  onClick={() => setSelectedTemplate(null)} 
-                  className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
+          <motion.div
+            key="autofill-detail-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer"
+            onClick={() => setSelectedTemplate(null)}
+          />
+        )}
+        {selectedTemplate && (
+          <motion.div 
+            key="autofill-detail-drawer-content"
+            initial={{ x: "calc(100% + 2rem)", opacity: 0 }} 
+            animate={{ x: 0, opacity: 1 }} 
+            exit={{ x: "calc(100% + 2rem)", opacity: 0 }} 
+            transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }} 
+            className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col rounded-2xl z-50"
+          >
+            {/* Decorative top accent line */}
+            <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
+            
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
+              <button 
+                onClick={() => setSelectedTemplate(null)} 
+                className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
+              >
+                <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+              <div className="flex items-center gap-2 mb-2.5">
+                <StatusBadge variant={selectedTemplate.status} />
+                <span className="text-[10px] font-mono font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200/20 dark:border-slate-700/20">{selectedTemplate.version}</span>
+              </div>
+              <h2 className="font-serif text-2xl font-bold text-slate-900 dark:text-slate-50 leading-tight">{selectedTemplate.name}</h2>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedTemplate.system} · {selectedTemplate.category} · by {selectedTemplate.author}</p>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+              {/* Stats cards grid */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-xl font-serif text-teal-600 dark:text-teal-400 font-bold">{selectedTemplate.fields}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Fields</p>
+                </div>
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all">
+                  <p className="text-xl font-serif text-emerald-600 dark:text-emerald-400 font-bold">{selectedTemplate.usageCount.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Total Uses</p>
+                </div>
+                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all flex flex-col justify-center">
+                  <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-tight mt-1">{selectedTemplate.lastUsed}</p>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-1.5">Last Used</p>
+                </div>
+              </div>
+
+              {/* Field preview list */}
+              <div>
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Form Fields Preview</h3>
+                <motion.div 
+                  variants={modalListVariants}
+                  initial="hidden"
+                  animate="visible"
+                  className="space-y-2.5"
                 >
-                  <svg className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-                <div className="flex items-center gap-2 mb-2.5">
-                  <StatusBadge variant={selectedTemplate.status} />
-                  <span className="text-[10px] font-mono font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200/20 dark:border-slate-700/20">{selectedTemplate.version}</span>
-                </div>
-                <h2 className="font-serif text-2xl font-bold text-slate-900 dark:text-slate-50 leading-tight">{selectedTemplate.name}</h2>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedTemplate.system} · {selectedTemplate.category} · by {selectedTemplate.author}</p>
-              </div>
-
-              {/* Scrollable Body */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
-                {/* Stats cards grid */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-xl font-serif text-teal-600 dark:text-teal-400 font-bold">{selectedTemplate.fields}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Fields</p>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all">
-                    <p className="text-xl font-serif text-emerald-600 dark:text-emerald-400 font-bold">{selectedTemplate.usageCount.toLocaleString()}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-0.5">Total Uses</p>
-                  </div>
-                  <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3 rounded-xl text-center hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-all flex flex-col justify-center">
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 leading-tight mt-1">{selectedTemplate.lastUsed}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mt-1.5">Last Used</p>
-                  </div>
-                </div>
-
-                {/* Field preview list */}
-                <div>
-                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Form Fields Preview</h3>
-                  <motion.div 
-                    variants={modalListVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="space-y-2.5"
-                  >
-                    {selectedTemplate.sampleFields.map((field, i) => {
-                      let iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>;
-                      let badgeColor = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
-                      
-                      if (field.type === "Textarea") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>;
-                        badgeColor = "bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100/30 dark:border-blue-900/20";
-                      } else if (field.type === "Dropdown") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>;
-                        badgeColor = "bg-teal-50 text-teal-600 dark:bg-teal-950/20 dark:text-teal-400 border border-teal-100/30 dark:border-teal-900/20";
-                      } else if (field.type === "Numeric") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>;
-                        badgeColor = "bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-100/30 dark:border-amber-900/20";
-                      } else if (field.type === "Checkbox") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
-                        badgeColor = "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100/30 dark:border-emerald-900/20";
-                      } else if (field.type === "Text Input") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
-                        badgeColor = "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/20";
-                      } else if (field.type === "Date Picker") {
-                        iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-                        badgeColor = "bg-purple-50 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-100/30 dark:border-purple-900/20";
-                      }
-
-                      return (
-                        <motion.div 
-                          key={i} 
-                          variants={modalItemVariants}
-                          className="flex items-center justify-between px-4 py-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100 dark:border-slate-800/60 shadow-sm hover:shadow-md hover:border-teal-300 dark:hover:border-teal-600/80 hover:-translate-y-0.5 transition-all duration-200 group relative overflow-hidden"
-                        >
-                          <div className="absolute inset-y-0 left-0 w-1 bg-transparent group-hover:bg-teal-500 transition-colors" />
-                          <div className="flex items-center gap-3">
-                            <span className="w-6 h-6 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 text-xs font-bold flex items-center justify-center border border-teal-100/50 dark:border-teal-900/20">{i + 1}</span>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{field.name}</p>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>
-                                  {iconSvg}
-                                  {field.type}
-                                </span>
-                                {field.required && (
-                                  <span className="text-[9px] text-red-500 font-semibold bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded-full border border-red-100/20 dark:border-red-900/20">Required</span>
-                                )}
-                              </div>
+                  {selectedTemplate.sampleFields.map((field, i) => {
+                    let iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>;
+                    let badgeColor = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
+                    
+                    if (field.type === "Textarea") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>;
+                      badgeColor = "bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100/30 dark:border-blue-900/20";
+                    } else if (field.type === "Dropdown") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>;
+                      badgeColor = "bg-teal-50 text-teal-600 dark:bg-teal-950/20 dark:text-teal-400 border border-teal-100/30 dark:border-teal-900/20";
+                    } else if (field.type === "Numeric") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" /></svg>;
+                      badgeColor = "bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400 border border-amber-100/30 dark:border-amber-900/20";
+                    } else if (field.type === "Checkbox") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
+                      badgeColor = "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100/30 dark:border-emerald-900/20";
+                    } else if (field.type === "Text Input") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>;
+                      badgeColor = "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/20";
+                    } else if (field.type === "Date Picker") {
+                      iconSvg = <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
+                      badgeColor = "bg-purple-50 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400 border border-purple-100/30 dark:border-purple-900/20";
+                    }
+                    
+                    return (
+                      <motion.div 
+                        key={field.name}
+                        variants={modalItemVariants}
+                        className="flex items-start justify-between border border-slate-100 dark:border-slate-850 bg-slate-50/40 dark:bg-slate-900/20 p-3.5 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{field.name}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-550 mt-1 font-medium">{field.placeholder}</p>
+                          {field.options && (
+                            <div className="flex flex-wrap gap-1 mt-2.5">
+                              {field.options.map((opt) => (
+                                <span key={opt} className="text-[9.5px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md border border-slate-200/10">{opt}</span>
+                              ))}
                             </div>
-                          </div>
-                          <svg className="w-4 h-4 text-slate-300 dark:text-slate-600 opacity-0 group-hover:opacity-100 transition-all cursor-grab hover:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
-                        </motion.div>
-                      );
-                    })}
-                  </motion.div>
-                </div>
+                          )}
+                        </div>
+                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 capitalize shrink-0 select-none ${badgeColor}`}>
+                          {iconSvg}
+                          {field.type}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
               </div>
+            </div>
 
-              {/* Footer */}
-              <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-                <button onClick={() => handleOpenEdit(selectedTemplate)} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">Edit Template</button>
-                <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Export</button>
-              </div>
-            </motion.div>
-          </div>
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-850 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
+              <button 
+                onClick={() => {
+                  setSelectedTemplate(null);
+                  setEditingTemplateId(selectedTemplate.id);
+                  setNewName(selectedTemplate.name);
+                  setNewSystem(selectedTemplate.system);
+                  setNewCategory(selectedTemplate.category);
+                  setTempFields([...selectedTemplate.sampleFields]);
+                  setShowEditor(true);
+                }} 
+                className="flex-1 text-center px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all"
+              >
+                Edit Template Form
+              </button>
+              <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 

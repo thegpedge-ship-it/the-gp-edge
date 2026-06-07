@@ -143,7 +143,6 @@ export default function DashboardPage() {
           icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
         />
       </motion.div>
-
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly revenue chart */}
@@ -157,15 +156,17 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-end justify-between gap-3 h-44">
             {monthlyRevenue.map((m, i) => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">${(m.revenue / 1000).toFixed(1)}k</span>
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
-                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  className={`w-full rounded-lg ${i === monthlyRevenue.length - 1 ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-800/30"} transition-colors`}
-                />
-                <span className={`text-[11px] font-medium ${i === monthlyRevenue.length - 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
+              <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5 h-full">
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">${(m.revenue / 1000).toFixed(1)}k</span>
+                <div className="w-full flex-1 relative flex items-end">
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    className={`w-full rounded-md ${i === monthlyRevenue.length - 1 ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-emerald-105 dark:hover:bg-emerald-800/30"} transition-all`}
+                  />
+                </div>
+                <span className={`text-[11px] font-bold mt-1 ${i === monthlyRevenue.length - 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
               </div>
             ))}
           </div>
@@ -182,15 +183,17 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-end justify-between gap-3 h-44">
             {userGrowth.map((m, i) => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-2">
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{(m.users / 1000).toFixed(1)}k</span>
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${(m.users / maxUsers) * 100}%` }}
-                  transition={{ duration: 0.6, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                  className={`w-full rounded-lg ${i === userGrowth.length - 1 ? "bg-gradient-to-t from-teal-500 to-emerald-400 shadow-lg shadow-teal-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-teal-100 dark:hover:bg-teal-800/30"} transition-colors`}
-                />
-                <span className={`text-[11px] font-medium ${i === userGrowth.length - 1 ? "text-teal-600 dark:text-teal-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
+              <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5 h-full">
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{(m.users / 1000).toFixed(1)}k</span>
+                <div className="w-full flex-1 relative flex items-end">
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${(m.users / maxUsers) * 100}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                    className={`w-full rounded-md ${i === userGrowth.length - 1 ? "bg-gradient-to-t from-teal-500 to-emerald-400 shadow-lg shadow-teal-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-teal-105 dark:hover:bg-teal-800/30"} transition-all`}
+                  />
+                </div>
+                <span className={`text-[11px] font-bold mt-1 ${i === userGrowth.length - 1 ? "text-teal-600 dark:text-teal-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
               </div>
             ))}
           </div>
