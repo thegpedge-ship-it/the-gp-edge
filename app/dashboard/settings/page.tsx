@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User,
@@ -275,9 +276,7 @@ export default function SettingsPage() {
             <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-200/70 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
             <div className="absolute bottom-3 right-5 flex items-center gap-1.5 select-none pointer-events-none opacity-[0.18]">
-              <div className="w-5 h-5 rounded-md bg-teal-700 flex items-center justify-center">
-                <span className="text-white text-[8px] font-bold tracking-tight">GP</span>
-              </div>
+              <Image src="/assets/logo.png" alt="The GP Edge" width={20} height={20} className="rounded-md object-contain" />
               <span className="text-teal-800 text-[10px] font-semibold tracking-wider uppercase">
                 The GP Edge
               </span>
@@ -581,41 +580,15 @@ export default function SettingsPage() {
                   label="Logout All Devices"
                   sublabel="Sign out from all active sessions"
                 />
+                <ActionRow
+                  id="delete-account-btn"
+                  icon={<Trash2 size={14} />}
+                  label="Delete Account"
+                  sublabel="Permanently delete your account and all data"
+                  danger
+                />
               </div>
             </PageCard>
-          </FadeIn>
-
-          {/* Danger Zone */}
-          <FadeIn delay={0.18}>
-            <div className="bg-red-50/60 rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-red-100 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle size={14} className="text-red-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-red-700 text-[14px] leading-tight">Danger Zone</h3>
-                  <p className="text-xs text-red-400 mt-0.5">Irreversible account actions</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                id="delete-account-btn"
-                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-red-100/60 transition-all duration-150 group"
-              >
-                <span className="w-8 h-8 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center flex-shrink-0">
-                  <Trash2 size={14} className="text-red-500" />
-                </span>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold text-red-600 leading-tight">Delete Account</p>
-                  <p className="text-xs text-red-400 mt-0.5">Permanently delete your account and all data</p>
-                </div>
-                <ChevronRight
-                  size={15}
-                  className="text-red-300 flex-shrink-0 group-hover:translate-x-0.5 transition-transform duration-150"
-                />
-              </button>
-            </div>
           </FadeIn>
         </div>
       </div>

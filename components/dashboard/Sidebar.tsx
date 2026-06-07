@@ -314,13 +314,7 @@ export default function Sidebar() {
                     position: "absolute", bottom: 8, right: 10,
                     display: "flex", alignItems: "center", gap: 4, opacity: 0.28,
                   }}>
-                    <div style={{
-                      width: 15, height: 15, borderRadius: 3,
-                      background: "rgba(20,184,166,0.65)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
-                    </div>
+                    <Image src="/assets/logo.png" alt="The GP Edge" width={15} height={15} style={{ borderRadius: 3, objectFit: "contain" }} />
                     <span style={{ color: "#99f6e4", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
                       THE GP EDGE
                     </span>

@@ -92,9 +92,7 @@ export default function ProfilePage() {
             </svg>
             {/* GP Edge branding */}
             <div className="absolute bottom-4 right-6 flex items-center gap-1.5 opacity-30 select-none">
-              <div className="w-5 h-5 rounded-[4px] bg-teal-500/50 flex items-center justify-center">
-                <span className="text-white text-[8px] font-bold">GP</span>
-              </div>
+              <Image src="/assets/logo.png" alt="The GP Edge" width={20} height={20} className="rounded-[4px] object-contain" />
               <span className="text-teal-300 text-[10px] tracking-widest font-medium uppercase">The GP Edge</span>
             </div>
           </div>
