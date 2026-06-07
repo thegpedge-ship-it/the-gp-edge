@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { addUserNotification } from "@/utils/notifications";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 interface Quiz {
   id: number;
@@ -94,6 +94,18 @@ export default function QuizzesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [quizName, setQuizName] = useState("");
   const [quizLimit, setQuizLimit] = useState(50);
+
+  // Lock body scroll when modal is open to prevent background scrolling lag
+  useEffect(() => {
+    if (showCreateModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [showCreateModal]);
 
   const resetSession = (id: number) => {
     setSessions((prev) => prev.filter((s) => s.id !== id));
@@ -338,7 +350,7 @@ export default function QuizzesPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8"><p className="text-sm text-slate-400">No stuck sessions ✓</p></div>
+          <div className="text-center py-8"><p className="text-sm text-slate-400">No stuck sessions</p></div>
         )}
       </motion.div>
 
@@ -346,8 +358,8 @@ export default function QuizzesPage() {
       <AnimatePresence>
         {showCreateModal && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" onClick={() => setShowCreateModal(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed inset-x-4 top-[10%] mx-auto max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[80vh]">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50" onClick={() => setShowCreateModal(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.96, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 15 }} transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }} className="fixed inset-x-4 top-[10%] mx-auto max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[80vh]">
               <div className="p-6 text-slate-800 dark:text-slate-100">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="font-serif text-xl font-normal text-slate-900 dark:text-slate-100 tracking-tight leading-none">Create Mock Exam</h2>
