@@ -3,6 +3,9 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import StatCard from "@/components/admin/StatCard";
+import { VisitorsChart } from "@/components/admin/VisitorsChart";
+import { MonthlyRevenueChart } from "@/components/admin/MonthlyRevenueChart";
+import { UserGrowthChart } from "@/components/admin/UserGrowthChart";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -13,24 +16,6 @@ const itemVariants = {
   hidden: { opacity: 0, y: 6 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } },
 };
-
-const monthlyRevenue = [
-  { month: "Jan", revenue: 8200 },
-  { month: "Feb", revenue: 9800 },
-  { month: "Mar", revenue: 11400 },
-  { month: "Apr", revenue: 13200 },
-  { month: "May", revenue: 15600 },
-  { month: "Jun", revenue: 17100 },
-];
-
-const userGrowth = [
-  { month: "Jan", users: 8420 },
-  { month: "Feb", users: 9180 },
-  { month: "Mar", users: 10050 },
-  { month: "Apr", users: 10890 },
-  { month: "May", users: 11740 },
-  { month: "Jun", users: 12847 },
-];
 
 const recentActivity = [
   { user: "Dr. James Wilson", action: "Subscribed to Premium", time: "15 mins ago", type: "billing" as const },
@@ -65,9 +50,6 @@ const activityTypeIcon: Record<string, React.ReactNode> = {
 };
 
 export default function DashboardPage() {
-  const maxRevenue = Math.max(...monthlyRevenue.map((d) => d.revenue));
-  const maxUsers = Math.max(...userGrowth.map((d) => d.users));
-
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       {/* Welcome banner — Topbar style with illustration */}
@@ -145,60 +127,15 @@ export default function DashboardPage() {
       </motion.div>
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Monthly revenue chart */}
-        <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Revenue</p>
-              <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Monthly Revenue</h3>
-            </div>
-            <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-500 cursor-pointer transition-colors">2026 →</span>
-          </div>
-          <div className="flex items-end justify-between gap-3 h-44">
-            {monthlyRevenue.map((m, i) => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5 h-full">
-                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">${(m.revenue / 1000).toFixed(1)}k</span>
-                <div className="w-full flex-1 relative flex items-end">
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${(m.revenue / maxRevenue) * 100}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                    className={`w-full rounded-md ${i === monthlyRevenue.length - 1 ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-lg shadow-emerald-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-emerald-105 dark:hover:bg-emerald-800/30"} transition-all`}
-                  />
-                </div>
-                <span className={`text-[11px] font-bold mt-1 ${i === monthlyRevenue.length - 1 ? "text-emerald-600 dark:text-emerald-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        {/* Monthly revenue chart - Recharts */}
+        <MonthlyRevenueChart />
 
-        {/* User growth chart */}
-        <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Growth</p>
-              <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">User Growth</h3>
-            </div>
-            <span className="font-serif text-xl text-slate-900 dark:text-slate-50">12,847</span>
-          </div>
-          <div className="flex items-end justify-between gap-3 h-44">
-            {userGrowth.map((m, i) => (
-              <div key={m.month} className="flex-1 flex flex-col items-center gap-1.5 h-full">
-                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">{(m.users / 1000).toFixed(1)}k</span>
-                <div className="w-full flex-1 relative flex items-end">
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: `${(m.users / maxUsers) * 100}%` }}
-                    transition={{ duration: 0.6, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                    className={`w-full rounded-md ${i === userGrowth.length - 1 ? "bg-gradient-to-t from-teal-500 to-emerald-400 shadow-lg shadow-teal-500/20" : "bg-slate-100 dark:bg-slate-700 hover:bg-teal-105 dark:hover:bg-teal-800/30"} transition-all`}
-                  />
-                </div>
-                <span className={`text-[11px] font-bold mt-1 ${i === userGrowth.length - 1 ? "text-teal-600 dark:text-teal-400 font-semibold" : "text-slate-400 dark:text-slate-500"}`}>{m.month}</span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        {/* User growth chart - Recharts */}
+        <UserGrowthChart />
       </div>
+
+      {/* Visitors chart with recharts */}
+      <VisitorsChart />
 
       {/* Activity feed + Platform overview */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
