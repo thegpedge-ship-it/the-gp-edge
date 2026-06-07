@@ -175,8 +175,7 @@ export default function Sidebar() {
             top:           GAP,
             left:          GAP,
             right:         0,
-            // Expanded: full height. Collapsed: auto (determined by rail content).
-            ...(isExpanded ? { bottom: GAP } : {}),
+            bottom: GAP,
             borderRadius:  cardBorderRadius,
             background:    "#ffffff",
             border:        "1px solid #e8edf2",
@@ -194,11 +193,12 @@ export default function Sidebar() {
           <div
             aria-hidden={isExpanded}
             style={{
-              display:       isExpanded ? "none" : "flex",
-              flexDirection: "column",
-              alignItems:    "center",
-              padding:       "12px 0",
-              gap:           0,
+              display:        isExpanded ? "none" : "flex",
+              flexDirection:  "column",
+              alignItems:     "center",
+              justifyContent: "center",
+              height:         "100%",
+              gap:            0,
             }}
           >
             {/* ── Avatar ── */}
@@ -206,7 +206,6 @@ export default function Sidebar() {
               width: 38, height: 38, borderRadius: "50%",
               overflow: "hidden", flexShrink: 0,
               boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
-              marginBottom: 8,
             }}>
               <AvatarSVG size={38} />
             </div>
@@ -253,7 +252,7 @@ export default function Sidebar() {
               onClick={toggle}
               title="Expand sidebar"
               style={{
-                width: 40, height: 36,
+                width: 40, height: 40,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 borderRadius: 10, border: "none",
                 background: "transparent", color: "#cbd5e1",
