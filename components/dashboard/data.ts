@@ -130,7 +130,7 @@ export const stats = [
 ];
 
 export const greeting = {
-  emoji: "👋",
+  emoji: "",
   salutation: "Good morning, Sarah!",
   title: "Your study",
   highlight: "cockpit",
