@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 const modalListVariants = {
   hidden: { opacity: 0 },
@@ -287,6 +287,92 @@ export default function AutofillPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [newSystem, setNewSystem] = useState("Respiratory");
   const [newCategory, setNewCategory] = useState("Acute");
+  const [newName, setNewName] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
+
+  const handleOpenEdit = (template: AutofillTemplate) => {
+    setEditingTemplateId(template.id);
+    setNewName(template.name);
+    setNewSystem(template.system);
+    setNewCategory(template.category);
+    setTempFields(template.sampleFields);
+    setShowEditor(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!newName.trim()) {
+      alert("Please enter a template name.");
+      return;
+    }
+
+    if (editingTemplateId !== null) {
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === editingTemplateId
+            ? {
+                ...t,
+                name: newName,
+                system: newSystem,
+                category: newCategory,
+                fields: tempFields.length,
+                sampleFields: tempFields,
+              }
+            : t
+        )
+      );
+      if (selectedTemplate && selectedTemplate.id === editingTemplateId) {
+        setSelectedTemplate({
+          ...selectedTemplate,
+          name: newName,
+          system: newSystem,
+          category: newCategory,
+          fields: tempFields.length,
+          sampleFields: tempFields,
+        });
+      }
+    } else {
+      const newTemplate: AutofillTemplate = {
+        id: templates.length + 1,
+        name: newName,
+        system: newSystem,
+        category: newCategory,
+        fields: tempFields.length,
+        usageCount: 0,
+        lastUsed: "Just now",
+        status: "active",
+        author: "Dr. Siddhant Udavant",
+        version: "v1.0",
+        sampleFields: tempFields.length > 0 ? tempFields : [
+          { name: "Symptom Log", type: "Textarea", required: true },
+          { name: "Treatment Path", type: "Dropdown", required: true }
+        ]
+      };
+      setTemplates((prev) => [newTemplate, ...prev]);
+    }
+
+    setShowEditor(false);
+    setEditingTemplateId(null);
+  };
+
+  const addField = (type: string) => {
+    const name = prompt(`Enter name for the ${type} field:`, `New ${type} Field`);
+    if (name === null) return;
+    const finalName = name.trim() || `New ${type} Field`;
+    setTempFields((prev) => [...prev, { name: finalName, type, required: true }]);
+  };
+
+  // Lock body scroll when drawer or modal is open to prevent background scrolling lag
+  useEffect(() => {
+    if (selectedTemplate || showEditor) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [selectedTemplate, showEditor]);
 
   const filtered = templates.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
@@ -303,6 +389,22 @@ export default function AutofillPage() {
         title="Autofill"
         highlightedText="Templates"
         subtitle="Manage consultation autofill templates and form builders"
+        actions={
+          <button 
+            onClick={() => {
+              setEditingTemplateId(null);
+              setNewName("");
+              setNewSystem("Respiratory");
+              setNewCategory("Acute");
+              setTempFields([]);
+              setShowEditor(true);
+            }}
+            className="px-4 py-2.5 bg-teal-600 text-sm font-semibold text-white rounded-xl hover:bg-teal-700 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Add Template
+          </button>
+        }
         variants={itemVariants}
       />
 
@@ -426,7 +528,7 @@ export default function AutofillPage() {
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); }}
+                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(template); }}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-all"
                         title="Edit"
                       >
@@ -486,7 +588,7 @@ export default function AutofillPage() {
                     <td className="px-4 py-4"><StatusBadge variant={t.status} /></td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                        <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all" title="Edit">
+                        <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(t); }} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all" title="Edit">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" title="Duplicate">
@@ -512,14 +614,22 @@ export default function AutofillPage() {
       {/* Template detail slide-over */}
       <AnimatePresence>
         {selectedTemplate && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer" onClick={() => setSelectedTemplate(null)} />
+          <div key="autofill-detail-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
+            <motion.div
+              key="autofill-detail-drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              onClick={() => setSelectedTemplate(null)}
+            />
             <motion.div 
-              initial={{ x: "110%", opacity: 0 }} 
+              key="autofill-detail-drawer-content"
+              initial={{ x: "100%", opacity: 0.8 }} 
               animate={{ x: 0, opacity: 1 }} 
-              exit={{ x: "110%", opacity: 0 }} 
-              transition={{ type: "spring", damping: 32, stiffness: 280 }} 
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl overflow-hidden flex flex-col rounded-2xl"
+              exit={{ x: "100%", opacity: 0.8 }} 
+              transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }} 
+              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col rounded-2xl pointer-events-auto"
             >
               {/* Decorative top accent line */}
               <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
@@ -623,29 +733,54 @@ export default function AutofillPage() {
 
               {/* Footer */}
               <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-                <button className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">Edit Template</button>
+                <button onClick={() => handleOpenEdit(selectedTemplate)} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">Edit Template</button>
                 <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Export</button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Template builder modal */}
       <AnimatePresence>
         {showEditor && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" onClick={() => setShowEditor(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white dark:border-slate-800 rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div key="autofill-builder-modal-container" className="fixed inset-0 z-50 pointer-events-none">
+            <motion.div
+              key="autofill-builder-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm pointer-events-auto"
+              onClick={() => setShowEditor(false)}
+            />
+            <motion.div
+              key="autofill-builder-modal-content"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-white dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] pointer-events-auto"
+            >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-serif text-xl font-normal text-slate-900 dark:text-slate-100 tracking-tight">New Autofill Template</h2>
+                  <h2 className="font-serif text-xl font-normal text-slate-900 dark:text-slate-100 tracking-tight">
+                    {editingTemplateId !== null ? "Edit Autofill Template" : "New Autofill Template"}
+                  </h2>
                   <button onClick={() => setShowEditor(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
                 <div className="space-y-4">
-                  <div><label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Template Name</label><input type="text" className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 dark:text-slate-100 transition-all" placeholder="e.g. URTI Assessment" /></div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Template Name</label>
+                    <input 
+                      type="text" 
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className="w-full px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 dark:text-slate-100 transition-all" 
+                      placeholder="e.g. URTI Assessment" 
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
@@ -678,26 +813,48 @@ export default function AutofillPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Form Fields</label>
-                    <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-6 text-center hover:border-teal-350 dark:hover:border-teal-500/80 transition-colors cursor-pointer">
-                      <svg className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
-                      <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Add form fields</p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Drag and drop or click to add fields</p>
-                      <div className="flex flex-wrap gap-1.5 justify-center mt-3">
+                    {tempFields.length > 0 && (
+                      <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-955/20">
+                        <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-505 font-bold mb-1.5">Current Template Fields ({tempFields.length})</p>
+                        {tempFields.map((field, i) => (
+                          <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-150 dark:border-slate-800 text-xs">
+                            <span className="font-semibold text-slate-700 dark:text-slate-350">{field.name} <span className="text-[10px] font-normal text-slate-400">({field.type})</span></span>
+                            <button 
+                              onClick={() => setTempFields((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="text-red-500 hover:text-red-750 font-bold text-[10px]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Form Fields Editor</label>
+                    <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center hover:border-teal-350 dark:hover:border-teal-500/80 transition-colors">
+                      <p className="text-xs font-bold text-slate-505 dark:text-slate-400 mb-1">Click a field type below to append to template:</p>
+                      <div className="flex flex-wrap gap-1.5 justify-center mt-2.5">
                         {fieldTypes.map((ft) => (
-                          <span key={ft} className="text-[10px] font-medium text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-all">{ft}</span>
+                          <span 
+                            key={ft} 
+                            onClick={() => addField(ft)}
+                            className="text-[10px] font-medium text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-955/45 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-all select-none"
+                          >
+                            + {ft}
+                          </span>
                         ))}
                       </div>
                     </div>
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <button onClick={() => setShowEditor(false)} className="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Cancel</button>
-                    <button onClick={() => setShowEditor(false)} className="px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-all shadow-sm shadow-teal-500/20">Create Template</button>
+                    <button onClick={handleSaveTemplate} className="px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-all shadow-sm shadow-teal-500/20">
+                      {editingTemplateId !== null ? "Save Changes" : "Create Template"}
+                    </button>
                   </div>
                 </div>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
