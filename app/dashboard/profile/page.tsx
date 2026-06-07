@@ -157,9 +157,9 @@ export default function ProfilePage() {
       <FadeIn delay={0.10}>
         <div className="grid grid-cols-4 gap-4">
           <StatChip value={stats[0].value} label="Study Streak" accent="slate" />
-          <StatChip value={stats[1].value} label="Avg Accuracy" accent="emerald" />
+          <StatChip value={stats[1].value} label="Avg Accuracy" accent="slate" />
           <StatChip value={stats[2].value} label="Quiz Attempts" accent="slate" />
-          <StatChip value={stats[3].value} label="Mock Exams" accent="teal" />
+          <StatChip value={stats[3].value} label="Mock Exams" accent="slate" />
         </div>
       </FadeIn>
 

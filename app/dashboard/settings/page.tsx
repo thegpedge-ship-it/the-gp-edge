@@ -270,14 +270,24 @@ export default function SettingsPage() {
             role="button"
             aria-label="Update cover photo"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-teal-50/80 to-emerald-50/50" />
-            <div className="absolute -top-10 -right-10 w-52 h-52 rounded-full bg-teal-100/60 blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-6 left-1/3 w-44 h-44 rounded-full bg-emerald-100/50 blur-3xl pointer-events-none" />
-            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-teal-200/70 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
-            <div className="absolute bottom-3 right-5 flex items-center gap-1.5 select-none pointer-events-none opacity-[0.18]">
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-teal-950 to-slate-900" />
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: `
+                  radial-gradient(ellipse at 18% 65%, rgba(20,184,166,0.28) 0%, transparent 52%),
+                  radial-gradient(ellipse at 82% 22%, rgba(13,148,136,0.22) 0%, transparent 44%)
+                `,
+              }}
+            />
+            <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 900 130" preserveAspectRatio="none">
+              {Array.from({ length: 18 }).map((_, i) => (
+                <line key={i} x1={-50 + i * 58} y1="130" x2={i * 58 + 120} y2="0" stroke="white" strokeWidth="1" />
+              ))}
+            </svg>
+            <div className="absolute bottom-3 right-5 flex items-center gap-1.5 select-none pointer-events-none opacity-30">
               <Image src="/assets/logo.png" alt="The GP Edge" width={20} height={20} className="rounded-md object-contain" />
-              <span className="text-teal-800 text-[10px] font-semibold tracking-wider uppercase">
+              <span className="text-teal-300 text-[10px] tracking-widest font-medium uppercase">
                 The GP Edge
               </span>
             </div>
