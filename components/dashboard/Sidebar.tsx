@@ -245,25 +245,6 @@ export default function Sidebar() {
             <RailBtn icon={<BarChart2 size={16} strokeWidth={1.8} />} title="Analytics" />
             <RailBtn icon={<HelpCircle size={16} strokeWidth={1.8} />} title="Help &amp; Support" />
 
-            <Sep />
-
-            {/* ── Expand handle ── */}
-            <button
-              onClick={toggle}
-              title="Expand sidebar"
-              style={{
-                width: 40, height: 40,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 10, border: "none",
-                background: "transparent", color: "#cbd5e1",
-                cursor: "pointer", flexShrink: 0,
-                transition: "background 150ms, color 150ms",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa"; e.currentTarget.style.color = "#0d9488"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#cbd5e1"; }}
-            >
-              <ChevronRight size={14} strokeWidth={2} />
-            </button>
           </div>
 
           {/* ══ LAYER B — Expanded Panel ══════════════════════════════════
