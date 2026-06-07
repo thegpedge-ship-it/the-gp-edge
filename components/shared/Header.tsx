@@ -12,8 +12,12 @@ interface HeaderProps {
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
 
-  // Hide the navbar on admin and dashboard pages (dashboard has its own Header in DashboardShell)
-  if (pathname?.startsWith("/admin") || (pathname?.startsWith("/dashboard") && variant === "fixed")) {
+  // Hide the navbar on admin, dashboard, and standalone PDF viewer pages
+  if (
+    pathname?.startsWith("/admin") ||
+    (pathname?.startsWith("/dashboard") && variant === "fixed") ||
+    pathname?.startsWith("/medical-library/view-pdf")
+  ) {
     return null;
   }
   const outerClass =
@@ -27,7 +31,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
       : "w-[95%] max-w-5xl mx-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/40 dark:border-slate-700/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between";
 
   return (
-    <header className={outerClass}>
+    <header className={`${outerClass} global-nav-header`}>
       <div className={innerClass}>
         {/* Logo */}
         <Logo size="sm" />
