@@ -1,35 +1,12 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 
 interface AdminTopbarProps {
   collapsed: boolean;
 }
 
-const sectionLabels: Record<string, string> = {
-  dashboard: "Dashboard",
-  users: "User Management",
-  questions: "Question Bank",
-  quizzes: "Quiz Management",
-  content: "Medical Content",
-  autofill: "Autofill Templates",
-  analytics: "Analytics",
-  adaptive: "Adaptive Engine",
-  uploads: "Uploads",
-  notifications: "Notifications",
-  billing: "Billing & Subscription",
-  audit: "Audit Log",
-  search: "Search",
-  settings: "System Settings",
-};
-
 export default function AdminTopbar({ collapsed }: AdminTopbarProps) {
-  const pathname = usePathname();
-  const segments = pathname.split("/").filter(Boolean);
-  const currentSection = segments[1] || "dashboard";
-  const currentLabel = sectionLabels[currentSection] || currentSection.charAt(0).toUpperCase() + currentSection.slice(1);
-
   return (
     <motion.header
       animate={{ paddingLeft: collapsed ? 72 : 260 }}
@@ -37,14 +14,7 @@ export default function AdminTopbar({ collapsed }: AdminTopbarProps) {
       className="fixed top-0 right-0 left-0 z-30 h-16 bg-white/70 backdrop-blur-xl border-b border-slate-200/60"
     >
       <div className="h-full flex items-center justify-between px-6">
-        {/* Breadcrumb + Search */}
-        <div className="flex items-center gap-4 flex-1">
-          <div className="hidden md:flex items-center gap-1.5 text-[12px] flex-shrink-0">
-            <span className="text-slate-400 font-medium">Admin</span>
-            <svg className="w-3 h-3 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            <span className="text-slate-700 font-semibold">{currentLabel}</span>
-          </div>
-          <div className="hidden md:block w-px h-5 bg-slate-200" />
+        {/* Search bar */}
         <div className="flex-1 max-w-lg">
           <div className="relative">
             <svg
@@ -69,7 +39,6 @@ export default function AdminTopbar({ collapsed }: AdminTopbarProps) {
               ⌘K
             </kbd>
           </div>
-        </div>
         </div>
 
         {/* Right side actions */}

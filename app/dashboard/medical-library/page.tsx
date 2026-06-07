@@ -4,20 +4,19 @@ import { useState, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import PageBanner from "@/components/shared/PageBanner";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
 
-const SYSTEM_CONFIG: Record<SystemId, { glow: string; border: string; text: string; accent: string; borderLeft: string }> = {
-  Cardiology:       { glow: "from-emerald-500/10 dark:from-emerald-500/20",  border: "hover:border-emerald-400/80",  text: "text-emerald-600 dark:text-emerald-400",  accent: "bg-emerald-500", borderLeft: "border-l-emerald-500" },
-  Respiratory:      { glow: "from-teal-500/10 dark:from-teal-500/20",        border: "hover:border-teal-400/80",     text: "text-teal-600 dark:text-teal-400",        accent: "bg-teal-500", borderLeft: "border-l-teal-500" },
-  Endocrine:        { glow: "from-green-500/10 dark:from-green-500/20",      border: "hover:border-green-400/80",    text: "text-green-600 dark:text-green-400",      accent: "bg-green-500", borderLeft: "border-l-green-500" },
-  Gastrointestinal: { glow: "from-emerald-600/10 dark:from-emerald-600/20",  border: "hover:border-emerald-500/80",  text: "text-emerald-700 dark:text-emerald-400",  accent: "bg-emerald-600", borderLeft: "border-l-emerald-600" },
-  Psychiatry:       { glow: "from-teal-600/10 dark:from-teal-600/20",        border: "hover:border-teal-500/80",     text: "text-teal-700 dark:text-teal-400",        accent: "bg-teal-600", borderLeft: "border-l-teal-600" },
-  Dermatology:      { glow: "from-green-600/10 dark:from-green-600/20",      border: "hover:border-green-500/80",    text: "text-green-700 dark:text-green-400",      accent: "bg-green-600", borderLeft: "border-l-green-600" },
-  "Women's Health": { glow: "from-slate-500/10 dark:from-slate-500/20",      border: "hover:border-slate-400/80",    text: "text-slate-600 dark:text-slate-400",      accent: "bg-slate-500", borderLeft: "border-l-slate-500" },
-  Paediatrics:      { glow: "from-emerald-400/10 dark:from-emerald-400/20",  border: "hover:border-emerald-300/80",  text: "text-emerald-600 dark:text-emerald-400",  accent: "bg-emerald-400", borderLeft: "border-l-emerald-400" },
+const SYSTEM_CONFIG: Record<SystemId, { glow: string; border: string; text: string; accent: string }> = {
+  Cardiology:       { glow: "from-rose-500/10 dark:from-rose-500/20",    border: "hover:border-rose-400/80",   text: "text-rose-600 dark:text-rose-400",    accent: "bg-rose-500" },
+  Respiratory:      { glow: "from-sky-500/10 dark:from-sky-500/20",      border: "hover:border-sky-400/80",    text: "text-sky-600 dark:text-sky-400",      accent: "bg-sky-500" },
+  Endocrine:        { glow: "from-violet-500/10 dark:from-violet-500/20", border: "hover:border-violet-400/80", text: "text-violet-600 dark:text-violet-400", accent: "bg-violet-500" },
+  Gastrointestinal: { glow: "from-amber-500/10 dark:from-amber-500/20",  border: "hover:border-amber-400/80",  text: "text-amber-600 dark:text-amber-400",  accent: "bg-amber-500" },
+  Psychiatry:       { glow: "from-indigo-500/10 dark:from-indigo-500/20", border: "hover:border-indigo-400/80", text: "text-indigo-600 dark:text-indigo-400", accent: "bg-indigo-500" },
+  Dermatology:      { glow: "from-emerald-500/10 dark:from-emerald-500/20", border: "hover:border-emerald-400/80", text: "text-emerald-600 dark:text-emerald-400", accent: "bg-emerald-500" },
+  "Women's Health": { glow: "from-fuchsia-500/10 dark:from-fuchsia-500/20", border: "hover:border-fuchsia-400/80", text: "text-fuchsia-600 dark:text-fuchsia-400", accent: "bg-fuchsia-500" },
+  Paediatrics:      { glow: "from-teal-500/10 dark:from-teal-500/20",    border: "hover:border-teal-400/80",   text: "text-teal-600 dark:text-teal-400",    accent: "bg-teal-500" },
 };
 
 const getSystem = (id: SystemId) => SYSTEM_CONFIG[id] ?? {
@@ -25,22 +24,6 @@ const getSystem = (id: SystemId) => SYSTEM_CONFIG[id] ?? {
   border: "hover:border-teal-400/80",
   text: "text-teal-600 dark:text-teal-400",
   accent: "bg-teal-500",
-  borderLeft: "border-l-teal-500",
-};
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.05,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
 };
 
 function SystemIcon({ name, className }: { name: string; className?: string }) {
@@ -105,22 +88,32 @@ export default function MedicalLibraryPage() {
     <div className="space-y-8 pb-6">
 
       {/* ── Hero header ──────────────────────────────────────────────────────── */}
-      <PageBanner
-        title="Explore the"
-        highlightedText="Medical Directory"
-        subtitle={`Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries. ${mockConditions.length} conditions across major body systems.`}
-        illustrationPath="/assets/doctor_desk_illustration.png"
-        pillText="Reference Library"
-        pillIcon={
-          <span className="relative flex h-1.5 w-1.5">
+      <div>
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50/80 dark:bg-teal-950/40 border border-teal-200/50 dark:border-teal-900/30 mb-5">
+          <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500" />
           </span>
-        }
-      />
+          <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider">
+            Reference Library
+          </span>
+        </div>
+
+        <h1 className="font-sans text-4xl lg:text-5xl font-bold text-slate-900 dark:text-white leading-tight tracking-tight mb-3">
+          Explore the{" "}
+          <span className="bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent">
+            Medical Directory
+          </span>
+        </h1>
+        <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl leading-relaxed">
+          Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries.{" "}
+          <span className="font-semibold text-teal-600 dark:text-teal-400">{mockConditions.length} conditions</span>{" "}
+          across major body systems.
+        </p>
+      </div>
 
       {/* ── Search + filters ─────────────────────────────────────────────────── */}
-      <div className="relative p-5 rounded-2xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-100/80 dark:border-slate-800 shadow-lg ring-1 ring-slate-900/5 flex flex-col lg:flex-row gap-4 items-center justify-between">
+      <div className="relative p-5 rounded-[2rem] bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/60 dark:border-slate-800 shadow-2xl ring-1 ring-slate-900/5 flex flex-col lg:flex-row gap-4 items-center justify-between">
         {/* Search */}
         <div className="relative w-full lg:max-w-md">
           <Lucide.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" />
@@ -185,27 +178,21 @@ export default function MedicalLibraryPage() {
           {bodySystems.map((system) => {
             const count = systemCounts.get(system.id) ?? 0;
             const isSelected = selectedSystem === system.id;
-            const sys = getSystem(system.id);
             return (
               <button
                 key={system.id}
                 onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
-                className={`relative group rounded-2xl p-4 border text-left flex flex-col justify-between transition-all duration-300 overflow-hidden ${
+                className={`relative group rounded-2xl p-4 border text-left flex flex-col justify-between transition-all duration-200 overflow-hidden ${
                   isSelected
                     ? "bg-gradient-to-br from-teal-500 via-teal-500 to-emerald-600 text-white shadow-xl shadow-teal-500/20 border-teal-400/30"
-                    : `bg-white/60 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg ${sys.border}`
+                    : "bg-white/60 dark:bg-slate-900/60 hover:bg-white dark:hover:bg-slate-900 border-slate-200/60 dark:border-slate-800/80 shadow-md hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-800/60"
                 }`}
               >
-                {/* Subtle top-right glow matching the system color on hover */}
-                {!isSelected && (
-                  <div className={`absolute top-0 right-0 w-16 h-16 bg-gradient-to-br ${sys.glow} to-transparent rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
-                )}
-
-                <div className="flex justify-between items-start mb-3 relative z-10">
-                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 ${isSelected ? "bg-white/20 text-white" : system.lightBg}`}>
-                    <SystemIcon name={system.iconName} className={`w-4 h-4 transition-transform duration-300 group-hover:rotate-6 ${isSelected ? "text-white" : system.textColor}`} />
+                <div className="flex justify-between items-start mb-3">
+                  <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? "bg-white/20 text-white" : system.lightBg}`}>
+                    <SystemIcon name={system.iconName} className={`w-4 h-4 ${isSelected ? "text-white" : system.textColor}`} />
                   </span>
-                  <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md transition-colors duration-300 ${
+                  <span className={`text-[10px] font-bold font-mono px-1.5 py-0.5 rounded-md ${
                     isSelected
                       ? "bg-white/20 text-white"
                       : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
@@ -213,8 +200,8 @@ export default function MedicalLibraryPage() {
                     {count}
                   </span>
                 </div>
-                <div className="relative z-10">
-                  <p className={`text-xs font-bold truncate transition-colors duration-300 ${isSelected ? "text-white" : "text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white"}`}>
+                <div>
+                  <p className={`text-xs font-bold truncate ${isSelected ? "text-white" : "text-slate-800 dark:text-slate-200"}`}>
                     {system.name}
                   </p>
                 </div>
@@ -251,7 +238,7 @@ export default function MedicalLibraryPage() {
                 <motion.div
                   key={condition.id}
                   layoutId={`condition-card-${condition.id}`}
-                  className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800/80 shadow-md overflow-hidden relative group hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 cursor-pointer flex flex-col justify-between ${sys.border}`}
+                  className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-800/80 shadow-md overflow-hidden relative group hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 cursor-pointer flex flex-col justify-between ${sys.border}`}
                   onClick={() => handleOpenCondition(condition)}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-transparent dark:from-white/5 pointer-events-none" />
@@ -290,16 +277,7 @@ export default function MedicalLibraryPage() {
                         </div>
                       </div>
 
-                      <h3 className={`font-sans text-base font-bold text-slate-900 dark:text-slate-100 mb-1 transition-colors duration-300 leading-snug tracking-tight ${
-                        condition.system === "Cardiology" ? "group-hover:text-emerald-600 dark:group-hover:text-emerald-450" :
-                        condition.system === "Respiratory" ? "group-hover:text-teal-600 dark:group-hover:text-teal-400" :
-                        condition.system === "Endocrine" ? "group-hover:text-green-600 dark:group-hover:text-green-400" :
-                        condition.system === "Gastrointestinal" ? "group-hover:text-emerald-700 dark:group-hover:text-emerald-450" :
-                        condition.system === "Psychiatry" ? "group-hover:text-teal-700 dark:group-hover:text-teal-455" :
-                        condition.system === "Dermatology" ? "group-hover:text-green-700 dark:group-hover:text-green-455" :
-                        condition.system === "Women's Health" ? "group-hover:text-slate-700 dark:group-hover:text-slate-400" :
-                        "group-hover:text-emerald-500 dark:group-hover:text-emerald-400"
-                      }`}>
+                      <h3 className={`font-sans text-base font-bold text-slate-900 dark:text-slate-100 mb-1 group-hover:${sys.text.split(" ")[0].replace("text-", "text-")} transition-colors leading-snug tracking-tight`}>
                         {condition.name}
                       </h3>
                       <p className="text-xs text-slate-400 dark:text-slate-500 mb-4 truncate font-medium">
@@ -327,14 +305,14 @@ export default function MedicalLibraryPage() {
                       <Lucide.Clock className="w-3.5 h-3.5" />
                       {condition.lastUpdated}
                     </span>
-                    <span className={`font-semibold flex items-center gap-0.5 text-xs transition-colors duration-350 ${sys.text}`}>
+                    <span className={`font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 text-xs ${sys.text}`}>
                       Read Library
-                      <Lucide.ArrowRight className="w-3.5 h-3.5 transform transition-transform duration-200 group-hover:translate-x-1" />
+                      <Lucide.ArrowRight className="w-3.5 h-3.5" />
                     </span>
                   </div>
 
                   <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                    <div className={`h-full w-12 rounded-full transition-all duration-300 group-hover:w-full ${sys.accent}`} />
+                    <div className={`h-full w-12 rounded-full transition-all duration-300 group-hover:w-24 ${sys.accent}`} />
                   </div>
                 </motion.div>
               );
@@ -349,9 +327,9 @@ export default function MedicalLibraryPage() {
           <>
             <motion.div
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              animate={{ opacity: 0.3 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 cursor-pointer"
+              className="fixed inset-0 bg-black z-50 cursor-pointer"
               onClick={() => setSelectedCondition(null)}
             />
             <motion.div
@@ -379,7 +357,7 @@ export default function MedicalLibraryPage() {
                     {selectedCondition.system}
                   </span>
                   {selectedCondition.isPremium && (
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 border border-slate-600 flex items-center gap-1">
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                       <Lucide.Lock className="w-2.5 h-2.5" />
                       Premium Library
                     </span>
@@ -396,98 +374,94 @@ export default function MedicalLibraryPage() {
               {/* Tabs */}
               <div className="flex border-b border-slate-200/60 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-950/60 sticky top-0 z-10 overflow-x-auto">
                 {[
-                  { id: "symptoms", label: "Symptoms", icon: Lucide.Activity },
-                  { id: "diagnosis", label: "Diagnosis", icon: Lucide.ClipboardCheck },
-                  { id: "treatment", label: "Treatment", icon: Lucide.HeartPulse },
-                  { id: "notes", label: "Clinical Notes", icon: Lucide.BookOpen },
-                  ...(selectedCondition.document ? [{ id: "pdf", label: "Guideline PDF", icon: Lucide.FileText }] : []),
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id as SlideTab)}
-                      className={`flex-1 px-4 py-3.5 text-xs font-bold text-center transition-all border-b-2 whitespace-nowrap flex items-center justify-center gap-1.5 ${
-                        activeTab === tab.id
-                          ? "text-teal-600 dark:text-teal-400 border-teal-500 dark:border-teal-400 bg-teal-500/5 dark:bg-teal-400/5"
-                          : "text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/50 dark:hover:bg-slate-900/40"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
+                  { id: "symptoms", label: "Symptoms" },
+                  { id: "diagnosis", label: "Diagnosis" },
+                  { id: "treatment", label: "Treatment" },
+                  { id: "notes", label: "Clinical Notes" },
+                  ...(selectedCondition.document ? [{ id: "pdf", label: "Guideline PDF" }] : []),
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as SlideTab)}
+                    className={`flex-1 px-4 py-3.5 text-xs font-bold text-center transition-all border-b-2 whitespace-nowrap ${
+                      activeTab === tab.id
+                        ? "text-teal-600 dark:text-teal-400 border-teal-500 dark:border-teal-400 bg-teal-500/5 dark:bg-teal-400/5"
+                        : "text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               {/* Tab content */}
               <div className="p-6 flex-1 bg-slate-50/40 dark:bg-slate-955/40 text-slate-800 dark:text-slate-200">
 
                 {activeTab === "symptoms" && (
-                  <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
+                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Clinical Signs & Symptoms
                     </h3>
-                    <motion.div className="grid grid-cols-1 sm:grid-cols-2 gap-3" variants={containerVariants}>
+                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedCondition.symptoms.map((symptom, i) => {
                         const sc = bodySystems.find((s) => s.id === selectedCondition.system);
                         return (
-                          <motion.div key={i} variants={itemVariants} className="flex gap-3 bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-3.5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                          <div key={i} className="flex gap-3 bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-3.5 rounded-xl shadow-sm hover:shadow-md transition-shadow">
                             <span className={`w-5 h-5 rounded-full ${sc?.lightBg || "bg-teal-50"} ${sc?.textColor || "text-teal-600"} font-bold text-xs flex items-center justify-center shrink-0`}>
                               <Lucide.Check className="w-3 h-3" />
                             </span>
                             <span className="text-xs text-slate-700 dark:text-slate-300 font-medium leading-relaxed">{symptom}</span>
-                          </motion.div>
+                          </div>
                         );
                       })}
-                    </motion.div>
+                    </ul>
                   </motion.div>
                 )}
 
                 {activeTab === "diagnosis" && (
-                  <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
+                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Diagnosis & Assessment Criteria
                     </h3>
-                    <motion.div className="space-y-3" variants={containerVariants}>
+                    <div className="space-y-3">
                       {selectedCondition.diagnosisCriteria.map((crit, i) => {
                         const sc = bodySystems.find((s) => s.id === selectedCondition.system);
                         return (
-                          <motion.div key={i} variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-xl shadow-sm flex items-start gap-3 hover:shadow-md transition-shadow">
+                          <div key={i} className="bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-xl shadow-sm flex items-start gap-3 hover:shadow-md transition-shadow">
                             <span className={`text-xs font-mono font-bold ${sc?.textColor || "text-teal-600"} ${sc?.lightBg || "bg-teal-50"} px-2 py-0.5 rounded mt-0.5`}>
                               Step {i + 1}
                             </span>
                             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{crit}</p>
-                          </motion.div>
+                          </div>
                         );
                       })}
-                    </motion.div>
+                    </div>
                   </motion.div>
                 )}
 
                 {activeTab === "treatment" && (
-                  <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-4">
+                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500" /> Management & Treatment Regimen
                     </h3>
-                    <motion.div className="space-y-3" variants={containerVariants}>
+                    <div className="space-y-3">
                       {selectedCondition.treatmentOptions.map((opt, i) => {
                         const sys = getSystem(selectedCondition.system);
                         return (
-                          <motion.div key={i} variants={itemVariants} className={`bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-xl shadow-sm border-l-4 ${sys.borderLeft} hover:shadow-md transition-shadow`}>
+                          <div key={i} className={`bg-white/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 p-4 rounded-xl shadow-sm border-l-4 ${sys.accent.replace("bg-", "border-l-")} hover:shadow-md transition-shadow`}>
                             <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium">{opt}</p>
-                          </motion.div>
+                          </div>
                         );
                       })}
-                    </motion.div>
+                    </div>
                   </motion.div>
                 )}
 
                 {activeTab === "notes" && (
                   <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                    <div className="bg-teal-500/5 dark:bg-teal-500/10 border border-teal-200/60 dark:border-teal-900/30 rounded-2xl p-5 shadow-sm">
-                      <h4 className="text-xs font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                        <Lucide.Lightbulb className="w-4 h-4 text-teal-500 shrink-0" /> Clinical Pearls & Guidelines
+                    <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-900/30 rounded-2xl p-5 shadow-sm">
+                      <h4 className="text-xs font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                        <Lucide.Lightbulb className="w-4 h-4 text-amber-500 shrink-0" /> Clinical Pearls & Guidelines
                       </h4>
                       <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-line">
                         {selectedCondition.clinicalNotes}
@@ -594,49 +568,6 @@ export default function MedicalLibraryPage() {
                                 <div key={i} className="flex gap-2 border border-slate-200 p-3 rounded-lg">
                                   <span className="font-mono font-bold text-teal-700 shrink-0">0{i + 1}</span>
                                   <p>{c}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {pdfPage === 3 && (
-                          <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-                            <div className="border-b border-slate-100 pb-2">
-                              <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // TREATMENT PROTOCOLS & MANAGEMENT</span>
-                              <h2 className="font-sans text-xl font-bold text-slate-900 mt-0.5">Therapeutic Guidelines & Steps</h2>
-                            </div>
-                            <p className="font-light">Recommended pharmacological and non-pharmacological interventions for {selectedCondition.name}. Always monitor patient tolerance and adjust treatment dynamically.</p>
-                            <div className="space-y-3">
-                              {selectedCondition.treatmentOptions.map((opt, i) => (
-                                <div key={i} className="flex gap-3 items-start border border-slate-100 bg-slate-50/50 p-3.5 rounded-lg">
-                                  <span className="w-5 h-5 rounded bg-teal-600 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
-                                    {i + 1}
-                                  </span>
-                                  <p className="text-[11px] leading-relaxed">{opt}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {pdfPage >= 4 && (
-                          <div className="space-y-4 text-xs leading-relaxed text-slate-700">
-                            <div className="border-b border-slate-100 pb-2">
-                              <span className="text-[10px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & APPENDIX</span>
-                              <h2 className="font-sans text-xl font-bold text-slate-900 mt-0.5">Secondary Notes & Reference Materials</h2>
-                            </div>
-                            <div className="bg-teal-500/5 border border-teal-200/40 p-4 rounded-xl text-[11px] leading-relaxed text-slate-600 italic">
-                              <p className="font-semibold text-teal-800 not-italic mb-1 flex items-center gap-1">
-                                <Lucide.Lightbulb className="w-3.5 h-3.5 text-teal-600" />
-                                Clinical Pearls Summary:
-                              </p>
-                              {selectedCondition.clinicalNotes}
-                            </div>
-                            <div className="space-y-2 mt-4">
-                              <h3 className="font-bold text-[10px] text-slate-500 uppercase tracking-wider">Bibliography & References</h3>
-                              {selectedCondition.references.map((ref) => (
-                                <div key={ref.id} className="border-t border-slate-100 pt-2 flex items-start gap-2 text-[10.5px]">
-                                  <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
-                                  <p className="text-slate-600 font-medium">{ref.text} {ref.url && <span className="text-teal-600 underline font-mono text-[9.5px]">({ref.url})</span>}</p>
                                 </div>
                               ))}
                             </div>

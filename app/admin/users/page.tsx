@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
-import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -51,9 +50,9 @@ function ReadinessRing({ value, size = 72 }: { value: number; size?: number }) {
   const r = (size - 10) / 2;
   const c = 2 * Math.PI * r;
   const color =
-    value >= 80 ? "#10b981" : value >= 60 ? "#64748b" : "#94a3b8";
+    value >= 80 ? "#10b981" : value >= 60 ? "#f59e0b" : "#ef4444";
   const trailColor =
-    value >= 80 ? "#d1fae5" : value >= 60 ? "#f1f5f9" : "#f1f5f9";
+    value >= 80 ? "#d1fae5" : value >= 60 ? "#fef3c7" : "#fee2e2";
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -79,11 +78,11 @@ function ReadinessRing({ value, size = 72 }: { value: number; size?: number }) {
 /* ---------- Avatar gradient colors ---------- */
 const avatarGradients = [
   "from-teal-400 to-emerald-500",
-  "from-emerald-500 to-green-600",
-  "from-slate-400 to-slate-500",
-  "from-teal-500 to-teal-600",
-  "from-green-400 to-emerald-500",
-  "from-slate-500 to-slate-600",
+  "from-violet-400 to-purple-500",
+  "from-amber-400 to-orange-500",
+  "from-rose-400 to-pink-500",
+  "from-sky-400 to-cyan-500",
+  "from-indigo-400 to-blue-500",
 ];
 
 export default function UsersPage() {
@@ -143,20 +142,25 @@ export default function UsersPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
-        title="User"
-        highlightedText="Management"
-        subtitle={`${users.length} registered users across all active plans`}
-        illustrationPath="/assets/admin_users_illustration.png"
-        pillText="Users"
-        actions={
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-transparent dark:border-slate-800/40">
-            <span>{users.filter(u => u.status === "active").length} active</span>
-            <span className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
-          </div>
-        }
+      {/* Header */}
+      <motion.div
         variants={itemVariants}
-      />
+        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
+        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">User Management</h1>
+          <p className="text-sm text-teal-100 font-light">{users.length} registered users across all plans</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+            <span className="text-xs font-semibold text-teal-200">{users.filter(u => u.status === "active").length} active</span>
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+          </div>
+        </div>
+      </motion.div>
 
       {/* Filters, search & view toggle */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
@@ -219,7 +223,7 @@ export default function UsersPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.45, delay: idx * 0.04, ease: [0.22, 1, 0.36, 1] }}
                 onClick={() => setSelectedUser(user)}
-                className="group relative bg-white/70 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/40 overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 hover:border-teal-200/60 hover:-translate-y-1 transition-all duration-300"
+                className="group relative bg-white/70 backdrop-blur-xl rounded-2xl border border-white/80 shadow-md shadow-slate-200/40 overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 hover:border-teal-200/60 hover:-translate-y-1 transition-all duration-300"
               >
                 {/* Decorative gradient top bar */}
                 <div className={`h-1.5 w-full bg-gradient-to-r ${user.status === "suspended" ? "from-red-400 to-rose-500" : user.plan === "premium" ? "from-amber-400 via-yellow-300 to-amber-500" : "from-teal-400 to-emerald-500"}`} />
@@ -257,9 +261,9 @@ export default function UsersPage() {
                       <p className="text-[11px] font-semibold text-slate-600 leading-tight">{user.lastActive}</p>
                       <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Last Seen</p>
                     </div>
-                    <div className="bg-slate-50/80 rounded-xl p-2.5 text-center border border-slate-100/60">
-                      <p className="text-[11px] font-semibold text-slate-600 leading-tight truncate">{user.weakTopic}</p>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Weak</p>
+                    <div className="bg-rose-50/80 rounded-xl p-2.5 text-center border border-rose-100/60">
+                      <p className="text-[11px] font-semibold text-rose-600 leading-tight truncate">{user.weakTopic}</p>
+                      <p className="text-[9px] text-rose-400 font-medium uppercase tracking-wider">Weak</p>
                     </div>
                   </div>
 
@@ -291,7 +295,7 @@ export default function UsersPage() {
                   {/* Notes indicator */}
                   {user.notes.length > 0 && (
                     <div className="absolute top-4 right-4">
-                      <span className="flex items-center gap-1 text-[9px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded-full border border-teal-200/60">
+                      <span className="flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200/60">
                         <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2z" clipRule="evenodd" /></svg>
                         {user.notes.length}
                       </span>
@@ -306,7 +310,7 @@ export default function UsersPage() {
 
       {/* ========== TABLE VIEW ========== */}
       {viewMode === "table" && (
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
           <div className="relative z-10 overflow-x-auto">
             <table className="w-full">
@@ -472,7 +476,7 @@ export default function UsersPage() {
                   </div>
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-xs text-slate-400 mb-1">Weak Topic</p>
-                    <p className="text-sm font-semibold text-slate-600">{selectedUser.weakTopic}</p>
+                    <p className="text-sm font-semibold text-amber-600">{selectedUser.weakTopic}</p>
                   </div>
                   <div className="bg-slate-50 rounded-xl p-4">
                     <p className="text-xs text-slate-400 mb-1">Joined</p>
@@ -515,7 +519,7 @@ export default function UsersPage() {
                   {selectedUser.notes.length > 0 ? (
                     <div className="space-y-2 mb-3">
                       {selectedUser.notes.map((note, i) => (
-                        <div key={i} className="bg-teal-50 border border-teal-200/60 rounded-lg px-3 py-2 text-xs text-teal-800">
+                        <div key={i} className="bg-amber-50 border border-amber-200/60 rounded-lg px-3 py-2 text-xs text-amber-800">
                           {note}
                         </div>
                       ))}

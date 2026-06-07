@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
-import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -155,23 +154,31 @@ export default function ContentPage() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       
-      <PageBanner
-        title="Medical"
-        highlightedText="Content"
-        subtitle={`Clinical guidelines, protocols, and care pathways · ${content.length} items`}
-        illustrationPath="/assets/admin_content_illustration.png"
-        pillText="Library"
-        actions={
+      {/* Header */}
+      <motion.div
+        variants={itemVariants}
+        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
+        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">Medical Content</h1>
+          <p className="text-sm text-teal-100 font-light">Clinical guidelines, protocols, and care pathways</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+            <span className="text-xs font-semibold text-teal-200">{content.length} items</span>
+          </div>
           <button 
             onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="px-4 py-2.5 bg-teal-600 text-sm font-semibold text-white rounded-xl hover:bg-teal-700 transition-all shadow-sm flex items-center gap-2 shrink-0"
+            className="px-4 py-2.5 bg-white text-sm font-semibold text-teal-800 rounded-full hover:bg-teal-50 transition-all shadow-sm flex items-center gap-2"
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Content
           </button>
-        }
-        variants={itemVariants}
-      />
+        </div>
+      </motion.div>
 
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">

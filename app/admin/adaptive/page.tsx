@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import LiveStudentSimulator from "@/components/admin/LiveStudentSimulator";
-import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -32,20 +31,23 @@ export default function AdaptivePage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
-        title="Adaptive Learning"
-        highlightedText="Controls"
-        subtitle="Configure how the adaptive engine prioritizes content for students"
-        illustrationPath="/assets/admin_analytics_illustration.png"
-        pillText="Intelligence"
-        actions={
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-transparent dark:border-slate-800/40">
-            <span>Engine Active</span>
-            <span className="w-1.5 h-1.5 bg-teal-500 rounded-full" />
-          </div>
-        }
+      <motion.div
         variants={itemVariants}
-      />
+        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
+        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">Adaptive Learning Controls</h1>
+          <p className="text-sm text-teal-100 font-light">Configure how the adaptive engine prioritizes content for students</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+          <svg className="w-3.5 h-3.5 text-teal-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          <span className="text-xs font-semibold text-teal-200">Engine Active</span>
+          <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full" />
+        </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recommendation Weighting */}

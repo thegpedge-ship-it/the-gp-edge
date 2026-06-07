@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import StatCard from "@/components/admin/StatCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import LiveStudentSimulator from "@/components/admin/LiveStudentSimulator";
-import PageBanner from "@/components/shared/PageBanner";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -87,29 +86,29 @@ export default function DashboardPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
-        title="Welcome back,"
-        highlightedText="Siddhant"
-        subtitle="Here's your platform overview and administrative statistics."
-        illustrationPath="/assets/admin_dashboard_illustration.png"
-        pillText="Admin Cockpit"
-        pillIcon={
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
-          </span>
-        }
-        actions={
-          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500 font-semibold bg-slate-50 dark:bg-slate-950/20 px-3 py-1.5 rounded-full border border-slate-100 dark:border-slate-800/40">
-            <span>Last updated: just now</span>
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500" />
-            </span>
-          </div>
-        }
+      {/* Page header styled like the greeting-band from index (1).html */}
+      <motion.div
         variants={itemVariants}
-      />
+        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
+        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
+        
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">
+            Welcome back, Siddhant.
+          </h1>
+          <p className="text-sm text-teal-100 font-light">Here&apos;s your platform overview and administrative statistics.</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+          <span className="text-xs font-semibold text-teal-200">Last updated: just now</span>
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-400" />
+          </span>
+        </div>
+      </motion.div>
 
       {/* Primary stat cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -145,7 +144,7 @@ export default function DashboardPage() {
 
       {/* Secondary stats row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-3">
@@ -163,7 +162,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-2">
@@ -179,7 +178,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-emerald-50/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-2">
@@ -196,15 +195,10 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Section divider */}
-      <div className="flex items-center gap-3 px-1">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/60 to-transparent" />
-      </div>
-
       {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Weekly activity chart */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-6">
@@ -241,25 +235,19 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Recent activity feed */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <h3 className="text-sm font-bold text-slate-900 mb-4">Recent Activity</h3>
-            <div className="space-y-0">
+            <div className="space-y-4">
               {recentActivity.map((activity, i) => (
-                <div key={i} className="flex items-start gap-3 relative pl-0 pb-4 last:pb-0">
-                  {/* Timeline connector */}
-                  {i < recentActivity.length - 1 && (
-                    <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-200/60" />
-                  )}
-                  <div className="relative z-10 flex-shrink-0">
-                    {activityTypeIcon[activity.type]}
+                <div key={i} className="flex items-start gap-3">
+                  {activityTypeIcon[activity.type]}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 font-semibold truncate">{activity.user}</p>
+                    <p className="text-xs text-slate-500 truncate">{activity.action}</p>
                   </div>
-                  <div className="flex-1 min-w-0 pt-0.5">
-                    <p className="text-sm text-slate-700 font-semibold truncate leading-tight">{activity.user}</p>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{activity.action}</p>
-                  </div>
-                  <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap flex-shrink-0 pt-0.5">{activity.time}</span>
+                  <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap flex-shrink-0">{activity.time}</span>
                 </div>
               ))}
             </div>
@@ -270,7 +258,7 @@ export default function DashboardPage() {
       {/* Topic performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Weakest Topics */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-100/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-5">
@@ -302,7 +290,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Strongest Topics */}
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-emerald-50/5 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 mb-5">
@@ -354,7 +342,7 @@ export default function DashboardPage() {
       {/* System Health & Platform Overview */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* System health monitor */}
-        <div className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+        <div className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-5">
@@ -401,7 +389,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Quick platform stats */}
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
           <div className="relative z-10">
             <h3 className="text-sm font-bold text-slate-900 mb-4">Platform Overview</h3>

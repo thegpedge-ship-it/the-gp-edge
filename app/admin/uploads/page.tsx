@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
-import PageBanner from "@/components/shared/PageBanner";
-import { addUserNotification } from "@/utils/notifications";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
 const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
@@ -32,17 +30,7 @@ export default function UploadsPage() {
     const interval = setInterval(() => {
       setUploadProgress((prev) => {
         if (prev === null) return 0;
-        if (prev >= 100) {
-          clearInterval(interval);
-          setShowValidation(true);
-          addUserNotification(
-            "139 New Questions Uploaded",
-            "Admin has successfully uploaded a batch of 139 Cardiology questions to the practice library.",
-            139,
-            "upload"
-          );
-          return 100;
-        }
+        if (prev >= 100) { clearInterval(interval); setShowValidation(true); return 100; }
         return prev + Math.random() * 15;
       });
     }, 300);
@@ -50,14 +38,22 @@ export default function UploadsPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <PageBanner
-        title="Bulk Upload"
-        highlightedText="System"
-        subtitle="Upload and validate CSV files for questions and content"
-        illustrationPath="/assets/admin_questions_illustration.png"
-        pillText="Operations"
+      <motion.div
         variants={itemVariants}
-      />
+        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
+        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">Bulk Upload System</h1>
+          <p className="text-sm text-teal-100 font-light">Upload and validate CSV files for questions and content</p>
+        </div>
+        <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+          <svg className="w-3.5 h-3.5 text-teal-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+          <span className="text-xs font-semibold text-teal-200">4 uploads completed</span>
+        </div>
+      </motion.div>
 
       {/* Upload zone */}
       <motion.div variants={itemVariants} className="bg-[#090d16] bg-[radial-gradient(rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:16px_16px] border border-slate-800 p-8 shadow-2xl relative overflow-hidden rounded-3xl text-white">
