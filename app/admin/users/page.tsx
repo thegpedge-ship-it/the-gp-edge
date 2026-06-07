@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.02 } },
 };
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } },
 };
 
 interface User {
@@ -58,6 +58,18 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [noteInput, setNoteInput] = useState("");
+
+  // Lock body scroll when drawer is open to prevent background scrolling lag
+  useEffect(() => {
+    if (selectedUser) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [selectedUser]);
 
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -237,20 +249,22 @@ export default function UsersPage() {
       {/* User detail slide-over */}
       <AnimatePresence>
         {selectedUser && (
-          <>
+          <div key="admin-user-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
             <motion.div
+              key="admin-user-drawer-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer"
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
               onClick={() => setSelectedUser(null)}
             />
             <motion.div
-              initial={{ x: "110%", opacity: 0 }}
+              key="admin-user-drawer-content"
+              initial={{ x: "100%", opacity: 0.8 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "110%", opacity: 0 }}
-              transition={{ type: "spring", damping: 32, stiffness: 280 }}
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl rounded-2xl overflow-hidden flex flex-col"
+              exit={{ x: "100%", opacity: 0.8 }}
+              transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
+              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
             >
               {/* Decorative top accent line */}
               <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
@@ -358,7 +372,7 @@ export default function UsersPage() {
                 </div>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
