@@ -1,0 +1,366 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import * as Lucide from "lucide-react";
+import { mockConditions, bodySystems } from "@/app/medical-library/libraryData";
+
+function PDFViewerContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const id = searchParams.get("id");
+
+  const condition = mockConditions.find((c) => c.id === id);
+
+  const [pdfZoom, setPdfZoom] = useState(100);
+  const [pdfPage, setPdfPage] = useState(1);
+
+  const handleBack = () => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      setTimeout(() => {
+        router.push("/dashboard/medical-library");
+      }, 150);
+    } else {
+      router.push("/dashboard/medical-library");
+    }
+  };
+
+  useEffect(() => {
+    // Set page title dynamically
+    if (condition?.document) {
+      document.title = `${condition.document.filename} - GP EDGE Library`;
+    }
+  }, [condition]);
+
+  if (!condition || !condition.document) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-white">
+        <Lucide.AlertCircle className="w-16 h-16 text-rose-500 mb-4 animate-bounce" />
+        <h1 className="text-2xl font-bold tracking-tight mb-2">Document Not Found</h1>
+        <p className="text-slate-400 max-w-md mb-6">
+          The requested clinical guideline or document could not be found or does not have an attached PDF.
+        </p>
+        <button
+          onClick={handleBack}
+          className="px-6 py-3 bg-gradient-to-r from-teal-600 to-teal-500 rounded-xl font-semibold hover:shadow-lg hover:shadow-teal-500/20 active:scale-95 transition-all text-sm"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  const doc = condition.document;
+  const systemConfig = bodySystems.find((s) => s.id === condition.system);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col overflow-hidden select-none">
+      {/* Print and custom styles */}
+      <style jsx global>{`
+        .global-nav-header {
+          display: none !important;
+        }
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-pdf-area, #printable-pdf-area * {
+            visibility: visible;
+          }
+          #printable-pdf-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: auto;
+            transform: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: white !important;
+            color: black !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Standalone PDF Toolbar */}
+      <header className="bg-slate-955 text-slate-200 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between gap-4 z-50 shrink-0 no-print shadow-md">
+        {/* Left Side: Back & Filename */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={handleBack}
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 active:scale-95 transition-all"
+            title="Go Back"
+          >
+            <Lucide.ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="h-5 w-px bg-slate-800" />
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 shrink-0">
+              <Lucide.FileText className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold truncate max-w-[280px] sm:max-w-md text-slate-200" title={doc.filename}>
+                {doc.filename}
+              </h1>
+              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                {condition.system} Path · {doc.fileSize}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Middle Side: Page navigation */}
+        <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+          <button
+            onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
+            disabled={pdfPage === 1}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            title="Previous Page"
+          >
+            <Lucide.ChevronLeft className="w-4 h-4" />
+          </button>
+          <span className="font-mono text-xs font-semibold px-2 text-slate-300">
+            Page {pdfPage} of {doc.totalPages}
+          </span>
+          <button
+            onClick={() => setPdfPage((p) => Math.min(doc.totalPages, p + 1))}
+            disabled={pdfPage === doc.totalPages}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+            title="Next Page"
+          >
+            <Lucide.ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Right Side: Zoom and actions */}
+        <div className="flex items-center gap-3">
+          {/* Zoom controls */}
+          <div className="hidden sm:flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setPdfZoom((z) => Math.max(50, z - 10))}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
+              title="Zoom Out"
+            >
+              <Lucide.Minus className="w-4 h-4" />
+            </button>
+            <span className="font-mono text-xs font-bold w-12 text-center text-slate-300">{pdfZoom}%</span>
+            <button
+              onClick={() => setPdfZoom((z) => Math.min(200, z + 10))}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
+              title="Zoom In"
+            >
+              <Lucide.Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="h-5 w-px bg-slate-800 hidden sm:block" />
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850 active:scale-95 transition-all"
+              title="Print Document"
+            >
+              <Lucide.Printer className="w-4.5 h-4.5" />
+            </button>
+            {doc.downloadUrl && (
+              <a
+                href={doc.downloadUrl}
+                download
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/10 active:scale-95 transition-all"
+                title="Download PDF"
+              >
+                <Lucide.Download className="w-4 h-4" />
+                <span className="hidden md:inline">Save Document</span>
+              </a>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Canvas Scroll Area */}
+      <main className="flex-1 bg-slate-950 overflow-y-auto p-8 sm:p-12 flex justify-center items-start scrollbar-hide relative">
+        <div 
+          id="printable-pdf-area"
+          className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 relative origin-top transition-all duration-300 rounded-lg shrink-0 select-text"
+          style={{
+            transform: `scale(${pdfZoom / 100})`,
+            width: "720px",
+            minHeight: "940px",
+            transformOrigin: "top center",
+            marginBottom: `${Math.max(0, (pdfZoom / 100 - 1) * 940)}px`,
+          }}
+        >
+          {/* Faint Confidential Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
+            <span className="font-sans font-black text-8xl tracking-widest text-slate-900">GP EDGE</span>
+          </div>
+
+          {/* Professional PDF Header */}
+          <div className="flex items-center justify-between border-b-2 border-teal-600 pb-4 mb-8 text-[11px] text-slate-500 font-semibold tracking-wider uppercase select-none">
+            <div className="flex items-center gap-1.5">
+              <span className="w-5.5 h-5.5 bg-teal-600 text-white rounded flex items-center justify-center text-[10px] font-bold">GP</span>
+              <span>Clinical Reference Guideline Library</span>
+            </div>
+            <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
+          </div>
+
+          {/* PAGE 1 CONTENT */}
+          {pdfPage === 1 && (
+            <div className="space-y-8 text-xs leading-relaxed text-slate-700">
+              <div className="text-center">
+                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
+                <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
+                <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
+              </div>
+              <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
+              
+              <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 text-[11.5px] space-y-3">
+                <p className="font-bold text-slate-900 text-xs">Metadata Profile:</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Target System</p>
+                    <p className="font-semibold text-slate-700">{condition.system} Pathology</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Subcategory Classification</p>
+                    <p className="font-semibold text-slate-700">{condition.category}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Authoring Board</p>
+                    <p className="font-semibold text-slate-700">{condition.author}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-slate-400">Version Control</p>
+                    <p className="font-semibold text-slate-700">Release May 2026</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Clinical Presentation Summary</h3>
+                <p className="text-slate-600 leading-relaxed font-medium">
+                  {condition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* PAGE 2 CONTENT */}
+          {pdfPage === 2 && (
+            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
+                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
+              </div>
+              <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {condition.name}:</p>
+              <div className="space-y-3">
+                {condition.diagnosisCriteria.map((c, i) => (
+                  <div key={i} className="flex gap-4 border border-slate-200/80 p-4 rounded-xl bg-slate-50/50 shadow-sm">
+                    <span className="font-mono font-bold text-teal-700 shrink-0 text-sm">0{i + 1}</span>
+                    <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PAGE 3 CONTENT */}
+          {pdfPage === 3 && (
+            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
+                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
+              </div>
+              <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {condition.name}:</p>
+              <div className="space-y-3.5">
+                {condition.treatmentOptions.map((opt, i) => (
+                  <div key={i} className="flex gap-4 items-start border border-slate-150 bg-slate-50/40 p-4 rounded-xl shadow-sm">
+                    <span className="w-5.5 h-5.5 rounded bg-teal-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                      {i + 1}
+                    </span>
+                    <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PAGE 4+ CONTENT */}
+          {pdfPage >= 4 && (
+            <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
+                <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
+              </div>
+              
+              <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
+                <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
+                  <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
+                  Key Summary Pearls:
+                </p>
+                <p className="font-medium whitespace-pre-line leading-relaxed">{condition.clinicalNotes}</p>
+              </div>
+
+              <div className="space-y-3 mt-6">
+                <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">References</h3>
+                <div className="divide-y divide-slate-100">
+                  {condition.references.map((ref) => (
+                    <div key={ref.id} className="py-3.5 flex items-start gap-3 text-[11px]">
+                      <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
+                      <div className="flex-1">
+                        <p className="text-slate-700 font-medium leading-relaxed">
+                          {ref.text}
+                        </p>
+                        {ref.url && (
+                          <a 
+                            href={ref.url} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-teal-600 font-semibold hover:underline mt-1 inline-block no-print text-[10px]"
+                          >
+                            Access Original Source →
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Professional PDF Footer */}
+          <footer className="absolute bottom-12 left-12 right-12 border-t border-slate-200 pt-4 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
+            <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
+            <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
+          </footer>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function PDFViewerPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-slate-400">
+        <Lucide.Loader2 className="w-8 h-8 animate-spin text-teal-500 mb-2" />
+        <span className="text-xs font-semibold">Loading clinical document...</span>
+      </div>
+    }>
+      <PDFViewerContent />
+    </Suspense>
+  );
+}
