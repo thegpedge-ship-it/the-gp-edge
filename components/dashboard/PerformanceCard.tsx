@@ -37,19 +37,9 @@ const PerformanceCard = memo(function PerformanceCard() {
               <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {row.subject}
               </span>
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm font-serif font-semibold text-slate-900 dark:text-slate-50">
-                  {row.mastery}%
-                </span>
-                <span
-                  className={`text-[11px] font-semibold ${
-                    row.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
-                  }`}
-                >
-                  {row.change >= 0 ? "+" : ""}
-                  {row.change}
-                </span>
-              </div>
+              <span className="text-sm font-serif font-semibold text-slate-900 dark:text-slate-50">
+                {row.mastery}%
+              </span>
             </div>
             <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
               <motion.div

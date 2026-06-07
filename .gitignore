@@ -5,7 +5,8 @@
 .env*.local
 .env.local
 .env.development.local
-.env.test.local
+.env.test.
+.claude
 .env.production.local
 
 # ═══════════════════════════════════════════════════════════════

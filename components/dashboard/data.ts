@@ -188,12 +188,19 @@ export const weeklyProgress = {
   ],
 };
 
-export const accuracyTrend = {
-  current: 78.4,
-  delta: 2.1,
-  points: [62, 65, 64, 68, 71, 70, 73, 75, 74, 76, 78, 78.4],
-  labels: ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "Now"],
-};
+export const mockExamScores = [
+  { date: "12 Jan 2026", score: 58 },
+  { date: "26 Jan 2026", score: 62 },
+  { date: "09 Feb 2026", score: 61 },
+  { date: "23 Feb 2026", score: 65 },
+  { date: "09 Mar 2026", score: 68 },
+  { date: "23 Mar 2026", score: 66 },
+  { date: "06 Apr 2026", score: 71 },
+  { date: "20 Apr 2026", score: 73 },
+  { date: "04 May 2026", score: 72 },
+  { date: "18 May 2026", score: 75 },
+  { date: "01 Jun 2026", score: 78 },
+];
 
 export const weakTopics = [
   { name: "Dermatology — pigmented lesions", accuracy: 41, attempts: 28 },
