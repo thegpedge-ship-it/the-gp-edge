@@ -446,9 +446,9 @@ export default function MedicalLibraryPage() {
         {selectedCondition && (
           <motion.div
             key="medical-detail-drawer"
-            initial={{ x: "100%", opacity: 0.8 }}
+            initial={{ x: "calc(100% + 2rem)", opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0.8 }}
+            exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
             transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
             className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl overflow-hidden flex flex-col rounded-2xl"
           >
