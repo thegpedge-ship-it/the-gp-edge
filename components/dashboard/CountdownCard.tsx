@@ -18,18 +18,18 @@ const CountdownCard = memo(function CountdownCard() {
         viewBox="0 0 320 320"
         fill="none"
       >
-        {[40, 65, 90, 115, 140, 165, 190, 215, 240, 265, 290].map((r, i) => (
+        {[20, 38, 56, 74, 92, 110, 128, 146, 164, 182, 200, 218, 236, 254, 272, 290, 308].map((r, i) => (
           <circle
             key={r}
-            cx="0"
+            cx="320"
             cy="160"
             r={r}
             stroke="currentColor"
-            strokeWidth={1.2}
+            strokeWidth={1}
             className={
-              i < 4
-                ? "text-emerald-300/50 dark:text-emerald-600/30"
-                : i < 7
+              i < 6
+                ? "text-emerald-300/55 dark:text-emerald-600/30"
+                : i < 12
                   ? "text-emerald-200/45 dark:text-emerald-700/25"
                   : "text-emerald-100/35 dark:text-emerald-800/20"
             }
