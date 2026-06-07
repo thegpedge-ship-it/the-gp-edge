@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import Link from "next/link";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 interface MedicalContent {
   id: number;
@@ -127,6 +128,18 @@ export default function ContentPage() {
     }
     return () => clearInterval(timer);
   }, [uploadState]);
+
+  // Lock body scroll when drawer or modal is open to prevent background scrolling lag
+  useEffect(() => {
+    if (selectedContent || showAddModal) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [selectedContent, showAddModal]);
 
   // Submit and save content
   const handleSaveContent = (type: MedicalContent["type"]) => {
@@ -270,6 +283,14 @@ export default function ContentPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                  <Link
+                    href={`/admin/content/editor?id=${item.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="p-1 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/20 transition-all"
+                    title="Edit Content"
+                  >
+                    <Lucide.Edit className="w-4 h-4" />
+                  </Link>
                   {item.status === "draft" && (
                     <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all" title="Send to Review">
                       <Lucide.ChevronRight className="w-4 h-4" />
@@ -290,13 +311,23 @@ export default function ContentPage() {
       {/* Content Upload wizard Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.3 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black z-50 cursor-pointer" onClick={() => setShowAddModal(false)} />
+          <div key="content-add-modal-container" className="fixed inset-0 z-50 pointer-events-none">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[85vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl z-50 overflow-y-auto flex flex-col"
+              key="content-add-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              onClick={() => setShowAddModal(false)}
+            />
+            <motion.div
+              key="content-add-modal-content"
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }}
+              className="fixed inset-x-4 top-[10%] mx-auto w-full max-w-lg max-h-[80vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-y-auto flex flex-col pointer-events-auto"
             >
               
               {/* Modal Header */}
@@ -547,21 +578,29 @@ export default function ContentPage() {
 
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
 
       {/* Detail slide-over */}
       <AnimatePresence>
         {selectedContent && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer" onClick={() => setSelectedContent(null)} />
+          <div key="content-detail-drawer-container" className="fixed inset-0 z-50 pointer-events-none">
             <motion.div
-              initial={{ x: "110%", opacity: 0 }}
+              key="content-detail-drawer-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              onClick={() => setSelectedContent(null)}
+            />
+            <motion.div
+              key="content-detail-drawer-content"
+              initial={{ x: "100%", opacity: 0.8 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "110%", opacity: 0 }}
-              transition={{ type: "spring", damping: 32, stiffness: 280 }}
-              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 z-50 shadow-2xl rounded-2xl overflow-hidden flex flex-col"
+              exit={{ x: "100%", opacity: 0.8 }}
+              transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
+              className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
             >
               {/* Decorative top accent line */}
               <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
@@ -623,11 +662,13 @@ export default function ContentPage() {
 
               {/* Footer */}
               <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-                <button className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">Edit Content</button>
+                <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">
+                  Edit Content
+                </Link>
                 <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
