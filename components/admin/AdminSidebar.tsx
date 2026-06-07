@@ -230,11 +230,7 @@ export default function AdminSidebar({ collapsed, onToggle, mobileOpen, onMobile
                   >
                     {/* Active indicator */}
                     {isActive && (
-                      <motion.div
-                        layoutId="sidebar-active"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-teal-500 rounded-r-full"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-teal-500 rounded-r-full" />
                     )}
 
                     <span className={`flex-shrink-0 ${isActive ? "text-teal-500" : "text-slate-400 group-hover:text-slate-600"}`}>
