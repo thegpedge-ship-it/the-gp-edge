@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import CustomSelect from "@/components/admin/CustomSelect";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 interface ContentBlock {
   id: string;
@@ -48,23 +49,62 @@ const versionHistory = [
 ];
 
 const calloutStyles: Record<string, { bg: string; border: string; icon: string; label: string; text: string }> = {
-  info: { bg: "bg-teal-50/70", border: "border-teal-200", icon: "ℹ️", label: "Guideline", text: "text-teal-900" },
-  billing: { bg: "bg-slate-50/70", border: "border-slate-200", icon: "💰", label: "Billing", text: "text-slate-900" },
-  pearl: { bg: "bg-emerald-50/70", border: "border-emerald-200", icon: "💎", label: "Clinical Pearl", text: "text-emerald-900" },
-  warning: { bg: "bg-green-50/70", border: "border-green-200", icon: "⚠️", label: "Warning", text: "text-green-900" },
+  info: { bg: "bg-teal-50/70", border: "border-teal-200", icon: "i", label: "Guideline", text: "text-teal-900" },
+  billing: { bg: "bg-slate-50/70", border: "border-slate-200", icon: "$", label: "Billing", text: "text-slate-900" },
+  pearl: { bg: "bg-emerald-50/70", border: "border-emerald-200", icon: "*", label: "Clinical Pearl", text: "text-emerald-900" },
+  warning: { bg: "bg-green-50/70", border: "border-green-200", icon: "!", label: "Warning", text: "text-green-900" },
 };
 
-export default function ContentEditorPage() {
-  const [blocks] = useState(initialBlocks);
+const contentLookup: Record<number, { name: string; category: string; system: string; author: string; type: string; status: "draft" | "review" | "published" }> = {
+  1: { name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", author: "Dr. Arun Mehta", type: "Guideline", status: "published" },
+  2: { name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", author: "Siddhant Udavant", type: "Protocol", status: "published" },
+  3: { name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", author: "Dr. Arun Mehta", type: "Guideline", status: "published" },
+  4: { name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", author: "Jessica Park", type: "Pathway", status: "review" },
+  5: { name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", author: "Dr. Arun Mehta", type: "Protocol", status: "published" },
+  6: { name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", author: "Jessica Park", type: "Pathway", status: "draft" },
+  7: { name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", author: "Siddhant Udavant", type: "Guideline", status: "published" },
+  8: { name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", author: "Dr. Arun Mehta", type: "Pathway", status: "review" },
+  9: { name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", author: "Siddhant Udavant", type: "Protocol", status: "published" },
+  10: { name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", author: "Jessica Park", type: "Guideline", status: "draft" },
+};
+
+function ContentEditorContent() {
+  const searchParams = useSearchParams();
+  const idStr = searchParams.get("id");
+  const id = idStr ? parseInt(idStr, 10) : 1;
+  const contentItem = contentLookup[id] || contentLookup[1];
+
+  const [docTitle, setDocTitle] = useState(contentItem.name);
+  const [selectedSystem, setSelectedSystem] = useState(contentItem.system);
+  const [selectedCategory, setSelectedCategory] = useState(contentItem.category);
+  const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published">(contentItem.status);
+  const [author, setAuthor] = useState(contentItem.author);
+
+  const [blocks, setBlocks] = useState<ContentBlock[]>(() => {
+    return initialBlocks.map((block, idx) =>
+      idx === 0 && block.type === "heading"
+        ? { ...block, content: `${contentItem.name} in General Practice` }
+        : block
+    );
+  });
+
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"meta" | "refs" | "history">("meta");
-  const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published">("published");
   const [wordCount] = useState(483);
   const [charCount] = useState(3247);
-  const [selectedSystem, setSelectedSystem] = useState("Endocrine");
-  const [selectedCategory, setSelectedCategory] = useState("Chronic Disease");
+
+  const handleTitleChange = (newTitle: string) => {
+    setDocTitle(newTitle);
+    setBlocks((prev) =>
+      prev.map((block, idx) =>
+        idx === 0 && block.type === "heading"
+          ? { ...block, content: newTitle }
+          : block
+      )
+    );
+  };
 
   const renderBlock = (block: ContentBlock) => {
     const isActive = activeBlockId === block.id;
@@ -194,7 +234,7 @@ export default function ContentEditorPage() {
           <div className="flex items-center gap-2 text-sm">
             <Link href="/admin/content" className="text-slate-400 hover:text-teal-600 transition-colors font-medium">Content</Link>
             <svg className="w-3.5 h-3.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            <span className="text-slate-700 font-semibold">Type 2 Diabetes Management</span>
+            <span className="text-slate-700 font-semibold">{docTitle}</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -212,7 +252,7 @@ export default function ContentEditorPage() {
               onClick={() => setPreviewMode(!previewMode)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${previewMode ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}
             >
-              {previewMode ? "✏️ Edit" : "👁 Preview"}
+              {previewMode ? "Edit" : "Preview"}
             </button>
 
             {/* Sidebar toggle */}
@@ -252,16 +292,16 @@ export default function ContentEditorPage() {
             {[
               { icon: "•", title: "Bullet List" },
               { icon: "1.", title: "Numbered List" },
-              { icon: "❝", title: "Quote" },
+              { icon: "\"", title: "Quote" },
             ].map((b) => (
               <button key={b.icon} title={b.title} className="w-8 h-8 text-xs font-bold text-slate-500 bg-slate-50 rounded-lg hover:bg-teal-50 hover:text-teal-600 transition-all flex items-center justify-center">{b.icon}</button>
             ))}
             <div className="w-px h-5 bg-slate-200 mx-1" />
             {[
-              { icon: "🔗", title: "Link" },
-              { icon: "📷", title: "Image" },
-              { icon: "📊", title: "Table" },
-              { icon: "📦", title: "Callout" },
+              { icon: "∞", title: "Link" },
+              { icon: "□", title: "Image" },
+              { icon: "≡", title: "Table" },
+              { icon: "◇", title: "Callout" },
               { icon: "—", title: "Divider" },
               { icon: "</>" , title: "Code Block" },
             ].map((b) => (
@@ -279,8 +319,8 @@ export default function ContentEditorPage() {
           <div className="relative z-10 p-8 lg:p-10 max-w-3xl mx-auto">
             {/* Content type badge */}
             <div className="flex items-center gap-2 mb-6">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-teal-50 text-teal-700 border-teal-200">Guideline</span>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">Endocrine</span>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-teal-50 text-teal-700 border-teal-200">{contentItem.type}</span>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{selectedSystem}</span>
               <span className="text-xs text-slate-400 font-medium ml-auto">Last saved: 2 mins ago</span>
             </div>
 
@@ -331,7 +371,12 @@ export default function ContentEditorPage() {
                       <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Title</label>
-                          <input type="text" defaultValue="Type 2 Diabetes Management" className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" />
+                          <input 
+                            type="text" 
+                            value={docTitle} 
+                            onChange={(e) => handleTitleChange(e.target.value)} 
+                            className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" 
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
@@ -340,9 +385,15 @@ export default function ContentEditorPage() {
                             onChange={setSelectedSystem}
                             options={[
                               { value: "Endocrine", label: "Endocrine" },
-                              { value: "Cardiology", label: "Cardiology" },
+                              { value: "Cardiovascular", label: "Cardiovascular" },
                               { value: "Respiratory", label: "Respiratory" },
                               { value: "Psychiatry", label: "Psychiatry" },
+                              { value: "Dermatology", label: "Dermatology" },
+                              { value: "Women's Health", label: "Women's Health" },
+                              { value: "Paediatrics", label: "Paediatrics" },
+                              { value: "Gastroenterology", label: "Gastroenterology" },
+                              { value: "Musculoskeletal", label: "Musculoskeletal" },
+                              { value: "MBS", label: "MBS" }
                             ]}
                             className="w-full"
                           />
@@ -357,13 +408,18 @@ export default function ContentEditorPage() {
                               { value: "Emergency", label: "Emergency" },
                               { value: "Preventive", label: "Preventive" },
                               { value: "Mental Health", label: "Mental Health" },
+                              { value: "Skin Cancer", label: "Skin Cancer" },
+                              { value: "Obstetrics", label: "Obstetrics" },
+                              { value: "GI", label: "GI" },
+                              { value: "MSK", label: "MSK" },
+                              { value: "Billing", label: "Billing" }
                             ]}
                             className="w-full"
                           />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Author</label>
-                          <input type="text" defaultValue="Dr. Arun Mehta" className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition-all" />
+                          <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 transition-all" />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600 mb-1.5">Tags</label>
@@ -462,10 +518,10 @@ export default function ContentEditorPage() {
                 <div className="relative z-10 space-y-2">
                   <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h4>
                   {[
-                    { label: "Export as PDF", icon: "📄" },
-                    { label: "Duplicate Content", icon: "📋" },
-                    { label: "Link to Question", icon: "🔗" },
-                    { label: "Generate Quiz", icon: "⚡" },
+                    { label: "Export as PDF", icon: ">" },
+                    { label: "Duplicate Content", icon: "+" },
+                    { label: "Link to Question", icon: "~" },
+                    { label: "Generate Quiz", icon: "/" },
                   ].map((action) => (
                     <button key={action.label} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-medium text-slate-600 bg-slate-50 rounded-xl hover:bg-teal-50 hover:text-teal-700 transition-all border border-slate-100 hover:border-teal-200 text-left">
                       <span>{action.icon}</span>
@@ -479,5 +535,17 @@ export default function ContentEditorPage() {
         </AnimatePresence>
       </div>
     </motion.div>
+  );
+}
+
+export default function ContentEditorPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+      </div>
+    }>
+      <ContentEditorContent />
+    </Suspense>
   );
 }
