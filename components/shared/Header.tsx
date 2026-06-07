@@ -23,7 +23,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
   const innerClass =
     variant === "static"
-      ? "w-[80%] mx-auto bg-white dark:bg-slate-900 backdrop-blur-xl border border-slate-200/60 dark:border-slate-700/40 shadow-md rounded-2xl px-8 py-4 flex items-center justify-between"
+      ? "w-[80%] mx-auto bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/40 shadow-md rounded-2xl px-8 py-4 flex items-center justify-between"
       : "w-[95%] max-w-5xl mx-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/40 dark:border-slate-700/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between";
 
   return (

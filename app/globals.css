@@ -32,6 +32,24 @@
   body {
     @apply font-sans antialiased;
     font-feature-settings: "kern", "liga", "calt", "ss01";
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Promote blur-heavy decorative elements to their own GPU layer */
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl {
+    will-change: transform;
+    transform: translateZ(0);
+    contain: strict;
+  }
+
+  /* Promote sticky/fixed navbars to GPU layer for smooth scroll */
+  header[class*="sticky"],
+  header[class*="fixed"],
+  aside[class*="fixed"] {
+    will-change: transform;
+    transform: translateZ(0);
   }
 }
 
