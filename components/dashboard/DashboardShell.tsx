@@ -33,7 +33,7 @@ const DashboardInner = memo(function DashboardInner({ children }: { children: Re
           marginLeft: isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX,
           transition: ready ? MARGIN_TRANSITION : "none",
         }}
-        className="min-h-screen px-6 sm:px-8 pt-28 sm:pt-32 pb-12"
+        className="min-h-screen px-6 sm:px-8 pt-6 sm:pt-10 pb-12"
       >
         {/* PageTransition wraps route content for smooth, single entry animation */}
         <PageTransition>{children}</PageTransition>
