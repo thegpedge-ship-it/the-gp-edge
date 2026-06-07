@@ -6,12 +6,12 @@ import StatCard from "@/components/admin/StatCard";
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
+  visible: { opacity: 1, transition: { staggerChildren: 0.02, delayChildren: 0.02 } },
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } },
 };
 
 const monthlyRevenue = [
@@ -82,7 +82,6 @@ export default function DashboardPage() {
         <div className="relative flex items-center justify-between gap-6">
           <div className="flex-1 min-w-0 max-w-xl">
             <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
-              <span className="text-xl">👋</span>
               Good morning, Siddhant!
             </p>
             <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
@@ -260,35 +259,35 @@ export default function DashboardPage() {
         </motion.div>
       </div>
 
-      {/* System health */}
+      {/* Business Funnel & Unit Economics */}
       <motion.div variants={itemVariants} className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <div>
-              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Infrastructure</p>
-              <h3 className="font-serif text-xl text-slate-900 dark:text-slate-50">System Health</h3>
+              <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-0.5">Marketing & Sales</p>
+              <h3 className="font-serif text-xl text-slate-900 dark:text-slate-50">Unit Economics & Funnel</h3>
             </div>
           </div>
           <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-1 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            All Systems Operational
+            LTV:CAC Ratio 7.1x
           </span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { name: "API Server", latency: "23ms", uptime: "99.98%" },
-            { name: "Database", latency: "5ms", uptime: "99.99%" },
-            { name: "CDN / Assets", latency: "12ms", uptime: "100%" },
-            { name: "Auth Service", latency: "45ms", uptime: "99.95%" },
-          ].map((service) => (
-            <div key={service.name} className="rounded-2xl bg-slate-50 dark:bg-slate-700/50 p-4 border border-slate-100 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700/50 transition-colors">
+            { name: "Customer Acquisition Cost", value: "$45.20", detail: "Target: <$50.00" },
+            { name: "Customer Lifetime Value", value: "$320.00", detail: "Avg Lifespan: 14mo" },
+            { name: "Trial-to-Paid Conversion", value: "18.4%", detail: "Target: >15.0%" },
+            { name: "Average Order Value", value: "$128.50", detail: "+5.3% vs last month" },
+          ].map((metric) => (
+            <div key={metric.name} className="rounded-2xl bg-slate-50 dark:bg-slate-700/50 p-4 border border-slate-100 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700/50 transition-colors">
               <div className="flex items-center gap-1.5 mb-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{service.name}</p>
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+                <p className="text-xs font-medium text-slate-600 dark:text-slate-400">{metric.name}</p>
               </div>
-              <p className="font-serif text-lg text-slate-900 dark:text-slate-50 leading-none">{service.latency}</p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">↑ {service.uptime} uptime</p>
+              <p className="font-serif text-2xl text-slate-900 dark:text-slate-50 leading-none">{metric.value}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 font-medium">{metric.detail}</p>
             </div>
           ))}
         </div>
