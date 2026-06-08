@@ -295,6 +295,7 @@ export interface TopicItem {
   questions: number;
   usage: number;
   subtopics: number;
+  subtopicTags?: string[];
 }
 
 const DEFAULT_TOPICS: TopicItem[] = [
