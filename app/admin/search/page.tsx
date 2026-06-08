@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getQuestions, Question, getTopics, saveTopics, getCustomTags, saveCustomTags, TopicItem } from "@/lib/quizData";
+import { getQuestions, saveQuestions, Question, getTopics, saveTopics, getCustomTags, saveCustomTags, TopicItem } from "@/lib/quizData";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -30,10 +30,50 @@ export default function SearchPage() {
   // Modals state
   const [showAddTopicModal, setShowAddTopicModal] = useState(false);
   const [newTopicName, setNewTopicName] = useState("");
-  const [newTopicSubtopics, setNewTopicSubtopics] = useState(0);
+  const [newTopicTags, setNewTopicTags] = useState<string[]>([]);
+  const [newTopicTagInput, setNewTopicTagInput] = useState("");
 
   const [showNewTagModal, setShowNewTagModal] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+
+  const handleAddTopicTag = () => {
+    const val = newTopicTagInput.trim();
+    if (val && !newTopicTags.includes(val)) {
+      setNewTopicTags([...newTopicTags, val]);
+      setNewTopicTagInput("");
+    }
+  };
+
+  const handleRemoveTopicTag = (tag: string) => {
+    setNewTopicTags(newTopicTags.filter((t) => t !== tag));
+  };
+
+  const handleDeleteTopic = (topicName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete the topic "${topicName}"?`)) {
+      const updated = topicsList.filter((t) => t.name !== topicName);
+      setTopicsList(updated);
+      saveTopics(updated);
+    }
+  };
+
+  const handleDeleteTag = (tagName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete the tag "${tagName}"? This will also remove it from any assigned questions.`)) {
+      const updatedCustom = customTags.filter((t) => t !== tagName);
+      setCustomTags(updatedCustom);
+      saveCustomTags(updatedCustom);
+
+      const updatedQuestions = questions.map((q) => {
+        if (q.tags && q.tags.includes(tagName)) {
+          return { ...q, tags: q.tags.filter((t) => t !== tagName) };
+        }
+        return q;
+      });
+      setQuestions(updatedQuestions);
+      saveQuestions(updatedQuestions);
+    }
+  };
 
   useEffect(() => {
     setQuestions(getQuestions());
@@ -197,7 +237,10 @@ export default function SearchPage() {
             </div>
           <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
             {topicsList.map((t) => (
-              <div key={t.name} className="px-6 py-3.5 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer">
+              <div
+                key={t.name}
+                className="px-6 py-3.5 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+              >
                 <div>
                   <p className="text-sm font-medium text-slate-800">{t.name}</p>
                   <p className="text-xs text-slate-400">{t.subtopics} subtopics</p>
@@ -205,6 +248,16 @@ export default function SearchPage() {
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <span>{t.questions} Q</span>
                   <span>{t.usage.toLocaleString()} uses</span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteTopic(t.name, e)}
+                    className="p-1.5 rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-400 opacity-0 group-hover:opacity-100 transition-all duration-200"
+                    title={`Delete topic "${t.name}"`}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             ))}
@@ -225,16 +278,28 @@ export default function SearchPage() {
               const size = tag.count > 3 ? "text-sm" : tag.count > 1 ? "text-xs" : "text-[11px]";
               const weight = tag.count > 3 ? "font-bold" : tag.count > 1 ? "font-semibold" : "font-medium";
               return (
-                <button
+                <div
                   key={tag.name}
-                  onClick={() => {
-                    setQuery(tag.name);
-                    setActiveTab("questions");
-                  }}
-                  className={`px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-all cursor-pointer ${size} ${weight}`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:border-teal-300 hover:bg-teal-50/50 transition-all group/tag ${size} ${weight}`}
                 >
-                  {tag.name} <span className="opacity-40 ml-1">{tag.count}</span>
-                </button>
+                  <span
+                    onClick={() => {
+                      setQuery(tag.name);
+                      setActiveTab("questions");
+                    }}
+                    className="cursor-pointer hover:text-teal-700"
+                  >
+                    {tag.name} <span className="opacity-40 ml-1">{tag.count}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteTag(tag.name, e)}
+                    className="text-slate-400 hover:text-red-500 font-bold ml-1 text-sm focus:outline-none transition-colors animate-fade-in"
+                    title={`Delete tag "${tag.name}"`}
+                  >
+                    &times;
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -295,19 +360,56 @@ export default function SearchPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Number of Subtopics</label>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 5"
-                    value={newTopicSubtopics || ""}
-                    onChange={(e) => setNewTopicSubtopics(parseInt(e.target.value, 10) || 0)}
-                    className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all dark:text-slate-100"
-                  />
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Subtopic Tags (Add multiple)</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. Heart Failure, ECG, Acne"
+                      value={newTopicTagInput}
+                      onChange={(e) => setNewTopicTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddTopicTag();
+                        }
+                      }}
+                      className="flex-1 px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all dark:text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddTopicTag}
+                      className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow"
+                    >
+                      Add
+                    </button>
+                  </div>
+                  
+                  {/* Tag Pills List */}
+                  {newTopicTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3 p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100/60 dark:border-slate-800/40">
+                      {newTopicTags.map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/60 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900/40">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTopicTag(tag)}
+                            className="text-teal-500 hover:text-red-500 font-bold ml-1 text-base focus:outline-none"
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
                   <button
-                    onClick={() => setShowAddTopicModal(false)}
+                    onClick={() => {
+                      setShowAddTopicModal(false);
+                      setNewTopicName("");
+                      setNewTopicTags([]);
+                      setNewTopicTagInput("");
+                    }}
                     className="px-4 py-2 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                   >
                     Cancel
@@ -323,12 +425,27 @@ export default function SearchPage() {
                         alert("Topic already exists.");
                         return;
                       }
-                      const updated = [...topicsList, { name, questions: 0, usage: 0, subtopics: newTopicSubtopics }];
-                      setTopicsList(updated);
-                      saveTopics(updated);
+                      const updatedTopics = [...topicsList, { name, questions: 0, usage: 0, subtopics: newTopicTags.length, subtopicTags: newTopicTags }];
+                      setTopicsList(updatedTopics);
+                      saveTopics(updatedTopics);
+
+                      const newCustomTags = [...customTags];
+                      let updatedCustomTags = false;
+                      newTopicTags.forEach((tag) => {
+                        if (!newCustomTags.includes(tag)) {
+                          newCustomTags.push(tag);
+                          updatedCustomTags = true;
+                        }
+                      });
+                      if (updatedCustomTags) {
+                        setCustomTags(newCustomTags);
+                        saveCustomTags(newCustomTags);
+                      }
+
                       setShowAddTopicModal(false);
                       setNewTopicName("");
-                      setNewTopicSubtopics(0);
+                      setNewTopicTags([]);
+                      setNewTopicTagInput("");
                     }}
                     className="px-4 py-2 text-sm font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow"
                   >
