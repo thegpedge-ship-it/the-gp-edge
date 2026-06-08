@@ -12,12 +12,27 @@ const userGrowthData = [
   { month: "June", users: 12847 },
 ];
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    dataKey: string;
+    name: string;
+  }>;
+  label?: string;
+}
+
+const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (active && payload && payload.length) {
     const value = payload[0].value;
     return (
-      <div className="bg-slate-900 dark:bg-slate-950 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg border border-slate-700">
-        <p className="font-semibold">{(value / 1000).toFixed(1)}k users</p>
+      <div className="bg-slate-900 dark:bg-slate-950 border border-slate-700 rounded-lg shadow-lg overflow-hidden">
+        <div className="px-3 py-2">
+          <p className="text-xs text-slate-400 mb-1">{label}</p>
+          <p className="text-sm font-semibold text-white">
+            {(value / 1000).toFixed(1)}k users
+          </p>
+        </div>
       </div>
     );
   }

@@ -213,7 +213,7 @@ export default function AuditPage() {
                   ? "hover:shadow-md active:scale-[0.97] cursor-pointer"
                   : "opacity-50 cursor-not-allowed"
               }`}
-              style={{ background: isSuperAdmin ? "linear-gradient(135deg, #14b8a6, #0d9488)" : "#94a3b8" }}
+              style={{ background: isSuperAdmin ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
               title={isSuperAdmin ? "Add new administrator" : "Only Super Admins can add team members"}
             >
               {!isSuperAdmin ? (
@@ -249,7 +249,7 @@ export default function AuditPage() {
                 {admins.map((a) => (
                   <tr
                     key={a.id}
-                    className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group"
+                    className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -261,12 +261,7 @@ export default function AuditPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                        a.role === "Super Admin" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : a.role === "Admin" ? "bg-teal-50 text-teal-700 border border-teal-200"
-                        : a.role === "Moderator" ? "bg-amber-50 text-amber-700 border border-amber-200"
-                        : "bg-slate-100 text-slate-600 border border-slate-200"
-                      }`}>{a.role}</span>
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">{a.role}</span>
                     </td>
                     <td className="px-4 py-4">
                       <p className="text-xs text-slate-500 max-w-[240px]">{permSummary(a.permissions)}</p>
@@ -413,7 +408,7 @@ export default function AuditPage() {
                   <button
                     onClick={saveEdit}
                     className="px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97]"
-                    style={{ background: "linear-gradient(135deg, #14b8a6, #0d9488)" }}
+                    style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}
                   >Save Changes</button>
                 </div>
               </div>
@@ -544,7 +539,7 @@ export default function AuditPage() {
                     onClick={saveAdd}
                     disabled={!addName.trim() || !addEmail.trim()}
                     className="px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
-                    style={{ background: "linear-gradient(135deg, #14b8a6, #0d9488)" }}
+                    style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}
                   >Add Admin</button>
                 </div>
               </div>
@@ -571,9 +566,9 @@ export default function AuditPage() {
             {filteredLogs.map((log, i) => (
               <div
                 key={i}
-                className="px-6 py-3.5 flex items-start gap-4 hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+                className="px-6 py-3.5 flex items-start gap-4 hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
               >
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 ${severityColors[log.severity]}`}>{log.category}</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">{log.category}</span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-700">{log.action}</p>
                   <p className="text-xs text-slate-400 mt-0.5">by {log.admin} · {log.timestamp}</p>
@@ -594,7 +589,7 @@ export default function AuditPage() {
               {softDeleted.map((d, i) => (
                 <div
                   key={i}
-                  className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+                  className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
                 >
                   <div>
                     <p className="text-sm font-semibold text-slate-800">{d.item}</p>

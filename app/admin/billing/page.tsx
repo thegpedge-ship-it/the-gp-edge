@@ -1,9 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
-import StatCard from "@/components/admin/StatCard";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { addUserNotification } from "@/utils/notifications";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -22,11 +24,6 @@ const failedPayments = [
   { user: "Dr. Emily Watson", amount: "$199.00", date: "24 May 2026", reason: "Insufficient funds", retries: 1 },
 ];
 
-const refundRequests = [
-  { user: "Dr. David Kim", amount: "$24.00", reason: "Accidental purchase", date: "27 May 2026", status: "pending" as const },
-  { user: "Dr. Alex Kumar", amount: "$199.00", reason: "Not satisfied", date: "20 May 2026", status: "pending" as const },
-];
-
 const monthlyRevenue = [
   { month: "Jan", revenue: 8200 },
   { month: "Feb", revenue: 9800 },
@@ -35,8 +32,58 @@ const monthlyRevenue = [
   { month: "May", revenue: 15600 },
 ];
 
+interface RefundRequest {
+  user: string;
+  amount: string;
+  reason: string;
+  date: string;
+  status: "pending" | "approved" | "denied";
+  note?: string;
+}
+
 export default function BillingPage() {
   const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.revenue));
+
+  const [refunds, setRefunds] = useState<RefundRequest[]>([
+    { user: "Dr. David Kim", amount: "$24.00", reason: "Accidental purchase", date: "27 May 2026", status: "pending" },
+    { user: "Dr. Alex Kumar", amount: "$199.00", reason: "Not satisfied", date: "20 May 2026", status: "pending" },
+  ]);
+
+  const [activeRefund, setActiveRefund] = useState<RefundRequest | null>(null);
+  const [actionType, setActionType] = useState<"approve" | "deny" | null>(null);
+  const [refundNote, setRefundNote] = useState("");
+
+  const handleOpenAction = (refund: RefundRequest, type: "approve" | "deny") => {
+    setActiveRefund(refund);
+    setActionType(type);
+    setRefundNote(
+      type === "approve"
+        ? "Your refund request has been approved and processed."
+        : "Your refund request has been declined because it does not meet our refund guidelines."
+    );
+  };
+
+  const handleConfirmAction = () => {
+    if (!activeRefund || !actionType) return;
+    setRefunds((prev) =>
+      prev.map((r) =>
+        r.user === activeRefund.user && r.amount === activeRefund.amount
+          ? { ...r, status: actionType === "approve" ? "approved" : "denied", note: refundNote }
+          : r
+      )
+    );
+
+    addUserNotification(
+      actionType === "approve" ? "Refund Approved" : "Refund Request Declined",
+      `${actionType === "approve" ? "Your refund of" : "The refund request of"} ${activeRefund.amount} has been ${actionType === "approve" ? "approved" : "declined"}. Note: ${refundNote}`,
+      1,
+      "custom"
+    );
+
+    setActiveRefund(null);
+    setActionType(null);
+    setRefundNote("");
+  };
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
@@ -55,10 +102,30 @@ export default function BillingPage() {
 
       {/* Revenue stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Average Revenue Per User" value="$14.50" trend={{ value: "8%", positive: true }} accentColor="teal" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>} />
-        <StatCard title="Stripe Success Rate" value="99.4%" trend={{ value: "0.2%", positive: true }} accentColor="emerald" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>} />
-        <StatCard title="Pending Refunds" value="2 Requests" trend={{ value: "40%", positive: false }} accentColor="slate" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-        <StatCard title="Annual Plan Adoption" value="68%" trend={{ value: "12%", positive: true }} accentColor="teal" icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
+        <AnalyticsCard
+          title="Average Revenue Per User"
+          percentage="+8%"
+          data="$14.50"
+          progress={65}
+        />
+        <AnalyticsCard
+          title="Stripe Success Rate"
+          percentage="+0.2%"
+          data="99.4%"
+          progress={99}
+        />
+        <AnalyticsCard
+          title="Pending Refunds"
+          percentage="+40%"
+          data="2 Requests"
+          progress={40}
+        />
+        <AnalyticsCard
+          title="Annual Plan Adoption"
+          percentage="+12%"
+          data="68%"
+          progress={68}
+        />
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -184,7 +251,7 @@ export default function BillingPage() {
                 {subscriptions.map((s, i) => (
                   <tr
                     key={i}
-                    className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+                    className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
                   >
                     <td className="px-6 py-4 text-sm font-semibold text-slate-800">{s.user}</td>
                     <td className="px-4 py-4 text-sm text-slate-600">{s.plan}</td>
@@ -209,24 +276,132 @@ export default function BillingPage() {
             <h3 className="text-sm font-bold text-slate-900">Refund Requests</h3>
           </div>
           <div className="divide-y divide-slate-100">
-            {refundRequests.map((r, i) => (
+            {refunds.map((r, i) => (
               <div
                 key={i}
-                className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+                className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
               >
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{r.user} — <span className="text-amber-600">{r.amount}</span></p>
                   <p className="text-xs text-slate-400">{r.reason} · {r.date}</p>
+                  {r.note && (
+                    <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-1 font-medium bg-teal-50/60 dark:bg-teal-950/20 px-2.5 py-0.5 rounded-lg border border-teal-100/60 dark:border-teal-900/40 w-fit">
+                      Note: {r.note}
+                    </p>
+                  )}
                 </div>
-                <div className="flex gap-2 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                  <button className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all">Approve</button>
-                  <button className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all">Deny</button>
-                </div>
+                {r.status === "pending" ? (
+                  <div className="flex gap-2 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "approve"); }}
+                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all cursor-pointer"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "deny"); }}
+                      className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all cursor-pointer"
+                    >
+                      Deny
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
+                    r.status === "approved"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }`}>
+                    {r.status}
+                  </span>
+                )}
               </div>
             ))}
           </div>
         </div>
       </motion.div>
+
+      {/* Action modal for refund reason note */}
+      <AnimatePresence>
+        {activeRefund && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4"
+            onClick={() => { setActiveRefund(null); setActionType(null); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white rounded-2xl shadow-2xl border border-slate-200/60 w-full max-w-md overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {actionType === "approve" ? "Approve Refund" : "Deny Refund"}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5 font-semibold">
+                    {activeRefund.user} · {activeRefund.amount}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setActiveRefund(null); setActionType(null); }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    Add a Note/Message for the User
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={refundNote}
+                    onChange={(e) => setRefundNote(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all resize-none text-slate-800"
+                    placeholder="Enter reason for approval or denial..."
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1.5 leading-normal">
+                    This note will be logged in the system and sent to the user's notification feed.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => { setActiveRefund(null); setActionType(null); }}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAction}
+                  className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97]`}
+                  style={{
+                    background:
+                      actionType === "approve"
+                        ? "linear-gradient(135deg, #0f766e, #115e59)"
+                        : "linear-gradient(135deg, #dc2626, #b91c1c)",
+                  }}
+                >
+                  Confirm {actionType === "approve" ? "Approval" : "Denial"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

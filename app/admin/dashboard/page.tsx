@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import StatCard from "@/components/admin/StatCard";
+import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { VisitorsChart } from "@/components/admin/VisitorsChart";
 import { MonthlyRevenueChart } from "@/components/admin/MonthlyRevenueChart";
 import { UserGrowthChart } from "@/components/admin/UserGrowthChart";
@@ -52,77 +52,65 @@ const activityTypeIcon: Record<string, React.ReactNode> = {
 export default function DashboardPage() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      {/* Welcome banner — Topbar style with illustration */}
       <motion.section
         variants={itemVariants}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/40 dark:from-emerald-900/20 dark:via-slate-800/40 dark:to-teal-900/20 border border-emerald-100/60 dark:border-emerald-800/40 p-8 lg:p-10"
+        className="flex items-center justify-between gap-6"
       >
-        {/* Decorative blobs */}
-        <div className="absolute -top-16 right-1/3 w-64 h-64 rounded-full bg-emerald-200/40 dark:bg-emerald-700/20 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 right-0 w-72 h-72 rounded-full bg-teal-200/30 dark:bg-teal-700/15 blur-3xl pointer-events-none" />
+        <div className="flex-1 min-w-0 max-w-xl">
+          <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
+            Good morning, Siddhant!
+          </p>
+          <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
+            Your admin{" "}
+            <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">
+              cockpit
+            </span>
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+            Business overview and platform operations at a glance.
+          </p>
+        </div>
 
-        <div className="relative flex items-center justify-between gap-6">
-          <div className="flex-1 min-w-0 max-w-xl">
-            <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
-              Good morning, Siddhant!
-            </p>
-            <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-              Your admin{" "}
-              <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">
-                cockpit
-              </span>
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-              Business overview and platform operations at a glance.
-            </p>
-          </div>
-
-          {/* Welcome illustration */}
-          <div
-            className="hidden lg:block relative w-[280px] aspect-[786/442] flex-shrink-0"
-            style={{ willChange: "transform" }}
-          >
-            <Image
-              src="/assets/admin_dashboard_illustration.png"
-              alt="Admin managing platform cockpit"
-              fill
-              priority
-              sizes="280px"
-              className="object-contain mix-blend-multiply"
-            />
-          </div>
+        <div
+          className="hidden lg:block relative w-[280px] aspect-[786/442] flex-shrink-0"
+          style={{ willChange: "transform" }}
+        >
+          <Image
+            src="/assets/admin_dashboard_illustration.png"
+            alt="Admin managing platform cockpit"
+            fill
+            priority
+            sizes="280px"
+            className="object-contain mix-blend-multiply"
+          />
         </div>
       </motion.section>
 
       {/* Revenue & business stat cards */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
+        <AnalyticsCard
           title="Monthly Recurring Revenue"
-          value="$17,100"
-          trend={{ value: "18%", positive: true }}
-          accentColor="emerald"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+          percentage="+18%"
+          data="$17,100"
+          progress={76}
         />
-        <StatCard
+        <AnalyticsCard
           title="Total Revenue (YTD)"
-          value="$75,300"
-          trend={{ value: "34%", positive: true }}
-          accentColor="teal"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+          percentage="+34%"
+          data="$75,300"
+          progress={85}
         />
-        <StatCard
+        <AnalyticsCard
           title="Active Subscribers"
-          value="1,456"
-          trend={{ value: "23%", positive: true }}
-          accentColor="emerald"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+          percentage="+23%"
+          data="1,456"
+          progress={72}
         />
-        <StatCard
+        <AnalyticsCard
           title="Churn Rate"
-          value="2.3%"
-          trend={{ value: "0.5%", positive: false }}
-          accentColor="slate"
-          icon={<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>}
+          percentage="-0.5%"
+          data="2.3%"
+          progress={23}
         />
       </motion.div>
       {/* Charts row */}

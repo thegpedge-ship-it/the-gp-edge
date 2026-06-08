@@ -7,6 +7,7 @@ import Link from "next/link";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
+import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -38,12 +39,12 @@ const mockContent: MedicalContent[] = [
 ];
 
 const typeColors: Record<string, string> = {
-  Condition: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800/40",
-  Guideline: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-800/40",
-  Protocol: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800/40",
-  Pathway: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700/60",
-  Document: "bg-emerald-50/50 text-emerald-800 border-emerald-100 dark:bg-emerald-950/10 dark:text-emerald-350 dark:border-emerald-900/20",
-  Note: "bg-teal-50/50 text-teal-800 border-teal-100 dark:bg-teal-950/10 dark:text-teal-350 dark:border-teal-900/20",
+  Condition: "bg-teal-50/70 text-teal-800 border-teal-200/60 dark:bg-teal-950/30 dark:text-teal-350 dark:border-teal-900/50",
+  Guideline: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/25 dark:text-teal-300 dark:border-teal-900/60",
+  Protocol: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800/40 dark:text-slate-300 dark:border-slate-700/50",
+  Pathway: "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:border-slate-700/70",
+  Document: "bg-teal-50/40 text-teal-700 border-teal-100 dark:bg-teal-950/10 dark:text-teal-400 dark:border-teal-900/30",
+  Note: "bg-teal-50/30 text-teal-800 border-teal-100/70 dark:bg-teal-950/15 dark:text-teal-400 dark:border-teal-900/20",
 };
 
 export default function ContentPage() {
@@ -176,7 +177,7 @@ export default function ContentPage() {
         actions={
           <button 
             onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="px-4 py-2.5 bg-teal-600 text-sm font-semibold text-white rounded-xl hover:bg-teal-700 transition-all shadow-sm flex items-center gap-2 shrink-0"
+            className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0"
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Content
@@ -186,31 +187,38 @@ export default function ContentPage() {
       />
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Guidelines", value: content.filter((c) => c.type === "Guideline").length, icon: <Lucide.Clipboard className="w-5 h-5" />, color: "text-teal-600 dark:text-teal-400" },
-          { label: "Protocols / Conditions", value: content.filter((c) => c.type === "Protocol" || c.type === "Condition").length, icon: <Lucide.Zap className="w-5 h-5" />, color: "text-emerald-600 dark:text-emerald-400" },
-          { label: "Documents / PDFs", value: content.filter((c) => c.type === "Document" || c.type === "Pathway").length, icon: <Lucide.GitMerge className="w-5 h-5" />, color: "text-green-600 dark:text-green-400" },
-          { label: "Linked Questions", value: content.reduce((sum, c) => sum + c.usedInQuestions, 0), icon: <Lucide.Link className="w-5 h-5" />, color: "text-slate-600 dark:text-slate-400" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 p-4 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
-            <div className="relative z-10 flex items-center gap-3">
-              <span className={`text-slate-500 ${s.color}`}>{s.icon}</span>
-              <div>
-                <p className={`text-2xl font-serif ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{s.label}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <AnalyticsCard
+          title="Guidelines"
+          percentage="+12%"
+          data={content.filter((c) => c.type === "Guideline").length.toString()}
+          progress={Math.round((content.filter((c) => c.type === "Guideline").length / content.length) * 100)}
+        />
+        <AnalyticsCard
+          title="Protocols / Conditions"
+          percentage="+8%"
+          data={content.filter((c) => c.type === "Protocol" || c.type === "Condition").length.toString()}
+          progress={Math.round((content.filter((c) => c.type === "Protocol" || c.type === "Condition").length / content.length) * 100)}
+        />
+        <AnalyticsCard
+          title="Documents / PDFs"
+          percentage="+15%"
+          data={content.filter((c) => c.type === "Document" || c.type === "Pathway").length.toString()}
+          progress={Math.round((content.filter((c) => c.type === "Document" || c.type === "Pathway").length / content.length) * 100)}
+        />
+        <AnalyticsCard
+          title="Linked Questions"
+          percentage="+18%"
+          data={content.reduce((sum, c) => sum + c.usedInQuestions, 0).toLocaleString()}
+          progress={Math.min(100, Math.round((content.reduce((sum, c) => sum + c.usedInQuestions, 0) / 300) * 100))}
+        />
       </motion.div>
 
       {/* Filters */}
       <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center relative z-20">
         <div className="relative flex-1 max-w-sm">
           <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all dark:text-slate-200" />
+          <input type="text" placeholder="Search content..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-700/20 focus:border-slate-700/60 transition-all dark:text-slate-200" />
         </div>
         <CustomSelect
           value={systemFilter}
@@ -257,10 +265,10 @@ export default function ContentPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-white dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-200/60 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-300 cursor-pointer"
+            className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-300 cursor-pointer"
             onClick={() => setSelectedContent(item)}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 dark:to-teal-900/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-50/5 dark:to-slate-900/5 pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -269,7 +277,7 @@ export default function ContentPage() {
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{item.lastUpdated}</span>
               </div>
-              <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{item.name}</h3>
+              <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-850 dark:group-hover:text-slate-300 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -286,7 +294,7 @@ export default function ContentPage() {
                   <Link
                     href={`/admin/content/editor?id=${item.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="p-1 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/20 transition-all"
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-850 hover:bg-slate-50/65 dark:hover:bg-slate-950/25 transition-all"
                     title="Edit Content"
                   >
                     <Lucide.Edit className="w-4 h-4" />
@@ -352,39 +360,39 @@ export default function ContentPage() {
                     <div className="grid grid-cols-1 gap-3">
                       <button
                         onClick={() => { setModalStep("condition"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-500/80 hover:bg-teal-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-teal-50 dark:bg-teal-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.Stethoscope className="w-6 h-6 text-teal-600" />
+                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.Stethoscope className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Clinical Condition / Guideline</h4>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Clinical Condition / Guideline</h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
                         </div>
                       </button>
 
                       <button
                         onClick={() => { setModalStep("document"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-emerald-500/80 hover:bg-emerald-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-emerald-50 dark:bg-emerald-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-emerald-600" />
+                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-emerald-600 transition">Clinical Document (PDF)</h4>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Clinical Document (PDF)</h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
                         </div>
                       </button>
 
                       <button
                         onClick={() => { setModalStep("note"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-green-500/80 hover:bg-green-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-green-50 dark:bg-green-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-green-600" />
+                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FileText className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-green-600 transition">Structured Note</h4>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Structured Note</h4>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
                         </div>
                       </button>
@@ -398,7 +406,7 @@ export default function ContentPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Condition Name</label>
-                        <input type="text" placeholder="e.g. Chronic Kidney Disease" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                        <input type="text" placeholder="e.g. Chronic Kidney Disease" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
@@ -422,22 +430,22 @@ export default function ContentPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category / Area</label>
-                      <input type="text" placeholder="e.g. Chronic Disease, Emergency Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      <input type="text" placeholder="e.g. Chronic Disease, Emergency Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Symptoms (one per line)</label>
-                      <textarea rows={2} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
+                      <textarea rows={2} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 font-mono" />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Treatment Options (one per line)</label>
-                      <textarea rows={2} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200 font-mono" />
+                      <textarea rows={2} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 font-mono" />
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-semibold hover:bg-teal-500 shadow">Save Condition</button>
+                      <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow">Save Condition</button>
                     </div>
                   </div>
                 )}
@@ -448,7 +456,7 @@ export default function ContentPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Document Title</label>
-                        <input type="text" placeholder="e.g. ACS Emergency Protocol Guide" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                        <input type="text" placeholder="e.g. ACS Emergency Protocol Guide" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
@@ -472,7 +480,7 @@ export default function ContentPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category</label>
-                      <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     {/* PDF Drag and Drop Simulator */}
@@ -482,7 +490,7 @@ export default function ContentPage() {
                       {uploadState === "idle" && (
                         <div 
                           onClick={simulateFileUpload}
-                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-teal-50/10 transition-all flex flex-col items-center justify-center"
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center"
                         >
                           <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
                           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
@@ -498,21 +506,21 @@ export default function ContentPage() {
                           </div>
                           
                           <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-500 transition-all" style={{ width: `${uploadProgress}%` }} />
+                            <div className="h-full bg-gradient-to-r from-slate-400 to-slate-500 transition-all" style={{ width: `${uploadProgress}%` }} />
                           </div>
                           <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
                         </div>
                       )}
 
                       {uploadState === "success" && (
-                        <div className="border border-emerald-200 dark:border-emerald-900/40 rounded-2xl p-5 bg-emerald-50/30 dark:bg-emerald-950/10 space-y-2 flex items-start gap-3">
-                          <span className="text-xl bg-emerald-100 dark:bg-emerald-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                            <Lucide.Check className="w-4 h-4 text-emerald-600" />
+                        <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-5 bg-slate-50/30 dark:bg-slate-950/10 space-y-2 flex items-start gap-3">
+                          <span className="text-xl bg-slate-100 dark:bg-slate-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
+                            <Lucide.Check className="w-4 h-4 text-slate-600" />
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
                             <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
-                            <button onClick={simulateFileUpload} className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold hover:underline mt-1">Replace file</button>
+                            <button onClick={simulateFileUpload} className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold hover:underline mt-1">Replace file</button>
                           </div>
                         </div>
                       )}
@@ -523,7 +531,7 @@ export default function ContentPage() {
                       <button 
                         onClick={() => handleSaveContent("Document")} 
                         disabled={uploadState !== "success"}
-                        className="px-4 py-2 bg-teal-600 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-teal-500 shadow"
+                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow"
                       >
                         Save PDF Document
                       </button>
@@ -537,7 +545,7 @@ export default function ContentPage() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Title</label>
-                        <input type="text" placeholder="e.g. Clinical pearl on Otitis Media" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                        <input type="text" placeholder="e.g. Clinical pearl on Otitis Media" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
@@ -561,17 +569,17 @@ export default function ContentPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Category / Tag</label>
-                      <input type="text" placeholder="e.g. Clinical Pearl, Fact Sheet" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      <input type="text" placeholder="e.g. Clinical Pearl, Fact Sheet" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Structured Note Content</label>
-                      <textarea rows={4} placeholder="Draft clinical reference note..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-xs dark:text-slate-200" />
+                      <textarea rows={4} placeholder="Draft clinical reference note..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-semibold hover:bg-green-500 shadow">Save Note</button>
+                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow">Save Note</button>
                     </div>
                   </div>
                 )}
@@ -604,7 +612,7 @@ export default function ContentPage() {
             className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col z-50"
           >
             {/* Decorative top accent line */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-teal-500 via-emerald-400 to-teal-600" />
+            <div className="h-1.5 w-full bg-gradient-to-r from-slate-700 via-slate-600 to-slate-800" />
 
             {/* Header */}
             <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
@@ -650,7 +658,7 @@ export default function ContentPage() {
                 <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
                   <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
                     {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                      <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-950/20 hover:text-teal-600 transition-all flex items-center justify-center">{btn}</button>
+                      <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50/65 dark:hover:bg-teal-955/25 hover:text-teal-850 transition-all flex items-center justify-center">{btn}</button>
                     ))}
                   </div>
                   <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
@@ -663,7 +671,7 @@ export default function ContentPage() {
 
             {/* Footer */}
             <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-              <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-sm font-bold text-white rounded-xl shadow-md shadow-teal-500/10 hover:shadow-lg hover:shadow-teal-500/20 active:scale-[0.98] transition-all">
+              <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-teal-800 text-sm font-bold text-white rounded-xl shadow-md hover:bg-teal-900 active:scale-[0.98] transition-all">
                 Edit Content
               </Link>
               <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>

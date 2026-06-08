@@ -56,11 +56,16 @@ export function VisitorsChart() {
             />
             <Tooltip
               cursor={{ fill: "transparent" }}
-              content={({ active, payload }) => {
+              content={({ active, payload, label }: any) => {
                 if (active && payload && payload.length) {
                   return (
-                    <div className="bg-slate-900 dark:bg-slate-950 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg border border-slate-700">
-                      {payload[0].value} visitors
+                    <div className="bg-slate-900 dark:bg-slate-950 border border-slate-700 rounded-lg shadow-lg overflow-hidden">
+                      <div className="px-3 py-2">
+                        <p className="text-xs text-slate-400 mb-1">{label}</p>
+                        <p className="text-sm font-semibold text-white">
+                          {payload[0].value} visitors
+                        </p>
+                      </div>
                     </div>
                   );
                 }

@@ -1,51 +1,102 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { getQuestions, Question, getTopics, saveTopics, getCustomTags, saveCustomTags, TopicItem } from "@/lib/quizData";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-const searchResults = {
-  questions: [
-    { id: 2847, text: "A 54-year-old male presents with sudden chest pain...", topic: "Cardiology", type: "Question" },
-    { id: 2849, text: "A 35-year-old woman describes 3 weeks of depressed mood...", topic: "Mental Health", type: "Question" },
-  ],
-  users: [
-    { name: "Dr. Sarah Chen", email: "sarah.chen@gmail.com", type: "User" },
-    { name: "Dr. James Wilson", email: "j.wilson@outlook.com", type: "User" },
-  ],
-  content: [
-    { name: "Type 2 Diabetes", system: "Endocrine", type: "Condition" },
-    { name: "URTI Template", system: "Respiratory", type: "Autofill" },
-  ],
-};
-
-const topics = [
-  { name: "Cardiology", questions: 420, usage: 1204, subtopics: 12 },
-  { name: "Respiratory", questions: 380, usage: 987, subtopics: 8 },
-  { name: "Mental Health", questions: 200, usage: 342, subtopics: 6 },
-  { name: "Dermatology", questions: 160, usage: 289, subtopics: 9 },
-  { name: "Paediatrics", questions: 170, usage: 256, subtopics: 7 },
-  { name: "Musculoskeletal", questions: 290, usage: 756, subtopics: 10 },
-  { name: "Endocrine", questions: 210, usage: 543, subtopics: 5 },
-  { name: "Gastroenterology", questions: 250, usage: 654, subtopics: 8 },
-  { name: "MBS Billing", questions: 180, usage: 198, subtopics: 4 },
-  { name: "Women's Health", questions: 150, usage: 198, subtopics: 6 },
+const mockUsers = [
+  { name: "Dr. Sarah Chen", email: "sarah.chen@gmail.com", type: "User" },
+  { name: "Dr. James Wilson", email: "j.wilson@outlook.com", type: "User" },
 ];
 
-const allTags = [
-  { name: "STEMI", count: 34 }, { name: "ECG", count: 67 }, { name: "Pharmacology", count: 145 }, { name: "Emergency", count: 89 },
-  { name: "Chronic", count: 234 }, { name: "Screening", count: 78 }, { name: "Vaccination", count: 45 }, { name: "Depression", count: 56 },
-  { name: "Asthma", count: 38 }, { name: "Melanoma", count: 23 }, { name: "Antibiotics", count: 112 }, { name: "MBS", count: 67 },
-  { name: "Diabetes", count: 98 }, { name: "Hypertension", count: 87 }, { name: "Paediatrics", count: 65 }, { name: "Pregnancy", count: 43 },
+const mockContent = [
+  { name: "Type 2 Diabetes", system: "Endocrine", type: "Condition" },
+  { name: "URTI Template", system: "Respiratory", type: "Autofill" },
 ];
 
 export default function SearchPage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [topicsList, setTopicsList] = useState<TopicItem[]>([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
+
+  // Modals state
+  const [showAddTopicModal, setShowAddTopicModal] = useState(false);
+  const [newTopicName, setNewTopicName] = useState("");
+  const [newTopicSubtopics, setNewTopicSubtopics] = useState(0);
+
+  const [showNewTagModal, setShowNewTagModal] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+
+  useEffect(() => {
+    setQuestions(getQuestions());
+    setTopicsList(getTopics());
+    setCustomTags(getCustomTags());
+  }, []);
+
   const hasResults = query.length > 2;
+
+  // Filter questions based on search query
+  const matchedQuestions = hasResults
+    ? questions.filter(
+        (q) =>
+          q.text.toLowerCase().includes(query.toLowerCase()) ||
+          q.id.toString().includes(query) ||
+          q.topic.toLowerCase().includes(query.toLowerCase()) ||
+          (q.tags && q.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())))
+      )
+    : [];
+
+  const matchedUsers = hasResults
+    ? mockUsers.filter(
+        (u) =>
+          u.name.toLowerCase().includes(query.toLowerCase()) ||
+          u.email.toLowerCase().includes(query.toLowerCase())
+      )
+    : [];
+
+  const matchedContent = hasResults
+    ? mockContent.filter(
+        (c) =>
+          c.name.toLowerCase().includes(query.toLowerCase()) ||
+          c.system.toLowerCase().includes(query.toLowerCase())
+      )
+    : [];
+
+  const searchResults = {
+    questions: matchedQuestions,
+    users: matchedUsers,
+    content: matchedContent,
+  };
+
+  // Compute tag cloud dynamically from the actual questions database + customTags
+  const dynamicTags = (() => {
+    const counts: { [key: string]: number } = {};
+    customTags.forEach((tag) => {
+      counts[tag] = 0;
+    });
+    questions.forEach((q) => {
+      if (q.tags) {
+        q.tags.forEach((tag) => {
+          const trimmed = tag.trim();
+          if (trimmed) {
+            counts[trimmed] = (counts[trimmed] || 0) + 1;
+          }
+        });
+      }
+    });
+    return Object.entries(counts).map(([name, count]) => ({
+      name,
+      count,
+    }));
+  })();
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
@@ -72,16 +123,49 @@ export default function SearchPage() {
                 <button key={tab} onClick={() => setActiveTab(tab)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${activeTab === tab ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-white text-slate-500 border-slate-200"}`}>
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                   <span className="ml-1 text-[10px] opacity-60">
-                    {tab === "all" ? Object.values(searchResults).flat().length : tab === "questions" ? searchResults.questions.length : tab === "users" ? searchResults.users.length : searchResults.content.length}
+                    {tab === "all"
+                      ? searchResults.questions.length + searchResults.users.length + searchResults.content.length
+                      : tab === "questions"
+                      ? searchResults.questions.length
+                      : tab === "users"
+                      ? searchResults.users.length
+                      : searchResults.content.length}
                   </span>
                 </button>
               ))}
             </div>
             <div className="space-y-2">
               {(activeTab === "all" || activeTab === "questions") && searchResults.questions.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer">
-                  <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded">Q</span>
-                  <div className="flex-1 min-w-0"><p className="text-sm text-slate-700 truncate">{r.text}</p><p className="text-xs text-slate-400">#{r.id} · {r.topic}</p></div>
+                <div
+                  key={r.id}
+                  onClick={() => router.push(`/admin/questions?id=${r.id}`)}
+                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer animate-fade-in"
+                >
+                  <span className="text-xs font-bold text-teal-600 bg-teal-50 px-2.5 py-1.5 rounded shrink-0">Q</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 truncate font-semibold">{r.text}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <span className="text-xs font-bold text-slate-400">#{r.id}</span>
+                      <span className="text-slate-300">·</span>
+                      {/* Topic Tags */}
+                      {r.topic.split(",").map((t) => (
+                        <span key={t.trim()} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/50">
+                          {t.trim()}
+                        </span>
+                      ))}
+                      {r.tags && r.tags.length > 0 && (
+                        <>
+                          <span className="text-slate-300">·</span>
+                          {/* Subtopic Tags */}
+                          {r.tags.map((tag) => (
+                            <span key={tag} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/50">
+                              {tag}
+                            </span>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
               {(activeTab === "all" || activeTab === "users") && searchResults.users.map((r) => (
@@ -109,10 +193,10 @@ export default function SearchPage() {
           <div className="relative z-10">
             <div className="px-6 py-4 border-b border-slate-200/40 flex items-center justify-between">
               <h3 className="text-sm font-bold text-slate-900">Topics</h3>
-              <button className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50/70 border border-teal-100/60 rounded-lg hover:bg-teal-100 transition-all">+ Add Topic</button>
+              <button onClick={() => setShowAddTopicModal(true)} className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50/70 border border-teal-100/60 rounded-lg hover:bg-teal-100 transition-all">+ Add Topic</button>
             </div>
           <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
-            {topics.map((t) => (
+            {topicsList.map((t) => (
               <div key={t.name} className="px-6 py-3.5 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer">
                 <div>
                   <p className="text-sm font-medium text-slate-800">{t.name}</p>
@@ -134,14 +218,21 @@ export default function SearchPage() {
           <div className="relative z-10">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-900">Tag Cloud</h3>
-              <button className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50/70 border border-teal-100/60 rounded-lg hover:bg-teal-100 transition-all">+ New Tag</button>
+              <button onClick={() => setShowNewTagModal(true)} className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50/70 border border-teal-100/60 rounded-lg hover:bg-teal-100 transition-all">+ New Tag</button>
             </div>
           <div className="flex flex-wrap gap-2">
-            {allTags.sort((a, b) => b.count - a.count).map((tag) => {
-              const size = tag.count > 100 ? "text-sm" : tag.count > 50 ? "text-xs" : "text-[11px]";
-              const weight = tag.count > 100 ? "font-bold" : tag.count > 50 ? "font-semibold" : "font-medium";
+            {dynamicTags.sort((a, b) => b.count - a.count).map((tag) => {
+              const size = tag.count > 3 ? "text-sm" : tag.count > 1 ? "text-xs" : "text-[11px]";
+              const weight = tag.count > 3 ? "font-bold" : tag.count > 1 ? "font-semibold" : "font-medium";
               return (
-                <button key={tag.name} className={`px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-all cursor-pointer ${size} ${weight}`}>
+                <button
+                  key={tag.name}
+                  onClick={() => {
+                    setQuery(tag.name);
+                    setActiveTab("questions");
+                  }}
+                  className={`px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700 transition-all cursor-pointer ${size} ${weight}`}
+                >
                   {tag.name} <span className="opacity-40 ml-1">{tag.count}</span>
                 </button>
               );
@@ -162,6 +253,172 @@ export default function SearchPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Add Topic Modal */}
+      <AnimatePresence>
+        {showAddTopicModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] cursor-pointer"
+              onClick={() => setShowAddTopicModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 32 }}
+              className="fixed inset-x-4 top-[25%] mx-auto max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl z-[70] shadow-2xl p-6 text-slate-800 dark:text-slate-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-serif text-lg font-semibold">Add New Topic</h3>
+                <button
+                  onClick={() => setShowAddTopicModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Topic Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Immunology, Neurology"
+                    value={newTopicName}
+                    onChange={(e) => setNewTopicName(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all dark:text-slate-100"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Number of Subtopics</label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5"
+                    value={newTopicSubtopics || ""}
+                    onChange={(e) => setNewTopicSubtopics(parseInt(e.target.value, 10) || 0)}
+                    className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all dark:text-slate-100"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setShowAddTopicModal(false)}
+                    className="px-4 py-2 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const name = newTopicName.trim();
+                      if (!name) {
+                        alert("Please enter a topic name.");
+                        return;
+                      }
+                      if (topicsList.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+                        alert("Topic already exists.");
+                        return;
+                      }
+                      const updated = [...topicsList, { name, questions: 0, usage: 0, subtopics: newTopicSubtopics }];
+                      setTopicsList(updated);
+                      saveTopics(updated);
+                      setShowAddTopicModal(false);
+                      setNewTopicName("");
+                      setNewTopicSubtopics(0);
+                    }}
+                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow"
+                  >
+                    Add Topic
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* New Tag Modal */}
+      <AnimatePresence>
+        {showNewTagModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] cursor-pointer"
+              onClick={() => setShowNewTagModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 32 }}
+              className="fixed inset-x-4 top-[25%] mx-auto max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl z-[70] shadow-2xl p-6 text-slate-800 dark:text-slate-100"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-serif text-lg font-semibold">Create New Tag</h3>
+                <button
+                  onClick={() => setShowNewTagModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 mb-1.5">Tag Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Immunology, Trauma, Gynaecology"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    className="w-full px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all dark:text-slate-100"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setShowNewTagModal(false)}
+                    className="px-4 py-2 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      const name = newTagName.trim();
+                      if (!name) {
+                        alert("Please enter a tag name.");
+                        return;
+                      }
+                      const allExistingTags = Array.from(new Set([
+                        ...customTags,
+                        ...questions.flatMap(q => q.tags || [])
+                      ]));
+                      if (allExistingTags.some(t => t.toLowerCase() === name.toLowerCase())) {
+                        alert("Tag already exists.");
+                        return;
+                      }
+                      const updated = [...customTags, name];
+                      setCustomTags(updated);
+                      saveCustomTags(updated);
+                      setShowNewTagModal(false);
+                      setNewTagName("");
+                    }}
+                    className="px-4 py-2 text-sm font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white transition-all shadow"
+                  >
+                    Create Tag
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
