@@ -212,20 +212,45 @@ const SAVED_TEMPLATES = [
 // ─── Component ─────────────────────────────────────────────────────────────
 export default function ClinicalAutofillsPage() {
   const [filter, setFilter] = useState("All Templates");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<typeof TEMPLATES[0] | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [copiedContent, setCopiedContent] = useState("");
+  const [visibleCount, setVisibleCount] = useState(6);
 
   const FILTERS = ["All Templates", "Recently Used", "Most Used", "Favourites"];
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert("Template copied to clipboard!");
+    setCopiedContent(text);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 3000);
   };
+
+  // Filter logic
+  const filteredTemplates = TEMPLATES.filter((t) => {
+    // 1. Search Query
+    if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase()) && !t.category.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    // 2. Tab Filters (Mocked logic for demonstration)
+    if (filter === "Recently Used" && !["Mental Health Care Plan", "Diabetes Review", "Asthma Management Plan", "Skin Cancer Follow-Up"].includes(t.title)) {
+      return false;
+    }
+    if (filter === "Most Used" && !["Chronic Disease Management Plan", "Diabetes Review"].includes(t.title)) {
+      return false;
+    }
+    if (filter === "Favourites" && !SAVED_TEMPLATES.includes(t.title)) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 pt-6 space-y-12">
       {/* HEADER SECTION */}
       <div className="space-y-2">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
           Clinical Autofills
         </h1>
         <p className="text-[15px] font-medium text-slate-500">
@@ -234,15 +259,27 @@ export default function ClinicalAutofillsPage() {
       </div>
 
       {/* SEARCH & FILTER BAR */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="relative w-full md:max-w-md">
-          <input
-            type="text"
-            placeholder="Search clinical templates..."
-            className="w-full pl-6 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 text-slate-800 placeholder-slate-400 font-medium text-[15px] shadow-sm transition-all"
-          />
+      <div className="flex flex-col xl:flex-row gap-4 items-center justify-between mb-8">
+        <div className="relative w-full xl:flex-1">
+          <div className="relative glass dark:glass-strong rounded-2xl p-1.5 border border-slate-200/50 dark:border-slate-800/80 shadow-sm">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search clinical templates..."
+              className="w-full pl-4 pr-10 py-2.5 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-[15px]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
-        <div className="flex w-full md:w-auto overflow-x-auto bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
+        <div className="flex w-full xl:w-auto overflow-x-auto bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
           {FILTERS.map((f) => (
             <button
               key={f}
@@ -262,51 +299,79 @@ export default function ClinicalAutofillsPage() {
       {/* MAIN TEMPLATE LIBRARY */}
       <section className="space-y-6">
 
-        {/* TEMPLATE GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TEMPLATES.map((t) => (
-            <div
-              key={t.id}
-              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.04)] flex flex-col hover:shadow-md transition-shadow"
-            >
-              <h3 className="text-[17px] font-bold text-slate-900 mb-3">{t.title}</h3>
-              <div>
-                <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[11px] px-3 py-1 rounded-full mb-4">
-                  {t.category}
-                </span>
-              </div>
-              <p className="text-[14px] text-slate-500 font-medium leading-relaxed mb-6 flex-grow">
-                {t.description}
-              </p>
-              <div className="mt-auto space-y-5">
-                <p className="text-[12px] font-medium text-slate-400">
-                  Updated {t.updated}
-                </p>
-                <div className="flex items-center justify-between">
-                  <button 
-                    onClick={() => setSelectedTemplate(t)}
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[14px] py-2.5 px-6 rounded-xl transition-colors"
-                  >
-                    View Template
-                  </button>
-                  <button 
-                    onClick={() => handleCopy(t.content)}
-                    className="text-teal-600 hover:text-teal-800 font-bold text-[14px] px-2 transition-colors capitalize"
-                  >
-                    Copy
-                  </button>
-                </div>
-              </div>
+        {/* EMPTY STATE OR TEMPLATE GRID */}
+        {filteredTemplates.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            <div className="mb-6 relative">
+              <svg className="w-24 h-24 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
             </div>
-          ))}
-        </div>
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Template Not Found</h3>
+            <p className="text-slate-500 font-medium mb-8">No results match your search or filter.</p>
+            <button 
+              onClick={() => { setSearchQuery(""); setFilter("All Templates"); }}
+              className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[16px] py-3 px-8 rounded-2xl shadow-sm transition-colors"
+            >
+              Clear Filter
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredTemplates.slice(0, visibleCount).map((t) => (
+                <div
+                  key={t.id}
+                  className="glass dark:glass-strong rounded-3xl p-4 border border-slate-200/50 dark:border-slate-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group"
+                >
+                  <div>
+                    <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-2">
+                      {t.title}
+                    </h3>
+                    <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[10px] px-2 py-0.5 rounded-full mb-2">
+                      {t.category}
+                    </span>
+                    <p className="text-[13px] text-slate-500 font-medium leading-relaxed mb-3">
+                      {t.description}
+                    </p>
+                  </div>
+                  
+                  <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 flex flex-col gap-2">
+                    <p className="text-[11px] font-medium text-slate-400">
+                      Updated {t.updated}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <button 
+                        onClick={() => setSelectedTemplate(t)}
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-4 rounded-xl transition-colors"
+                      >
+                        View Template
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleCopy(t.content); }}
+                        className="text-teal-600 hover:text-teal-800 font-bold text-[13px] px-2 transition-colors capitalize"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
 
-        {/* LOAD MORE */}
-        <div className="flex justify-center pt-4">
-          <button className="px-6 py-2.5 bg-white border border-slate-200 text-teal-700 font-bold text-[14px] rounded-xl hover:bg-slate-50 transition-colors shadow-sm">
-            Load More Templates
-          </button>
-        </div>
+            {/* LOAD MORE */}
+            {visibleCount < filteredTemplates.length && (
+              <div className="flex justify-center pt-4">
+                <button 
+                  onClick={() => setVisibleCount((v) => v + 6)}
+                  className="px-6 py-2.5 bg-white border border-slate-200 text-teal-700 font-bold text-[14px] rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  Load More Templates
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* RECENTLY USED SECTION */}
@@ -317,16 +382,18 @@ export default function ClinicalAutofillsPage() {
             View all
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {RECENT_TEMPLATES.map((t, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors"
-            >
-              <h3 className="text-[14px] font-bold text-slate-900 mb-1">{t.title}</h3>
-              <p className="text-[12px] font-medium text-slate-400">{t.time}</p>
-            </div>
-          ))}
+        <div className="glass dark:glass-strong rounded-2xl p-4 border border-slate-200/50 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {RECENT_TEMPLATES.slice(0, 4).map((t, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors flex flex-col justify-center"
+              >
+                <h3 className="text-[13px] font-bold text-slate-900 mb-0.5 truncate">{t.title}</h3>
+                <p className="text-[11px] font-medium text-slate-400">{t.time}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -338,62 +405,74 @@ export default function ClinicalAutofillsPage() {
             View all
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {SAVED_TEMPLATES.map((title, i) => (
-            <div
-              key={i}
-              className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors"
-            >
-              <h3 className="text-[14px] font-bold text-slate-900">{title}</h3>
-            </div>
-          ))}
+        <div className="glass dark:glass-strong rounded-2xl p-4 border border-slate-200/50 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {SAVED_TEMPLATES.slice(0, 4).map((title, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors flex flex-col justify-center"
+              >
+                <h3 className="text-[13px] font-bold text-slate-900 truncate">{title}</h3>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* TEMPLATE DRAWER (MODAL) */}
       {selectedTemplate && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-slate-900/40 backdrop-blur-sm transition-opacity">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-0 bg-slate-900/40 backdrop-blur-sm transition-opacity">
           {/* Overlay to click-away */}
           <div 
             className="absolute inset-0 cursor-pointer" 
             onClick={() => setSelectedTemplate(null)} 
           />
           
-          {/* Drawer Panel */}
-          <div className="relative w-full max-w-2xl bg-white h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
-            <div className="p-8 space-y-8">
-              {/* Drawer Header */}
-              <div className="flex flex-col gap-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-3xl font-extrabold text-slate-900 mb-3">{selectedTemplate.title}</h2>
+          {/* Full-Screen Modal Panel (Touching the Top Edge) */}
+          <div className="relative w-full max-w-5xl bg-white h-[100vh] flex flex-col rounded-b-2xl shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200 overflow-hidden">
+            {/* Header */}
+            <div className="p-6 md:p-8 border-b border-slate-100 flex-shrink-0 bg-white">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-3 leading-tight">{selectedTemplate.title}</h2>
+                  <div className="flex items-center gap-4">
                     <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[12px] px-3 py-1 rounded-full">
                       {selectedTemplate.category}
                     </span>
+                    <span className="text-[13px] font-medium text-slate-500">Updated {selectedTemplate.updated}</span>
                   </div>
-                  <button 
-                    onClick={() => setSelectedTemplate(null)}
-                    className="text-slate-400 hover:text-slate-600 text-xl font-bold p-2"
-                  >
-                    ✕
-                  </button>
                 </div>
-                <p className="text-[13px] font-medium text-slate-500">Updated {selectedTemplate.updated}</p>
                 
-                <div className="pt-2">
+                <div className="flex items-center gap-4">
                   <button 
                     onClick={() => handleCopy(selectedTemplate.content)}
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[15px] py-3 px-8 rounded-xl shadow-md transition-colors"
+                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[14px] py-2 px-6 rounded-xl shadow-sm transition-colors whitespace-nowrap"
                   >
                     Copy Template
                   </button>
+                  <button 
+                    onClick={() => setSelectedTemplate(null)}
+                    className="text-slate-400 hover:text-slate-700 text-3xl font-bold p-1 leading-none transition-colors"
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
                 </div>
               </div>
+            </div>
 
-              <hr className="border-slate-100" />
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-8 bg-white relative">
+              <div className="bg-teal-50/50 border border-teal-100/50 rounded-xl p-5 mb-8">
+                <p className="text-teal-800 text-[14px] font-medium leading-relaxed">
+                  Copy the text below and paste directly into Best Practice.
+                  <br />
+                  Formatting will be preserved.
+                </p>
+              </div>
 
-              {/* Template Content */}
-              <div className="bg-slate-50 p-8 rounded-2xl border border-slate-100">
+              <div className="border border-slate-100 rounded-2xl p-8 pb-20 max-w-4xl relative">
+                <h3 className="text-xl font-bold text-slate-900 mb-6">{selectedTemplate.title}</h3>
                 <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-slate-800">
                   {selectedTemplate.content}
                 </pre>
@@ -402,6 +481,19 @@ export default function ClinicalAutofillsPage() {
           </div>
         </div>
       )}
+
+      {/* GLOBAL SUCCESS POPUP (FLOATING TOAST) */}
+      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-2xl bg-teal-50/95 backdrop-blur-md border border-teal-200/80 p-5 rounded-2xl flex items-center justify-between transition-all duration-300 shadow-2xl ${isCopied ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
+        <div className="flex items-center gap-4">
+          <div className="bg-teal-600 rounded-full p-2 text-white shadow-sm">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+          </div>
+          <div>
+            <p className="text-[15px] font-bold text-teal-900">Template copied to clipboard!</p>
+            <p className="text-[13px] font-medium text-teal-700">You can now paste it into Best Practice.</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
