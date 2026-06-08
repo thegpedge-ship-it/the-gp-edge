@@ -19,7 +19,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useCallback, useState } from "react";
-import Image from "next/image";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -36,7 +36,7 @@ import {
   FileText,
   FileEdit,
 } from "lucide-react";
-import { user, badges, examPaths, weeklyProgress } from "./data";
+import { user } from "./data";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -72,17 +72,6 @@ function AvatarSVG({ size = 40 }: { size?: number }) {
   );
 }
 
-function ProgressBar({ value }: { value: number }) {
-  return (
-    <div style={{ height: 6, background: "#f1f5f9", borderRadius: 99, overflow: "hidden" }}>
-      <div style={{
-        height: "100%", width: `${value}%`,
-        background: "linear-gradient(90deg,#14b8a6,#0d9488)",
-        borderRadius: 99, transition: "width 600ms ease",
-      }} />
-    </div>
-  );
-}
 
 function Sep() {
   return <div style={{ width: 28, height: 1, background: "#e8edf2", margin: "4px 0" }} />;
@@ -106,26 +95,6 @@ function RailBtn({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-// ─── Expanded panel card wrapper ──────────────────────────────────────────────
-function PanelCard({ label, action, children }: {
-  label: string; action?: React.ReactNode; children: React.ReactNode;
-}) {
-  return (
-    <div style={{
-      borderRadius: 16, border: "1px solid #e8edf2",
-      background: "#fff", padding: "14px 16px",
-      boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#94a3b8", textTransform: "uppercase" }}>
-          {label}
-        </p>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Sidebar() {
@@ -433,55 +402,6 @@ export default function Sidebar() {
                   );
                 })}
               </div>
-
-              {/* ── Exam Readiness ── */}
-              <PanelCard label="Exam Readiness">
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {examPaths.map(exam => (
-                    <div key={exam.code}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>{exam.code}</span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#0d9488" }}>{exam.readiness}%</span>
-                      </div>
-                      <ProgressBar value={exam.readiness} />
-                    </div>
-                  ))}
-                </div>
-              </PanelCard>
-
-              {/* ── Weekly Goal ── */}
-              <PanelCard label="Weekly Goal">
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>Questions</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#334155" }}>
-                    {weeklyProgress.totalQs} / {weeklyProgress.goalQs}
-                  </span>
-                </div>
-                <ProgressBar value={(weeklyProgress.totalQs / weeklyProgress.goalQs) * 100} />
-                <p style={{ margin: "7px 0 0", fontSize: 10.5, color: "#94a3b8" }}>
-                  {weeklyProgress.goalQs - weeklyProgress.totalQs} more to reach your goal
-                </p>
-              </PanelCard>
-
-              {/* ── Badges ── */}
-              <PanelCard label="Badges" action={
-                <button style={{ border: "none", background: "none", fontSize: 11, fontWeight: 600, color: "#0d9488", cursor: "pointer", padding: 0 }}>
-                  View all
-                </button>
-              }>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 8 }}>
-                  {badges.map(b => (
-                    <div key={b.key} title={`${b.name} · ${b.earned}`}
-                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                      <div style={{ position: "relative", width: 38, height: 38 }}>
-                        <Image src={b.img} alt={b.name} fill sizes="38px"
-                          style={{ objectFit: "contain", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.12))" }} />
-                      </div>
-                      <span style={{ fontSize: 7.5, color: "#94a3b8", textAlign: "center", lineHeight: 1.2 }}>{b.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </PanelCard>
 
               {/* ── Help & Support ── */}
               <button style={{

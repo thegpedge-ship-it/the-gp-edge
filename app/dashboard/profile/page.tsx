@@ -69,99 +69,96 @@ export default function ProfilePage() {
         />
       </FadeIn>
 
-      {/* ══ PROFILE HERO ══════════════════════════════════════════════════════ */}
-      <FadeIn delay={0.06}>
-        <PageCard className="rounded-3xl">
-          {/* Banner */}
-          <div className="relative h-40 overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-teal-950 to-slate-900" />
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background: `
-                  radial-gradient(ellipse at 18% 65%, rgba(20,184,166,0.28) 0%, transparent 52%),
-                  radial-gradient(ellipse at 82% 22%, rgba(13,148,136,0.22) 0%, transparent 44%)
-                `,
-              }}
-            />
-            {/* Diagonal line pattern */}
-            <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 900 160" preserveAspectRatio="none">
-              {Array.from({ length: 18 }).map((_, i) => (
-                <line key={i} x1={-50 + i * 58} y1="160" x2={i * 58 + 120} y2="0" stroke="white" strokeWidth="1" />
-              ))}
-            </svg>
-            {/* GP Edge branding */}
-            <div className="absolute bottom-4 right-6 flex items-center gap-1.5 opacity-30 select-none">
-              <Image src="/assets/logo.png" alt="The GP Edge" width={20} height={20} className="rounded-[4px] object-contain" />
-              <span className="text-teal-300 text-[10px] tracking-widest font-medium uppercase">The GP Edge</span>
-            </div>
-          </div>
-
-          {/* Identity strip */}
-          <div className="px-8 pb-7 relative">
-            {/* Avatar */}
-            <div className="absolute -top-14 left-8">
-              <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl bg-[#E2F0EE]">
-                <Avatar className="w-full h-full" />
+      {/* ══ PROFILE HERO + STATS ═════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_180px] gap-4">
+        {/* Profile card — left */}
+        <FadeIn delay={0.06}>
+          <PageCard className="rounded-3xl h-full">
+            {/* Banner */}
+            <div className="relative h-40 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-800 via-teal-950 to-slate-900" />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: `
+                    radial-gradient(ellipse at 18% 65%, rgba(20,184,166,0.28) 0%, transparent 52%),
+                    radial-gradient(ellipse at 82% 22%, rgba(13,148,136,0.22) 0%, transparent 44%)
+                  `,
+                }}
+              />
+              <svg className="absolute inset-0 w-full h-full opacity-[0.06]" viewBox="0 0 900 160" preserveAspectRatio="none">
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <line key={i} x1={-50 + i * 58} y1="160" x2={i * 58 + 120} y2="0" stroke="white" strokeWidth="1" />
+                ))}
+              </svg>
+              <div className="absolute bottom-4 right-6 flex items-center gap-1.5 opacity-30 select-none">
+                <Image src="/assets/logo.png" alt="The GP Edge" width={20} height={20} className="rounded-[4px] object-contain" />
+                <span className="text-teal-300 text-[10px] tracking-widest font-medium uppercase">The GP Edge</span>
               </div>
             </div>
 
-            {/* Edit profile button */}
-            <div className="flex justify-end pt-4">
-              <Link
-                href="/dashboard/settings"
-                id="edit-profile-link"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200
-                           text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300
-                           transition-all duration-150"
-              >
-                Edit Profile
-              </Link>
-            </div>
+            {/* Identity strip */}
+            <div className="px-8 pb-7 relative">
+              <div className="absolute -top-14 left-8">
+                <div className="w-28 h-28 rounded-full overflow-hidden ring-4 ring-white shadow-xl bg-[#E2F0EE]">
+                  <Avatar className="w-full h-full" />
+                </div>
+              </div>
 
-            {/* Name + credentials */}
-            <div className="ml-36 mt-1">
-              <h2 className="text-2xl font-bold text-slate-900 leading-tight tracking-tight">
-                Dr. {user.firstName} {user.lastName}
-              </h2>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2">
-                <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
-                  <GraduationCap size={14} className="text-teal-500 flex-shrink-0" />
-                  PGY3 · RACGP Candidate
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
-                  <MapPin size={14} className="text-teal-500 flex-shrink-0" />
-                  {user.hospital}
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
-                  <BookOpen size={14} className="text-teal-500 flex-shrink-0" />
-                  Preparing for AKT · August 2026
-                </span>
+              <div className="flex justify-end pt-4">
+                <Link
+                  href="/dashboard/settings"
+                  id="edit-profile-link"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200
+                             text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:border-slate-300
+                             transition-all duration-150"
+                >
+                  Edit Profile
+                </Link>
+              </div>
+
+              <div className="ml-36 mt-1">
+                <h2 className="text-2xl font-bold text-slate-900 leading-tight tracking-tight">
+                  Dr. {user.firstName} {user.lastName}
+                </h2>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-2">
+                  <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                    <GraduationCap size={14} className="text-teal-500 flex-shrink-0" />
+                    PGY3 · RACGP Candidate
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                    <MapPin size={14} className="text-teal-500 flex-shrink-0" />
+                    {user.hospital}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-sm text-slate-600 font-medium">
+                    <BookOpen size={14} className="text-teal-500 flex-shrink-0" />
+                    Preparing for AKT · August 2026
+                  </span>
+                </div>
+              </div>
+
+              <div className="absolute bottom-7 right-8 text-right hidden sm:block">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                  Member Since
+                </p>
+                <p className="text-sm font-bold text-slate-800 leading-none">
+                  {user.joinedLabel.replace("Joined ", "")}
+                </p>
               </div>
             </div>
+          </PageCard>
+        </FadeIn>
 
-            {/* Joined date */}
-            <div className="absolute bottom-7 right-8 text-right hidden sm:block">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
-                Member Since
-              </p>
-              <p className="text-sm font-bold text-slate-800 leading-none">
-                {user.joinedLabel.replace("Joined ", "")}
-              </p>
-            </div>
+        {/* Stats — right 2 cols, 2×2 grid */}
+        <FadeIn delay={0.10}>
+          <div className="flex flex-col gap-2.5 h-full">
+            <StatChip value={stats[0].value} label="Study Streak" accent="slate" />
+            <StatChip value={stats[1].value} label="Avg Accuracy" accent="slate" />
+            <StatChip value={stats[2].value} label="Quiz Attempts" accent="slate" />
+            <StatChip value={stats[3].value} label="Mock Exams" accent="slate" />
           </div>
-        </PageCard>
-      </FadeIn>
-
-      {/* ══ STATS ROW ══════════════════════════════════════════════════════════ */}
-      <FadeIn delay={0.10}>
-        <div className="grid grid-cols-4 gap-4">
-          <StatChip value={stats[0].value} label="Study Streak" accent="slate" />
-          <StatChip value={stats[1].value} label="Avg Accuracy" accent="slate" />
-          <StatChip value={stats[2].value} label="Quiz Attempts" accent="slate" />
-          <StatChip value={stats[3].value} label="Mock Exams" accent="slate" />
-        </div>
-      </FadeIn>
+        </FadeIn>
+      </div>
 
       {/* ══ TWO-COLUMN: Credentials + Exam Readiness ══════════════════════════ */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
@@ -217,68 +214,69 @@ export default function ProfilePage() {
         </FadeIn>
       </div>
 
-      {/* ══ BADGES & ACHIEVEMENTS ══════════════════════════════════════════════ */}
-      <FadeIn delay={0.18}>
-        <PageCard>
-          <CardHeader
-            title="Achievements & Badges"
-            subtitle="Earned milestones"
-            action={
-              <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors">
-                View all
-              </button>
-            }
-          />
-          <div className="px-6 py-5">
-            <div className="flex gap-6 flex-wrap">
-              {badges.map((b) => (
-                <div
-                  key={b.key}
-                  className="group flex flex-col items-center gap-1.5"
-                  title={`${b.name} · Earned ${b.earned}`}
-                >
-                  <div className="relative w-14 h-14 transition-transform duration-200 group-hover:-translate-y-1 group-hover:scale-105">
-                    <Image src={b.img} alt={b.name} fill sizes="56px" className="object-contain drop-shadow-md" />
+      {/* ══ BADGES + QUICK ACTIONS (side by side) ═════════════════════════════ */}
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-5">
+        <FadeIn delay={0.18}>
+          <PageCard className="h-full">
+            <CardHeader
+              title="Achievements & Badges"
+              subtitle="Earned milestones"
+              action={
+                <button type="button" className="text-xs font-semibold text-teal-600 hover:text-teal-700 transition-colors">
+                  View all
+                </button>
+              }
+            />
+            <div className="px-6 py-5">
+              <div className="flex gap-6 flex-wrap">
+                {badges.map((b) => (
+                  <div
+                    key={b.key}
+                    className="group flex flex-col items-center gap-1.5"
+                    title={`${b.name} · Earned ${b.earned}`}
+                  >
+                    <div className="relative w-14 h-14 transition-transform duration-200 group-hover:-translate-y-1 group-hover:scale-105">
+                      <Image src={b.img} alt={b.name} fill sizes="56px" className="object-contain drop-shadow-md" />
+                    </div>
+                    <span className="text-[11px] font-medium text-slate-600 text-center leading-tight">{b.name}</span>
+                    <span className="text-[10px] text-slate-400">{b.earned}</span>
                   </div>
-                  <span className="text-[11px] font-medium text-slate-600 text-center leading-tight">{b.name}</span>
-                  <span className="text-[10px] text-slate-400">{b.earned}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+          </PageCard>
+        </FadeIn>
+
+        <FadeIn delay={0.22}>
+          <div className="flex flex-col gap-3 h-full">
+            <Link
+              href="/dashboard/settings"
+              id="profile-goto-settings"
+              className="flex-1 flex items-center justify-between gap-4 px-5 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
+                         hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
+            >
+              <div>
+                <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Edit Settings</p>
+                <p className="text-xs text-slate-500 mt-0.5">Update credentials</p>
+              </div>
+              <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
+            </Link>
+
+            <Link
+              href="/dashboard"
+              id="profile-goto-dashboard"
+              className="flex-1 flex items-center justify-between gap-4 px-5 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
+                         hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
+            >
+              <div>
+                <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Dashboard</p>
+                <p className="text-xs text-slate-500 mt-0.5">View study cockpit</p>
+              </div>
+              <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
+            </Link>
           </div>
-        </PageCard>
-      </FadeIn>
-
-      {/* ── Quick actions ─────────────────────────────────────────────────────── */}
-      <FadeIn delay={0.22}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link
-            href="/dashboard/settings"
-            id="profile-goto-settings"
-            className="flex items-center justify-between gap-4 px-6 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
-                       hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
-          >
-            <div>
-              <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Edit Settings</p>
-              <p className="text-xs text-slate-500 mt-0.5">Update credentials</p>
-            </div>
-            <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
-          </Link>
-
-          <Link
-            href="/dashboard"
-            id="profile-goto-dashboard"
-            className="flex items-center justify-between gap-4 px-6 py-4 bg-white rounded-2xl border border-slate-200 shadow-sm
-                       hover:border-teal-500 hover:bg-teal-50/20 hover:scale-[1.01] hover:shadow-md transition-all duration-200 group"
-          >
-            <div>
-              <p className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">Dashboard</p>
-              <p className="text-xs text-slate-500 mt-0.5">View study cockpit</p>
-            </div>
-            <ChevronRight size={18} className="text-slate-400 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
-          </Link>
-        </div>
-      </FadeIn>
+        </FadeIn>
+      </div>
 
     </div>
   );
