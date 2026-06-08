@@ -695,20 +695,41 @@ export default function QuestionsPage() {
                     <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Tags / Subtopics (Click to select/toggle)</label>
                     <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100/60 dark:border-slate-800/40 mb-3">
                       {(() => {
-                        const allExistingTags = Array.from(
-                          new Set([
-                            ...getCustomTags(),
-                            ...questions.flatMap((q) => q.tags || [])
-                          ])
-                        ).filter(Boolean);
-
-                        if (allExistingTags.length === 0) {
+                        const selectedTopics = newQuestionTopics;
+                        if (selectedTopics.length === 0) {
                           return (
-                            <span className="text-xs text-slate-400">No tags available. Type below to add a new custom tag.</span>
+                            <span className="text-xs text-slate-400">Please select a topic above first to view related subtopics.</span>
                           );
                         }
 
-                        return allExistingTags.map((tag) => {
+                        const relatedTags = new Set<string>();
+
+                        // 1. Check custom topics
+                        const storedTopics = typeof window !== "undefined" ? getTopics() : [];
+                        storedTopics.forEach((t) => {
+                          if (selectedTopics.includes(t.name) && t.subtopicTags) {
+                            t.subtopicTags.forEach((tag) => relatedTags.add(tag));
+                          }
+                        });
+
+                        // 2. Check existing questions under these topics
+                        questions.forEach((q) => {
+                          const qTopics = q.topic.split(",").map((tp) => tp.trim());
+                          const hasOverlap = qTopics.some((tp) => selectedTopics.includes(tp));
+                          if (hasOverlap && q.tags) {
+                            q.tags.forEach((tag) => relatedTags.add(tag));
+                          }
+                        });
+
+                        const filteredTags = Array.from(relatedTags).filter(Boolean);
+
+                        if (filteredTags.length === 0) {
+                          return (
+                            <span className="text-xs text-slate-400">No related subtopics found for the selected topic(s). Add custom tags below.</span>
+                          );
+                        }
+
+                        return filteredTags.map((tag) => {
                           const isSelected = newQuestionTags.includes(tag);
                           return (
                             <button
