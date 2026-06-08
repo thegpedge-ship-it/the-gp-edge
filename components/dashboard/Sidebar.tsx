@@ -33,6 +33,8 @@ import {
   BookOpen,
   Receipt,
   Wrench,
+  FileText,
+  FileEdit,
 } from "lucide-react";
 import { user, badges, examPaths, weeklyProgress } from "./data";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
@@ -50,9 +52,11 @@ const OP_DUR = "160ms";
 // ─── Nav items ───────────────────────────────────────────────────────────────
 const NAV = [
   { href: "/dashboard",                  icon: LayoutGrid, label: "Dashboard"        },
+  { href: "/dashboard/exam-prep",        icon: FileText,   label: "Exam Prep"        },
   { href: "/dashboard/profile",          icon: User,       label: "My Profile"       },
   { href: "/dashboard/billing",          icon: Receipt,    label: "MBS Billing"      },
   { href: "/dashboard/medical-library",  icon: BookOpen,   label: "Medical Library" },
+  { href: "/dashboard/clinical-autofills",icon: FileEdit,   label: "Clinical Autofills" },
   { href: "/dashboard/tools",            icon: Wrench,     label: "GP Tools"        },
   { href: "/dashboard/settings",         icon: Settings,   label: "Settings"        },
 ];
@@ -175,7 +179,8 @@ export default function Sidebar() {
             top:           GAP,
             left:          GAP,
             right:         0,
-            bottom: GAP,
+            // Expanded: full height. Collapsed: auto (determined by rail content).
+            ...(isExpanded ? { bottom: GAP } : {}),
             borderRadius:  cardBorderRadius,
             background:    "#ffffff",
             border:        "1px solid #e8edf2",
@@ -193,12 +198,11 @@ export default function Sidebar() {
           <div
             aria-hidden={isExpanded}
             style={{
-              display:        isExpanded ? "none" : "flex",
-              flexDirection:  "column",
-              alignItems:     "center",
-              justifyContent: "center",
-              height:         "100%",
-              gap:            0,
+              display:       isExpanded ? "none" : "flex",
+              flexDirection: "column",
+              alignItems:    "center",
+              padding:       "12px 0",
+              gap:           0,
             }}
           >
             {/* ── Avatar ── */}
@@ -206,6 +210,7 @@ export default function Sidebar() {
               width: 38, height: 38, borderRadius: "50%",
               overflow: "hidden", flexShrink: 0,
               boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
+              marginBottom: 8,
             }}>
               <AvatarSVG size={38} />
             </div>
@@ -245,6 +250,25 @@ export default function Sidebar() {
             <RailBtn icon={<BarChart2 size={16} strokeWidth={1.8} />} title="Analytics" />
             <RailBtn icon={<HelpCircle size={16} strokeWidth={1.8} />} title="Help &amp; Support" />
 
+            <Sep />
+
+            {/* ── Expand handle ── */}
+            <button
+              onClick={toggle}
+              title="Expand sidebar"
+              style={{
+                width: 40, height: 36,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 10, border: "none",
+                background: "transparent", color: "#cbd5e1",
+                cursor: "pointer", flexShrink: 0,
+                transition: "background 150ms, color 150ms",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa"; e.currentTarget.style.color = "#0d9488"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#cbd5e1"; }}
+            >
+              <ChevronRight size={14} strokeWidth={2} />
+            </button>
           </div>
 
           {/* ══ LAYER B — Expanded Panel ══════════════════════════════════
@@ -314,7 +338,13 @@ export default function Sidebar() {
                     position: "absolute", bottom: 8, right: 10,
                     display: "flex", alignItems: "center", gap: 4, opacity: 0.28,
                   }}>
-                    <Image src="/assets/logo.png" alt="The GP Edge" width={15} height={15} style={{ borderRadius: 3, objectFit: "contain" }} />
+                    <div style={{
+                      width: 15, height: 15, borderRadius: 3,
+                      background: "rgba(20,184,166,0.65)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
+                    </div>
                     <span style={{ color: "#99f6e4", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
                       THE GP EDGE
                     </span>

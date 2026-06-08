@@ -12,12 +12,13 @@ interface HeaderProps {
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
 
-  // Hide the navbar on admin, dashboard, and standalone PDF viewer pages
-  if (
-    pathname?.startsWith("/admin") ||
-    (pathname?.startsWith("/dashboard") && variant === "fixed") ||
-    pathname?.startsWith("/medical-library/view-pdf")
-  ) {
+  // Hide the navbar on all admin pages
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
+  // Hide the global fixed header on pages that use DashboardShell (which has its own static header)
+  if (variant === "fixed" && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/exam-prep"))) {
     return null;
   }
   const outerClass =
@@ -27,23 +28,23 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
   const innerClass =
     variant === "static"
-      ? "w-[80%] mx-auto bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/40 shadow-md rounded-2xl px-8 py-4 flex items-center justify-between"
+      ? "w-[80%] mx-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/40 dark:border-slate-700/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between"
       : "w-[95%] max-w-5xl mx-auto bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-white/40 dark:border-slate-700/40 shadow-lg rounded-2xl px-8 py-4 flex items-center justify-between";
 
   return (
-    <header className={`${outerClass} global-nav-header`}>
+    <header className={outerClass}>
       <div className={innerClass}>
         {/* Logo */}
         <Logo size="sm" />
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <a
-            href="#exam-prep"
+          <Link
+            href="/dashboard/exam-prep"
             className="text-[15px] font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
           >
             Exam Prep
-          </a>
+          </Link>
 
           <a
             href="#gp-toolkit"
@@ -56,6 +57,12 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
             className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
           >
             Medical Library
+          </Link>
+          <Link
+            href="/dashboard/clinical-autofills"
+            className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
+          >
+            Clinical Autofills
           </Link>
           <Link
             href="/dashboard/billing"
