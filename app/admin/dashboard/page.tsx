@@ -26,28 +26,7 @@ const recentActivity = [
   { user: "Dr. Rachel Green", action: "Renewed subscription", time: "5 hours ago", type: "billing" as const },
 ];
 
-const activityTypeIcon: Record<string, React.ReactNode> = {
-  billing: (
-    <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center">
-      <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-    </div>
-  ),
-  signup: (
-    <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-500/20 flex items-center justify-center">
-      <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-    </div>
-  ),
-  upload: (
-    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-      <svg className="w-4 h-4 text-slate-600 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-    </div>
-  ),
-  flag: (
-    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-      <svg className="w-4 h-4 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
-    </div>
-  ),
-};
+
 
 export default function DashboardPage() {
   return (
@@ -135,18 +114,12 @@ export default function DashboardPage() {
               <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Recent Activity</h3>
             </div>
           </div>
-          <div className="space-y-0">
+          <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
             {recentActivity.map((activity, i) => (
-              <div key={i} className="flex items-start gap-3 relative pl-0 pb-4 last:pb-0">
-                {i < recentActivity.length - 1 && (
-                  <div className="absolute left-4 top-9 bottom-0 w-px bg-slate-100 dark:bg-slate-700" />
-                )}
-                <div className="relative z-10 flex-shrink-0">
-                  {activityTypeIcon[activity.type]}
-                </div>
-                <div className="flex-1 min-w-0 pt-0.5">
+              <div key={i} className="flex items-start justify-between py-3.5 first:pt-0 last:pb-0 gap-4">
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate leading-tight">{activity.user}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{activity.action}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-1">{activity.action}</p>
                 </div>
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0 pt-0.5">{activity.time}</span>
               </div>
