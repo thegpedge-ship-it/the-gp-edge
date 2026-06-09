@@ -83,6 +83,14 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
     borderLeft: "border-l-green-400",
     gradient: "from-green-400 to-green-500",
   },
+  Neurology: {
+    glow: "from-teal-500/10 dark:from-teal-500/20",
+    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-450",
+    accent: "bg-teal-500",
+    borderLeft: "border-l-teal-500",
+    gradient: "from-teal-500 to-teal-600",
+  },
 };
 
 const getSystem = (id: SystemId): SystemStyle =>
