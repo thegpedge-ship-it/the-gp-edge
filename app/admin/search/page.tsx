@@ -4,20 +4,25 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getQuestions, saveQuestions, Question, getTopics, saveTopics, getCustomTags, saveCustomTags, TopicItem } from "@/lib/quizData";
+import {
+  getQuestions,
+  saveQuestions,
+  Question,
+  getTopics,
+  saveTopics,
+  getCustomTags,
+  saveCustomTags,
+  TopicItem,
+  getAdminUsers,
+  AdminUser,
+  getMedicalContent,
+  MedicalContent,
+  getAutofillTemplates,
+  AutofillTemplate,
+} from "@/lib/quizData";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
-
-const mockUsers = [
-  { name: "Dr. Sarah Chen", email: "sarah.chen@gmail.com", type: "User" },
-  { name: "Dr. James Wilson", email: "j.wilson@outlook.com", type: "User" },
-];
-
-const mockContent = [
-  { name: "Type 2 Diabetes", system: "Endocrine", type: "Condition" },
-  { name: "URTI Template", system: "Respiratory", type: "Autofill" },
-];
 
 export default function SearchPage() {
   const router = useRouter();
@@ -26,6 +31,9 @@ export default function SearchPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topicsList, setTopicsList] = useState<TopicItem[]>([]);
   const [customTags, setCustomTags] = useState<string[]>([]);
+  const [usersList, setUsersList] = useState<AdminUser[]>([]);
+  const [contentList, setContentList] = useState<MedicalContent[]>([]);
+  const [autofillList, setAutofillList] = useState<AutofillTemplate[]>([]);
 
   // Modals state
   const [showAddTopicModal, setShowAddTopicModal] = useState(false);
@@ -79,6 +87,9 @@ export default function SearchPage() {
     setQuestions(getQuestions());
     setTopicsList(getTopics());
     setCustomTags(getCustomTags());
+    setUsersList(getAdminUsers());
+    setContentList(getMedicalContent());
+    setAutofillList(getAutofillTemplates());
   }, []);
 
   const hasResults = query.length > 2;
@@ -95,7 +106,7 @@ export default function SearchPage() {
     : [];
 
   const matchedUsers = hasResults
-    ? mockUsers.filter(
+    ? usersList.filter(
         (u) =>
           u.name.toLowerCase().includes(query.toLowerCase()) ||
           u.email.toLowerCase().includes(query.toLowerCase())
@@ -103,7 +114,10 @@ export default function SearchPage() {
     : [];
 
   const matchedContent = hasResults
-    ? mockContent.filter(
+    ? [
+        ...contentList.map((c) => ({ id: c.id, name: c.name, system: c.system, type: c.type, isTemplate: false })),
+        ...autofillList.map((t) => ({ id: t.id, name: t.name, system: t.system, type: "Autofill", isTemplate: true }))
+      ].filter(
         (c) =>
           c.name.toLowerCase().includes(query.toLowerCase()) ||
           c.system.toLowerCase().includes(query.toLowerCase())
@@ -209,14 +223,22 @@ export default function SearchPage() {
                 </div>
               ))}
               {(activeTab === "all" || activeTab === "users") && searchResults.users.map((r) => (
-                <div key={r.email} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer">
+                <div
+                  key={r.email}
+                  onClick={() => router.push(`/admin/users/${r.id}`)}
+                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer"
+                >
                   <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">U</span>
                   <div className="flex-1 min-w-0"><p className="text-sm text-slate-700">{r.name}</p><p className="text-xs text-slate-400">{r.email}</p></div>
                 </div>
               ))}
               {(activeTab === "all" || activeTab === "content") && searchResults.content.map((r) => (
-                <div key={r.name} className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer">
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">C</span>
+                <div
+                  key={r.name}
+                  onClick={() => router.push(r.isTemplate ? `/admin/autofill/${r.id}` : `/admin/content/${r.id}`)}
+                  className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer"
+                >
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{r.isTemplate ? "T" : "C"}</span>
                   <div className="flex-1 min-w-0"><p className="text-sm text-slate-700">{r.name}</p><p className="text-xs text-slate-400">{r.type} · {r.system}</p></div>
                 </div>
               ))}
