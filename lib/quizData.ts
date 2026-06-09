@@ -349,3 +349,335 @@ export function saveCustomTags(tags: string[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(tags));
 }
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  plan: "premium" | "free";
+  lastActive: string;
+  status: "active" | "suspended";
+  joined: string;
+  notes: string[];
+}
+
+const DEFAULT_USERS: AdminUser[] = [
+  { id: 1, name: "Dr. Sarah Chen", email: "sarah.chen@gmail.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026", notes: [] },
+  { id: 2, name: "Dr. James Wilson", email: "j.wilson@outlook.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026", notes: ["VIP user — supervisor referral"] },
+  { id: 3, name: "Dr. Priya Sharma", email: "priya.sharma@hotmail.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026", notes: [] },
+  { id: 4, name: "Dr. Michael Torres", email: "m.torres@gmail.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025", notes: [] },
+  { id: 5, name: "Dr. Emily Watson", email: "emily.w@yahoo.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026", notes: [] },
+  { id: 6, name: "Dr. Alex Kumar", email: "alex.kumar@gmail.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026", notes: ["Flagged for ToS violation"] },
+  { id: 7, name: "Dr. Rachel Green", email: "r.green@outlook.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026", notes: [] },
+  { id: 8, name: "Dr. Tom Baker", email: "tom.baker@gmail.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026", notes: [] },
+  { id: 9, name: "Dr. Nina Patel", email: "nina.p@hotmail.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026", notes: [] },
+  { id: 10, name: "Dr. David Kim", email: "d.kim@gmail.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026", notes: [] },
+  { id: 11, name: "Dr. Laura Simmons", email: "laura.s@yahoo.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025", notes: ["Top performer"] },
+  { id: 12, name: "Dr. Chris Martin", email: "c.martin@outlook.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026", notes: ["Inactive — possible churn risk"] },
+];
+
+const ADMIN_USERS_STORAGE_KEY = "gpedge_admin_users";
+
+export function getAdminUsers(): AdminUser[] {
+  if (typeof window === "undefined") return DEFAULT_USERS;
+  try {
+    const raw = localStorage.getItem(ADMIN_USERS_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS;
+    }
+    return JSON.parse(raw) as AdminUser[];
+  } catch {
+    return DEFAULT_USERS;
+  }
+}
+
+export function saveAdminUsers(users: AdminUser[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(users));
+}
+
+export interface MedicalContent {
+  id: number;
+  name: string;
+  category: string;
+  system: string;
+  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note";
+  status: "published" | "draft" | "review";
+  lastUpdated: string;
+  author: string;
+  references: number;
+  usedInQuestions: number;
+}
+
+const DEFAULT_MEDICAL_CONTENT: MedicalContent[] = [
+  { id: 1, name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", type: "Guideline", status: "published", lastUpdated: "28 May 2026", author: "Dr. Arun Mehta", references: 12, usedInQuestions: 34 },
+  { id: 2, name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", type: "Protocol", status: "published", lastUpdated: "25 May 2026", author: "Siddhant Udavant", references: 18, usedInQuestions: 47 },
+  { id: 3, name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", type: "Guideline", status: "published", lastUpdated: "22 May 2026", author: "Dr. Arun Mehta", references: 8, usedInQuestions: 21 },
+  { id: 4, name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", type: "Pathway", status: "review", lastUpdated: "20 May 2026", author: "Jessica Park", references: 15, usedInQuestions: 28 },
+  { id: 5, name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", type: "Protocol", status: "published", lastUpdated: "18 May 2026", author: "Dr. Arun Mehta", references: 9, usedInQuestions: 19 },
+  { id: 6, name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", type: "Pathway", status: "draft", lastUpdated: "15 May 2026", author: "Jessica Park", references: 6, usedInQuestions: 8 },
+  { id: 7, name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", type: "Guideline", status: "published", lastUpdated: "12 May 2026", author: "Siddhant Udavant", references: 14, usedInQuestions: 16 },
+  { id: 8, name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", type: "Pathway", status: "review", lastUpdated: "10 May 2026", author: "Dr. Arun Mehta", references: 7, usedInQuestions: 12 },
+  { id: 9, name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", type: "Protocol", status: "published", lastUpdated: "8 May 2026", author: "Siddhant Udavant", references: 11, usedInQuestions: 23 },
+  { id: 10, name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", type: "Guideline", status: "draft", lastUpdated: "5 May 2026", author: "Jessica Park", references: 4, usedInQuestions: 9 },
+];
+
+const MEDICAL_CONTENT_STORAGE_KEY = "gpedge_admin_medical_content";
+
+export function getMedicalContent(): MedicalContent[] {
+  if (typeof window === "undefined") return DEFAULT_MEDICAL_CONTENT;
+  try {
+    const raw = localStorage.getItem(MEDICAL_CONTENT_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(MEDICAL_CONTENT_STORAGE_KEY, JSON.stringify(DEFAULT_MEDICAL_CONTENT));
+      return DEFAULT_MEDICAL_CONTENT;
+    }
+    return JSON.parse(raw) as MedicalContent[];
+  } catch {
+    return DEFAULT_MEDICAL_CONTENT;
+  }
+}
+
+export function saveMedicalContent(content: MedicalContent[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(MEDICAL_CONTENT_STORAGE_KEY, JSON.stringify(content));
+}
+
+export interface AutofillTemplate {
+  id: number;
+  name: string;
+  category: string;
+  system: string;
+  fields: number;
+  usageCount: number;
+  lastUsed: string;
+  status: "active" | "draft" | "suspended";
+  author: string;
+  version: string;
+  sampleFields: { name: string; type: string; required: boolean; placeholder?: string; options?: string[] }[];
+}
+
+export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
+  { 
+    id: 1, 
+    name: "URTI Assessment", 
+    category: "Acute", 
+    system: "Respiratory", 
+    fields: 12, 
+    usageCount: 2340, 
+    lastUsed: "2 mins ago", 
+    status: "active", 
+    author: "Dr. Arun Mehta", 
+    version: "v3.1",
+    sampleFields: [
+      { name: "Presenting Symptoms (Cough/Sore Throat)", type: "Textarea", required: true },
+      { name: "Symptom Duration (Days)", type: "Dropdown", required: true },
+      { name: "Vitals (Temp, HR, SpO2)", type: "Numeric", required: true },
+      { name: "Tonsillar Exudate / Swelling", type: "Checkbox", required: false },
+      { name: "Management Plan & Rest Guide", type: "Textarea", required: true },
+      { name: "Prescription Plan (Amoxicillin/Symptomatic)", type: "Text Input", required: false }
+    ]
+  },
+  { 
+    id: 2, 
+    name: "Type 2 Diabetes Review", 
+    category: "Chronic", 
+    system: "Endocrine", 
+    fields: 18, 
+    usageCount: 1876, 
+    lastUsed: "15 mins ago", 
+    status: "active", 
+    author: "Siddhant Udavant", 
+    version: "v2.4",
+    sampleFields: [
+      { name: "Last HbA1c Results (mmol/mol)", type: "Numeric", required: true },
+      { name: "Foot Sensation (Monofilament Test)", type: "Checkbox", required: true },
+      { name: "Eye Screening Referral Status", type: "Dropdown", required: false },
+      { name: "Metformin Adherence & Side Effects", type: "Textarea", required: true },
+      { name: "Exercise & Diet Compliance Logs", type: "Checkbox", required: false },
+      { name: "Lipid Panel (LDL, HDL, Triglycerides)", type: "Text Input", required: false }
+    ]
+  },
+  { 
+    id: 3, 
+    name: "Mental Health Assessment", 
+    category: "Mental Health", 
+    system: "Psychiatry", 
+    fields: 22, 
+    usageCount: 1543, 
+    lastUsed: "1 hour ago", 
+    status: "active", 
+    author: "Jessica Park", 
+    version: "v4.0",
+    sampleFields: [
+      { name: "K10 Score (Distress Level)", type: "Numeric", required: true },
+      { name: "Sleep Patterns & Insomnia Rating", type: "Dropdown", required: true },
+      { name: "Suicide Risk Assessment Profile", type: "Textarea", required: true },
+      { name: "Major Life Stressors / Triggers", type: "Textarea", required: false },
+      { name: "Coping Strategies Identified", type: "Checkbox", required: false },
+      { name: "Mental Health Care Plan Activation", type: "Checkbox", required: true }
+    ]
+  },
+  { 
+    id: 4, 
+    name: "Skin Check Template", 
+    category: "Screening", 
+    system: "Dermatology", 
+    fields: 8, 
+    usageCount: 987, 
+    lastUsed: "3 hours ago", 
+    status: "active", 
+    author: "Dr. Arun Mehta", 
+    version: "v1.2",
+    sampleFields: [
+      { name: "Anatomical Location of Lesion", type: "Dropdown", required: true },
+      { name: "Size & Dimensions (mm)", type: "Numeric", required: true },
+      { name: "Border Regularity & Symmetry", type: "Checkbox", required: true },
+      { name: "Evolution / Growth Speed", type: "Dropdown", required: false },
+      { name: "Biopsy Plan & Patient Consent", type: "Textarea", required: false },
+      { name: "Dermoscopic Photos Uploaded", type: "Checkbox", required: true }
+    ]
+  },
+  { 
+    id: 5, 
+    name: "Antenatal Visit", 
+    category: "Obstetrics", 
+    system: "Women's Health", 
+    fields: 24, 
+    usageCount: 654, 
+    lastUsed: "5 hours ago", 
+    status: "active", 
+    author: "Siddhant Udavant", 
+    version: "v2.0",
+    sampleFields: [
+      { name: "Gestation Age (Weeks/Days)", type: "Numeric", required: true },
+      { name: "Maternal Blood Pressure (BP)", type: "Numeric", required: true },
+      { name: "Fetal Heart Rate (bpm)", type: "Numeric", required: true },
+      { name: "Symphyseal Fundal Height (cm)", type: "Numeric", required: false },
+      { name: "Fetal Movement Status", type: "Dropdown", required: true },
+      { name: "Urine Protein Dipstick Result", type: "Dropdown", required: false }
+    ]
+  },
+  { 
+    id: 6, 
+    name: "Paediatric Well Child Check", 
+    category: "Screening", 
+    system: "Paediatrics", 
+    fields: 16, 
+    usageCount: 432, 
+    lastUsed: "1 day ago", 
+    status: "active", 
+    author: "Dr. Arun Mehta", 
+    version: "v1.8",
+    sampleFields: [
+      { name: "Weight & Length Percentiles", type: "Numeric", required: true },
+      { name: "Gross Motor Milestones Rating", type: "Dropdown", required: true },
+      { name: "Language / Social Development Status", type: "Dropdown", required: true },
+      { name: "Vision & Hearing Screening Result", type: "Checkbox", required: false },
+      { name: "Immunisation Status Check", type: "Checkbox", required: true },
+      { name: "Parent Concerns / Nutrition Log", type: "Textarea", required: false }
+    ]
+  },
+  { 
+    id: 7, 
+    name: "Hypertension Review", 
+    category: "Chronic", 
+    system: "Cardiovascular", 
+    fields: 14, 
+    usageCount: 876, 
+    lastUsed: "2 hours ago", 
+    status: "active", 
+    author: "Siddhant Udavant", 
+    version: "v3.2",
+    sampleFields: [
+      { name: "Home Blood Pressure Readings Log", type: "Textarea", required: true },
+      { name: "Kidney Function (eGFR & ACR)", type: "Numeric", required: true },
+      { name: "Cardiovascular Risk Score", type: "Numeric", required: false },
+      { name: "Compliance with Antihypertensives", type: "Dropdown", required: true },
+      { name: "Salt Intake & Weight Management Goals", type: "Textarea", required: false },
+      { name: "ECG Findings & Heart Sounds", type: "Text Input", required: false }
+    ]
+  },
+  { 
+    id: 8, 
+    name: "GORD Assessment", 
+    category: "GI", 
+    system: "Gastroenterology", 
+    fields: 10, 
+    usageCount: 345, 
+    lastUsed: "1 day ago", 
+    status: "draft", 
+    author: "Jessica Park", 
+    version: "v1.0",
+    sampleFields: [
+      { name: "Heartburn Frequency (Weekly)", type: "Numeric", required: true },
+      { name: "Severity & Nocturnal Symptoms", type: "Dropdown", required: true },
+      { name: "Dysphagia / Odynophagia (Alarm Flags)", type: "Checkbox", required: true },
+      { name: "PPI Trial Plan & Dose", type: "Text Input", required: false },
+      { name: "Weight Loss / Appetite Check", type: "Checkbox", required: false },
+      { name: "Endoscopy Referral Details", type: "Textarea", required: false }
+    ]
+  },
+  { 
+    id: 9, 
+    name: "Lower Back Pain", 
+    category: "MSK", 
+    system: "Musculoskeletal", 
+    fields: 15, 
+    usageCount: 567, 
+    lastUsed: "6 hours ago", 
+    status: "active", 
+    author: "Dr. Arun Mehta", 
+    version: "v2.1",
+    sampleFields: [
+      { name: "Onset, Trigger & Location of Pain", type: "Textarea", required: true },
+      { name: "Radiation (Sciatica) & Sensory Loss", type: "Checkbox", required: true },
+      { name: "Red Flags (Bowels/Bladder Retention)", type: "Checkbox", required: true },
+      { name: "Straight Leg Raise (SLR) Angle", type: "Numeric", required: false },
+      { name: "Analgesia Regimen (NSAIDs/Paracetamol)", type: "Text Input", required: false },
+      { name: "Physiotherapy Referral Plan", type: "Textarea", required: false }
+    ]
+  },
+  { 
+    id: 10, 
+    name: "MBS 721 — GPMP Template", 
+    category: "Billing", 
+    system: "MBS", 
+    fields: 20, 
+    usageCount: 198, 
+    lastUsed: "2 days ago", 
+    status: "draft", 
+    author: "Jessica Park", 
+    version: "v0.9",
+    sampleFields: [
+      { name: "Primary Chronic Medical Conditions", type: "Textarea", required: true },
+      { name: "Patient Co-designed Care Goals", type: "Textarea", required: true },
+      { name: "Allied Health Referrals Scheduled", type: "Checkbox", required: true },
+      { name: "Care Team Members & Contact info", type: "Textarea", required: false },
+      { name: "GPMP Consent Form Signed", type: "Checkbox", required: true },
+      { name: "Review Date Scheduled (6 months)", type: "Date Picker", required: true }
+    ]
+  }
+];
+
+const AUTOFILL_TEMPLATES_STORAGE_KEY = "gpedge_admin_autofill_templates";
+
+export function getAutofillTemplates(): AutofillTemplate[] {
+  if (typeof window === "undefined") return DEFAULT_AUTOFILL_TEMPLATES;
+  try {
+    const raw = localStorage.getItem(AUTOFILL_TEMPLATES_STORAGE_KEY);
+    if (!raw) {
+      localStorage.setItem(AUTOFILL_TEMPLATES_STORAGE_KEY, JSON.stringify(DEFAULT_AUTOFILL_TEMPLATES));
+      return DEFAULT_AUTOFILL_TEMPLATES;
+    }
+    return JSON.parse(raw) as AutofillTemplate[];
+  } catch {
+    return DEFAULT_AUTOFILL_TEMPLATES;
+  }
+}
+
+export function saveAutofillTemplates(templates: AutofillTemplate[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(AUTOFILL_TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+}
