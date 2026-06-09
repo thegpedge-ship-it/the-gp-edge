@@ -193,6 +193,185 @@ PLAN:
 - Routine screening up to date.
 - Review PRN.`
   },
+  {
+    id: 7,
+    title: "Wound Review",
+    category: "Wound Management",
+    description: "Structured wound review template including wound assessment, healing phase, dressing management, and follow-up planning.",
+    updated: "just now",
+    content: `F2F
+^presents with ^
+^New to me, presents for wound review 
+^Planned present for ^
+
+Subjective
+ - Progress: ^Improving / Stalled / Deteriorating
+ - Pain: ^Score /10, ^Constant / During dressing changes only, ^Overall Improving
+ - Interim events: <Fevers / Systemic symptoms / Antibiotics completed?>
+
+Objective 
+Wound Assessment
+ - Location: ^Site
+ - Dimensions: (Length) x (Width) x (Depth) in mm
+ - Tissue Type (TIME): 
+ T (Tissue): ^% Granulation / % Slough / % Eschar / % Epithelial. Colour of the tissue bed. 
+ I (Infection): ^No/Signs of clinical infection? Odour / Heat / Swelling / Erythema
+ M (Moisture): ^Exudate: Low / Med / High ^Serous / Haemoserous / Purulent. Is there any bleeding? 
+ E (Edge): ^Advancing / Stalled / Rolled / Macerated
+ - Periwound: ^Healthy / Eczematous / Cellulitic / Macerated
+ - Circulation: ^Pulses present? / Capillary refill time: 
+
+Clinical Photography: 
+Consent obtained for clinical photography; image uploaded to gallery/record.
+
+Assessment
+ - Diagnosis: ^E.g., Venous ulcer / Dehisced surgical wound / Traumatic tear^
+ - Healing Phase: ^Inflammatory / Proliferative / Maturation
+ - Debridement needed: ^None / Autolytic / Conservative Sharp / Mechanical / Biological
+
+Plan
+ - Debridement performed: <Type: > - <Result: >
+ - Cleansing: <Normal saline / Prontosan / Tap water>
+ - Primary Dressing: <E.g., Inadine / Aquacel Ag / Hydrogel / Foam>
+ - Secondary Dressing/Fixation: <E.g., Zetuvit / Hypafix / Compression bandage>
+ - Frequency: <Review in __ days / PRN if strike-through>
+ - Referral/Escalation: <Wound clinic / Vascular / Not required>
+*If a wound is stalled, use the assessment section to document if you’ve considered underlying causes (e.g., “Check HbA1c/Iron/ABI if no progress in 2 weeks”).`
+  },
+  {
+    id: 8,
+    title: "Male Fertility Issues",
+    category: "Men's Health",
+    description: "Structured template for investigation of male sub-fertility, including history, examination, and management plan.",
+    updated: "just now",
+    content: `F2F
+^presents with ^
+^New to me, presents 
+^Planned present for ^
+^Patient and partner presenting for investigation of sub-fertility.
+
+SUBJECTIVE
+Duration: Trying to conceive for ^ months/years.
+Partner's Details:
+ - Partner's age: ^yrs
+ - Known female factor issues (e.g., PMOS, endometriosis, tubal-blockage): Yes / No
+ - Partner's previous conceptions: Yes / No
+Fertility History (Patient):
+ - Previous children (with current or previous partners): Yes / No, at age ^yrs 
+Sexual History:
+ - Frequency of intercourse: ^ times per week/month.
+ - Timing of intercourse (re: fertile window):
+ - Difficulties: Erectile dysfunction (present/absent), ejaculatory issues (premature, delayed, anejaculation), dyspareunia.
+ - Libido: Normal / Decreased / Increased.
+
+Past Medical History:
+Childhood:
+ - ^declines hx of cryptorchidism 
+ - ^declines hx of scrotal surgery 
+ - ^declines hx of hernia repair 
+ - ^declines hx of mumps 
+Genitourinary:
+ - ^Declines hx of STIs (Chlamydia, Gonorrhoea) 
+ - ^declines hx of Epididymo-orchitis / Prostatitis 
+ - ^declines hx of Testicular/scrotal trauma 
+ - ^declines vasectomy 
+Systemic Illness:
+ - ^no known hx of Diabetes Mellitus 
+ - ^declines hx of chemotherapy / radiotherapy 
+
+Medications & Allergies 
+(mention if on TRT, 5-ARIs, spironolactone or sulfasalasine) 
+
+Social History:
+Occupation:
+ - Exposure to: Heat / Pesticides / Solvents / Heavy metals / Radiation: Yes / No
+ - Details:
+Substance Use:
+ - Smoking: Current / Ex / Never. (^ packs/day)
+ - Alcohol: ^ standard drinks per week.
+ - Recreational Drugs: ^Declines any 
+ Marijuana: Yes / No, Cocaine: Yes / No
+ Opiates: Yes / No
+ Anabolic steroids (current or past): Yes / No
+General Health:
+ - Diet and exercise:
+ - Recent high fevers: Yes / No
+ - Testicular heat exposure (e.g., saunas, hot tubs): Yes / No
+
+Family History:
+ - Infertility (siblings, parents): Yes / No
+ - Genetic conditions (e.g., Cystic Fibrosis, Klinefelter): Yes / No
+
+OBJECTIVE/ Examination 
+Vitals: 
+ - BMI: 
+ - Height
+ - Weight: 
+General appearance, secondary sexual characteristics (gynaecomastia, hair distribution, muscle mass):
+Genital Examination:
+ - Penis: (e.g., meatal position)
+ - Testes (Scrotal Exam):
+ - Volume (Orchidometer): Left: _____ ml, Right: _____ ml (Normal >15ml)
+   - Consistency: Firm / Soft / Other
+ - Epididymis: Tender / Non-tender / Cysts
+ - Vas Deferens: Present bilaterally / Absent (unilateral/bilateral)
+ - Varicocele:
+   - Palpable: Yes / No
+   - Present on Valsalva: Yes / No
+ - Other: (e.g., hydrocele, surgical scars)
+
+ASSESSMENT 
+?Male factor sub-fertility 
+^There are no obvious predispositions on history. 
+^On examination, patient is well androgenised 
+
+PLAN 
+Investigations to consider: 
+ - Semen Analysis (Initial):
+ - [ ] Request 2x Semen Analysis (6-12 weeks apart).
+ - Instructions given: 2-7 days of abstinence, deliver to lab within 1 hour, keep at body temp. 
+ https://www.snp.com.au/media/ghbjmts2/item-35170-semen-collection-202601.pdf and 
+ https://www.snp.com.au/patients/patient-resources/pre-test-information/semen-collection/patient (information sheet). 
+ - Hormonal Profile (If SA abnormal or clinical suspicion):
+ - FSH, LH, Testosterone (early morning, 8-10 am), Prolactin (if low T or low libido), SHBG
+ - Genetic (If severe oligo- or azoospermia):
+ - Karyotype (Check for Klinefelter XXY)
+ - Y-chromosome microdeletions
+ - CFTR gene mutation (if vas deferens absent)
+ - Imaging:
+ - Scrotal Ultrasound (if exam abnormal, varicocele suspected, or testicular mass).
+ - Other:
+ - STI screen (if not recent)
+
+Advice & further plan 
+Education:
+ - Discussed fertile window and advised regular intercourse (e.t., every 2-3 days).
+ - Reassurance provided.
+Lifestyle Modifications:
+ - Advised smoking cessation.
+ - Advised reduction of alcohol.
+ - Advised cessation of illicit drugs (esp. marijuana, anabolic steroids).
+ - Weight management (if BMI high).
+ - Avoid testicular heat (e.g., loose underwear, avoid spas/saunas).
+Medication Review:
+ - Reviewed current medications.
+ - Advised to stop [e.g., anabolic steroids] if applicable.
+Supplements:
+ - Discussed limited evidence but low risk of antioxidants/folic acid.
+Follow-up & Referral:
+ - [ ] Follow up to review Semen Analysis results.
+Consider referral to Fertility Specialist / Urologist if:
+ - Abnormal Semen Analysis.
+ - Azoospermia or severe oligozoospermia.
+ - Suspected genetic cause.
+ - Significant examination finding (e.g., varicocele, absent vas).
+ - Female partner factors also present.
+
+Patient information sheets: 
+1. https://www.betterhealth.vic.gov.au/health/conditionsandtreatments/infertility-in-men
+2. https://www.thewomens.org.au/health-information/fertility-information/fertility-problems/male-infertility
+3. https://www.ivf.com.au/sites/ivfa/files/2023-03/MFC05%20Male%20Fertility%20eBook%2017.03.23-LR_3.pdf`
+  }
 ];
 
 const RECENT_TEMPLATES = [
@@ -200,6 +379,8 @@ const RECENT_TEMPLATES = [
   { title: "Diabetes Review", time: "Yesterday" },
   { title: "Asthma Management Plan", time: "2 days ago" },
   { title: "Skin Cancer Follow-Up", time: "4 days ago" },
+  { title: "Chronic Disease Management Plan", time: "5 days ago" },
+  { title: "Women's Health Assessment", time: "1 week ago" },
 ];
 
 const SAVED_TEMPLATES = [
@@ -217,6 +398,7 @@ export default function ClinicalAutofillsPage() {
   const [isCopied, setIsCopied] = useState(false);
   const [copiedContent, setCopiedContent] = useState("");
   const [visibleCount, setVisibleCount] = useState(6);
+  const [savedTemplates, setSavedTemplates] = useState<string[]>(SAVED_TEMPLATES);
 
   const FILTERS = ["All Templates", "Recently Used", "Most Used", "Favourites"];
 
@@ -234,20 +416,20 @@ export default function ClinicalAutofillsPage() {
       return false;
     }
     // 2. Tab Filters (Mocked logic for demonstration)
-    if (filter === "Recently Used" && !["Mental Health Care Plan", "Diabetes Review", "Asthma Management Plan", "Skin Cancer Follow-Up"].includes(t.title)) {
+    if (filter === "Recently Used" && !["Mental Health Care Plan", "Diabetes Review", "Asthma Management Plan", "Skin Cancer Follow-Up", "Chronic Disease Management Plan", "Women's Health Assessment"].includes(t.title)) {
       return false;
     }
     if (filter === "Most Used" && !["Chronic Disease Management Plan", "Diabetes Review"].includes(t.title)) {
       return false;
     }
-    if (filter === "Favourites" && !SAVED_TEMPLATES.includes(t.title)) {
+    if (filter === "Favourites" && !savedTemplates.includes(t.title)) {
       return false;
     }
     return true;
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-20 pt-6 space-y-12">
+    <div className="w-full px-4 sm:px-6 pb-20 pt-2 space-y-4">
       {/* HEADER SECTION */}
       <div className="space-y-2">
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
@@ -259,7 +441,7 @@ export default function ClinicalAutofillsPage() {
       </div>
 
       {/* SEARCH & FILTER BAR */}
-      <div className="flex flex-col xl:flex-row gap-4 items-center justify-between mb-8">
+      <div className="flex flex-col xl:flex-row gap-4 items-center justify-between mb-4">
         <div className="relative w-full xl:flex-1">
           <div className="relative glass dark:glass-strong rounded-2xl p-1.5 border border-slate-200/50 dark:border-slate-800/80 shadow-sm">
             <input
@@ -284,11 +466,10 @@ export default function ClinicalAutofillsPage() {
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`whitespace-nowrap px-4 py-2 rounded-lg text-[14px] font-semibold transition-colors ${
-                filter === f
+              className={`whitespace-nowrap px-4 py-2 rounded-lg text-[14px] font-semibold transition-colors ${filter === f
                   ? "bg-teal-600 text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 bg-transparent"
-              }`}
+                }`}
             >
               {f}
             </button>
@@ -296,8 +477,80 @@ export default function ClinicalAutofillsPage() {
         </div>
       </div>
 
+      {/* RECENTLY USED & SAVED TEMPLATES (SIDE-BY-SIDE 2x2 GRIDS) */}
+      <section className="pt-2 pb-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* RECENTLY USED SECTION */}
+          <div className="bg-[#f8fafc] dark:bg-slate-900 rounded-[32px] px-8 pt-8 pb-4 shadow-[10px_10px_20px_#d1d5db,-10px_-10px_20px_#ffffff] dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#1e293b] flex flex-col border border-slate-100/50 dark:border-slate-800/50">
+            <h2 className="text-[16px] font-bold text-slate-900 mb-5 ml-2">Recently Used</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {RECENT_TEMPLATES.slice(0, 4).map((t, i) => (
+                <div
+                  key={i}
+                  onClick={() => {
+                    const template = TEMPLATES.find(temp => temp.title === t.title);
+                    if (template) setSelectedTemplate(template);
+                  }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-center h-20 group"
+                >
+                  <h3 className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-1.5 truncate">{t.title}</h3>
+                  <p className="text-[11px] font-medium text-slate-500">{t.time}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-center w-full">
+              <button 
+                onClick={() => { 
+                  setFilter("Recently Used"); 
+                  document.getElementById('main-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+                }}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-6 rounded-xl transition-colors shadow-sm"
+              >
+                View all
+              </button>
+            </div>
+          </div>
+
+          {/* SAVED TEMPLATES SECTION */}
+          <div className="bg-[#f8fafc] dark:bg-slate-900 rounded-[32px] px-8 pt-8 pb-4 shadow-[10px_10px_20px_#d1d5db,-10px_-10px_20px_#ffffff] dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#1e293b] flex flex-col border border-slate-100/50 dark:border-slate-800/50">
+            <h2 className="text-[16px] font-bold text-slate-900 mb-5 ml-2">Saved Templates</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {savedTemplates.slice(0, 4).map((title, i) => (
+                <div
+                  key={i}
+                  onClick={() => {
+                    const template = TEMPLATES.find(temp => temp.title === title);
+                    if (template) setSelectedTemplate(template);
+                  }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-center h-20 group"
+                >
+                  <h3 className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">{title}</h3>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-center w-full">
+              <button 
+                onClick={() => { 
+                  setFilter("Favourites"); 
+                  document.getElementById('main-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
+                }}
+                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-6 rounded-xl transition-colors shadow-sm"
+              >
+                View all
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
       {/* MAIN TEMPLATE LIBRARY */}
-      <section className="space-y-6">
+      <section id="main-library" className="space-y-6 pt-4">
+        
+        <p className="text-[15px] font-medium text-slate-500">
+          Access pre-written clinical templates, edit when required, and copy directly into Best Practice.
+        </p>
 
         {/* EMPTY STATE OR TEMPLATE GRID */}
         {filteredTemplates.length === 0 ? (
@@ -309,7 +562,7 @@ export default function ClinicalAutofillsPage() {
             </div>
             <h3 className="text-2xl font-bold text-slate-900 mb-2">Template Not Found</h3>
             <p className="text-slate-500 font-medium mb-8">No results match your search or filter.</p>
-            <button 
+            <button
               onClick={() => { setSearchQuery(""); setFilter("All Templates"); }}
               className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[16px] py-3 px-8 rounded-2xl shadow-sm transition-colors"
             >
@@ -322,34 +575,51 @@ export default function ClinicalAutofillsPage() {
               {filteredTemplates.slice(0, visibleCount).map((t) => (
                 <div
                   key={t.id}
-                  className="glass dark:glass-strong rounded-3xl p-4 border border-slate-200/50 dark:border-slate-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group"
+                  className="relative glass dark:glass-strong rounded-3xl p-4 border border-slate-200/50 dark:border-slate-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group"
                 >
-                  <div>
-                    <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSavedTemplates(prev =>
+                        prev.includes(t.title)
+                          ? prev.filter(title => title !== t.title)
+                          : [t.title, ...prev]
+                      );
+                    }}
+                    className={`absolute top-4 right-4 z-10 transition-opacity duration-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${savedTemplates.includes(t.title) ? 'opacity-100 text-yellow-400' : 'opacity-0 group-hover:opacity-100 text-slate-300 hover:text-yellow-400'}`}
+                    title={savedTemplates.includes(t.title) ? "Remove from saved" : "Add to saved"}
+                  >
+                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+                    </svg>
+                  </button>
+
+                  <div className="pr-8">
+                    <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-1.5">
                       {t.title}
                     </h3>
                     <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[10px] px-2 py-0.5 rounded-full mb-2">
                       {t.category}
                     </span>
-                    <p className="text-[13px] text-slate-500 font-medium leading-relaxed mb-3">
+                    <p className="text-[12px] text-slate-500 font-medium leading-relaxed mb-3">
                       {t.description}
                     </p>
                   </div>
-                  
+
                   <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 flex flex-col gap-2">
                     <p className="text-[11px] font-medium text-slate-400">
                       Updated {t.updated}
                     </p>
                     <div className="flex items-center justify-between">
-                      <button 
+                      <button
                         onClick={() => setSelectedTemplate(t)}
                         className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-4 rounded-xl transition-colors"
                       >
                         View Template
                       </button>
-                      <button 
+                      <button
                         onClick={(e) => { e.stopPropagation(); handleCopy(t.content); }}
-                        className="text-teal-600 hover:text-teal-800 font-bold text-[13px] px-2 transition-colors capitalize"
+                        className="text-teal-600 hover:text-teal-800 font-bold text-[13px] px-2 transition-colors"
                       >
                         Copy
                       </button>
@@ -362,7 +632,7 @@ export default function ClinicalAutofillsPage() {
             {/* LOAD MORE */}
             {visibleCount < filteredTemplates.length && (
               <div className="flex justify-center pt-4">
-                <button 
+                <button
                   onClick={() => setVisibleCount((v) => v + 6)}
                   className="px-6 py-2.5 bg-white border border-slate-200 text-teal-700 font-bold text-[14px] rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
                 >
@@ -374,60 +644,15 @@ export default function ClinicalAutofillsPage() {
         )}
       </section>
 
-      {/* RECENTLY USED SECTION */}
-      <section className="space-y-4 pt-4 border-t border-slate-100">
-        <div className="flex items-end justify-between">
-          <h2 className="text-[16px] font-bold text-slate-900">Recently Used</h2>
-          <button className="text-[13px] font-bold text-teal-600 hover:text-teal-800 transition-colors">
-            View all
-          </button>
-        </div>
-        <div className="glass dark:glass-strong rounded-2xl p-4 border border-slate-200/50 shadow-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {RECENT_TEMPLATES.slice(0, 4).map((t, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors flex flex-col justify-center"
-              >
-                <h3 className="text-[13px] font-bold text-slate-900 mb-0.5 truncate">{t.title}</h3>
-                <p className="text-[11px] font-medium text-slate-400">{t.time}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SAVED TEMPLATES SECTION */}
-      <section className="space-y-4 pt-4 border-t border-slate-100">
-        <div className="flex items-end justify-between">
-          <h2 className="text-[16px] font-bold text-slate-900">Saved Templates</h2>
-          <button className="text-[13px] font-bold text-teal-600 hover:text-teal-800 transition-colors">
-            View all
-          </button>
-        </div>
-        <div className="glass dark:glass-strong rounded-2xl p-4 border border-slate-200/50 shadow-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {SAVED_TEMPLATES.slice(0, 4).map((title, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-sm cursor-pointer hover:border-teal-500/30 transition-colors flex flex-col justify-center"
-              >
-                <h3 className="text-[13px] font-bold text-slate-900 truncate">{title}</h3>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* TEMPLATE DRAWER (MODAL) */}
       {selectedTemplate && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center pt-0 bg-slate-900/40 backdrop-blur-sm transition-opacity">
           {/* Overlay to click-away */}
-          <div 
-            className="absolute inset-0 cursor-pointer" 
-            onClick={() => setSelectedTemplate(null)} 
+          <div
+            className="absolute inset-0 cursor-pointer"
+            onClick={() => setSelectedTemplate(null)}
           />
-          
+
           {/* Full-Screen Modal Panel (Touching the Top Edge) */}
           <div className="relative w-full max-w-5xl bg-white h-[100vh] flex flex-col rounded-b-2xl shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200 overflow-hidden">
             {/* Header */}
@@ -442,15 +667,15 @@ export default function ClinicalAutofillsPage() {
                     <span className="text-[13px] font-medium text-slate-500">Updated {selectedTemplate.updated}</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4">
-                  <button 
+                  <button
                     onClick={() => handleCopy(selectedTemplate.content)}
                     className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[14px] py-2 px-6 rounded-xl shadow-sm transition-colors whitespace-nowrap"
                   >
-                    Copy Template
+                    Copy
                   </button>
-                  <button 
+                  <button
                     onClick={() => setSelectedTemplate(null)}
                     className="text-slate-400 hover:text-slate-700 text-3xl font-bold p-1 leading-none transition-colors"
                     aria-label="Close"
