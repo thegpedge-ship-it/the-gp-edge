@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import Link from "next/link";
@@ -8,35 +9,10 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
+import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
-
-interface MedicalContent {
-  id: number;
-  name: string;
-  category: string;
-  system: string;
-  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note";
-  status: "published" | "draft" | "review";
-  lastUpdated: string;
-  author: string;
-  references: number;
-  usedInQuestions: number;
-}
-
-const mockContent: MedicalContent[] = [
-  { id: 1, name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", type: "Guideline", status: "published", lastUpdated: "28 May 2026", author: "Dr. Arun Mehta", references: 12, usedInQuestions: 34 },
-  { id: 2, name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", type: "Protocol", status: "published", lastUpdated: "25 May 2026", author: "Siddhant Udavant", references: 18, usedInQuestions: 47 },
-  { id: 3, name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", type: "Guideline", status: "published", lastUpdated: "22 May 2026", author: "Dr. Arun Mehta", references: 8, usedInQuestions: 21 },
-  { id: 4, name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", type: "Pathway", status: "review", lastUpdated: "20 May 2026", author: "Jessica Park", references: 15, usedInQuestions: 28 },
-  { id: 5, name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", type: "Protocol", status: "published", lastUpdated: "18 May 2026", author: "Dr. Arun Mehta", references: 9, usedInQuestions: 19 },
-  { id: 6, name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", type: "Pathway", status: "draft", lastUpdated: "15 May 2026", author: "Jessica Park", references: 6, usedInQuestions: 8 },
-  { id: 7, name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", type: "Guideline", status: "published", lastUpdated: "12 May 2026", author: "Siddhant Udavant", references: 14, usedInQuestions: 16 },
-  { id: 8, name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", type: "Pathway", status: "review", lastUpdated: "10 May 2026", author: "Dr. Arun Mehta", references: 7, usedInQuestions: 12 },
-  { id: 9, name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", type: "Protocol", status: "published", lastUpdated: "8 May 2026", author: "Siddhant Udavant", references: 11, usedInQuestions: 23 },
-  { id: 10, name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", type: "Guideline", status: "draft", lastUpdated: "5 May 2026", author: "Jessica Park", references: 4, usedInQuestions: 9 },
-];
 
 const typeColors: Record<string, string> = {
   Condition: "bg-teal-50/70 text-teal-800 border-teal-200/60 dark:bg-teal-950/30 dark:text-teal-350 dark:border-teal-900/50",
@@ -48,12 +24,12 @@ const typeColors: Record<string, string> = {
 };
 
 export default function ContentPage() {
-  const [content, setContent] = useState(mockContent);
+  const router = useRouter();
+  const [content, setContent] = useState<MedicalContent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedContent, setSelectedContent] = useState<MedicalContent | null>(null);
 
   // Content Upload Modal Wizard
   const [showAddModal, setShowAddModal] = useState(false);
@@ -75,6 +51,18 @@ export default function ContentPage() {
   const [uploadedFileName, setUploadedFileName] = useState("");
   const [uploadedFileSize, setUploadedFileSize] = useState("");
 
+  // Document extraction states
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractionState, setExtractionState] = useState<"idle" | "extracting" | "success">("idle");
+  const [extractionLog, setExtractionLog] = useState("");
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [extractedData, setExtractedData] = useState<any>(null);
+
+  useEffect(() => {
+    setContent(getMedicalContent());
+  }, []);
+
   const systems = Array.from(new Set(content.map((c) => c.system)));
 
   const filtered = content.filter((c) => {
@@ -86,7 +74,9 @@ export default function ContentPage() {
   });
 
   const updateStatus = (id: number, newStatus: MedicalContent["status"]) => {
-    setContent((prev) => prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c)));
+    const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
+    setContent(updated);
+    saveMedicalContent(updated);
   };
 
   // Reset Modal Form
@@ -99,9 +89,12 @@ export default function ContentPage() {
     setNotesInput("");
     setUploadProgress(0);
     setUploadState("idle");
-    setUploadedFileName("");
     setUploadedFileSize("");
     setModalStep("select");
+    setExtractionProgress(0);
+    setExtractionState("idle");
+    setExtractionLog("");
+    setExtractedData(null);
   };
 
   // Trigger File Upload simulation
@@ -110,6 +103,94 @@ export default function ContentPage() {
     setUploadProgress(0);
     setUploadedFileName("Clinical_Guideline_Ref_" + Math.floor(Math.random() * 900 + 100) + ".pdf");
     setUploadedFileSize((Math.random() * 1.5 + 0.5).toFixed(1) + " MB");
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadedFileName(file.name);
+    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
+    setUploadState("uploading");
+    setUploadProgress(0);
+
+    const progressTimer = setInterval(() => {
+      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
+    }, 150);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(progressTimer);
+      setUploadProgress(100);
+
+      const result = await res.json();
+      if (result.success) {
+        setExtractedData(result);
+        setUploadState("success");
+      } else {
+        alert(result.error || "Failed to extract text from document");
+        setUploadState("idle");
+      }
+    } catch (err: any) {
+      clearInterval(progressTimer);
+      alert("Upload error: " + err.message);
+      setUploadState("idle");
+    }
+  };
+
+  const runTextExtraction = () => {
+    setExtractionState("extracting");
+    setExtractionProgress(0);
+    setExtractionLog("Opening document stream...");
+    
+    setTimeout(() => {
+      setExtractionProgress(25);
+      setExtractionLog("Extracting raw text from pages...");
+    }, 300);
+
+    setTimeout(() => {
+      setExtractionProgress(55);
+      setExtractionLog("Identifying clinical sections...");
+    }, 600);
+
+    setTimeout(() => {
+      setExtractionProgress(85);
+      setExtractionLog("Mapping fields...");
+    }, 900);
+
+    setTimeout(() => {
+      setExtractionProgress(100);
+      setExtractionState("success");
+      setExtractionLog("Extraction complete!");
+      
+      // Auto-populate the states!
+      if (extractedData) {
+        setNewTitle(extractedData.title || "Extracted Document");
+        setNewSystem(extractedData.system || "Endocrine");
+        setNewCategory(extractedData.category || "Clinical Reference");
+        setSymptomsInput(extractedData.symptoms || "");
+        setTreatmentInput(extractedData.treatment || "");
+        setNotesInput(extractedData.notes || "");
+      } else {
+        // Fallback to Acne
+        setNewTitle("Acne Vulgaris Guideline");
+        setNewSystem("Dermatology");
+        setNewCategory("Skin Disease");
+        setSymptomsInput("Comedones (blackheads and whiteheads)\nInflammatory papules and pustules\nSevere nodulocystic lesions\nPost-inflammatory hyperpigmentation or scarring");
+        setTreatmentInput("Mild: Topical benzoyl peroxide + retinoid (adapalene)\nModerate: Oral doxycycline 50-100mg daily + topical retinoid\nSevere: Specialist referral for oral isotretinoin (Accutane)\nMaintenance: Ongoing topical retinoid therapy to prevent microcomedones");
+        setNotesInput("Avoid oil-based cosmetics and harsh face scrubs. Educate patient that topical therapies take 6-8 weeks for visible improvement and may cause initial irritation.");
+      }
+      
+      // Redirect to the condition editor step with pre-filled values
+      setModalStep("condition");
+    }, 1200);
   };
 
   // Handle uploading progress bar loop
@@ -130,9 +211,9 @@ export default function ContentPage() {
     return () => clearInterval(timer);
   }, [uploadState]);
 
-  // Lock body scroll when drawer or modal is open to prevent background scrolling lag
+  // Lock body scroll when modal is open to prevent background scrolling lag
   useEffect(() => {
-    if (selectedContent || showAddModal) {
+    if (showAddModal) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
@@ -140,7 +221,7 @@ export default function ContentPage() {
     return () => {
       document.body.style.overflow = "unset";
     };
-  }, [selectedContent, showAddModal]);
+  }, [showAddModal]);
 
   // Submit and save content
   const handleSaveContent = (type: MedicalContent["type"]) => {
@@ -150,7 +231,7 @@ export default function ContentPage() {
     }
 
     const newItem: MedicalContent = {
-      id: content.length + 1,
+      id: content.length > 0 ? Math.max(...content.map(c => c.id)) + 1 : 1,
       name: newTitle,
       system: newSystem,
       category: newCategory.trim() || "Clinical Reference",
@@ -162,7 +243,9 @@ export default function ContentPage() {
       usedInQuestions: 0,
     };
 
-    setContent((prev) => [newItem, ...prev]);
+    const updated = [newItem, ...content];
+    setContent(updated);
+    saveMedicalContent(updated);
     setShowAddModal(false);
     resetForm();
   };
@@ -192,25 +275,25 @@ export default function ContentPage() {
           title="Guidelines"
           percentage="+12%"
           data={content.filter((c) => c.type === "Guideline").length.toString()}
-          progress={Math.round((content.filter((c) => c.type === "Guideline").length / content.length) * 100)}
+          progress={content.length > 0 ? Math.round((content.filter((c) => c.type === "Guideline").length / content.length) * 100) : 0}
         />
         <AnalyticsCard
           title="Protocols / Conditions"
           percentage="+8%"
           data={content.filter((c) => c.type === "Protocol" || c.type === "Condition").length.toString()}
-          progress={Math.round((content.filter((c) => c.type === "Protocol" || c.type === "Condition").length / content.length) * 100)}
+          progress={content.length > 0 ? Math.round((content.filter((c) => c.type === "Protocol" || c.type === "Condition").length / content.length) * 100) : 0}
         />
         <AnalyticsCard
           title="Documents / PDFs"
           percentage="+15%"
           data={content.filter((c) => c.type === "Document" || c.type === "Pathway").length.toString()}
-          progress={Math.round((content.filter((c) => c.type === "Document" || c.type === "Pathway").length / content.length) * 100)}
+          progress={content.length > 0 ? Math.round((content.filter((c) => c.type === "Document" || c.type === "Pathway").length / content.length) * 100) : 0}
         />
         <AnalyticsCard
           title="Linked Questions"
           percentage="+18%"
           data={content.reduce((sum, c) => sum + c.usedInQuestions, 0).toLocaleString()}
-          progress={Math.min(100, Math.round((content.reduce((sum, c) => sum + c.usedInQuestions, 0) / 300) * 100))}
+          progress={Math.min(100, content.length > 0 ? Math.round((content.reduce((sum, c) => sum + c.usedInQuestions, 0) / 300) * 100) : 0)}
         />
       </motion.div>
 
@@ -266,7 +349,7 @@ export default function ContentPage() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-300 cursor-pointer"
-            onClick={() => setSelectedContent(item)}
+            onClick={() => router.push(`/admin/content/${item.id}`)}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-50/5 dark:to-slate-900/5 pointer-events-none" />
             <div className="relative z-10 p-5">
@@ -388,7 +471,7 @@ export default function ContentPage() {
                         onClick={() => { setModalStep("note"); }}
                         className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
                       >
-                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                        <span className="bg-slate-50 dark:bg-slate-955/20 p-2.5 rounded-xl group-hover:scale-105 transition">
                           <Lucide.FileText className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
@@ -489,11 +572,18 @@ export default function ContentPage() {
                       
                       {uploadState === "idle" && (
                         <div 
-                          onClick={simulateFileUpload}
+                          onClick={() => fileInputRef.current?.click()}
                           className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center"
                         >
+                          <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            onChange={handleFileChange} 
+                            accept=".pdf,.docx" 
+                            className="hidden" 
+                          />
                           <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF here</p>
+                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
                         </div>
                       )}
@@ -505,7 +595,7 @@ export default function ContentPage() {
                             <span className="text-slate-400 font-mono">{uploadProgress}%</span>
                           </div>
                           
-                          <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="flex h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div className="h-full bg-gradient-to-r from-slate-400 to-slate-500 transition-all" style={{ width: `${uploadProgress}%` }} />
                           </div>
                           <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
@@ -513,15 +603,51 @@ export default function ContentPage() {
                       )}
 
                       {uploadState === "success" && (
-                        <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-5 bg-slate-50/30 dark:bg-slate-950/10 space-y-2 flex items-start gap-3">
-                          <span className="text-xl bg-slate-100 dark:bg-slate-900/30 w-8 h-8 rounded-full flex items-center justify-center shrink-0">
-                            <Lucide.Check className="w-4 h-4 text-slate-600" />
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
-                            <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
-                            <button onClick={simulateFileUpload} className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold hover:underline mt-1">Replace file</button>
+                        <div className="space-y-4">
+                          <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10 flex items-start gap-3 shadow-sm">
+                            <span className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center shrink-0">
+                              <Lucide.Check className="w-4 h-4 text-emerald-600 dark:text-emerald-450" />
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
+                              <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
+                              <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer">Replace file</button>
+                            </div>
                           </div>
+
+                          {extractionState === "idle" && (
+                            <div className="bg-teal-50/40 dark:bg-teal-950/10 border border-teal-100/50 dark:border-teal-900/30 rounded-2xl p-4 text-center space-y-2.5">
+                              <div className="flex items-center justify-center gap-2 text-teal-800 dark:text-teal-450">
+                                <Lucide.Sparkles className="w-5 h-5 animate-pulse" />
+                                <span className="text-xs font-bold">Smart Document Extractor Available</span>
+                              </div>
+                              <p className="text-[10px] text-slate-450 max-w-sm mx-auto leading-relaxed">
+                                We can automatically extract clinical headings, symptoms, and treatment protocols from this document to populate your website's medical library.
+                              </p>
+                              <button 
+                                onClick={runTextExtraction}
+                                className="px-4 py-2 bg-teal-850 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5 mx-auto active:scale-98"
+                              >
+                                <Lucide.Cpu className="w-3.5 h-3.5" />
+                                Extract Text & Auto-Populate Fields
+                              </button>
+                            </div>
+                          )}
+
+                          {extractionState === "extracting" && (
+                            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
+                                <span className="flex items-center gap-2">
+                                  <Lucide.Loader className="w-3.5 h-3.5 text-teal-500 animate-spin" />
+                                  <span>{extractionLog}</span>
+                                </span>
+                                <span className="font-mono text-teal-600 dark:text-teal-450">{extractionProgress}%</span>
+                              </div>
+                              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div className="h-full bg-teal-500 transition-all duration-300" style={{ width: `${extractionProgress}%` }} />
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -587,96 +713,6 @@ export default function ContentPage() {
               </div>
             </motion.div>
           </div>
-        )}
-      </AnimatePresence>
-
-      {/* Detail slide-over */}
-      <AnimatePresence>
-        {selectedContent && (
-          <motion.div
-            key="content-detail-drawer-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-50 cursor-pointer"
-            onClick={() => setSelectedContent(null)}
-          />
-        )}
-        {selectedContent && (
-          <motion.div
-            key="content-detail-drawer-content"
-            initial={{ x: "calc(100% + 2rem)", opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "calc(100% + 2rem)", opacity: 0 }}
-            transition={{ type: "spring", damping: 34, stiffness: 280, mass: 0.9 }}
-            className="fixed right-4 top-4 bottom-4 w-[calc(100%-2rem)] max-w-lg bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/50 dark:border-slate-800/50 shadow-2xl overflow-hidden flex flex-col z-50"
-          >
-            {/* Decorative top accent line */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-slate-700 via-slate-600 to-slate-800" />
-
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 relative flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
-              <button
-                onClick={() => setSelectedContent(null)}
-                className="absolute top-5 right-5 p-2 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-200/40 dark:border-slate-700/40 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:shadow-sm hover:scale-105 active:scale-95 transition-all duration-200 group"
-              >
-                <Lucide.X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
-              </button>
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${typeColors[selectedContent.type]}`}>{selectedContent.type}</span>
-                <StatusBadge variant={selectedContent.status} />
-              </div>
-              <h2 className="font-serif text-xl font-bold text-slate-900 dark:text-slate-50 leading-tight pr-8">{selectedContent.name}</h2>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1.5 font-medium">{selectedContent.system} · {selectedContent.category}</p>
-            </div>
-
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide text-slate-800 dark:text-slate-200">
-              {/* Info grid */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">References</p>
-                  <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.references}</p>
-                </div>
-                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Used in Questions</p>
-                  <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{selectedContent.usedInQuestions}</p>
-                </div>
-                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Author</p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.author}</p>
-                </div>
-                <div className="bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100/50 dark:border-slate-800 p-3.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900/60 transition-all">
-                  <p className="text-[10px] text-slate-455 dark:text-slate-500 font-semibold uppercase tracking-wider mb-1">Last Updated</p>
-                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{selectedContent.lastUpdated}</p>
-                </div>
-              </div>
-
-              {/* Content Editor Preview */}
-              <div>
-                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Content Preview</h3>
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 space-y-3">
-                  <div className="flex flex-wrap items-center gap-1.5 pb-3 border-b border-slate-100 dark:border-slate-800">
-                    {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                      <button key={btn} className="h-7 px-2 text-[10px] font-bold text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-teal-50/65 dark:hover:bg-teal-955/25 hover:text-teal-850 transition-all flex items-center justify-center">{btn}</button>
-                    ))}
-                  </div>
-                  <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none">
-                    <p className="text-sm leading-relaxed">This is a preview of the clinical content for <strong>{selectedContent.name}</strong>. In a full implementation, this would contain the detailed medical content, references, and clinical guidelines.</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mt-2">Key points, evidence levels, and management algorithms would be displayed here with proper formatting.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
-              <Link href={`/admin/content/editor?id=${selectedContent.id}`} className="flex-1 text-center px-4 py-2.5 bg-teal-800 text-sm font-bold text-white rounded-xl shadow-md hover:bg-teal-900 active:scale-[0.98] transition-all">
-                Edit Content
-              </Link>
-              <button className="px-5 py-2.5 text-sm font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all">Duplicate</button>
-            </div>
-          </motion.div>
         )}
       </AnimatePresence>
     </motion.div>
