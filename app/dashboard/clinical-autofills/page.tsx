@@ -1,8 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  Search,
+  Clock,
+  Bookmark,
+  BookmarkCheck,
+  X,
+  Copy,
+  Check,
+  FileText,
+  ChevronRight,
+} from "lucide-react";
 
-// ─── Mock Data ─────────────────────────────────────────────────────────────
+// ─── Template Data ───────────────────────────────────────────────────────────
+
 const TEMPLATES = [
   {
     id: 1,
@@ -33,7 +45,7 @@ RISK ASSESSMENT:
 MANAGEMENT PLAN:
 1. Referral to Psychology for focused psychological strategies.
 2. Review in 4 weeks.
-3. Patient provided with crisis contact numbers (Lifeline 13 11 14).`
+3. Patient provided with crisis contact numbers (Lifeline 13 11 14).`,
   },
   {
     id: 2,
@@ -63,7 +75,7 @@ MANAGEMENT PLAN:
 1. Continue current medications: [Medications]
 2. Dietary advice provided.
 3. Encourage 150 mins moderate exercise per week.
-4. Next review in 6 months.`
+4. Next review in 6 months.`,
   },
   {
     id: 3,
@@ -93,7 +105,7 @@ ACTION PLAN:
 * If severe (difficulty speaking, breathless at rest): Call 000 immediately.
 
 FOLLOW UP:
-- Review in [Number] months or earlier if unwell.`
+- Review in [Number] months or earlier if unwell.`,
   },
   {
     id: 4,
@@ -123,7 +135,7 @@ WOUND CHECK:
 PLAN:
 1. Results discussed with patient.
 2. Advised on strict sun protection.
-3. Next full skin check scheduled in [Number] months.`
+3. Next full skin check scheduled in [Number] months.`,
   },
   {
     id: 5,
@@ -156,7 +168,7 @@ ALLIED HEALTH TEAM (TCA Item 723):
 - Dietitian: 1 session
 
 REVIEW:
-- Plan to be reviewed in 6 months (Item 732).`
+- Plan to be reviewed in 6 months (Item 732).`,
   },
   {
     id: 6,
@@ -191,52 +203,46 @@ OTHER:
 
 PLAN:
 - Routine screening up to date.
-- Review PRN.`
+- Review PRN.`,
   },
   {
     id: 7,
     title: "Wound Review",
     category: "Wound Management",
-    description: "Structured wound review template including wound assessment, healing phase, dressing management, and follow-up planning.",
+    description: "Structured wound review including wound assessment, healing phase, dressing management, and follow-up planning.",
     updated: "just now",
     content: `F2F
 ^presents with ^
-^New to me, presents for wound review 
+^New to me, presents for wound review
 ^Planned present for ^
 
 Subjective
  - Progress: ^Improving / Stalled / Deteriorating
- - Pain: ^Score /10, ^Constant / During dressing changes only, ^Overall Improving
+ - Pain: ^Score /10, ^Constant / During dressing changes only
  - Interim events: <Fevers / Systemic symptoms / Antibiotics completed?>
 
-Objective 
-Wound Assessment
+Objective — Wound Assessment
  - Location: ^Site
  - Dimensions: (Length) x (Width) x (Depth) in mm
- - Tissue Type (TIME): 
- T (Tissue): ^% Granulation / % Slough / % Eschar / % Epithelial. Colour of the tissue bed. 
- I (Infection): ^No/Signs of clinical infection? Odour / Heat / Swelling / Erythema
- M (Moisture): ^Exudate: Low / Med / High ^Serous / Haemoserous / Purulent. Is there any bleeding? 
- E (Edge): ^Advancing / Stalled / Rolled / Macerated
+ - Tissue Type (TIME):
+   T (Tissue): ^% Granulation / % Slough / % Eschar / % Epithelial
+   I (Infection): ^No/Signs of clinical infection? Odour / Heat / Swelling / Erythema
+   M (Moisture): ^Exudate: Low / Med / High. Serous / Haemoserous / Purulent.
+   E (Edge): ^Advancing / Stalled / Rolled / Macerated
  - Periwound: ^Healthy / Eczematous / Cellulitic / Macerated
- - Circulation: ^Pulses present? / Capillary refill time: 
 
-Clinical Photography: 
-Consent obtained for clinical photography; image uploaded to gallery/record.
+Clinical Photography:
+Consent obtained. Image uploaded to gallery/record.
 
 Assessment
- - Diagnosis: ^E.g., Venous ulcer / Dehisced surgical wound / Traumatic tear^
+ - Diagnosis: ^E.g., Venous ulcer / Dehisced surgical wound
  - Healing Phase: ^Inflammatory / Proliferative / Maturation
- - Debridement needed: ^None / Autolytic / Conservative Sharp / Mechanical / Biological
 
 Plan
- - Debridement performed: <Type: > - <Result: >
- - Cleansing: <Normal saline / Prontosan / Tap water>
  - Primary Dressing: <E.g., Inadine / Aquacel Ag / Hydrogel / Foam>
- - Secondary Dressing/Fixation: <E.g., Zetuvit / Hypafix / Compression bandage>
+ - Secondary Dressing: <E.g., Zetuvit / Hypafix / Compression bandage>
  - Frequency: <Review in __ days / PRN if strike-through>
- - Referral/Escalation: <Wound clinic / Vascular / Not required>
-*If a wound is stalled, use the assessment section to document if you’ve considered underlying causes (e.g., “Check HbA1c/Iron/ABI if no progress in 2 weeks”).`
+ - Referral: <Wound clinic / Vascular / Not required>`,
   },
   {
     id: 8,
@@ -244,481 +250,669 @@ Plan
     category: "Men's Health",
     description: "Structured template for investigation of male sub-fertility, including history, examination, and management plan.",
     updated: "just now",
-    content: `F2F
-^presents with ^
-^New to me, presents 
-^Planned present for ^
-^Patient and partner presenting for investigation of sub-fertility.
+    content: `F2F — Male Fertility Consultation
+
+Patient and partner presenting for investigation of sub-fertility.
 
 SUBJECTIVE
 Duration: Trying to conceive for ^ months/years.
+
 Partner's Details:
  - Partner's age: ^yrs
- - Known female factor issues (e.g., PMOS, endometriosis, tubal-blockage): Yes / No
+ - Known female factor issues: Yes / No
  - Partner's previous conceptions: Yes / No
-Fertility History (Patient):
- - Previous children (with current or previous partners): Yes / No, at age ^yrs 
+
 Sexual History:
  - Frequency of intercourse: ^ times per week/month.
- - Timing of intercourse (re: fertile window):
- - Difficulties: Erectile dysfunction (present/absent), ejaculatory issues (premature, delayed, anejaculation), dyspareunia.
+ - Difficulties: Erectile dysfunction / ejaculatory issues / dyspareunia.
  - Libido: Normal / Decreased / Increased.
 
-Past Medical History:
-Childhood:
- - ^declines hx of cryptorchidism 
- - ^declines hx of scrotal surgery 
- - ^declines hx of hernia repair 
- - ^declines hx of mumps 
-Genitourinary:
- - ^Declines hx of STIs (Chlamydia, Gonorrhoea) 
- - ^declines hx of Epididymo-orchitis / Prostatitis 
- - ^declines hx of Testicular/scrotal trauma 
- - ^declines vasectomy 
-Systemic Illness:
- - ^no known hx of Diabetes Mellitus 
- - ^declines hx of chemotherapy / radiotherapy 
+PLAN
+Investigations:
+ - Semen Analysis: Request 2x (6-12 weeks apart).
+   Instructions: 2-7 days abstinence, deliver to lab within 1 hour.
+ - Hormonal Profile (if SA abnormal): FSH, LH, Testosterone, Prolactin, SHBG.
 
-Medications & Allergies 
-(mention if on TRT, 5-ARIs, spironolactone or sulfasalasine) 
-
-Social History:
-Occupation:
- - Exposure to: Heat / Pesticides / Solvents / Heavy metals / Radiation: Yes / No
- - Details:
-Substance Use:
- - Smoking: Current / Ex / Never. (^ packs/day)
- - Alcohol: ^ standard drinks per week.
- - Recreational Drugs: ^Declines any 
- Marijuana: Yes / No, Cocaine: Yes / No
- Opiates: Yes / No
- Anabolic steroids (current or past): Yes / No
-General Health:
- - Diet and exercise:
- - Recent high fevers: Yes / No
- - Testicular heat exposure (e.g., saunas, hot tubs): Yes / No
-
-Family History:
- - Infertility (siblings, parents): Yes / No
- - Genetic conditions (e.g., Cystic Fibrosis, Klinefelter): Yes / No
-
-OBJECTIVE/ Examination 
-Vitals: 
- - BMI: 
- - Height
- - Weight: 
-General appearance, secondary sexual characteristics (gynaecomastia, hair distribution, muscle mass):
-Genital Examination:
- - Penis: (e.g., meatal position)
- - Testes (Scrotal Exam):
- - Volume (Orchidometer): Left: _____ ml, Right: _____ ml (Normal >15ml)
-   - Consistency: Firm / Soft / Other
- - Epididymis: Tender / Non-tender / Cysts
- - Vas Deferens: Present bilaterally / Absent (unilateral/bilateral)
- - Varicocele:
-   - Palpable: Yes / No
-   - Present on Valsalva: Yes / No
- - Other: (e.g., hydrocele, surgical scars)
-
-ASSESSMENT 
-?Male factor sub-fertility 
-^There are no obvious predispositions on history. 
-^On examination, patient is well androgenised 
-
-PLAN 
-Investigations to consider: 
- - Semen Analysis (Initial):
- - [ ] Request 2x Semen Analysis (6-12 weeks apart).
- - Instructions given: 2-7 days of abstinence, deliver to lab within 1 hour, keep at body temp. 
- https://www.snp.com.au/media/ghbjmts2/item-35170-semen-collection-202601.pdf and 
- https://www.snp.com.au/patients/patient-resources/pre-test-information/semen-collection/patient (information sheet). 
- - Hormonal Profile (If SA abnormal or clinical suspicion):
- - FSH, LH, Testosterone (early morning, 8-10 am), Prolactin (if low T or low libido), SHBG
- - Genetic (If severe oligo- or azoospermia):
- - Karyotype (Check for Klinefelter XXY)
- - Y-chromosome microdeletions
- - CFTR gene mutation (if vas deferens absent)
- - Imaging:
- - Scrotal Ultrasound (if exam abnormal, varicocele suspected, or testicular mass).
- - Other:
- - STI screen (if not recent)
-
-Advice & further plan 
-Education:
- - Discussed fertile window and advised regular intercourse (e.t., every 2-3 days).
- - Reassurance provided.
-Lifestyle Modifications:
- - Advised smoking cessation.
- - Advised reduction of alcohol.
- - Advised cessation of illicit drugs (esp. marijuana, anabolic steroids).
- - Weight management (if BMI high).
- - Avoid testicular heat (e.g., loose underwear, avoid spas/saunas).
-Medication Review:
- - Reviewed current medications.
- - Advised to stop [e.g., anabolic steroids] if applicable.
-Supplements:
- - Discussed limited evidence but low risk of antioxidants/folic acid.
 Follow-up & Referral:
- - [ ] Follow up to review Semen Analysis results.
-Consider referral to Fertility Specialist / Urologist if:
- - Abnormal Semen Analysis.
- - Azoospermia or severe oligozoospermia.
- - Suspected genetic cause.
- - Significant examination finding (e.g., varicocele, absent vas).
- - Female partner factors also present.
-
-Patient information sheets: 
-1. https://www.betterhealth.vic.gov.au/health/conditionsandtreatments/infertility-in-men
-2. https://www.thewomens.org.au/health-information/fertility-information/fertility-problems/male-infertility
-3. https://www.ivf.com.au/sites/ivfa/files/2023-03/MFC05%20Male%20Fertility%20eBook%2017.03.23-LR_3.pdf`
-  }
+ - Follow up to review Semen Analysis results.
+ - Consider referral to Fertility Specialist / Urologist if:
+   - Abnormal Semen Analysis.
+   - Azoospermia or severe oligozoospermia.
+   - Female partner factors also present.`,
+  },
 ];
 
 const RECENT_TEMPLATES = [
-  { title: "Mental Health Care Plan", time: "2 hours ago" },
-  { title: "Diabetes Review", time: "Yesterday" },
-  { title: "Asthma Management Plan", time: "2 days ago" },
-  { title: "Skin Cancer Follow-Up", time: "4 days ago" },
-  { title: "Chronic Disease Management Plan", time: "5 days ago" },
-  { title: "Women's Health Assessment", time: "1 week ago" },
+  { id: 1, title: "Mental Health Care Plan", time: "2h ago" },
+  { id: 2, title: "Diabetes Review", time: "Yesterday" },
+  { id: 3, title: "Asthma Management Plan", time: "2 days" },
+  { id: 7, title: "Wound Review", time: "4 days" },
 ];
 
-const SAVED_TEMPLATES = [
+const DEFAULT_SAVED = [
   "Chronic Disease Management Plan",
   "Women's Health Assessment",
-  "Immigration Medical Report",
   "Mental Health Care Plan",
 ];
 
-// ─── Component ─────────────────────────────────────────────────────────────
-export default function ClinicalAutofillsPage() {
-  const [filter, setFilter] = useState("All Templates");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<typeof TEMPLATES[0] | null>(null);
-  const [isCopied, setIsCopied] = useState(false);
-  const [copiedContent, setCopiedContent] = useState("");
-  const [visibleCount, setVisibleCount] = useState(6);
-  const [savedTemplates, setSavedTemplates] = useState<string[]>(SAVED_TEMPLATES);
+// Carousel suggestions for the search bar
+const SEARCH_SUGGESTIONS = [
+  "Mental Health Care Plan",
+  "Diabetes Review",
+  "Asthma Management Plan",
+  "Skin Cancer Follow-Up",
+  "Chronic Disease Management Plan",
+];
 
-  const FILTERS = ["All Templates", "Recently Used", "Most Used", "Favourites"];
+const TOOLTIP_KEY = "gp_bookmarks_tooltip_dismissed";
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedContent(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 3000);
+// ─── Vertical Carousel Component ────────────────────────────────────────────
+
+function SearchCarousel() {
+  const [idx, setIdx] = useState(0);
+  // phase: "idle" | "exit" | "enter"
+  const [phase, setPhase] = useState<"idle" | "exit" | "enter">("idle");
+
+  useEffect(() => {
+    const idleTimer = setTimeout(() => {
+      // Begin exit animation
+      setPhase("exit");
+
+      const exitTimer = setTimeout(() => {
+        // Swap text while invisible
+        setIdx(i => (i + 1) % SEARCH_SUGGESTIONS.length);
+        setPhase("enter");
+
+        const enterTimer = setTimeout(() => {
+          setPhase("idle");
+        }, 350); // settle duration
+
+        return () => clearTimeout(enterTimer);
+      }, 350); // exit duration
+
+      return () => clearTimeout(exitTimer);
+    }, 3000); // visible pause
+
+    return () => clearTimeout(idleTimer);
+  }, [idx]);
+
+  const style: React.CSSProperties = {
+    display: "inline-block",
+    transition: "transform 350ms cubic-bezier(0.22,1,0.36,1), opacity 350ms ease",
+    transform:
+      phase === "exit"
+        ? "translateY(-14px)"
+        : phase === "enter"
+          ? "translateY(14px)"
+          : "translateY(0)",
+    opacity: phase === "idle" ? 1 : 0,
+    willChange: "transform, opacity",
   };
 
-  // Filter logic
-  const filteredTemplates = TEMPLATES.filter((t) => {
-    // 1. Search Query
-    if (searchQuery && !t.title.toLowerCase().includes(searchQuery.toLowerCase()) && !t.category.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+  return (
+    <span className="flex items-center gap-0 text-slate-400 text-base pointer-events-none select-none">
+      <span className="text-slate-400">Search - &nbsp;</span>
+      {/* overflow-hidden clips the sliding text so it doesn't bleed outside the bar */}
+      <span className="overflow-hidden" style={{ height: "1.5em", display: "inline-flex", alignItems: "center" }}>
+        <span style={style}>{SEARCH_SUGGESTIONS[idx]}</span>
+      </span>
+    </span>
+  );
+}
+
+// ─── Feature Discovery Tooltip ──────────────────────────────────────────────
+
+function BookmarkTooltip({ onDismiss }: { onDismiss: () => void }) {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <div
+      className="pointer-events-auto"
+      style={{
+        position: "absolute",
+        top: "calc(100% + 10px)",
+        right: 0,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(-6px)",
+        transition: "opacity 400ms ease, transform 400ms ease",
+        zIndex: 60,
+      }}
+    >
+      {/* Arrow */}
+      <div
+        style={{
+          position: "absolute",
+          top: -6,
+          right: 18,
+          width: 12,
+          height: 12,
+          background: "#1e293b",
+          borderRadius: 2,
+          transform: "rotate(45deg)",
+        }}
+      />
+      {/* Card */}
+      <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 shadow-xl flex items-start gap-2.5 max-w-[220px]">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-teal-400 mb-0.5 uppercase tracking-wide">New Feature</p>
+          <p className="text-[12px] leading-snug text-slate-200">
+            Tip: Access your saved templates here.
+          </p>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onDismiss(); }}
+          className="flex-shrink-0 mt-0.5 text-slate-400 hover:text-white transition-colors"
+          aria-label="Dismiss tip"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
+
+export default function ClinicalAutofillsPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<typeof TEMPLATES[0] | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
+  const [modalCopied, setModalCopied] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<string[]>(DEFAULT_SAVED);
+  const [visibleCount, setVisibleCount] = useState(6);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  // Tooltip visibility — read localStorage to check if already dismissed
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const dismissed = localStorage.getItem(TOOLTIP_KEY);
+      if (!dismissed) setShowTooltip(true);
     }
-    // 2. Tab Filters (Mocked logic for demonstration)
-    if (filter === "Recently Used" && !["Mental Health Care Plan", "Diabetes Review", "Asthma Management Plan", "Skin Cancer Follow-Up", "Chronic Disease Management Plan", "Women's Health Assessment"].includes(t.title)) {
-      return false;
+  }, []);
+
+  const dismissTooltip = useCallback(() => {
+    setShowTooltip(false);
+    if (typeof window !== "undefined") localStorage.setItem(TOOLTIP_KEY, "1");
+  }, []);
+
+  // Refs
+  const searchRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Click-outside closes suggestion dropdown
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
     }
-    if (filter === "Most Used" && !["Chronic Disease Management Plan", "Diabetes Review"].includes(t.title)) {
-      return false;
-    }
-    if (filter === "Favourites" && !savedTemplates.includes(t.title)) {
-      return false;
-    }
-    return true;
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  // Body scroll lock when drawer open
+  useEffect(() => {
+    document.body.style.overflow = selectedTemplate ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [selectedTemplate]);
+
+  // Quick Copy (outside modal)
+  const handleQuickCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2500);
+  }, []);
+
+  // Modal Copy
+  const handleModalCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    setModalCopied(true);
+    setTimeout(() => setModalCopied(false), 2000);
+  }, []);
+
+  // Bookmark toggle
+  const toggleSaved = useCallback((title: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSavedTemplates(prev =>
+      prev.includes(title) ? prev.filter(t => t !== title) : [title, ...prev]
+    );
+  }, []);
+
+  // Suggestion list (dropdown)
+  const suggestions = searchQuery.trim().length > 0
+    ? TEMPLATES.filter(t =>
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.category.toLowerCase().includes(searchQuery.toLowerCase())
+    ).slice(0, 5)
+    : TEMPLATES.slice(0, 5);
+
+  // Main grid filter
+  const filteredTemplates = TEMPLATES.filter(t => {
+    const matchesSearch =
+      !searchQuery.trim() ||
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.category.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesBookmarks = !showBookmarks || savedTemplates.includes(t.title);
+    return matchesSearch && matchesBookmarks;
   });
 
   return (
-    <div className="w-full px-4 sm:px-6 pb-20 pt-2 space-y-4">
-      {/* HEADER SECTION */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+    <div className="w-full px-4 sm:px-6 pb-24 pt-2" style={{ fontFamily: "inherit" }}>
+
+      {/* ── PAGE HEADER ──────────────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
           Clinical Autofills
         </h1>
-        <p className="text-[15px] font-medium text-slate-500">
-          Access pre-written clinical templates, edit when required, and copy directly into Best Practice.
+        <p className="mt-1 text-[15px] text-slate-500 font-medium">
+          Pre-written templates — edit and copy directly into Best Practice.
         </p>
       </div>
 
-      {/* SEARCH & FILTER BAR */}
-      <div className="flex flex-col xl:flex-row gap-4 items-center justify-between mb-4">
-        <div className="relative w-full xl:flex-1">
-          <div className="relative glass dark:glass-strong rounded-2xl p-1.5 border border-slate-200/50 dark:border-slate-800/80 shadow-sm">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search clinical templates..."
-              className="w-full pl-4 pr-10 py-2.5 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-[15px]"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                ✕
-              </button>
+      {/* ── SMART COMMAND BAR ────────────────────────────────────────────────── */}
+      <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-8">
+        <div
+          className={`w-full h-14 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
+              ? "border-teal-500 ring-2 ring-teal-500/20"
+              : "border-slate-200 hover:border-slate-300"
+            }`}
+        >
+          <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+
+          {/* Animated placeholder — only shown when field is empty */}
+          {!searchQuery && (
+            <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
+              <SearchCarousel />
+            </span>
+          )}
+
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
+            onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+            onFocus={() => setShowSuggestions(true)}
+            placeholder=""
+            className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-base text-slate-800 z-10 relative"
+          />
+
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+              className="p-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 flex-shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Suggestion dropdown */}
+        {showSuggestions && (
+          <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+            <div className="px-4 pt-3 pb-1">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
+                {searchQuery ? "Matching Templates" : "Suggested Templates"}
+              </p>
+            </div>
+            {suggestions.length === 0 ? (
+              <div className="px-4 py-4 text-sm text-slate-500">No templates found.</div>
+            ) : (
+              <ul className="pb-2">
+                {suggestions.map(t => (
+                  <li key={t.id}>
+                    <button
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        setSelectedTemplate(t);
+                        setShowSuggestions(false);
+                        setSearchQuery("");
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left group"
+                    >
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                        <FileText className="w-4 h-4 text-slate-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate group-hover:text-teal-700 transition-colors">
+                          {t.title}
+                        </p>
+                        <p className="text-xs text-slate-400">{t.category}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-teal-500 transition-colors" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        </div>
-        <div className="flex w-full xl:w-auto overflow-x-auto bg-white border border-slate-200 p-1 rounded-xl shadow-sm">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`whitespace-nowrap px-4 py-2 rounded-lg text-[14px] font-semibold transition-colors ${filter === f
-                  ? "bg-teal-600 text-white shadow-sm"
-                  : "text-slate-600 hover:text-slate-900 bg-transparent"
-                }`}
-            >
-              {f}
-            </button>
-          ))}
+        )}
+      </div>
+
+      {/* ── QUICK ACCESS ─────────────────────────────────────────────────────── */}
+      <div className="mb-8">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+          <Clock className="w-3 h-3" /> Quick Access
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {RECENT_TEMPLATES.map(rt => {
+            const tmpl = TEMPLATES.find(t => t.id === rt.id);
+            return (
+              <button
+                key={rt.id}
+                onClick={() => tmpl && setSelectedTemplate(tmpl)}
+                className="
+                  h-[58px] flex items-center gap-2.5 px-3.5
+                  bg-white border border-slate-200
+                  border-l-2 border-l-transparent
+                  hover:border-l-teal-500 hover:bg-slate-50/70
+                  rounded-xl cursor-pointer transition-all duration-150 text-left group
+                "
+              >
+                <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 group-hover:text-teal-500 transition-colors" />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-slate-700 group-hover:text-teal-700 transition-colors leading-tight">
+                    {rt.title}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{rt.time}</p>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* RECENTLY USED & SAVED TEMPLATES (SIDE-BY-SIDE 2x2 GRIDS) */}
-      <section className="pt-2 pb-2">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* RECENTLY USED SECTION */}
-          <div className="bg-[#f8fafc] dark:bg-slate-900 rounded-[32px] px-8 pt-8 pb-4 shadow-[10px_10px_20px_#d1d5db,-10px_-10px_20px_#ffffff] dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#1e293b] flex flex-col border border-slate-100/50 dark:border-slate-800/50">
-            <h2 className="text-[16px] font-bold text-slate-900 mb-5 ml-2">Recently Used</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {RECENT_TEMPLATES.slice(0, 4).map((t, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    const template = TEMPLATES.find(temp => temp.title === t.title);
-                    if (template) setSelectedTemplate(template);
-                  }}
-                  className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-center h-20 group"
-                >
-                  <h3 className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-1.5 truncate">{t.title}</h3>
-                  <p className="text-[11px] font-medium text-slate-500">{t.time}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-center w-full">
-              <button 
-                onClick={() => { 
-                  setFilter("Recently Used"); 
-                  document.getElementById('main-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
-                }}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-6 rounded-xl transition-colors shadow-sm"
-              >
-                View all
-              </button>
-            </div>
-          </div>
-
-          {/* SAVED TEMPLATES SECTION */}
-          <div className="bg-[#f8fafc] dark:bg-slate-900 rounded-[32px] px-8 pt-8 pb-4 shadow-[10px_10px_20px_#d1d5db,-10px_-10px_20px_#ffffff] dark:shadow-[10px_10px_20px_#0f172a,-10px_-10px_20px_#1e293b] flex flex-col border border-slate-100/50 dark:border-slate-800/50">
-            <h2 className="text-[16px] font-bold text-slate-900 mb-5 ml-2">Saved Templates</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {savedTemplates.slice(0, 4).map((title, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    const template = TEMPLATES.find(temp => temp.title === title);
-                    if (template) setSelectedTemplate(template);
-                  }}
-                  className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/50 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-center h-20 group"
-                >
-                  <h3 className="text-[13px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors line-clamp-2">{title}</h3>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-center w-full">
-              <button 
-                onClick={() => { 
-                  setFilter("Favourites"); 
-                  document.getElementById('main-library')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); 
-                }}
-                className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-6 rounded-xl transition-colors shadow-sm"
-              >
-                View all
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* MAIN TEMPLATE LIBRARY */}
-      <section id="main-library" className="space-y-6 pt-4">
-        
-        <p className="text-[15px] font-medium text-slate-500">
-          Access pre-written clinical templates, edit when required, and copy directly into Best Practice.
+      {/* ── GRID HEADER + BOOKMARKS TOGGLE ───────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+          <FileText className="w-3 h-3" />
+          {showBookmarks ? "Saved Bookmarks" : "All Templates"}
+          {searchQuery && (
+            <span className="ml-2 bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              {filteredTemplates.length} result{filteredTemplates.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </p>
 
-        {/* EMPTY STATE OR TEMPLATE GRID */}
-        {filteredTemplates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="mb-6 relative">
-              <svg className="w-24 h-24 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Template Not Found</h3>
-            <p className="text-slate-500 font-medium mb-8">No results match your search or filter.</p>
+        <div className="flex items-center gap-2">
+          {searchQuery && (
             <button
-              onClick={() => { setSearchQuery(""); setFilter("All Templates"); }}
-              className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[16px] py-3 px-8 rounded-2xl shadow-sm transition-colors"
+              onClick={() => setSearchQuery("")}
+              className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors"
             >
-              Clear Filter
+              <X className="w-3 h-3" /> Clear
             </button>
+          )}
+
+          {/* Bookmarks button — tooltip anchored here */}
+          <div className="relative">
+            <button
+              id="bookmarks-btn"
+              onClick={() => {
+                setShowBookmarks(v => !v);
+                dismissTooltip();
+              }}
+              className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 ${showBookmarks
+                  ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600"
+                }`}
+            >
+              {showBookmarks
+                ? <BookmarkCheck className="w-3.5 h-3.5" />
+                : <Bookmark className="w-3.5 h-3.5" />
+              }
+              Saved Bookmarks
+              {savedTemplates.length > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 text-slate-500"
+                  }`}>
+                  {savedTemplates.length}
+                </span>
+              )}
+            </button>
+
+            {/* Feature discovery tooltip */}
+            {showTooltip && <BookmarkTooltip onDismiss={dismissTooltip} />}
           </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredTemplates.slice(0, visibleCount).map((t) => (
+        </div>
+      </div>
+
+      {/* ── TEMPLATE GRID ─────────────────────────────────────────────────────── */}
+      {filteredTemplates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+            {showBookmarks
+              ? <Bookmark className="w-7 h-7 text-slate-300" />
+              : <Search className="w-7 h-7 text-slate-300" />
+            }
+          </div>
+          <h3 className="text-lg font-bold text-slate-900 mb-1">
+            {showBookmarks ? "No bookmarks yet" : "No templates found"}
+          </h3>
+          <p className="text-slate-500 text-sm mb-5">
+            {showBookmarks
+              ? "Bookmark templates from the grid to save them here."
+              : "Try a different keyword or category."
+            }
+          </p>
+          <button
+            onClick={() => { setSearchQuery(""); setShowBookmarks(false); }}
+            className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm py-2.5 px-6 rounded-xl transition-colors shadow-sm"
+          >
+            {showBookmarks ? "Browse All Templates" : "Clear Search"}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredTemplates.slice(0, visibleCount).map(t => {
+              const isBookmarked = savedTemplates.includes(t.title);
+              return (
                 <div
                   key={t.id}
-                  className="relative glass dark:glass-strong rounded-3xl p-4 border border-slate-200/50 dark:border-slate-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group"
+                  className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col"
+                  onClick={() => setSelectedTemplate(t)}
                 >
+                  {/* Bookmark icon — top-right, appears on hover; always shown if bookmarked */}
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSavedTemplates(prev =>
-                        prev.includes(t.title)
-                          ? prev.filter(title => title !== t.title)
-                          : [t.title, ...prev]
-                      );
-                    }}
-                    className={`absolute top-4 right-4 z-10 transition-opacity duration-200 p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 ${savedTemplates.includes(t.title) ? 'opacity-100 text-yellow-400' : 'opacity-0 group-hover:opacity-100 text-slate-300 hover:text-yellow-400'}`}
-                    title={savedTemplates.includes(t.title) ? "Remove from saved" : "Add to saved"}
+                    onClick={e => toggleSaved(t.title, e)}
+                    title={isBookmarked ? "Remove bookmark" : "Bookmark template"}
+                    className={`absolute top-4 right-4 z-10 p-1.5 rounded-xl transition-all duration-150 ${isBookmarked
+                        ? "text-teal-600 bg-teal-50 hover:bg-teal-100"
+                        : "text-slate-300 hover:text-teal-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100"
+                      }`}
                   >
-                    <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                    </svg>
+                    {isBookmarked
+                      ? <BookmarkCheck className="w-4 h-4" />
+                      : <Bookmark className="w-4 h-4" />
+                    }
                   </button>
 
-                  <div className="pr-8">
-                    <h3 className="text-[16px] font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-1.5">
+                  {/* Title */}
+                  <div className="pr-8 mb-2">
+                    <h3 className="text-[16px] font-bold text-slate-900 leading-snug group-hover:text-teal-700 transition-colors">
                       {t.title}
                     </h3>
-                    <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[10px] px-2 py-0.5 rounded-full mb-2">
-                      {t.category}
-                    </span>
-                    <p className="text-[12px] text-slate-500 font-medium leading-relaxed mb-3">
-                      {t.description}
-                    </p>
                   </div>
 
-                  <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 flex flex-col gap-2">
-                    <p className="text-[11px] font-medium text-slate-400">
-                      Updated {t.updated}
-                    </p>
-                    <div className="flex items-center justify-between">
+                  {/* Uniform slate badge — no color coding */}
+                  <span className="inline-block self-start mb-3 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                    {t.category}
+                  </span>
+
+                  {/* Description — 2-line clamp */}
+                  <p className="text-[12px] text-slate-500 leading-relaxed flex-1 mb-4 line-clamp-2">
+                    {t.description}
+                  </p>
+
+                  {/* Footer row */}
+                  <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                    <p className="text-[11px] text-slate-400 font-medium">Updated {t.updated}</p>
+                    <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => setSelectedTemplate(t)}
-                        className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[13px] py-1.5 px-4 rounded-xl transition-colors"
+                        onClick={e => { e.stopPropagation(); handleQuickCopy(t.content); }}
+                        className="text-[12px] font-semibold text-slate-500 hover:text-teal-600 px-2 py-1 rounded-lg hover:bg-teal-50 transition-all flex items-center gap-1"
                       >
-                        View Template
+                        <Copy className="w-3.5 h-3.5" /> Quick Copy
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleCopy(t.content); }}
-                        className="text-teal-600 hover:text-teal-800 font-bold text-[13px] px-2 transition-colors"
+                        onClick={e => { e.stopPropagation(); setSelectedTemplate(t); }}
+                        className="text-[12px] font-bold bg-teal-600 hover:bg-teal-700 text-white py-1 px-3 rounded-xl transition-colors"
                       >
-                        Copy
+                        View
                       </button>
                     </div>
                   </div>
                 </div>
-              ))}
+              );
+            })}
+          </div>
+
+          {visibleCount < filteredTemplates.length && (
+            <div className="flex justify-center mt-6">
+              <button
+                onClick={() => setVisibleCount(v => v + 6)}
+                className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 font-semibold text-sm rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                Load more templates
+              </button>
             </div>
+          )}
+        </>
+      )}
 
-            {/* LOAD MORE */}
-            {visibleCount < filteredTemplates.length && (
-              <div className="flex justify-center pt-4">
-                <button
-                  onClick={() => setVisibleCount((v) => v + 6)}
-                  className="px-6 py-2.5 bg-white border border-slate-200 text-teal-700 font-bold text-[14px] rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                  Load More Templates
-                </button>
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {/* TEMPLATE DRAWER (MODAL) */}
+      {/* ── SLIDE-OVER DRAWER ────────────────────────────────────────────────── */}
       {selectedTemplate && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-0 bg-slate-900/40 backdrop-blur-sm transition-opacity">
-          {/* Overlay to click-away */}
+        <div className="fixed inset-0 z-[100] flex">
+          {/* Glassmorphism backdrop */}
           <div
-            className="absolute inset-0 cursor-pointer"
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setSelectedTemplate(null)}
           />
 
-          {/* Full-Screen Modal Panel (Touching the Top Edge) */}
-          <div className="relative w-full max-w-5xl bg-white h-[100vh] flex flex-col rounded-b-2xl shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200 overflow-hidden">
-            {/* Header */}
-            <div className="p-6 md:p-8 border-b border-slate-100 flex-shrink-0 bg-white">
+          {/*
+            ┌─────────────────────────────────────────┐
+            │  Drawer shell: flex-col, h-screen       │
+            │  overflow-hidden on the shell itself    │
+            │  (never let children expand it)         │
+            ├─────────────────────────────────────────┤
+            │ ① FIXED HEADER     flex-shrink-0        │
+            ├─────────────────────────────────────────┤
+            │ ② INSTRUCTION BANNER  flex-shrink-0     │
+            ├─────────────────────────────────────────┤
+            │ ③ SCROLLABLE CONTENT  flex-1 min-h-0    │
+            │   overflow-y-auto                       │
+            ├─────────────────────────────────────────┤
+            │ ④ PINNED FOOTER    flex-shrink-0        │
+            └─────────────────────────────────────────┘
+          */}
+          <div
+            className="relative ml-auto w-full max-w-2xl h-screen flex flex-col bg-white shadow-2xl overflow-hidden"
+            style={{ animation: "slideInRight 210ms cubic-bezier(0.22,1,0.36,1) both" }}
+          >
+
+            {/* ① FIXED HEADER — never scrolls */}
+            <div className="flex-shrink-0 px-7 py-5 border-b border-slate-100 bg-white z-10">
               <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-3 leading-tight">{selectedTemplate.title}</h2>
-                  <div className="flex items-center gap-4">
-                    <span className="inline-flex bg-teal-50/80 text-teal-700 font-bold text-[12px] px-3 py-1 rounded-full">
+                <div className="flex-1 min-w-0 pr-4">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="inline-flex items-center text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
                       {selectedTemplate.category}
                     </span>
-                    <span className="text-[13px] font-medium text-slate-500">Updated {selectedTemplate.updated}</span>
+                    <span className="text-[12px] text-slate-400 font-medium">
+                      Updated {selectedTemplate.updated}
+                    </span>
                   </div>
+                  <h2 className="text-[20px] font-extrabold text-slate-900 leading-tight">
+                    {selectedTemplate.title}
+                  </h2>
                 </div>
-
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => handleCopy(selectedTemplate.content)}
-                    className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[14px] py-2 px-6 rounded-xl shadow-sm transition-colors whitespace-nowrap"
-                  >
-                    Copy
-                  </button>
-                  <button
-                    onClick={() => setSelectedTemplate(null)}
-                    className="text-slate-400 hover:text-slate-700 text-3xl font-bold p-1 leading-none transition-colors"
-                    aria-label="Close"
-                  >
-                    ×
-                  </button>
-                </div>
+                <button
+                  onClick={() => setSelectedTemplate(null)}
+                  className="flex-shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto p-8 bg-white relative">
-              <div className="bg-teal-50/50 border border-teal-100/50 rounded-xl p-5 mb-8">
-                <p className="text-teal-800 text-[14px] font-medium leading-relaxed">
-                  Copy the text below and paste directly into Best Practice.
-                  <br />
+            {/* ② INSTRUCTION BANNER — never scrolls, solid bg blocks text bleed */}
+            <div className="flex-shrink-0 px-7 pt-4 pb-3 bg-white z-10">
+              <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
+                <p className="text-[13px] text-teal-800 font-medium leading-relaxed">
+                  Copy the text below and paste directly into{" "}
+                  <span className="font-bold">Best Practice</span>.{" "}
                   Formatting will be preserved.
                 </p>
               </div>
+            </div>
 
-              <div className="border border-slate-100 rounded-2xl p-8 pb-20 max-w-4xl relative">
-                <h3 className="text-xl font-bold text-slate-900 mb-6">{selectedTemplate.title}</h3>
-                <pre className="whitespace-pre-wrap font-sans text-[15px] leading-relaxed text-slate-800">
+            {/* ③ SCROLLABLE CONTENT — min-h-0 is essential to confine it */}
+            <div className="flex-1 min-h-0 overflow-y-auto px-7 pb-2 pt-3">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-inner">
+                <pre className="whitespace-pre-wrap font-mono text-[13px] text-slate-800 leading-relaxed">
                   {selectedTemplate.content}
                 </pre>
               </div>
+            </div>
+
+            {/* ④ PINNED COPY FOOTER — never scrolls */}
+            <div className="flex-shrink-0 px-7 py-4 bg-white border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => handleModalCopy(selectedTemplate.content)}
+                className={`flex items-center gap-2 py-3 px-7 rounded-xl font-bold text-[14px] shadow-md transition-all duration-200 ${modalCopied
+                    ? "bg-emerald-500 text-white scale-95"
+                    : "bg-teal-600 hover:bg-teal-700 text-white hover:shadow-lg"
+                  }`}
+              >
+                {modalCopied
+                  ? <><Check className="w-5 h-5" /> Copied!</>
+                  : <><Copy className="w-5 h-5" /> Copy to Clipboard</>
+                }
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* GLOBAL SUCCESS POPUP (FLOATING TOAST) */}
-      <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-2xl bg-teal-50/95 backdrop-blur-md border border-teal-200/80 p-5 rounded-2xl flex items-center justify-between transition-all duration-300 shadow-2xl ${isCopied ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-8 opacity-0 scale-95 pointer-events-none'}`}>
-        <div className="flex items-center gap-4">
-          <div className="bg-teal-600 rounded-full p-2 text-white shadow-sm">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-          </div>
-          <div>
-            <p className="text-[15px] font-bold text-teal-900">Template copied to clipboard!</p>
-            <p className="text-[13px] font-medium text-teal-700">You can now paste it into Best Practice.</p>
-          </div>
+      {/* ── GLOBAL QUICK-COPY TOAST ──────────────────────────────────────────── */}
+      <div
+        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm bg-slate-900 text-white px-5 py-3.5 rounded-2xl flex items-center gap-3 shadow-2xl transition-all duration-300 ${isCopied
+            ? "translate-y-0 opacity-100 scale-100"
+            : "translate-y-6 opacity-0 scale-95 pointer-events-none"
+          }`}
+      >
+        <div className="w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
+          <Check className="w-4 h-4 text-white" strokeWidth={3} />
+        </div>
+        <div>
+          <p className="text-[14px] font-bold">Copied to clipboard</p>
+          <p className="text-[12px] text-slate-400">Paste directly into Best Practice</p>
         </div>
       </div>
+
+      {/* ── GLOBAL CSS ───────────────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   );
 }
