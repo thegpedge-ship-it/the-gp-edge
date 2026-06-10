@@ -6,6 +6,7 @@ export interface Quiz {
   description: string;
   duration: string;
   questionCount: number;
+  difficulty: "Easy" | "Medium" | "Hard";
 }
 
 export interface SubTopic {
@@ -27,16 +28,16 @@ export interface Subject {
 
 function makeQuizzes(prefix: string, topic: string): Quiz[] {
   return [
-    { id: `${prefix}-q1`, name: "Quick Review", description: `Rapid-fire MCQs covering key ${topic} concepts and definitions.`, duration: "10 min", questionCount: 15 },
-    { id: `${prefix}-q2`, name: "Deep Dive", description: `Comprehensive questions testing in-depth ${topic} knowledge and guidelines.`, duration: "30 min", questionCount: 25 },
-    { id: `${prefix}-q3`, name: "Case Studies", description: `Clinical scenario-based questions on ${topic} management and decision-making.`, duration: "20 min", questionCount: 10 },
-    { id: `${prefix}-q4`, name: "Rapid Fire", description: `Timed recall challenge — short ${topic} questions under pressure.`, duration: "5 min", questionCount: 20 },
-    { id: `${prefix}-q5`, name: "Mock Test", description: `Exam-style full mock on ${topic} covering diagnosis, treatment and follow-up.`, duration: "45 min", questionCount: 40 },
-    { id: `${prefix}-q6`, name: "Diagnosis Drill", description: `Identify the correct diagnosis from clinical presentations related to ${topic}.`, duration: "15 min", questionCount: 20 },
-    { id: `${prefix}-q7`, name: "Pharmacology Focus", description: `Drug choices, dosing, interactions and side effects for ${topic} medications.`, duration: "12 min", questionCount: 15 },
-    { id: `${prefix}-q8`, name: "Investigation Picker", description: `Choose the right investigations and interpret results for ${topic} scenarios.`, duration: "18 min", questionCount: 12 },
-    { id: `${prefix}-q9`, name: "Management Pathways", description: `Step-by-step management plans and referral decisions for ${topic}.`, duration: "25 min", questionCount: 18 },
-    { id: `${prefix}-q10`, name: "Red Flags & Emergencies", description: `Identify red flag symptoms and emergency management in ${topic}.`, duration: "8 min", questionCount: 10 },
+    { id: `${prefix}-q1`, name: "Quick Review", description: `Rapid-fire MCQs covering key ${topic} concepts and definitions.`, duration: "10 min", questionCount: 15, difficulty: "Easy" },
+    { id: `${prefix}-q2`, name: "Deep Dive", description: `Comprehensive questions testing in-depth ${topic} knowledge and guidelines.`, duration: "30 min", questionCount: 25, difficulty: "Hard" },
+    { id: `${prefix}-q3`, name: "Case Studies", description: `Clinical scenario-based questions on ${topic} management and decision-making.`, duration: "20 min", questionCount: 10, difficulty: "Medium" },
+    { id: `${prefix}-q4`, name: "Rapid Fire", description: `Timed recall challenge — short ${topic} questions under pressure.`, duration: "5 min", questionCount: 20, difficulty: "Easy" },
+    { id: `${prefix}-q5`, name: "Mock Test", description: `Exam-style full mock on ${topic} covering diagnosis, treatment and follow-up.`, duration: "45 min", questionCount: 40, difficulty: "Hard" },
+    { id: `${prefix}-q6`, name: "Diagnosis Drill", description: `Identify the correct diagnosis from clinical presentations related to ${topic}.`, duration: "15 min", questionCount: 20, difficulty: "Medium" },
+    { id: `${prefix}-q7`, name: "Pharmacology Focus", description: `Drug choices, dosing, interactions and side effects for ${topic} medications.`, duration: "12 min", questionCount: 15, difficulty: "Medium" },
+    { id: `${prefix}-q8`, name: "Investigation Picker", description: `Choose the right investigations and interpret results for ${topic} scenarios.`, duration: "18 min", questionCount: 12, difficulty: "Medium" },
+    { id: `${prefix}-q9`, name: "Management Pathways", description: `Step-by-step management plans and referral decisions for ${topic}.`, duration: "25 min", questionCount: 18, difficulty: "Hard" },
+    { id: `${prefix}-q10`, name: "Red Flags & Emergencies", description: `Identify red flag symptoms and emergency management in ${topic}.`, duration: "8 min", questionCount: 10, difficulty: "Hard" },
   ];
 }
 
