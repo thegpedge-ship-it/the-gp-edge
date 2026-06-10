@@ -129,7 +129,7 @@ export default function SettingsPage() {
             <div className="bg-white/40 border border-slate-100 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">Largest File</p>
               <p className="text-xl font-bold text-slate-900">45 MB</p>
-              <p className="text-xs text-slate-400">question_bank.csv</p>
+              <p className="text-xs text-slate-400">medical_library.pdf</p>
             </div>
           </div>
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
@@ -66,6 +66,7 @@ export default function AutofillPage() {
   const [newName, setNewName] = useState("");
   const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
   const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
+  const [visibleCount, setVisibleCount] = useState(9);
 
   // Wizard tab & ref
   const [activeTab, setActiveTab] = useState<"manual" | "upload">("manual");
@@ -158,12 +159,22 @@ export default function AutofillPage() {
       setExtractionLog("Extraction complete!");
       
       if (extractedData) {
-        setReviewTitle(extractedData.title || "Extracted Template");
-        setReviewSystem(extractedData.system || "Respiratory");
-        setReviewCategory(extractedData.category || "Acute");
-        setReviewSymptoms(extractedData.symptoms || "");
-        setReviewTreatment(extractedData.treatment || "");
-        setReviewNotes(extractedData.notes || "");
+        if (extractedData.type === "autofill" && extractedData.autofill) {
+          const af = extractedData.autofill;
+          setReviewTitle(af.name || "Extracted Template");
+          setReviewSystem(af.system || "Respiratory");
+          setReviewCategory("SOAP Template");
+          setReviewSymptoms(af.subjective || "");
+          setReviewTreatment(af.plan || "");
+          setReviewNotes((af.objective ? "Objective:\n" + af.objective : "") + (af.assessment ? "\n\nAssessment:\n" + af.assessment : ""));
+        } else {
+          setReviewTitle(extractedData.title || "Extracted Template");
+          setReviewSystem(extractedData.system || "Respiratory");
+          setReviewCategory(extractedData.category || "Acute");
+          setReviewSymptoms(extractedData.symptoms || "");
+          setReviewTreatment(extractedData.treatment || "");
+          setReviewNotes(extractedData.notes || "");
+        }
       } else {
         setReviewTitle("Acne SOAP Template");
         setReviewSystem("Dermatology");
@@ -297,11 +308,24 @@ export default function AutofillPage() {
     };
   }, [showEditor]);
 
+  // Reset visibleCount when search query or filters change
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [searchQuery, statusFilter]);
+
   const filtered = templates.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = statusFilter === "all" || t.status === statusFilter;
     return matchSearch && matchStatus;
   });
+
+  const sortedTemplates = useMemo(() => {
+    return [...filtered].sort((a, b) => b.id - a.id);
+  }, [filtered]);
+
+  const displayedTemplates = useMemo(() => {
+    return sortedTemplates.slice(0, visibleCount);
+  }, [sortedTemplates, visibleCount]);
 
   const totalUsage = templates.reduce((sum, t) => sum + t.usageCount, 0);
   const maxUsage = Math.max(...templates.map((t) => t.usageCount), 1);
@@ -376,10 +400,9 @@ export default function AutofillPage() {
         </div>
       </motion.div>
 
-      {/* ========== CARD GRID VIEW ========== */}
       {viewMode === "grid" && (
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((template, idx) => {
+          {displayedTemplates.map((template, idx) => {
             const sc = systemColors[template.system] || defaultSystemColor;
             return (
               <motion.div
@@ -475,6 +498,19 @@ export default function AutofillPage() {
             );
           })}
         </motion.div>
+      )}
+
+      {sortedTemplates.length > visibleCount && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + 9)}
+            className={`px-6 py-3 text-sm font-semibold rounded-xl border transition-all flex items-center gap-2 hover:shadow-lg ${themeBtnGhost} bg-white dark:bg-slate-900 border-teal-200/60 dark:border-teal-900/40 text-teal-800 dark:text-teal-300`}
+          >
+            <Lucide.ChevronDown className="w-4 h-4 animate-bounce shrink-0" />
+            See More Templates
+          </button>
+        </div>
       )}
 
       {/* Empty state */}
@@ -634,6 +670,13 @@ export default function AutofillPage() {
                     {uploadState === "idle" && (
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
+                        <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+                          <span className="text-[11px] text-slate-455">Download SOAP Note autofill template:</span>
+                          <a href="/templates/autofill_template.docx" download className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0">
+                            <Lucide.Download className="w-3 h-3" />
+                            Download Template
+                          </a>
+                        </div>
                         <div
                           onClick={() => fileInputRef.current?.click()}
                           className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex flex-col items-center justify-center"
