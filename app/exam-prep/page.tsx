@@ -15,7 +15,7 @@ export default function ExamPrepPage() {
         className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0"
       >
         {/* ── 70% Left — Subject Menu ─────────────────────────────── */}
-        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 pl-6 sm:pl-8 pt-6 sm:pt-8 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
+        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 pl-2 sm:pl-3 pt-6 sm:pt-8 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
           <SubjectMenu />
         </div>
 

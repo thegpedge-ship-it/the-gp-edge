@@ -41,13 +41,13 @@ export default function SubjectMenu() {
   return (
     <div className="flex flex-col h-full">
       {/* Title */}
-      <div className="mb-4">
+      <div className="mb-4 pl-4 sm:pl-6">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Medical Subjects</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Master every topic, drill your weak areas, and pass with confidence.</p>
       </div>
 
       {/* ─── 3-Column Vertical Menu ───────────────────────────────────── */}
-      <div className="flex-1 flex min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
+      <div className="flex-1 flex min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20 mt-[10px] ml-[10px]">
 
         {/* ── Column 1: Subjects (collapsible) ────────────────────────── */}
         <div
@@ -55,8 +55,8 @@ export default function SubjectMenu() {
           style={{ width: subjectsCollapsed ? 100 : 200 }}
         >
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-800/60 sticky top-0 z-10 flex items-center justify-between">
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest whitespace-nowrap">Subjects</p>
+          <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest whitespace-nowrap">Subjects</p>
             {subjectsCollapsed && (
               <button
                 onClick={() => setSubjectsCollapsed(false)}
@@ -107,8 +107,8 @@ export default function SubjectMenu() {
           style={{ width: subtopicsCollapsed ? 100 : 220 }}
         >
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-800/60 sticky top-0 z-10 flex items-center justify-between">
-            <p className={`text-[10px] font-bold uppercase tracking-widest truncate ${colors.text}`}>{selectedSubject.name}</p>
+          <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between">
+            <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest truncate">{selectedSubject.name}</p>
             {subtopicsCollapsed && (
               <button
                 onClick={() => setSubtopicsCollapsed(false)}
@@ -168,9 +168,9 @@ export default function SubjectMenu() {
         </div>
 
         {/* ── Column 3: Tests ─────────────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className="px-4 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-slate-50/80 dark:bg-slate-800/60 sticky top-0 z-10">
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+        <div className="flex-1 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll" style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}>
+          <div className="px-4 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10">
+            <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest">
               Choose a test &mdash; {selectedSubtopic.name}
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function SubjectMenu() {
               {selectedSubtopic.quizzes.map((quiz) => (
                 <button
                   key={quiz.id}
-                  className="group/test relative rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 hover:shadow-lg hover:border-emerald-400/50 dark:hover:border-emerald-500/40 hover:-translate-y-0.5 transition-all duration-300 text-left"
+                  className="group/test relative rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 hover:shadow-lg hover:border-emerald-400/50 dark:hover:border-emerald-500/40 hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 text-left will-change-transform"
                 >
                   <div className="flex items-center justify-between mb-1">
                     <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 group-hover/test:text-emerald-700 dark:group-hover/test:text-emerald-300 transition-colors">
