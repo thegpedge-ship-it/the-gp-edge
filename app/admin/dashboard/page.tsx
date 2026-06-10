@@ -20,7 +20,7 @@ const itemVariants = {
 const recentActivity = [
   { user: "Dr. James Wilson", action: "Subscribed to Premium", time: "15 mins ago", type: "billing" as const },
   { user: "Dr. Emily Watson", action: "Created new account", time: "1 hour ago", type: "signup" as const },
-  { user: "Dr. Priya Sharma", action: "Uploaded CSV (142 questions)", time: "2 hours ago", type: "upload" as const },
+  { user: "Dr. Priya Sharma", action: "Created Autofill Template", time: "2 hours ago", type: "signup" as const },
   { user: "Dr. Michael Torres", action: "Upgraded to Annual plan", time: "3 hours ago", type: "billing" as const },
   { user: "Dr. Alex Kumar", action: "Flagged Question #2847", time: "4 hours ago", type: "flag" as const },
   { user: "Dr. Rachel Green", action: "Renewed subscription", time: "5 hours ago", type: "billing" as const },

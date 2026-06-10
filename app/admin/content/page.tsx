@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
@@ -30,6 +30,7 @@ export default function ContentPage() {
   const [systemFilter, setSystemFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(9);
 
   // Content Upload Modal Wizard
   const [showAddModal, setShowAddModal] = useState(false);
@@ -72,6 +73,21 @@ export default function ContentPage() {
     const matchStatus = statusFilter === "all" || c.status === statusFilter;
     return matchSearch && matchSystem && matchType && matchStatus;
   });
+
+  const sortedContent = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const timeA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+      const timeB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return b.id - a.id;
+    });
+  }, [filtered]);
+
+  const displayedContent = useMemo(() => {
+    return sortedContent.slice(0, visibleCount);
+  }, [sortedContent, visibleCount]);
 
   const updateStatus = (id: number, newStatus: MedicalContent["status"]) => {
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
@@ -223,6 +239,11 @@ export default function ContentPage() {
     };
   }, [showAddModal]);
 
+  // Reset visibleCount when search query or filters change
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [searchQuery, statusFilter, typeFilter, systemFilter]);
+
   // Submit and save content
   const handleSaveContent = (type: MedicalContent["type"]) => {
     if (!newTitle.trim()) {
@@ -341,7 +362,7 @@ export default function ContentPage() {
 
       {/* Content cards grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((item) => (
+        {displayedContent.map((item) => (
           <motion.div
             key={item.id}
             layout
@@ -398,6 +419,19 @@ export default function ContentPage() {
           </motion.div>
         ))}
       </motion.div>
+
+      {sortedContent.length > visibleCount && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + 9)}
+            className="px-6 py-3 text-sm font-semibold rounded-xl border border-teal-200/60 dark:border-teal-900/40 text-teal-800 dark:text-teal-300 bg-white dark:bg-slate-900 hover:shadow-lg transition-all flex items-center gap-2"
+          >
+            <Lucide.ChevronDown className="w-4 h-4 animate-bounce shrink-0" />
+            See More Content
+          </button>
+        </div>
+      )}
 
       {/* Content Upload wizard Modal */}
       <AnimatePresence>
@@ -566,9 +600,15 @@ export default function ContentPage() {
                       <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
 
-                    {/* PDF Drag and Drop Simulator */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">PDF Document Attachment</label>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">PDF or Word Document Attachment</label>
+                      <div className="mb-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+                        <span className="text-[11px] text-slate-455">Download medical content import template:</span>
+                        <a href="/templates/medical_content_template.docx" download className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0">
+                          <Lucide.Download className="w-3 h-3" />
+                          Download Template
+                        </a>
+                      </div>
                       
                       {uploadState === "idle" && (
                         <div 
