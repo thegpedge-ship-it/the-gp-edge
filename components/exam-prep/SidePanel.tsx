@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { upcomingMock, mockDrill } from "./data";
+import MockDrillModal from "./MockDrillModal";
 
 /* ─── Countdown Hook ──────────────────────────────────────────────────── */
 function useCountdown(targetDate: string) {
@@ -43,7 +44,7 @@ function Digit({ value, label }: { value: number; label: string }) {
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SidePanel() {
   const countdown = useCountdown(upcomingMock.date);
-
+  const [showDrillModal, setShowDrillModal] = useState(false);
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -76,7 +77,10 @@ export default function SidePanel() {
       </div>
 
       {/* ─── 2. Create Your Own Quiz ───────────────────────────── */}
-      <div className="glass dark:glass-strong rounded-2xl border border-slate-200/50 dark:border-slate-700/40 shadow-md overflow-hidden flex-shrink-0 px-4 py-3 cursor-pointer">
+      <div
+        onClick={() => setShowDrillModal(true)}
+        className="glass dark:glass-strong rounded-2xl border border-slate-200/50 dark:border-slate-700/40 shadow-md overflow-hidden flex-shrink-0 px-4 py-3 cursor-pointer"
+      >
         <div>
           <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">Create Your Own Quiz</h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400">Pick your topics, set your rules.</p>
@@ -103,6 +107,9 @@ export default function SidePanel() {
           Start Mock Drill &rarr;
         </button>
       </div>
+
+      {/* Mock Drill Modal */}
+      <MockDrillModal open={showDrillModal} onClose={() => setShowDrillModal(false)} />
     </div>
   );
 }
