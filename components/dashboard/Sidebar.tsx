@@ -52,7 +52,7 @@ const OP_DUR = "160ms";
 // ─── Nav items ───────────────────────────────────────────────────────────────
 const NAV = [
   { href: "/dashboard",                  icon: LayoutGrid, label: "Dashboard"        },
-  { href: "/dashboard/exam-prep",        icon: FileText,   label: "Exam Prep"        },
+  { href: "/exam-prep",                   icon: FileText,   label: "Exam Prep"        },
   { href: "/dashboard/profile",          icon: User,       label: "My Profile"       },
   { href: "/dashboard/billing",          icon: Receipt,    label: "MBS Billing"      },
   { href: "/dashboard/medical-library",  icon: BookOpen,   label: "Medical Library" },

@@ -40,7 +40,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           <Link
-            href="/dashboard/exam-prep"
+            href="/exam-prep"
             className="text-[15px] font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
           >
             Exam Prep
