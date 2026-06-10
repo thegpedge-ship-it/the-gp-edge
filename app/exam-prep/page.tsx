@@ -5,7 +5,7 @@ import { SubjectMenu, SidePanel } from "@/components/exam-prep";
 
 export default function ExamPrepPage() {
   return (
-    <div className="relative -mt-2 flex flex-col" style={{ minHeight: "calc(100vh - 120px)" }}>
+    <div className="relative -mt-2 flex flex-col overflow-hidden" style={{ height: "calc(100vh - 120px)" }}>
 
       {/* ─── Main Content (70-30 split) — fills remaining height ──────── */}
       <motion.div
@@ -15,12 +15,12 @@ export default function ExamPrepPage() {
         className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0"
       >
         {/* ── 70% Left — Subject Menu ─────────────────────────────── */}
-        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
+        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 pl-6 sm:pl-8 pt-6 sm:pt-8 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
           <SubjectMenu />
         </div>
 
         {/* ── 30% Right — Side Panel ─────────────────────────────── */}
-        <div className="lg:w-[30%] flex flex-col">
+        <div className="lg:w-[30%] flex flex-col overflow-y-auto scrollbar-hide min-h-0">
           <SidePanel />
         </div>
       </motion.div>

@@ -62,7 +62,7 @@ export default function SidePanel() {
       <div className="relative glass dark:glass-strong rounded-2xl p-4 border border-emerald-200/50 dark:border-emerald-800/40 shadow-lg overflow-hidden group flex-shrink-0">
         {/* Decorative circles */}
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-emerald-400/10 dark:bg-emerald-500/5 group-hover:scale-110 transition-transform duration-700" />
-        <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-teal-400/10 dark:bg-teal-500/5 group-hover:scale-110 transition-transform duration-700" />
+        <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-green-400/10 dark:bg-green-500/5 group-hover:scale-110 transition-transform duration-700" />
 
         <div className="relative">
           {/* Badge */}
@@ -92,13 +92,12 @@ export default function SidePanel() {
               <span className="text-emerald-600 dark:text-emerald-400">{upcomingMock.totalSpots - upcomingMock.registeredCount} spots left</span>
             </div>
             <div className="h-1.5 bg-slate-200/60 dark:bg-slate-700 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-700" style={{ width: `${spotsFilled}%` }} />
+              <div className="h-full bg-gradient-to-r from-emerald-400 to-green-500 rounded-full transition-all duration-700" style={{ width: `${spotsFilled}%` }} />
             </div>
           </div>
 
-          <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2">
-            Register Now
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+          <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+            Register Now &rarr;
           </button>
         </div>
       </div>
@@ -109,20 +108,13 @@ export default function SidePanel() {
           onClick={() => setShowQuizBuilder(!showQuizBuilder)}
           className="w-full px-4 py-3 flex items-center justify-between group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 flex items-center justify-center">
-              <svg className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-            <div className="text-left">
-              <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">Create Your Own Quiz</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">Pick your topics, set your rules.</p>
-            </div>
+          <div className="text-left">
+            <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">Create Your Own Quiz</h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">Pick your topics, set your rules.</p>
           </div>
-          <svg className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${showQuizBuilder ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
+          <span className={`text-[11px] font-bold text-slate-400 transition-transform duration-300 ${showQuizBuilder ? "rotate-180" : ""}`}>
+            &#9662;
+          </span>
         </button>
 
         <AnimatePresence>
@@ -146,7 +138,7 @@ export default function SidePanel() {
                         className={`
                           px-2.5 py-1.5 rounded-lg text-[11px] font-bold border transition-all duration-200
                           ${isSelected
-                            ? "bg-teal-50 dark:bg-teal-900/30 border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 ring-1 ring-teal-500/20"
+                            ? "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 ring-1 ring-emerald-500/20"
                             : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600"
                           }
                         `}
@@ -163,12 +155,11 @@ export default function SidePanel() {
                     animate={{ opacity: 1, y: 0 }}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-[12px] font-bold text-teal-600 dark:text-teal-400">
+                    <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
                       {selectedTopics.length} topic{selectedTopics.length > 1 ? "s" : ""} selected
                     </span>
-                    <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-[12px] font-bold shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex items-center gap-1.5">
-                      Start Quiz
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-[12px] font-bold shadow-md shadow-emerald-600/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+                      Start Quiz &rarr;
                     </button>
                   </motion.div>
                 )}
@@ -183,38 +174,23 @@ export default function SidePanel() {
       </div>
 
       {/* ─── 3. Mock Drill ─────────────────────────────────────── */}
-      <div className="glass dark:glass-strong rounded-3xl p-5 border border-slate-200/50 dark:border-slate-700/40 shadow-md group hover:shadow-lg hover:border-teal-400/40 dark:hover:border-teal-500/30 transition-all duration-300 flex-1 flex flex-col">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 flex items-center justify-center">
-            <svg className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} />
-            </svg>
-          </div>
-          <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">{mockDrill.title}</h3>
-        </div>
+      <div className="glass dark:glass-strong rounded-3xl p-5 border border-slate-200/50 dark:border-slate-700/40 shadow-md group hover:shadow-lg hover:border-emerald-400/40 dark:hover:border-emerald-500/30 transition-all duration-300 flex flex-col">
+        <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-2">{mockDrill.title}</h3>
 
-        <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4 flex-1">
+        <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
           {mockDrill.description}
         </p>
 
         <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
-          <span className="flex items-center gap-1.5">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10" strokeWidth={2} /><path strokeLinecap="round" strokeWidth={2} d="M12 6v6l4 2" /></svg>
-            {mockDrill.duration}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-            {mockDrill.questionCount} Qs
-          </span>
-          <span className="flex items-center gap-1.5">
-            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-            {mockDrill.difficulty}
-          </span>
+          <span>{mockDrill.duration}</span>
+          <span>&middot;</span>
+          <span>{mockDrill.questionCount} Qs</span>
+          <span>&middot;</span>
+          <span>{mockDrill.difficulty}</span>
         </div>
 
-        <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white text-[13px] font-bold shadow-md shadow-amber-600/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2">
-          Start Mock Drill
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+        <button className="w-full py-2.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-[13px] font-bold shadow-md shadow-green-600/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+          Start Mock Drill &rarr;
         </button>
       </div>
     </div>
