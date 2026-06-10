@@ -17,6 +17,7 @@ const sectionLabels: Record<string, string> = {
   quizzes: "Quiz Management",
   content: "Medical Content",
   autofill: "Autofill Templates",
+  uploads: "Uploads",
   notifications: "Notifications",
   billing: "Billing & Subscription",
   audit: "Audit Log",
