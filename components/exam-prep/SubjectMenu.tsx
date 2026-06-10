@@ -31,12 +31,21 @@ export default function SubjectMenu() {
   const [selectedSubtopic, setSelectedSubtopic] = useState<SubTopic | null>(null);
 
   const handleSubjectClick = (subject: Subject) => {
-    setSelectedSubject(subject);
-    setSelectedSubtopic(null);
+    if (selectedSubject?.id === subject.id) {
+      setSelectedSubject(null);
+      setSelectedSubtopic(null);
+    } else {
+      setSelectedSubject(subject);
+      setSelectedSubtopic(null);
+    }
   };
 
   const handleSubtopicClick = (subtopic: SubTopic) => {
-    setSelectedSubtopic(subtopic);
+    if (selectedSubtopic?.id === subtopic.id) {
+      setSelectedSubtopic(null);
+    } else {
+      setSelectedSubtopic(subtopic);
+    }
   };
 
   const handleExpandSubjects = () => {
@@ -213,7 +222,7 @@ export default function SubjectMenu() {
                 {selectedSubtopic.quizzes.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left"
+                    className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left hover:scale-[1.03] hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer"
                   >
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
