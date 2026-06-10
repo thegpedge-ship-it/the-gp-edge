@@ -15,6 +15,16 @@ const theme = {
   activeBg: "bg-emerald-50/80 dark:bg-emerald-900/20",
 };
 
+function getTotalQuestions(subject: Subject) {
+  return subject.subtopics.reduce((sum, st) => sum + st.questionCount, 0);
+}
+
+function getMockProgress(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 100;
+  return Math.max(10, Math.min(85, hash));
+}
+
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SubjectMenu() {
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -41,7 +51,7 @@ export default function SubjectMenu() {
   return (
     <div className="flex flex-col h-full">
       {/* Title */}
-      <div className="mb-4 pl-4 sm:pl-6">
+      <div className="mb-4 pl-4 sm:pl-6 mt-1">
         <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Medical Subjects</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Master every topic, drill your weak areas, and pass with confidence.</p>
       </div>
@@ -57,29 +67,28 @@ export default function SubjectMenu() {
           style={selectedSubject ? { width: 100 } : undefined}
         >
           {/* Header */}
-          <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between">
+          <div
+            onClick={selectedSubject ? handleExpandSubjects : undefined}
+            className={`px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between ${selectedSubject ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60" : ""}`}
+          >
             <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest whitespace-nowrap">Subjects</p>
             {selectedSubject && (
-              <button
-                onClick={handleExpandSubjects}
-                className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
-                title="Expand subjects"
-              >
-                <span className="text-[10px] font-extrabold leading-none">&raquo;</span>
-              </button>
+              <span className="text-[10px] font-extrabold leading-none text-slate-400 dark:text-slate-500">&raquo;</span>
             )}
           </div>
 
           <div className="py-1">
             {subjects.map((subject) => {
               const isActive = selectedSubject?.id === subject.id;
+              const totalQ = getTotalQuestions(subject);
+              const progress = getMockProgress(subject.id);
               return (
                 <button
                   key={subject.id}
                   onClick={() => handleSubjectClick(subject)}
                   title={subject.name}
                   className={`
-                    w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0
+                    w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0 border-b border-slate-100 dark:border-slate-800/60
                     ${isActive
                       ? theme.activeBg
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
@@ -94,9 +103,18 @@ export default function SubjectMenu() {
                     />
                   )}
                   <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${isActive ? theme.dot : "bg-slate-300 dark:bg-slate-600"}`} />
-                  <span className={`text-[13px] truncate transition-colors ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-500 dark:text-slate-400"}`}>
+                  <span className={`text-[13px] truncate transition-colors flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                     {subject.name}
                   </span>
+                  {!selectedSubject && (
+                    <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{totalQ} Qs</span>
+                      <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 w-7 text-right">{progress}%</span>
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -112,16 +130,13 @@ export default function SubjectMenu() {
             style={selectedSubtopic ? { width: 100 } : undefined}
           >
             {/* Header */}
-            <div className="px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between">
+            <div
+              onClick={selectedSubtopic ? handleExpandSubtopics : undefined}
+              className={`px-3 py-2.5 border-b border-slate-200/60 dark:border-slate-700/40 bg-white dark:bg-slate-900 sticky top-0 z-10 flex items-center justify-between ${selectedSubtopic ? "cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60" : ""}`}
+            >
               <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest truncate">{selectedSubject.name}</p>
               {selectedSubtopic && (
-                <button
-                  onClick={handleExpandSubtopics}
-                  className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors"
-                  title="Expand subtopics"
-                >
-                  <span className="text-[10px] font-extrabold leading-none">&raquo;</span>
-                </button>
+                <span className="text-[10px] font-extrabold leading-none text-slate-400 dark:text-slate-500">&raquo;</span>
               )}
             </div>
 
@@ -136,13 +151,14 @@ export default function SubjectMenu() {
               >
                 {selectedSubject.subtopics.map((st) => {
                   const isActive = selectedSubtopic?.id === st.id;
+                  const progress = getMockProgress(st.id);
                   return (
                     <button
                       key={st.id}
                       onClick={() => handleSubtopicClick(st)}
                       title={st.name}
                       className={`
-                        w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0
+                        w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0 border-b border-slate-100 dark:border-slate-800/60
                         ${isActive
                           ? theme.activeBg
                           : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
@@ -157,13 +173,17 @@ export default function SubjectMenu() {
                         />
                       )}
                       <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${isActive ? theme.dot : "bg-slate-300 dark:bg-slate-600"}`} />
-                      <span className={`text-[13px] truncate transition-colors ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-500 dark:text-slate-400"}`}>
+                      <span className={`text-[13px] truncate transition-colors flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                         {st.name}
                       </span>
                       {!selectedSubtopic && (
-                        <span className={`text-[10px] font-bold flex-shrink-0 ml-auto transition-colors ${isActive ? theme.text : "text-slate-400 dark:text-slate-500"}`}>
-                          {st.questionCount}
-                        </span>
+                        <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{st.questionCount} Qs</span>
+                          <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${progress}%` }} />
+                          </div>
+                          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 w-7 text-right">{progress}%</span>
+                        </div>
                       )}
                     </button>
                   );
@@ -191,27 +211,38 @@ export default function SubjectMenu() {
                 className="p-4 flex flex-col gap-3"
               >
                 {selectedSubtopic.quizzes.map((quiz) => (
-                  <button
+                  <div
                     key={quiz.id}
-                    className="group/test relative rounded-2xl p-4 border border-slate-200/50 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 hover:shadow-lg hover:border-emerald-400/50 dark:hover:border-emerald-500/40 hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 text-left will-change-transform"
+                    className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 group-hover/test:text-emerald-700 dark:group-hover/test:text-emerald-300 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
                         {quiz.name}
                       </h4>
-                      <span className="text-[12px] font-bold text-emerald-600 dark:text-emerald-400 opacity-0 group-hover/test:opacity-100 transition-opacity">
-                        Start &rarr;
+                      <span className={`text-[10px] font-normal tracking-wide px-2 py-0.5 rounded-full ${
+                        quiz.difficulty === "Easy"
+                          ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+                          : quiz.difficulty === "Medium"
+                          ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
+                          : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
+                      }`}>
+                        {quiz.difficulty}
                       </span>
                     </div>
-                    <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-2.5">
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
                       {quiz.description}
                     </p>
-                    <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                      <span>{quiz.duration}</span>
-                      <span>&middot;</span>
-                      <span>{quiz.questionCount} Questions</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+                        <span>{quiz.duration}</span>
+                        <span>&middot;</span>
+                        <span>{quiz.questionCount} Qs</span>
+                      </div>
+                      <button className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-normal tracking-wide transition-colors duration-200">
+                        Start
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
 
                 {/* Subtopic summary */}

@@ -12,10 +12,10 @@ export default function ExamPrepPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-        className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0"
+        className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0 mt-[15px]"
       >
         {/* ── 70% Left — Subject Menu ─────────────────────────────── */}
-        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 pl-2 sm:pl-3 pt-6 sm:pt-8 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
+        <div className="lg:w-[70%] glass dark:glass-strong rounded-2xl p-4 sm:p-5 pl-2 sm:pl-3 border border-slate-200/50 dark:border-slate-700/40 shadow-lg flex flex-col">
           <SubjectMenu />
         </div>
 
