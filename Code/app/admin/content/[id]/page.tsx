@@ -105,14 +105,6 @@ export default function ContentDetailPage() {
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Last Updated</p>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{item.lastUpdated}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">References Count</p>
-                <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{item.references} items</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Used in Questions</p>
-                <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{item.usedInQuestions} times</p>
-              </div>
             </div>
           </motion.div>
 
@@ -141,20 +133,8 @@ export default function ContentDetailPage() {
           variants={itemVariants}
           className="md:col-span-2 space-y-6"
         >
-          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm space-y-4`}>
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Content Editor Preview</h3>
-            
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/80 rounded-xl p-5 space-y-4">
-              <div className="flex flex-wrap items-center gap-1.5 pb-3.5 border-b border-slate-200/40 dark:border-slate-800/60">
-                {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                  <button
-                    key={btn}
-                    className="h-7 px-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-lg hover:bg-teal-50/60 dark:hover:bg-teal-950/20 hover:text-teal-700 dark:hover:text-teal-400 transition-all flex items-center justify-center cursor-default"
-                  >
-                    {btn}
-                  </button>
-                ))}
-              </div>
+          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm h-full`}>
+            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/80 rounded-xl p-5 space-y-4 h-full">
               
               <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none space-y-3">
                 <p className="text-sm leading-relaxed">

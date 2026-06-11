@@ -40,7 +40,7 @@ const TOOLS = [
     title: "Clinical Autofills",
     description: "Smart templates and macros for common GP documentation workflows.",
     icon: FileText,
-    href: "/autofills",
+    href: "/dashboard/clinical-autofills",
     badge: "42 saved",
     color: "violet" as const,
   },

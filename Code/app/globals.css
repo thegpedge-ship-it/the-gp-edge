@@ -200,3 +200,37 @@
   display: none; /* Chrome, Safari and Opera */
 }
 
+/* ─── Print Styles for PDF Export ─────────────────────────────────────────── */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Hide all layout structures, sidebars, headers, and footers */
+  aside, 
+  nav, 
+  header, 
+  .no-print,
+  button,
+  select,
+  input,
+  .print-hide,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Make sure the main printable A4 page expands to fill the printed layout */
+  .print-area {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+}
+
+

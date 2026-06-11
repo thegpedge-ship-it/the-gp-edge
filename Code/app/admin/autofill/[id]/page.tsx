@@ -36,6 +36,20 @@ const modalItemVariants = {
 
 const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "Date Picker", "Numeric", "Calculated"];
 
+const getFieldIcon = (type: string) => {
+  switch (type) {
+    case "Text Input": return <Lucide.Type className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Dropdown": return <Lucide.ChevronDown className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Checkbox": return <Lucide.CheckSquare className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Radio": return <Lucide.Disc className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Textarea": return <Lucide.AlignLeft className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Date Picker": return <Lucide.Calendar className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Numeric": return <Lucide.Binary className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    case "Calculated": return <Lucide.Calculator className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+    default: return <Lucide.FileText className="w-3 h-3 text-teal-600 dark:text-teal-400" />;
+  }
+};
+
 export default function AutofillDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -493,9 +507,7 @@ export default function AutofillDetailPage() {
                           className="w-full"
                         />
                       </div>
-                    </div>
-
-                    <div>
+                    </div>                    <div>
                       {tempFields.length > 0 && (
                         <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
                           <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mb-1.5">Current Template Fields ({tempFields.length})</p>
@@ -504,9 +516,10 @@ export default function AutofillDetailPage() {
                               <span className="font-semibold text-slate-700 dark:text-slate-350">{field.name} <span className="text-[10px] font-normal text-slate-400">({field.type})</span></span>
                               <button
                                 onClick={() => setTempFields((prev) => prev.filter((_, idx) => idx !== i))}
-                                className="text-red-500 hover:text-red-750 font-bold text-[10px] border-none bg-transparent cursor-pointer"
+                                className="text-slate-400 hover:text-red-650 transition-colors border-none bg-transparent cursor-pointer flex items-center justify-center p-1"
+                                title="Remove field"
                               >
-                                Remove
+                                <Lucide.Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           ))}
@@ -520,9 +533,10 @@ export default function AutofillDetailPage() {
                             <span
                               key={ft}
                               onClick={() => addField(ft)}
-                              className="text-[10px] font-medium text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-900/40 transition-all select-none"
+                              className="text-[10px] font-medium text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-900/40 transition-all select-none flex items-center gap-1"
                             >
-                              + {ft}
+                              {getFieldIcon(ft)}
+                              <span>{ft}</span>
                             </span>
                           ))}
                         </div>

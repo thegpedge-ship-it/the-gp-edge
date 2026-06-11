@@ -37,7 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isExpanded = !collapsed || isHovered;
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-hidden font-sans admin-layout">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
 
 
       {/* Backdrop for mobile sidebar */}
@@ -48,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-30 lg:hidden cursor-pointer"
+            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[45] lg:hidden cursor-pointer"
           />
         )}
       </AnimatePresence>

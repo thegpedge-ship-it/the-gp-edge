@@ -80,6 +80,7 @@ export default function EditQuizPage() {
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [extractionLog, setExtractionLog] = useState("");
   const [extractedQuestions, setExtractedQuestions] = useState<any[]>([]);
+  const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   const topicsList = useMemo(() => {
@@ -183,46 +184,96 @@ export default function EditQuizPage() {
   };
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    setUploadedFileName(file.name);
-    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
-    setUploadState("uploading");
-    setUploadProgress(0);
+    const fileList = Array.from(files);
     setExtractionState("idle");
     setExtractedQuestions([]);
 
-    const progressTimer = setInterval(() => {
-      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
-    }, 120);
+    // Initialize batch tracking for all files
+    const initialBatch: {
+      id: string;
+      name: string;
+      size: string;
+      progress: number;
+      status: "idle" | "uploading" | "extracting" | "success" | "error";
+      error?: string;
+    }[] = fileList.map((f, i) => ({
+      id: `file-${Date.now()}-${i}`,
+      name: f.name,
+      size: (f.size / (1024 * 1024)).toFixed(2) + " MB",
+      progress: 0,
+      status: "idle",
+    }));
+    setBatchFiles(initialBatch);
+    setUploadState("uploading");
+    setUploadProgress(0);
+    setUploadedFileName(fileList.length === 1 ? fileList[0].name : `${fileList.length} files`);
+    setUploadedFileSize(
+      (fileList.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2) + " MB"
+    );
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
+    // Process all files concurrently
+    const allExtracted: any[] = [];
+    let completedCount = 0;
 
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        body: formData,
-      });
+    const updateBatchFile = (idx: number, updates: Partial<typeof initialBatch[0]>) => {
+      setBatchFiles(prev => prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf));
+    };
 
-      clearInterval(progressTimer);
-      setUploadProgress(100);
+    await Promise.allSettled(
+      fileList.map(async (file, idx) => {
+        updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-      const result = await res.json();
-      if (result.success && result.type === "question") {
-        setExtractedQuestions(result.questions || []);
-        setUploadState("success");
-        runExtractionAnim(result.questions || []);
-      } else {
-        alert(result.error || "Failed to extract questions. Please check that you used the correct template format.");
-        setUploadState("idle");
-      }
-    } catch (err: any) {
-      clearInterval(progressTimer);
-      alert("Upload error: " + err.message);
-      setUploadState("idle");
-    }
+        // Simulate incremental progress
+        const progressTimer = setInterval(() => {
+          updateBatchFile(idx, { progress: Math.min(90, 10 + Math.random() * 50) });
+        }, 200);
+
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          updateBatchFile(idx, { status: "extracting", progress: 40 });
+
+          const res = await fetch("/api/extract", {
+            method: "POST",
+            body: formData,
+          });
+
+          clearInterval(progressTimer);
+
+          const result = await res.json();
+          if (result.success && result.type === "question") {
+            const qs = result.questions || [];
+            allExtracted.push(...qs);
+            updateBatchFile(idx, { status: "success", progress: 100 });
+          } else {
+            updateBatchFile(idx, {
+              status: "error",
+              progress: 100,
+              error: result.error || "Failed to extract questions from this file.",
+            });
+          }
+        } catch (err: any) {
+          clearInterval(progressTimer);
+          updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
+        }
+
+        completedCount++;
+        setUploadProgress(Math.round((completedCount / fileList.length) * 100));
+      })
+    );
+
+    // All files processed — merge results
+    setUploadProgress(100);
+    setExtractedQuestions(allExtracted);
+    setUploadState("success");
+    runExtractionAnim(allExtracted);
+
+    // Reset file input so re-selecting the same files works
+    if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
   };
 
   const runExtractionAnim = (parsedQs: any[]) => {
@@ -710,7 +761,7 @@ export default function EditQuizPage() {
                     className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
                     title="Upload questions document"
                   >
-                    <svg className="w-3.5 h-3.5 text-teal-850 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                     </svg>
                     Upload
@@ -825,10 +876,10 @@ export default function EditQuizPage() {
                   <div>
                     <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Question Text</label>
                     <textarea
-                      rows={3}
+                      rows={6}
                       value={newQuestionText}
                       onChange={(e) => setNewQuestionText(e.target.value)}
-                      className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-none dark:text-slate-100 ${themeInput}`}
+                      className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
                       placeholder="Enter the question..."
                     />
                   </div>
@@ -1039,8 +1090,8 @@ export default function EditQuizPage() {
                       />
                     </div>
                     {newImage && (
-                      <div className={`mt-3 relative rounded-xl overflow-hidden border p-2 h-24 flex items-center justify-center shrink-0 ${themeSurface} ${themeBorder}`}>
-                        <img src={newImage} alt="Preview" className="h-20 object-contain rounded-lg" />
+                      <div className={`mt-3 relative rounded-xl overflow-hidden border p-3 w-full max-h-96 flex items-center justify-center ${themeSurface} ${themeBorder}`}>
+                        <img src={newImage} alt="Preview" className="max-h-80 w-auto object-contain rounded-lg shadow-sm" />
                         <button 
                           type="button" 
                           onClick={() => {
@@ -1049,9 +1100,9 @@ export default function EditQuizPage() {
                               fileInputRef.current.value = "";
                             }
                           }} 
-                          className="absolute top-1.5 right-1.5 p-1 rounded-full bg-slate-900/80 text-white hover:bg-slate-950 transition-all shadow"
+                          className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-950 transition-all shadow-md"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
                     )}
@@ -1060,10 +1111,10 @@ export default function EditQuizPage() {
                   <div>
                     <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Rationale / Explanation</label>
                     <textarea
-                      rows={2}
+                      rows={6}
                       value={newRationale}
                       onChange={(e) => setNewRationale(e.target.value)}
-                      className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-none dark:text-slate-100 ${themeInput}`}
+                      className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
                       placeholder="Explain the correct answer..."
                     />
                   </div>
@@ -1210,7 +1261,7 @@ export default function EditQuizPage() {
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
               transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }}
               className={`fixed inset-x-4 top-[5%] mx-auto w-full ${
-                uploadState === "success" && extractionState === "success" ? "max-w-4xl" : "max-w-2xl"
+                uploadState === "success" && extractionState === "success" ? "max-w-6xl" : "max-w-2xl"
               } bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${themeBorder}`}
             >
               {/* Modal Header */}
@@ -1256,31 +1307,64 @@ export default function EditQuizPage() {
                         ref={uploadFileInputRef}
                         onChange={handleUploadFile}
                         accept=".docx,.pdf"
+                        multiple
                         className="hidden"
                       />
                       <svg className="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Question DOCX or PDF here</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from your system (Max 10MB)</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-350">Drag & Drop Question DOCX or PDF here</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from your system (Max 10MB)</p>
                     </div>
                   </div>
                 )}
 
                 {uploadState === "uploading" && (
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-800/20 space-y-5 shadow-sm text-center">
-                    <div className="flex items-center justify-between text-xs font-bold px-1">
-                      <span className="text-slate-700 dark:text-slate-300 truncate max-w-[240px]">{uploadedFileName}</span>
-                      <span className="text-teal-600 dark:text-teal-400 font-mono">{uploadProgress}%</span>
+                  <div className="space-y-3">
+                    {/* Overall progress header */}
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm">
+                      <div className="flex items-center justify-between text-xs font-bold px-1 mb-2">
+                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-[240px]">Processing {uploadedFileName}</span>
+                        <span className="text-teal-600 dark:text-teal-400 font-mono">{uploadProgress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <p className="text-[10px] text-slate-400 pt-1.5">Total size: {uploadedFileSize} · Extracting questions from documents...</p>
                     </div>
-                    
-                    <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
-                    </div>
-                    <p className="text-[10px] text-slate-400 pt-1">Size: {uploadedFileSize} · Reading template document...</p>
+
+                    {/* Per-file status list */}
+                    {batchFiles.length > 1 && (
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {batchFiles.map((bf) => (
+                          <div key={bf.id} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border text-xs ${
+                            bf.status === "success" ? "border-emerald-200 bg-emerald-50/50 dark:border-emerald-900/40 dark:bg-emerald-950/10" :
+                            bf.status === "error" ? "border-red-200 bg-red-50/50 dark:border-red-900/40 dark:bg-red-950/10" :
+                            "border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-800/20"
+                          }`}>
+                            {/* Status icon */}
+                            {bf.status === "success" ? (
+                              <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                            ) : bf.status === "error" ? (
+                              <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                            ) : (
+                              <svg className="w-4 h-4 text-teal-600 animate-spin shrink-0" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" /></svg>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-slate-700 dark:text-slate-350 truncate block">{bf.name}</span>
+                              {bf.error && <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>}
+                            </div>
+                            <span className="text-[10px] text-slate-400 shrink-0">{bf.size}</span>
+                            {/* Mini progress bar */}
+                            <div className="w-16 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0">
+                              <div className={`h-full transition-all duration-300 rounded-full ${
+                                bf.status === "success" ? "bg-emerald-500" : bf.status === "error" ? "bg-red-400" : "bg-teal-500"
+                              }`} style={{ width: `${bf.progress}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1288,7 +1372,7 @@ export default function EditQuizPage() {
                   <div className="space-y-4">
                     {/* Extraction Progress Loading state */}
                     {extractionState === "extracting" && (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-850/20 space-y-5 shadow-sm text-center">
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50/50 dark:bg-slate-800/20 space-y-5 shadow-sm text-center">
                         <div className="flex items-center justify-between text-xs font-bold px-1 text-slate-700 dark:text-slate-300">
                           <span className="flex items-center gap-2">
                             <svg className="w-4 h-4 text-teal-600 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1362,10 +1446,10 @@ export default function EditQuizPage() {
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Question Text</label>
                                   <textarea
-                                    rows={2}
+                                    rows={6}
                                     value={q.text}
                                     onChange={(e) => handleUpdateExtractedQuestion(qidx, "text", e.target.value)}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-none dark:text-slate-100 ${themeInput}`}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
                                     placeholder="Question text..."
                                   />
                                 </div>
@@ -1502,10 +1586,10 @@ export default function EditQuizPage() {
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Rationale / Explanation</label>
                                   <textarea
-                                    rows={2}
+                                    rows={6}
                                     value={q.rationale}
                                     onChange={(e) => handleUpdateExtractedQuestion(qidx, "rationale", e.target.value)}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-none dark:text-slate-100 ${themeInput}`}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
                                     placeholder="Rationale explanation..."
                                   />
                                 </div>
@@ -1515,12 +1599,12 @@ export default function EditQuizPage() {
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-2">Clinical Diagnostic Image</label>
                                   <div className="flex flex-wrap items-center gap-3">
                                     {q.image ? (
-                                      <div className="relative rounded-lg overflow-hidden border p-1 bg-white dark:bg-slate-950/30 flex items-center gap-2 shrink-0">
-                                        <img src={q.image} alt="Extracted clinical file" className="max-h-16 object-contain rounded" />
+                                      <div className="relative rounded-xl overflow-hidden border p-3 bg-white dark:bg-slate-950/30 flex items-center justify-center max-w-md max-h-72 shrink-0">
+                                        <img src={q.image} alt="Extracted clinical file" className="max-h-64 w-auto object-contain rounded-lg shadow-sm" />
                                         <button
                                           type="button"
                                           onClick={() => handleUpdateExtractedQuestion(qidx, "image", undefined)}
-                                          className="p-1 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition"
+                                          className="absolute top-2 right-2 p-1.5 rounded-full bg-red-100 hover:bg-red-200 text-red-600 transition shadow"
                                           title="Remove Image"
                                         >
                                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

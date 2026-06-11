@@ -74,7 +74,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
       {/* Click-outside handled via custom ref logic */}
 
       <header
-        className={`fixed top-0 right-0 left-0 z-30 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 ${
+        className={`fixed top-0 right-0 left-0 z-40 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 ${
           collapsed ? "lg:pl-[72px]" : "lg:pl-[260px]"
         } pl-4`}
       >
@@ -135,15 +135,15 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                             setShowNotifications(false);
                             router.push("/admin/notifications");
                           }}
-                          className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-850 cursor-pointer transition-all flex items-start gap-3 relative ${
+                          className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-all flex items-start gap-3 relative ${
                             n.unread ? "bg-teal-50/10 dark:bg-teal-950/5" : ""
                           }`}
                         >
                           <div className={`w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0 ${n.unread ? "opacity-100" : "opacity-0"}`} />
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{n.title}</p>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-550 mt-0.5 truncate">{n.desc}</p>
-                            <p className="text-[10px] text-slate-350 dark:text-slate-600 mt-1">{n.time}</p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{n.desc}</p>
+                            <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1">{n.time}</p>
                           </div>
                         </div>
                       ))}
@@ -153,7 +153,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                         setShowNotifications(false);
                         router.push("/admin/notifications");
                       }}
-                      className="w-full text-center py-2.5 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-teal-800 dark:text-teal-400 hover:bg-slate-50 dark:hover:bg-slate-850 transition-all border-none bg-transparent cursor-pointer"
+                      className="w-full text-center py-2.5 border-t border-slate-100 dark:border-slate-800 text-xs font-bold text-teal-800 dark:text-teal-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none bg-transparent cursor-pointer"
                     >
                       View all notifications
                     </button>
@@ -171,8 +171,8 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                   setShowProfile(!showProfile);
                   setShowNotifications(false);
                 }}
-                className={`flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 transition-all border-none bg-transparent cursor-pointer ${
-                  showProfile ? "bg-slate-50 dark:bg-slate-850" : ""
+                className={`flex items-center gap-2.5 pl-1 pr-2 py-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border-none bg-transparent cursor-pointer ${
+                  showProfile ? "bg-slate-50 dark:bg-slate-800" : ""
                 }`}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-emerald-500/25">
@@ -202,7 +202,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                   >
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
                       <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Siddhant Udavant</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-550 mt-0.5 truncate">udavantsiddhant@outlook.com</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">udavantsiddhant@outlook.com</p>
                       <span className="inline-block text-[9px] font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400 px-2 py-0.5 rounded-md border border-teal-100/30 dark:border-teal-900/20 mt-1.5">Super Admin</span>
                     </div>
                     <div className="py-1">
@@ -211,7 +211,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                           setShowProfile(false);
                           router.push("/admin/settings");
                         }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-850 transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
+                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
                       >
                         <Lucide.Settings className="w-3.5 h-3.5 text-slate-400" />
                         System Settings
@@ -221,7 +221,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                           setShowProfile(false);
                           router.push("/admin/audit");
                         }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-850 transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
+                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
                       >
                         <Lucide.ShieldAlert className="w-3.5 h-3.5 text-slate-400" />
                         Audit Security Log

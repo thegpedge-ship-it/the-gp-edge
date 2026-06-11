@@ -169,7 +169,7 @@ function PDFViewerContent() {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrint}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850 active:scale-95 transition-all"
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 transition-all"
               title="Print Document"
             >
               <Lucide.Printer className="w-4.5 h-4.5" />
@@ -313,7 +313,7 @@ function PDFViewerContent() {
                 </div>
                 
                 <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
-                  <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
+                  <p className="font-bold text-teal-800 not-italic mb-1 flex items-center gap-1.5 text-xs">
                     <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
                     Key Summary Pearls:
                   </p>

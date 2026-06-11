@@ -163,7 +163,7 @@ export default function AdminSidebar({
     <aside
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`fixed left-0 top-0 bottom-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
+      className={`fixed left-0 top-0 bottom-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px] lg:flex ${mobileOpen ? "flex" : "hidden"}`}
     >
