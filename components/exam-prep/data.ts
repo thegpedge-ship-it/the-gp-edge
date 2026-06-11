@@ -337,3 +337,35 @@ export const mockDrill = {
   duration: "60 min",
   difficulty: "Mixed",
 };
+
+/* ─── Mock Tests (full AKT simulations) ───────────────────────────────── */
+
+export type MockTestStatus = "completed" | "in-progress" | "available" | "locked";
+
+export interface MockTest {
+  id: string;
+  name: string;
+  subtitle: string;
+  questionCount: number;
+  duration: string;
+  status: MockTestStatus;
+  bestScore?: number; // % — present when completed
+  progress?: number;  // % — present when in-progress
+  attempts?: number;
+  /* Attempt analytics — present once the test has been attempted */
+  accuracy?: number;       // your accuracy %
+  cohortAccuracy?: number; // cohort average accuracy %
+  yourMarks?: number;      // your marks
+  avgMarks?: number;       // cohort average marks
+}
+
+export const mockTests: MockTest[] = [
+  { id: "mock-1", name: "AKT Simulation 1", subtitle: "All topics · Foundation", questionCount: 150, duration: "3 hrs", status: "completed", bestScore: 78, attempts: 2, accuracy: 78, cohortAccuracy: 65, yourMarks: 117, avgMarks: 98 },
+  { id: "mock-2", name: "AKT Simulation 2", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "completed", bestScore: 71, attempts: 1, accuracy: 71, cohortAccuracy: 64, yourMarks: 107, avgMarks: 96 },
+  { id: "mock-3", name: "AKT Simulation 3", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "in-progress", progress: 42, attempts: 1 },
+  { id: "mock-4", name: "AKT Simulation 4", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "available" },
+  { id: "mock-5", name: "AKT Simulation 5", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "available" },
+  { id: "mock-6", name: "AKT Simulation 6", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked" },
+  { id: "mock-7", name: "AKT Simulation 7", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked" },
+  { id: "mock-8", name: "Final Mock Exam", subtitle: "All topics · Exam standard", questionCount: 200, duration: "4 hrs", status: "locked" },
+];

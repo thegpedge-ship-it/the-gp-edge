@@ -1,41 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { upcomingMock, mockDrill } from "./data";
+import { useState } from "react";
+import { mockDrill, mockTests } from "./data";
 import MockDrillModal from "./MockDrillModal";
+import MockTestListModal from "./MockTestListModal";
 
-/* ─── Countdown Hook ──────────────────────────────────────────────────── */
-function useCountdown(targetDate: string) {
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, mins: 0, secs: 0 });
-
-  useEffect(() => {
-    const calc = () => {
-      const diff = Math.max(0, new Date(targetDate).getTime() - Date.now());
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
-        mins: Math.floor((diff / (1000 * 60)) % 60),
-        secs: Math.floor((diff / 1000) % 60),
-      });
-    };
-    calc();
-    const id = setInterval(calc, 1000);
-    return () => clearInterval(id);
-  }, [targetDate]);
-
-  return timeLeft;
-}
-
-/* ─── Countdown Digit ─────────────────────────────────────────────────── */
-function Digit({ value, label }: { value: number; label: string }) {
+/* ─── Summary Stat ────────────────────────────────────────────────────── */
+function Stat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-10 h-10 rounded-lg bg-slate-900 dark:bg-slate-950 flex items-center justify-center shadow-lg border border-slate-700/50">
-        <span className="text-lg font-extrabold text-emerald-400 font-mono tracking-tight">
-          {String(value).padStart(2, "0")}
-        </span>
-        <div className="absolute inset-x-0 top-1/2 h-px bg-slate-700/50" />
-      </div>
+    <div className="flex flex-col items-center flex-1">
+      <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">{value}</span>
       <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">{label}</span>
     </div>
   );
@@ -43,8 +17,13 @@ function Digit({ value, label }: { value: number; label: string }) {
 
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SidePanel() {
-  const countdown = useCountdown(upcomingMock.date);
   const [showDrillModal, setShowDrillModal] = useState(false);
+  const [showMockModal, setShowMockModal] = useState(false);
+
+  const completedMocks = mockTests.filter((t) => t.status === "completed");
+  const avgScore = completedMocks.length
+    ? Math.round(completedMocks.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completedMocks.length)
+    : 0;
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -56,22 +35,23 @@ export default function SidePanel() {
         <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-green-400/10 dark:bg-green-500/5 group-hover:scale-110 transition-transform duration-700" />
 
         <div className="relative">
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">#Mock Test 234</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-3">{upcomingMock.subtitle}</p>
+          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">Mock Tests</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-3">Full AKT simulations under exam conditions</p>
 
-          {/* Countdown */}
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Digit value={countdown.days} label="Days" />
-            <span className="text-slate-500 dark:text-slate-600 font-bold text-lg mt-[-12px]">:</span>
-            <Digit value={countdown.hours} label="Hrs" />
-            <span className="text-slate-500 dark:text-slate-600 font-bold text-lg mt-[-12px]">:</span>
-            <Digit value={countdown.mins} label="Min" />
-            <span className="text-slate-500 dark:text-slate-600 font-bold text-lg mt-[-12px]">:</span>
-            <Digit value={countdown.secs} label="Sec" />
+          {/* Summary stats */}
+          <div className="flex items-stretch gap-2 mb-4 px-2 py-3 rounded-xl bg-white/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40">
+            <Stat value={String(mockTests.length)} label="Tests" />
+            <div className="w-px bg-slate-200 dark:bg-slate-700/60" />
+            <Stat value={String(completedMocks.length)} label="Done" />
+            <div className="w-px bg-slate-200 dark:bg-slate-700/60" />
+            <Stat value={`${avgScore}%`} label="Avg" />
           </div>
 
-          <button className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300">
-            Register Now &rarr;
+          <button
+            onClick={() => setShowMockModal(true)}
+            className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
+          >
+            View Mock Tests &rarr;
           </button>
         </div>
       </div>
@@ -108,8 +88,9 @@ export default function SidePanel() {
         </button>
       </div>
 
-      {/* Mock Drill Modal */}
+      {/* Modals */}
       <MockDrillModal open={showDrillModal} onClose={() => setShowDrillModal(false)} />
+      <MockTestListModal open={showMockModal} onClose={() => setShowMockModal(false)} />
     </div>
   );
 }
