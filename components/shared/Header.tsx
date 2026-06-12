@@ -12,8 +12,8 @@ interface HeaderProps {
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
 
-  // Hide the navbar on all admin pages
-  if (pathname?.startsWith("/admin")) {
+  // Hide the navbar on all admin pages and on test-taking pages (instructions + live test)
+  if (pathname?.startsWith("/admin") || pathname?.startsWith("/test/")) {
     return null;
   }
 

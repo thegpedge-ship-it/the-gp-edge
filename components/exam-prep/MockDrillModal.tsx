@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { subjects } from "./data";
 import type { Subject, SubTopic } from "./data";
+import { buildInstructionsUrl, saveCustomTestConfig } from "@/lib/testSession";
 
 const theme = {
   text: "text-emerald-600 dark:text-emerald-400",
@@ -21,6 +23,7 @@ interface Props {
 }
 
 export default function MockDrillModal({ open, onClose }: Props) {
+  const router = useRouter();
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedSubtopics, setSelectedSubtopics] = useState<SubTopic[]>([]);
 
@@ -207,7 +210,18 @@ export default function MockDrillModal({ open, onClose }: Props) {
                     <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                       {selectedSubtopics.length} subtopic{selectedSubtopics.length > 1 ? "s" : ""} selected
                     </span>
-                    <button className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300">
+                    <button
+                      onClick={() => {
+                        saveCustomTestConfig({
+                          name: `Custom Quiz — ${selectedSubtopics.map((s) => s.name).join(", ")}`,
+                          // Cap custom drills at 50 questions, ~1 min per question
+                          questionCount: Math.min(totalSelectedQuestions, 50),
+                          durationMinutes: Math.min(totalSelectedQuestions, 50),
+                        });
+                        router.push(buildInstructionsUrl("custom"));
+                      }}
+                      className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
+                    >
                       Start Quiz &rarr;
                     </button>
                   </div>

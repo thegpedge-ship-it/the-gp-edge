@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { mockTests } from "./data";
 import type { MockTest } from "./data";
+import { buildInstructionsUrl } from "@/lib/testSession";
 
 interface Props {
   open: boolean;
@@ -34,6 +36,7 @@ function getAction(status: MockTest["status"]) {
 }
 
 export default function MockTestListModal({ open, onClose }: Props) {
+  const router = useRouter();
   const completed = mockTests.filter((t) => t.status === "completed");
   const avgScore = completed.length
     ? Math.round(completed.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completed.length)
@@ -151,6 +154,7 @@ export default function MockTestListModal({ open, onClose }: Props) {
                     {/* Button */}
                     <button
                       disabled={action.disabled}
+                      onClick={() => router.push(buildInstructionsUrl(test.id))}
                       className={`flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[12px] font-medium transition-all duration-200 ${action.className}`}
                     >
                       {action.locked && <LockIcon className="w-3 h-3" />}

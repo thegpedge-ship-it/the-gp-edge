@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { subjects } from "./data";
 import type { Subject, SubTopic } from "./data";
+import { buildInstructionsUrl } from "@/lib/testSession";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
 const theme = {
@@ -27,6 +29,7 @@ function getMockProgress(id: string) {
 
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SubjectMenu() {
+  const router = useRouter();
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedSubtopic, setSelectedSubtopic] = useState<SubTopic | null>(null);
 
@@ -247,7 +250,10 @@ export default function SubjectMenu() {
                         <span>&middot;</span>
                         <span>{quiz.questionCount} Qs</span>
                       </div>
-                      <button className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-normal tracking-wide transition-colors duration-200">
+                      <button
+                        onClick={() => router.push(buildInstructionsUrl(quiz.id))}
+                        className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-normal tracking-wide transition-colors duration-200"
+                      >
                         Start
                       </button>
                     </div>
