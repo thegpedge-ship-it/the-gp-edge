@@ -1170,7 +1170,9 @@ function ContentEditorContent() {
       lastUpdated: "Just now",
       author: "Dr. Siddhant Udavant",
       references: docReferences.length,
+      usedInQuestions: 0,
     };
+
 
     const updated = [duplicateItem, ...list];
     setMedicalContents(updated);
