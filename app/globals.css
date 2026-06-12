@@ -141,6 +141,22 @@
   .animate-pulse-slow {
     animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  /* ── Used by Header.tsx "Exam Prep" gradient link ── */
+  .animate-gradient-x {
+    background-size: 200% auto;
+    animation: gradient-shift 3s linear infinite;
+  }
+
+  /* ── Generic fade-in for entry animations ── */
+  .animate-fade-in {
+    animation: fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ── Slide up from below ── */
+  .animate-slide-up {
+    animation: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 @keyframes float {
@@ -151,6 +167,21 @@
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ─── Premium Scrollbars & Font Overrides for Admin Layout ────────────────── */

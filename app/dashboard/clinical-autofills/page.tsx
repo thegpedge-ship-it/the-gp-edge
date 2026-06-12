@@ -304,8 +304,6 @@ const SEARCH_SUGGESTIONS = [
   "Chronic Disease Management Plan",
 ];
 
-const TOOLTIP_KEY = "gp_bookmarks_tooltip_dismissed";
-
 // ─── Vertical Carousel Component ────────────────────────────────────────────
 
 function SearchCarousel() {
@@ -361,15 +359,9 @@ function SearchCarousel() {
 }
 
 // ─── Feature Discovery Tooltip ──────────────────────────────────────────────
+// Stateless — parent controls visibility. No internal fade state needed.
 
-function BookmarkTooltip({ onDismiss }: { onDismiss: () => void }) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setVisible(true), 1000);
-    return () => clearTimeout(t);
-  }, []);
-
+function BookmarkTooltip({ onDismiss, show }: { onDismiss: () => void; show: boolean }) {
   return (
     <div
       className="pointer-events-auto"
@@ -377,27 +369,30 @@ function BookmarkTooltip({ onDismiss }: { onDismiss: () => void }) {
         position: "absolute",
         top: "calc(100% + 10px)",
         right: 0,
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(-6px)",
-        transition: "opacity 400ms ease, transform 400ms ease",
-        zIndex: 60,
+        // Animate based on parent-controlled `show` prop
+        opacity: show ? 1 : 0,
+        transform: show ? "translateY(0)" : "translateY(-8px)",
+        transition: "opacity 380ms ease, transform 380ms ease",
+        // z-[100] ensures it breaks out of any overflow context
+        zIndex: 100,
+        pointerEvents: show ? "auto" : "none",
       }}
     >
-      {/* Arrow */}
+      {/* Arrow nub pointing upward to the button */}
       <div
         style={{
           position: "absolute",
-          top: -6,
-          right: 18,
-          width: 12,
-          height: 12,
+          top: -5,
+          right: 20,
+          width: 10,
+          height: 10,
           background: "#1e293b",
           borderRadius: 2,
           transform: "rotate(45deg)",
         }}
       />
-      {/* Card */}
-      <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 shadow-xl flex items-start gap-2.5 max-w-[220px]">
+      {/* Tooltip card */}
+      <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 shadow-2xl flex items-start gap-2.5 max-w-[220px]">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-bold text-teal-400 mb-0.5 uppercase tracking-wide">New Feature</p>
           <p className="text-[12px] leading-snug text-slate-200">
@@ -428,19 +423,16 @@ export default function ClinicalAutofillsPage() {
   const [visibleCount, setVisibleCount] = useState(6);
   const [showBookmarks, setShowBookmarks] = useState(false);
 
-  // Tooltip visibility — read localStorage to check if already dismissed
+  // Tooltip — shows on every page mount, 1 second after load
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const dismissed = localStorage.getItem(TOOLTIP_KEY);
-      if (!dismissed) setShowTooltip(true);
-    }
+    const t = setTimeout(() => setShowTooltip(true), 1000);
+    return () => clearTimeout(t);
   }, []);
 
   const dismissTooltip = useCallback(() => {
     setShowTooltip(false);
-    if (typeof window !== "undefined") localStorage.setItem(TOOLTIP_KEY, "1");
   }, []);
 
   // Refs
@@ -679,8 +671,8 @@ export default function ClinicalAutofillsPage() {
               )}
             </button>
 
-            {/* Feature discovery tooltip */}
-            {showTooltip && <BookmarkTooltip onDismiss={dismissTooltip} />}
+            {/* Feature discovery tooltip — always rendered, show prop drives visibility */}
+            <BookmarkTooltip onDismiss={dismissTooltip} show={showTooltip} />
           </div>
         </div>
       </div>

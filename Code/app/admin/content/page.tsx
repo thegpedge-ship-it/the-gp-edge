@@ -271,6 +271,7 @@ export default function ContentPage() {
       lastUpdated: "Just now",
       author: "Dr. Siddhant Udavant",
       references: type === "Condition" ? 3 : 1,
+      usedInQuestions: 0,
     };
 
     // Pre-populate HTML body if symptoms/treatment/notes exist to import into editor
@@ -602,6 +603,7 @@ export default function ContentPage() {
                             lastUpdated: "Just now",
                             author: "Dr. Siddhant Udavant",
                             references: 0,
+                            usedInQuestions: 0,
                           };
 
                           let contentHtml = "";
