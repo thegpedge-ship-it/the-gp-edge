@@ -224,12 +224,15 @@ export default function SearchPage() {
               ))}
               {(activeTab === "all" || activeTab === "users") && searchResults.users.map((r) => (
                 <div
-                  key={r.email}
-                  onClick={() => router.push(`/admin/users/${r.id}`)}
+                  key={r.id}
+                  onClick={() => router.push(`/admin/users`)}
                   className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 cursor-pointer"
                 >
                   <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded">U</span>
-                  <div className="flex-1 min-w-0"><p className="text-sm text-slate-700">{r.name}</p><p className="text-xs text-slate-400">{r.email}</p></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-700">{r.name}</p>
+                    <p className="text-xs text-slate-400">ID #{r.id} · {r.plan} · {r.status}</p>
+                  </div>
                 </div>
               ))}
               {(activeTab === "all" || activeTab === "content") && searchResults.content.map((r) => (

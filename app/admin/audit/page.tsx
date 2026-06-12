@@ -17,7 +17,6 @@ const ALL_FEATURES = [
   { key: "content", label: "Medical Content", desc: "Manage medical library articles" },
   { key: "autofill", label: "Autofill Templates", desc: "Create & edit autofill templates" },
   { key: "users", label: "Users", desc: "View & manage user accounts" },
-  { key: "uploads", label: "Uploads", desc: "Upload CSV / bulk content" },
   { key: "notifications", label: "Notifications", desc: "Send system notifications" },
   { key: "billing", label: "Billing", desc: "View revenue & manage subscriptions" },
   { key: "audit", label: "Audit & Security", desc: "View audit logs & manage roles" },
@@ -29,7 +28,7 @@ const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 /* ── Role presets ── */
 const ROLE_PRESETS: Record<string, string[]> = {
   "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "uploads", "notifications", "billing"],
+  Admin: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"],
   Moderator: ["dashboard", "questions", "content"],
   Viewer: ["dashboard"],
 };
@@ -45,26 +44,26 @@ interface AdminUser {
 }
 
 const initialAdmins: AdminUser[] = [
-  { id: "1", name: "Siddhant Udavant", email: "udavantsiddhant@outlook.com", role: "Super Admin", permissions: [...ALL_FEATURE_KEYS], lastLogin: "Just now", status: "active" },
-  { id: "2", name: "Dr. Arun Mehta", email: "arun.mehta@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "uploads", "notifications", "billing"], lastLogin: "2 hours ago", status: "active" },
-  { id: "3", name: "Jessica Park", email: "j.park@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content"], lastLogin: "1 day ago", status: "active" },
+  { id: "1", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: [...ALL_FEATURE_KEYS], lastLogin: "Just now", status: "active" },
+  { id: "2", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"], lastLogin: "2 hours ago", status: "active" },
+  { id: "3", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content"], lastLogin: "1 day ago", status: "active" },
 ];
 
 const auditLogs = [
-  { timestamp: "28 May 2026, 11:45 PM", admin: "Siddhant Udavant", action: "Published Question #2850", category: "Questions", severity: "info" },
-  { timestamp: "28 May 2026, 11:30 PM", admin: "Siddhant Udavant", action: "Suspended user Dr. Alex Kumar", category: "Users", severity: "warning" },
-  { timestamp: "28 May 2026, 10:15 PM", admin: "Dr. Arun Mehta", action: "Uploaded CSV: cardiology_q_batch_3.csv (142 items)", category: "Uploads", severity: "info" },
-  { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review", category: "Questions", severity: "info" },
-  { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Updated adaptive weighting for Mental Health (+15%)", category: "Adaptive", severity: "info" },
-  { timestamp: "28 May 2026, 4:00 PM", admin: "Dr. Arun Mehta", action: "Deleted Question #2839 (Duplicate)", category: "Questions", severity: "warning" },
+  { timestamp: "28 May 2026, 11:45 PM", admin: "Siddhant Udavant", action: "Published Question #2850 to live bank", category: "Questions", severity: "info" },
+  { timestamp: "28 May 2026, 11:30 PM", admin: "Siddhant Udavant", action: "Suspended account — policy violation", category: "Users", severity: "warning" },
+  { timestamp: "28 May 2026, 10:15 PM", admin: "Arun Mehta", action: "Bulk imported 142 Cardiology questions", category: "Questions", severity: "info" },
+  { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review queue", category: "Questions", severity: "info" },
+  { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Published new Respiratory autofill template", category: "Content", severity: "info" },
+  { timestamp: "28 May 2026, 4:00 PM", admin: "Arun Mehta", action: "Deleted Question #2839 — duplicate entry", category: "Questions", severity: "warning" },
   { timestamp: "27 May 2026, 11:00 PM", admin: "Siddhant Udavant", action: "Enabled maintenance mode for 30 minutes", category: "System", severity: "warning" },
-  { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 for Dr. David Kim", category: "Billing", severity: "info" },
+  { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 — policy criteria met", category: "Billing", severity: "info" },
 ];
 
 const softDeleted = [
-  { item: "Question #2839", type: "Question", deletedBy: "Dr. Arun Mehta", date: "28 May 2026", reason: "Duplicate" },
+  { item: "Question #2839", type: "Question", deletedBy: "Arun Mehta", date: "28 May 2026", reason: "Duplicate" },
   { item: "GORD Template v1", type: "Autofill", deletedBy: "Jessica Park", date: "25 May 2026", reason: "Outdated" },
-  { item: "Dr. Test Account", type: "User", deletedBy: "Siddhant Udavant", date: "20 May 2026", reason: "Test data cleanup" },
+  { item: "Test Account #9999", type: "User", deletedBy: "Siddhant Udavant", date: "20 May 2026", reason: "Test data cleanup" },
 ];
 
 const severityColors: Record<string, string> = {
@@ -456,7 +455,7 @@ export default function AuditPage() {
                       value={addName}
                       onChange={(e) => setAddName(e.target.value)}
                       className="w-full px-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all"
-                      placeholder="Dr. Jane Smith"
+                      placeholder="Jane Smith"
                     />
                   </div>
                   <div>
@@ -640,3 +639,4 @@ export default function AuditPage() {
     </motion.div>
   );
 }
+

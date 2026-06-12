@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
-import StatusBadge from "@/components/admin/StatusBadge";
+
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
@@ -51,6 +51,15 @@ export default function AutofillDetailPage() {
   const [newCategory, setNewCategory] = useState("Acute");
   const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
 
+  // SOAP Fields states
+  const [newSubjective, setNewSubjective] = useState("");
+  const [newObjective, setNewObjective] = useState("");
+  const [newAssessment, setNewAssessment] = useState("");
+  const [newPlan, setNewPlan] = useState("");
+  const [newDoctorSummary, setNewDoctorSummary] = useState("");
+  const [newPatientResources, setNewPatientResources] = useState("");
+  const [newTagsString, setNewTagsString] = useState("");
+
   // Wizard tab & ref
   const [activeTab, setActiveTab] = useState<"manual" | "upload">("manual");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -71,8 +80,11 @@ export default function AutofillDetailPage() {
   const [reviewSystem, setReviewSystem] = useState("Respiratory");
   const [reviewCategory, setReviewCategory] = useState("Acute");
   const [reviewSymptoms, setReviewSymptoms] = useState("");
+  const [reviewObjective, setReviewObjective] = useState("");
   const [reviewTreatment, setReviewTreatment] = useState("");
   const [reviewNotes, setReviewNotes] = useState("");
+  const [reviewDoctorSummary, setReviewDoctorSummary] = useState("");
+  const [reviewPatientResources, setReviewPatientResources] = useState("");
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +116,8 @@ export default function AutofillDetailPage() {
       if (result.success) {
         setExtractedData(result);
         setUploadState("success");
+        // Auto-trigger extraction immediately after upload
+        runTextExtraction();
       } else {
         alert(result.error || "Failed to extract text from document");
         setUploadState("idle");
@@ -145,16 +159,22 @@ export default function AutofillDetailPage() {
         setReviewTitle(extractedData.title || "Extracted Template");
         setReviewSystem(extractedData.system || "Respiratory");
         setReviewCategory(extractedData.category || "Acute");
-        setReviewSymptoms(extractedData.symptoms || "");
-        setReviewTreatment(extractedData.treatment || "");
-        setReviewNotes(extractedData.notes || "");
+        setReviewSymptoms(extractedData.symptoms || extractedData.subjective || "");
+        setReviewObjective(extractedData.objective || "");
+        setReviewTreatment(extractedData.treatment || extractedData.plan || "");
+        setReviewNotes(extractedData.notes || extractedData.assessment || "");
+        setReviewDoctorSummary(extractedData.doctorSummary || "");
+        setReviewPatientResources(extractedData.patientResources || "");
       } else {
         setReviewTitle("Acne SOAP Template");
         setReviewSystem("Dermatology");
         setReviewCategory("SOAP Template");
         setReviewSymptoms("Comedones, papules, pustules on face.");
+        setReviewObjective("Skin exam: multiple open and closed comedones on forehead and chin. Mild erythema.");
         setReviewTreatment("Topical benzoyl peroxide, oral doxycycline.");
         setReviewNotes("Educate patient on 6-8 weeks timeline.");
+        setReviewDoctorSummary("Standard acne SOAP note. No systemic features.");
+        setReviewPatientResources("Australasian College of Dermatologists acne factsheet.");
       }
     }, 1200);
   };
@@ -167,37 +187,24 @@ export default function AutofillDetailPage() {
 
     const generated: { name: string; type: string; required: boolean; placeholder?: string }[] = [];
     if (reviewSymptoms.trim()) {
-      generated.push({
-        name: "Subjective (Symptoms)",
-        type: "Textarea",
-        required: true,
-        placeholder: reviewSymptoms.trim(),
-      });
+      generated.push({ name: "Subjective (Symptoms)", type: "Textarea", required: true, placeholder: reviewSymptoms.trim() });
     }
-    
-    generated.push({
-      name: "Objective (Exam / Investigations)",
-      type: "Textarea",
-      required: false,
-      placeholder: "Physical examination findings and relevant investigation results.",
-    });
-
+    if (reviewObjective.trim()) {
+      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: reviewObjective.trim() });
+    } else {
+      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: "Physical examination findings and relevant investigation results." });
+    }
     if (reviewNotes.trim()) {
-      generated.push({
-        name: "Assessment (Clinical Notes)",
-        type: "Textarea",
-        required: true,
-        placeholder: reviewNotes.trim(),
-      });
+      generated.push({ name: "Assessment (Clinical Notes)", type: "Textarea", required: true, placeholder: reviewNotes.trim() });
     }
-
     if (reviewTreatment.trim()) {
-      generated.push({
-        name: "Plan (Management / Treatment)",
-        type: "Textarea",
-        required: true,
-        placeholder: reviewTreatment.trim(),
-      });
+      generated.push({ name: "Plan (Management / Treatment)", type: "Textarea", required: true, placeholder: reviewTreatment.trim() });
+    }
+    if (reviewDoctorSummary.trim()) {
+      generated.push({ name: "Doctor Revision Summary", type: "Textarea", required: false, placeholder: reviewDoctorSummary.trim() });
+    }
+    if (reviewPatientResources.trim()) {
+      generated.push({ name: "Patient Resources", type: "Textarea", required: false, placeholder: reviewPatientResources.trim() });
     }
 
     setTempFields(generated);
@@ -229,6 +236,13 @@ export default function AutofillDetailPage() {
     setNewSystem(template.system);
     setNewCategory(template.category);
     setTempFields(template.sampleFields);
+    setNewSubjective(template.subjective || "");
+    setNewObjective(template.objective || "");
+    setNewAssessment(template.assessment || "");
+    setNewPlan(template.plan || "");
+    setNewDoctorSummary(template.doctorSummary || "");
+    setNewPatientResources(template.patientResources || "");
+    setNewTagsString(template.tags?.join(", ") || "");
     setShowEditor(true);
   };
 
@@ -245,6 +259,13 @@ export default function AutofillDetailPage() {
       category: newCategory,
       fields: tempFields.length,
       sampleFields: tempFields,
+      subjective: newSubjective,
+      objective: newObjective,
+      assessment: newAssessment,
+      plan: newPlan,
+      doctorSummary: newDoctorSummary,
+      patientResources: newPatientResources,
+      tags: newTagsString.split(",").map((t) => t.trim()).filter(Boolean),
     };
 
     const updatedTemplates = templates.map((t) =>
@@ -281,39 +302,15 @@ export default function AutofillDetailPage() {
       <AdminPageHeader
         title={template.name}
         highlightedText=""
-        subtitle={`${template.system} · ${template.category} · by ${template.author}`}
-        actions={
-          <div className="flex gap-2">
-            <span className="text-[10px] font-mono font-semibold text-slate-400 dark:text-slate-550 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200/20 dark:border-slate-700/20">{template.version}</span>
-            <StatusBadge variant={template.status} />
-          </div>
-        }
+        subtitle={`${template.system} · ${template.category} · ${template.fields} Fields`}
+        actions={null}
         variants={itemVariants}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Metadata & Operations */}
         <div className="space-y-6">
-          <motion.div
-            variants={itemVariants}
-            className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm space-y-4`}
-          >
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Stats</h3>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-850 p-2.5 rounded-xl text-center">
-                <p className="text-lg font-bold text-teal-800 dark:text-teal-400">{template.fields}</p>
-                <p className="text-[9px] text-slate-400 dark:text-slate-505 font-semibold uppercase tracking-wider">Fields</p>
-              </div>
-              <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-850 p-2.5 rounded-xl text-center">
-                <p className="text-lg font-bold text-teal-800 dark:text-teal-400">{template.usageCount.toLocaleString()}</p>
-                <p className="text-[9px] text-slate-400 dark:text-slate-505 font-semibold uppercase tracking-wider">Uses</p>
-              </div>
-              <div className="bg-slate-50/50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-850 p-2.5 rounded-xl text-center flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-slate-700 dark:text-slate-350 leading-tight">{template.lastUsed}</p>
-                <p className="text-[9px] text-slate-400 dark:text-slate-505 font-semibold uppercase tracking-wider mt-0.5">Last Used</p>
-              </div>
-            </div>
-          </motion.div>
+
 
           <motion.div
             variants={itemVariants}
@@ -321,8 +318,15 @@ export default function AutofillDetailPage() {
           >
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Operations</h3>
             <button
-              onClick={handleOpenEdit}
+              onClick={() => router.push(`/admin/autofill/${templateId}/editor`)}
               className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-teal-800 hover:bg-teal-900 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-[0.98] border-none outline-none cursor-pointer"
+            >
+              <Lucide.FileEdit className="w-4 h-4" />
+              Open Editor
+            </button>
+            <button
+              onClick={handleOpenEdit}
+              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer"
             >
               <Lucide.Edit className="w-4 h-4" />
               Edit Template Form
@@ -333,9 +337,112 @@ export default function AutofillDetailPage() {
             </button>
           </motion.div>
         </div>
-
-        {/* Right Column: Fields Preview */}
+        {/* Right Column: Template & Fields Preview */}
         <motion.div variants={itemVariants} className="md:col-span-2 space-y-6">
+          {/* SOAP Document Template Preview */}
+          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl shadow-sm overflow-hidden`}>
+            {/* Header */}
+            <div className="bg-slate-50/70 dark:bg-slate-850/50 px-6 py-4 border-b border-slate-150 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center">
+                  <Lucide.FileText className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">SOAP Document Template</h3>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-505 font-medium">Standard clinical format preview</p>
+                </div>
+              </div>
+              <span className="text-[10px] bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400 font-bold px-2.5 py-1 rounded-full border border-teal-100/30 dark:border-teal-900/20 uppercase tracking-wider select-none">
+                Clinical Preview
+              </span>
+            </div>
+
+            {/* Document sheet body */}
+            <div className="p-8 space-y-6 font-sans select-text leading-relaxed bg-white dark:bg-slate-900/40">
+              {/* Subjective */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Subjective
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.subjective || <em className="text-slate-400 dark:text-slate-505 font-light">No subjective notes defined in template.</em>}
+                </div>
+              </div>
+
+              {/* Objective */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Objective
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.objective || <em className="text-slate-400 dark:text-slate-505 font-light">No objective measurements defined in template.</em>}
+                </div>
+              </div>
+
+              {/* Assessment */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Assessment
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.assessment || <em className="text-slate-400 dark:text-slate-505 font-light">No assessment notes defined in template.</em>}
+                </div>
+              </div>
+
+              {/* Plan */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Plan
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.plan || <em className="text-slate-400 dark:text-slate-505 font-light">No management plan defined in template.</em>}
+                </div>
+              </div>
+
+              {/* Doctor Revision Summary */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Doctor Revision Summary
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.doctorSummary || <em className="text-slate-400 dark:text-slate-505 font-light">No revision summary notes defined in template.</em>}
+                </div>
+              </div>
+
+              {/* Patient Resources */}
+              <div className="space-y-2">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Patient Resources
+                </h4>
+                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.patientResources || <em className="text-slate-400 dark:text-slate-505 font-light">No patient resources specified in template.</em>}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 space-y-3">
+                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-sm font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                  Tags
+                </h4>
+                <div className="flex flex-wrap gap-1.5 pl-4">
+                  {template.tags && template.tags.length > 0 ? (
+                    template.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] font-bold text-teal-750 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2.5 py-1 rounded-full border border-teal-100/30 dark:border-teal-900/30 select-none hover:bg-teal-100/50 dark:hover:bg-teal-900/40 transition-all cursor-default"
+                      >
+                        {tag}
+                      </span>
+                    ))
+                  ) : (
+                    <em className="text-xs text-slate-400 dark:text-slate-505 font-light">No tags associated with this template.</em>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Fields Preview */}
           <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm`}>
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Form Fields Preview</h3>
             <motion.div
@@ -371,12 +478,12 @@ export default function AutofillDetailPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{field.name}</p>
                       {field.placeholder && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-medium">{field.placeholder}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-505 mt-1 font-medium">{field.placeholder}</p>
                       )}
                       {field.options && (
                         <div className="flex flex-wrap gap-1 mt-2.5">
                           {field.options.map((opt) => (
-                            <span key={opt} className="text-[9.5px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded-md border border-slate-200/10">{opt}</span>
+                            <span key={opt} className="text-[9.5px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-450 px-2 py-0.5 rounded-md border border-slate-200/10">{opt}</span>
                           ))}
                         </div>
                       )}
@@ -496,6 +603,83 @@ export default function AutofillDetailPage() {
                     </div>
 
                     <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Subjective (Symptoms / Presentation)</label>
+                      <textarea
+                        value={newSubjective}
+                        onChange={(e) => setNewSubjective(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Subjective template text..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Objective (Exam / Investigation)</label>
+                      <textarea
+                        value={newObjective}
+                        onChange={(e) => setNewObjective(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Objective template text..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Assessment (Clinical Guidelines / Callout Box)</label>
+                      <textarea
+                        value={newAssessment}
+                        onChange={(e) => setNewAssessment(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Assessment template text..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Plan (Management / Treatment Plan)</label>
+                      <textarea
+                        value={newPlan}
+                        onChange={(e) => setNewPlan(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Plan template text..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Doctor Revision Summary</label>
+                      <textarea
+                        value={newDoctorSummary}
+                        onChange={(e) => setNewDoctorSummary(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Summary for internal doctor revision..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Patient Resources (Links / Advice)</label>
+                      <textarea
+                        value={newPatientResources}
+                        onChange={(e) => setNewPatientResources(e.target.value)}
+                        rows={2}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                        placeholder="Patient-facing advice / leaflets / links..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Tags (Comma-separated)</label>
+                      <input
+                        type="text"
+                        value={newTagsString}
+                        onChange={(e) => setNewTagsString(e.target.value)}
+                        className={`w-full px-4 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
+                        placeholder="e.g. Asthma, Paediatrics, Inhaler"
+                      />
+                    </div>
+
+                    <div>
                       {tempFields.length > 0 && (
                         <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
                           <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mb-1.5">Current Template Fields ({tempFields.length})</p>
@@ -540,22 +724,38 @@ export default function AutofillDetailPage() {
                   <div className="space-y-4">
                     {/* PDF/DOCX dropzone / uploader */}
                     {uploadState === "idle" && (
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
-                        <div
-                          onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex flex-col items-center justify-center"
-                        >
-                          <input
-                            type="file"
-                            ref={fileInputRef}
-                            onChange={handleFileChange}
-                            accept=".pdf,.docx"
-                            className="hidden"
-                          />
-                          <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex flex-col items-center justify-center"
+                          >
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleFileChange}
+                              accept=".pdf,.docx"
+                              className="hidden"
+                            />
+                            <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                          <div className="flex items-center gap-2">
+                            <Lucide.FileText className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                            <span className="text-xs text-slate-500 dark:text-slate-400">Need the document import template?</span>
+                          </div>
+                          <a 
+                            href="/templates/autofill_template.docx" 
+                            download 
+                            className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0 no-underline cursor-pointer"
+                          >
+                            <Lucide.Download className="w-3 h-3" />
+                            Download Template
+                          </a>
                         </div>
                       </div>
                     )}
@@ -586,25 +786,6 @@ export default function AutofillDetailPage() {
                             <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-650 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer border-none bg-transparent">Replace file</button>
                           </div>
                         </div>
-
-                        {extractionState === "idle" && (
-                          <div className="bg-teal-50/40 dark:bg-teal-950/10 border border-teal-100/50 dark:border-teal-900/30 rounded-2xl p-4 text-center space-y-2.5">
-                            <div className="flex items-center justify-center gap-2 text-teal-855 dark:text-teal-450">
-                              <Lucide.Sparkles className="w-5 h-5 animate-pulse" />
-                              <span className="text-xs font-bold">Smart Document Extractor Available</span>
-                            </div>
-                            <p className="text-[10px] text-slate-505 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-                              We can automatically extract clinical headings, symptoms, and treatment protocols from this document to generate template fields.
-                            </p>
-                            <button
-                              onClick={runTextExtraction}
-                              className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5 mx-auto active:scale-98 border-none"
-                            >
-                              <Lucide.Cpu className="w-3.5 h-3.5" />
-                              Extract Text & Review Structure
-                            </button>
-                          </div>
-                        )}
 
                         {extractionState === "extracting" && (
                           <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
@@ -688,6 +869,16 @@ export default function AutofillDetailPage() {
                               </div>
 
                               <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Objective (Exam / Investigations)</label>
+                                <textarea
+                                  rows={2}
+                                  value={reviewObjective}
+                                  onChange={(e) => setReviewObjective(e.target.value)}
+                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                                />
+                              </div>
+
+                              <div>
                                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Assessment (Clinical Notes)</label>
                                 <textarea
                                   rows={2}
@@ -703,6 +894,26 @@ export default function AutofillDetailPage() {
                                   rows={2}
                                   value={reviewTreatment}
                                   onChange={(e) => setReviewTreatment(e.target.value)}
+                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Doctor Revision Summary</label>
+                                <textarea
+                                  rows={2}
+                                  value={reviewDoctorSummary}
+                                  onChange={(e) => setReviewDoctorSummary(e.target.value)}
+                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Patient Resources</label>
+                                <textarea
+                                  rows={2}
+                                  value={reviewPatientResources}
+                                  onChange={(e) => setReviewPatientResources(e.target.value)}
                                   className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
                                 />
                               </div>

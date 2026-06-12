@@ -88,8 +88,8 @@ export function UserGrowthChart() {
               >
                 <defs>
                   <linearGradient id="growthGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#16a34a" />
-                    <stop offset="100%" stopColor="#22c55e" />
+                    <stop offset="0%" stopColor="#0f766e" />
+                    <stop offset="100%" stopColor="#14b8a6" />
                   </linearGradient>
                 </defs>
               </Bar>

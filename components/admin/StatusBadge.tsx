@@ -2,7 +2,7 @@
 
 import { themeBadge } from "@/lib/adminTheme";
 
-type BadgeVariant = "active" | "suspended" | "draft" | "review" | "published" | "failed" | "premium" | "free" | "pending" | "success" | "warning";
+type BadgeVariant = "active" | "suspended" | "draft" | "review" | "published" | "failed" | "premium" | "free" | "pending" | "success" | "warning" | "archived";
 
 interface StatusBadgeProps {
   variant: BadgeVariant;

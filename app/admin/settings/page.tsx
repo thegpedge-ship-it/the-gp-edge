@@ -9,21 +9,22 @@ const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, trans
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 const featureFlags = [
-  { name: "Adaptive Engine V2", desc: "Next-generation adaptive learning algorithm with improved gap detection", enabled: true, tag: "Beta" },
-  { name: "New Quiz Interface", desc: "Redesigned quiz taking experience with progress sidebar", enabled: false, tag: "Alpha" },
-  { name: "Dark Mode", desc: "System-wide dark mode support for all pages", enabled: true, tag: "Stable" },
-  { name: "AI-Powered Rationale", desc: "Auto-generate question rationales using GPT-4", enabled: false, tag: "Experimental" },
-  { name: "Peer Comparison", desc: "Show students how they compare to peers in their cohort", enabled: true, tag: "Beta" },
-  { name: "Offline Mode", desc: "Allow quiz downloads for offline studying", enabled: false, tag: "Planned" },
+  { name: "Dark Mode", desc: "System-wide dark mode support across all pages", enabled: true, tag: "Stable" },
+  { name: "PDF Export", desc: "Export clinical templates and content as print-ready PDFs", enabled: true, tag: "Stable" },
+  { name: "Document Import (AI Extract)", desc: "Extract question and template data from uploaded PDF/DOCX files", enabled: true, tag: "Beta" },
+  { name: "New Quiz Interface", desc: "Redesigned quiz-taking experience with improved navigation", enabled: false, tag: "Alpha" },
+  { name: "Flowchart Builder", desc: "Visual flowchart editor inside the template content editor", enabled: true, tag: "Beta" },
+  { name: "Offline Mode", desc: "Allow content downloads for offline access on supported devices", enabled: false, tag: "Planned" },
 ];
 
 const scheduledJobs: { name: string; schedule: string; lastRun: string; nextRun: string; status: "active" | "suspended" }[] = [
   { name: "Daily Analytics Aggregation", schedule: "Every day at 2:00 AM", lastRun: "28 May 2026, 2:00 AM", nextRun: "29 May 2026, 2:00 AM", status: "active" as const },
-  { name: "Weekly Email Digest", schedule: "Every Monday at 9:00 AM", lastRun: "26 May 2026, 9:00 AM", nextRun: "2 Jun 2026, 9:00 AM", status: "active" as const },
-  { name: "Readiness Score Recalculation", schedule: "Every 6 hours", lastRun: "28 May 2026, 6:00 PM", nextRun: "29 May 2026, 12:00 AM", status: "active" as const },
-  { name: "Content Expiry Check", schedule: "Every day at 8:00 AM", lastRun: "28 May 2026, 8:00 AM", nextRun: "29 May 2026, 8:00 AM", status: "active" as const },
+  { name: "Weekly Billing Summary Email", schedule: "Every Monday at 9:00 AM", lastRun: "26 May 2026, 9:00 AM", nextRun: "2 Jun 2026, 9:00 AM", status: "active" as const },
+  { name: "Subscription Expiry Checker", schedule: "Every 6 hours", lastRun: "28 May 2026, 6:00 PM", nextRun: "29 May 2026, 12:00 AM", status: "active" as const },
+  { name: "Content Expiry & Review Check", schedule: "Every day at 8:00 AM", lastRun: "28 May 2026, 8:00 AM", nextRun: "29 May 2026, 8:00 AM", status: "active" as const },
   { name: "Search Index Rebuild", schedule: "Every 12 hours", lastRun: "28 May 2026, 10:00 PM", nextRun: "29 May 2026, 10:00 AM", status: "active" as const },
   { name: "Database Backup", schedule: "Every day at 3:00 AM", lastRun: "28 May 2026, 3:00 AM", nextRun: "29 May 2026, 3:00 AM", status: "active" as const },
+  { name: "Failed Payment Retry", schedule: "Every day at 7:00 AM", lastRun: "28 May 2026, 7:00 AM", nextRun: "29 May 2026, 7:00 AM", status: "active" as const },
 ];
 
 const tagColors: Record<string, string> = {
@@ -129,7 +130,7 @@ export default function SettingsPage() {
             <div className="bg-white/40 border border-slate-100 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">Largest File</p>
               <p className="text-xl font-bold text-slate-900">45 MB</p>
-              <p className="text-xs text-slate-400">question_bank.csv</p>
+              <p className="text-xs text-slate-400">medical_library.pdf</p>
             </div>
           </div>
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden">

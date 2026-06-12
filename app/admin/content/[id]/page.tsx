@@ -41,12 +41,23 @@ export default function ContentDetailPage() {
   const contentId = Number(params.id);
 
   const [item, setItem] = useState<MedicalContent | null>(null);
+  const [bodyHtml, setBodyHtml] = useState("");
 
   useEffect(() => {
     const loaded = getMedicalContent();
     const found = loaded.find((c) => c.id === contentId);
     if (found) {
       setItem(found);
+      const savedHtml = localStorage.getItem(`gpedge_content_body_${contentId}`);
+      if (savedHtml) {
+        setBodyHtml(savedHtml);
+      } else {
+        // Fallback placeholder content
+        setBodyHtml(`
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No overview provided.</p>
+        `);
+      }
     }
   }, [contentId]);
 
@@ -105,14 +116,6 @@ export default function ContentDetailPage() {
                 <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Last Updated</p>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{item.lastUpdated}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">References Count</p>
-                <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{item.references} items</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Used in Questions</p>
-                <p className="text-base font-serif text-slate-900 dark:text-slate-200 font-bold">{item.usedInQuestions} times</p>
-              </div>
             </div>
           </motion.div>
 
@@ -141,30 +144,87 @@ export default function ContentDetailPage() {
           variants={itemVariants}
           className="md:col-span-2 space-y-6"
         >
-          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm space-y-4`}>
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Content Editor Preview</h3>
-            
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/80 rounded-xl p-5 space-y-4">
-              <div className="flex flex-wrap items-center gap-1.5 pb-3.5 border-b border-slate-200/40 dark:border-slate-800/60">
-                {["B", "I", "U", "H1", "H2", "List", "Num", "Link", "Img"].map((btn) => (
-                  <button
-                    key={btn}
-                    className="h-7 px-2.5 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/60 rounded-lg hover:bg-teal-50/60 dark:hover:bg-teal-950/20 hover:text-teal-700 dark:hover:text-teal-400 transition-all flex items-center justify-center cursor-default"
-                  >
-                    {btn}
-                  </button>
-                ))}
-              </div>
-              
-              <div className="prose prose-sm text-slate-700 dark:text-slate-300 max-w-none space-y-3">
-                <p className="text-sm leading-relaxed">
-                  This is a live content container preview of the clinical reference document for{" "}
-                  <strong>{item.name}</strong>.
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  In the clinical workspace, GP registrars reference this structured guideline to study clinical markers, review red flags, and resolve practice questions. All updates saved inside the Content Editor reflect here automatically in real-time.
-                </p>
-              </div>
+          <style dangerouslySetInnerHTML={{ __html: `
+            .print-area h2 {
+              font-family: Georgia, serif !important;
+              font-size: 1.35rem !important;
+              font-weight: bold !important;
+              color: #0f766e !important;
+              border-left: 4px solid #0f766e !important;
+              padding-left: 0.75rem !important;
+              margin-top: 1.75rem !important;
+              margin-bottom: 0.75rem !important;
+              line-height: 1.25 !important;
+            }
+            .print-area table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              text-align: left !important;
+              margin-bottom: 1.25rem !important;
+              border: 1px solid #cbd5e1 !important;
+              border-radius: 0.75rem !important;
+              overflow: hidden !important;
+            }
+            .print-area th {
+              text-align: left !important;
+              font-weight: 600 !important;
+              font-size: 0.75rem !important;
+              text-transform: uppercase !important;
+              letter-spacing: 0.05em !important;
+              padding: 0.75rem 1rem !important;
+              background-color: #0f766e !important;
+              color: #ffffff !important;
+              border-bottom: 2px solid #cbd5e1 !important;
+            }
+            .print-area td {
+              padding: 0.75rem 1rem !important;
+              font-size: 0.825rem !important;
+              border-bottom: 1px solid #e2e8f0 !important;
+              color: #475569 !important;
+            }
+            .print-area tr:nth-child(even) td {
+              background-color: #f8fafc !important;
+            }
+            .print-area tr:nth-child(odd) td {
+              background-color: #ffffff !important;
+            }
+            .print-area .callout-block {
+              border-radius: 0.75rem !important;
+              padding: 1rem !important;
+              margin-bottom: 1.25rem !important;
+            }
+            .print-area .callout-block[data-variant="info"], 
+            .print-area .callout-block:not([data-variant]) {
+              background-color: #f0fdfa !important;
+              border: 1px solid #ccfbf1 !important;
+              border-left: 5px solid #0f766e !important;
+              color: #0f766e !important;
+            }
+            .print-area .callout-block[data-variant="pearl"] {
+              background-color: #ecfdf5 !important;
+              border: 1px solid #d1fae5 !important;
+              border-left: 5px solid #059669 !important;
+              color: #059669 !important;
+            }
+            .print-area .callout-block[data-variant="warning"] {
+              background-color: #fffbeb !important;
+              border: 1px solid #fef3c7 !important;
+              border-left: 5px solid #b45309 !important;
+              color: #b45309 !important;
+            }
+            .print-area .callout-block[data-variant="billing"] {
+              background-color: #f8fafc !important;
+              border: 1px solid #e2e8f0 !important;
+              border-left: 5px solid #475569 !important;
+              color: #475569 !important;
+            }
+          ` }} />
+          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm h-full`}>
+            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/80 rounded-xl p-5 space-y-4 h-full">
+              <div 
+                className="print-area prose prose-sm text-slate-700 dark:text-slate-300 max-w-none select-text"
+                dangerouslySetInnerHTML={{ __html: bodyHtml }}
+              />
             </div>
           </div>
         </motion.div>

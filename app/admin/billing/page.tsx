@@ -11,17 +11,17 @@ const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, trans
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 const subscriptions = [
-  { user: "Dr. Sarah Chen", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "12 Jan 2026", nextBilling: "12 Jan 2027" },
-  { user: "Dr. James Wilson", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "15 Mar 2026", nextBilling: "15 Jun 2026" },
-  { user: "Dr. Rachel Green", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "20 Jan 2026", nextBilling: "20 Jan 2027" },
-  { user: "Dr. Nina Patel", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "1 Feb 2026", nextBilling: "1 Jun 2026" },
-  { user: "Dr. Michael Torres", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "7 Dec 2025", nextBilling: "7 Dec 2026" },
-  { user: "Dr. Laura Simmons", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "1 Nov 2025", nextBilling: "1 Jun 2026" },
+  { user: "Account #1082", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "12 Jan 2026", nextBilling: "12 Jan 2027" },
+  { user: "Account #1094", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "15 Mar 2026", nextBilling: "15 Jun 2026" },
+  { user: "Account #1101", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "20 Jan 2026", nextBilling: "20 Jan 2027" },
+  { user: "Account #1115", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "1 Feb 2026", nextBilling: "1 Jun 2026" },
+  { user: "Account #1123", plan: "Premium Annual", amount: "$199/yr", status: "active" as const, start: "7 Dec 2025", nextBilling: "7 Dec 2026" },
+  { user: "Account #1138", plan: "Premium Monthly", amount: "$24/mo", status: "active" as const, start: "1 Nov 2025", nextBilling: "1 Jun 2026" },
 ];
 
 const failedPayments = [
-  { user: "Dr. Tom Baker", amount: "$24.00", date: "26 May 2026", reason: "Card declined", retries: 2 },
-  { user: "Dr. Emily Watson", amount: "$199.00", date: "24 May 2026", reason: "Insufficient funds", retries: 1 },
+  { user: "Account #1204", amount: "$24.00", date: "26 May 2026", reason: "Card declined", retries: 2 },
+  { user: "Account #1198", amount: "$199.00", date: "24 May 2026", reason: "Insufficient funds", retries: 1 },
 ];
 
 const monthlyRevenue = [
@@ -45,8 +45,8 @@ export default function BillingPage() {
   const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.revenue));
 
   const [refunds, setRefunds] = useState<RefundRequest[]>([
-    { user: "Dr. David Kim", amount: "$24.00", reason: "Accidental purchase", date: "27 May 2026", status: "pending" },
-    { user: "Dr. Alex Kumar", amount: "$199.00", reason: "Not satisfied", date: "20 May 2026", status: "pending" },
+    { user: "Account #1267", amount: "$24.00", reason: "Accidental purchase", date: "27 May 2026", status: "pending" },
+    { user: "Account #1189", amount: "$199.00", reason: "Not satisfied with service", date: "20 May 2026", status: "pending" },
   ]);
 
   const [activeRefund, setActiveRefund] = useState<RefundRequest | null>(null);

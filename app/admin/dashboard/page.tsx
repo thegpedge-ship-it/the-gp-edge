@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { VisitorsChart } from "@/components/admin/VisitorsChart";
@@ -18,12 +17,12 @@ const itemVariants = {
 };
 
 const recentActivity = [
-  { user: "Dr. James Wilson", action: "Subscribed to Premium", time: "15 mins ago", type: "billing" as const },
-  { user: "Dr. Emily Watson", action: "Created new account", time: "1 hour ago", type: "signup" as const },
-  { user: "Dr. Priya Sharma", action: "Uploaded CSV (142 questions)", time: "2 hours ago", type: "upload" as const },
-  { user: "Dr. Michael Torres", action: "Upgraded to Annual plan", time: "3 hours ago", type: "billing" as const },
-  { user: "Dr. Alex Kumar", action: "Flagged Question #2847", time: "4 hours ago", type: "flag" as const },
-  { user: "Dr. Rachel Green", action: "Renewed subscription", time: "5 hours ago", type: "billing" as const },
+  { user: "New subscription", action: "Premium Annual plan activated", time: "15 mins ago", type: "billing" as const },
+  { user: "Payment received", action: "$199.00 via Stripe — Annual Plan", time: "1 hour ago", type: "billing" as const },
+  { user: "Autofill template published", action: "Mental Health Assessment · Psychiatry", time: "2 hours ago", type: "signup" as const },
+  { user: "Subscription upgraded", action: "Monthly → Annual plan conversion", time: "3 hours ago", type: "billing" as const },
+  { user: "Question flagged", action: "Question #2847 sent to review queue", time: "4 hours ago", type: "flag" as const },
+  { user: "Subscription renewed", action: "Premium Annual renewal processed", time: "5 hours ago", type: "billing" as const },
 ];
 
 
@@ -35,33 +34,19 @@ export default function DashboardPage() {
         variants={itemVariants}
         className="flex items-center justify-between gap-6"
       >
-        <div className="flex-1 min-w-0 max-w-xl">
-          <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
-            Good morning, Siddhant!
+        <div className="flex-1 min-w-0">
+          <p className="inline-flex items-center gap-2 text-[13px] text-slate-500 dark:text-slate-400 font-medium mb-1 uppercase tracking-widest">
+            Admin Console
           </p>
           <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-            Your admin{" "}
-            <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">
-              cockpit
+            Platform{" "}
+            <span className="bg-gradient-to-r from-teal-700 to-teal-500 bg-clip-text text-transparent">
+              Overview
             </span>
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-            Business overview and platform operations at a glance.
+            Revenue, subscribers, and platform operations at a glance.
           </p>
-        </div>
-
-        <div
-          className="hidden lg:block relative w-[280px] aspect-[786/442] flex-shrink-0"
-          style={{ willChange: "transform" }}
-        >
-          <Image
-            src="/assets/admin_dashboard_illustration.png"
-            alt="Admin managing platform cockpit"
-            fill
-            priority
-            sizes="280px"
-            className="object-contain mix-blend-multiply"
-          />
         </div>
       </motion.section>
 
@@ -117,9 +102,12 @@ export default function DashboardPage() {
           <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
             {recentActivity.map((activity, i) => (
               <div key={i} className="flex items-start justify-between py-3.5 first:pt-0 last:pb-0 gap-4">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate leading-tight">{activity.user}</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-1">{activity.action}</p>
+                <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                  <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${activity.type === "billing" ? "bg-teal-500" : activity.type === "flag" ? "bg-amber-400" : "bg-slate-300"}`} />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate leading-tight">{activity.user}</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">{activity.action}</p>
+                  </div>
                 </div>
                 <span className="text-[11px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0 pt-0.5">{activity.time}</span>
               </div>
@@ -145,12 +133,10 @@ export default function DashboardPage() {
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{item.label}</span>
                   <span className="text-sm font-serif font-semibold text-slate-900 dark:text-slate-50">{item.value}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${item.pct}%` }}
-                    transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                    className="h-full rounded-full bg-emerald-400 dark:bg-emerald-500"
+                <div className="h-1 bg-slate-100 dark:bg-slate-800/80 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-800 dark:bg-teal-600 rounded-full"
+                    style={{ width: `${item.pct}%` }}
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{item.sub}</p>

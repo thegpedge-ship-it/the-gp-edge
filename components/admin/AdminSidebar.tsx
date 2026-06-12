@@ -86,15 +86,6 @@ const navGroups: NavGroup[] = [
         ),
       },
       {
-        label: "Uploads",
-        href: "/admin/uploads",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-        ),
-      },
-      {
         label: "Notifications",
         href: "/admin/notifications",
         icon: (
@@ -172,7 +163,7 @@ export default function AdminSidebar({
     <aside
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`fixed left-0 top-0 bottom-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
+      className={`fixed left-0 top-0 bottom-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
         mobileOpen ? "translate-x-0" : "-translate-x-full"
       } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px] lg:flex ${mobileOpen ? "flex" : "hidden"}`}
     >

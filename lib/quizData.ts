@@ -362,18 +362,18 @@ export interface AdminUser {
 }
 
 const DEFAULT_USERS: AdminUser[] = [
-  { id: 1, name: "Dr. Sarah Chen", email: "sarah.chen@gmail.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026", notes: [] },
-  { id: 2, name: "Dr. James Wilson", email: "j.wilson@outlook.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026", notes: ["VIP user — supervisor referral"] },
-  { id: 3, name: "Dr. Priya Sharma", email: "priya.sharma@hotmail.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026", notes: [] },
-  { id: 4, name: "Dr. Michael Torres", email: "m.torres@gmail.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025", notes: [] },
-  { id: 5, name: "Dr. Emily Watson", email: "emily.w@yahoo.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026", notes: [] },
-  { id: 6, name: "Dr. Alex Kumar", email: "alex.kumar@gmail.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026", notes: ["Flagged for ToS violation"] },
-  { id: 7, name: "Dr. Rachel Green", email: "r.green@outlook.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026", notes: [] },
-  { id: 8, name: "Dr. Tom Baker", email: "tom.baker@gmail.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026", notes: [] },
-  { id: 9, name: "Dr. Nina Patel", email: "nina.p@hotmail.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026", notes: [] },
-  { id: 10, name: "Dr. David Kim", email: "d.kim@gmail.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026", notes: [] },
-  { id: 11, name: "Dr. Laura Simmons", email: "laura.s@yahoo.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025", notes: ["Top performer"] },
-  { id: 12, name: "Dr. Chris Martin", email: "c.martin@outlook.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026", notes: ["Inactive — possible churn risk"] },
+  { id: 1001, name: "Account #1001", email: "subscriber@domain.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026", notes: [] },
+  { id: 1002, name: "Account #1002", email: "subscriber@domain.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026", notes: ["Referred via supervisor program"] },
+  { id: 1003, name: "Account #1003", email: "subscriber@domain.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026", notes: [] },
+  { id: 1004, name: "Account #1004", email: "subscriber@domain.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025", notes: [] },
+  { id: 1005, name: "Account #1005", email: "subscriber@domain.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026", notes: [] },
+  { id: 1006, name: "Account #1006", email: "subscriber@domain.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026", notes: ["Flagged — ToS policy review"] },
+  { id: 1007, name: "Account #1007", email: "subscriber@domain.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026", notes: [] },
+  { id: 1008, name: "Account #1008", email: "subscriber@domain.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026", notes: [] },
+  { id: 1009, name: "Account #1009", email: "subscriber@domain.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026", notes: [] },
+  { id: 1010, name: "Account #1010", email: "subscriber@domain.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026", notes: [] },
+  { id: 1011, name: "Account #1011", email: "subscriber@domain.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025", notes: [] },
+  { id: 1012, name: "Account #1012", email: "subscriber@domain.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026", notes: ["Inactive — renewal not completed"] },
 ];
 
 const ADMIN_USERS_STORAGE_KEY = "gpedge_admin_users";
@@ -407,20 +407,21 @@ export interface MedicalContent {
   lastUpdated: string;
   author: string;
   references: number;
-  usedInQuestions: number;
+  tags?: string[];
+  usedInQuestions?: number;
 }
 
 const DEFAULT_MEDICAL_CONTENT: MedicalContent[] = [
-  { id: 1, name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", type: "Guideline", status: "published", lastUpdated: "28 May 2026", author: "Dr. Arun Mehta", references: 12, usedInQuestions: 34 },
-  { id: 2, name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", type: "Protocol", status: "published", lastUpdated: "25 May 2026", author: "Siddhant Udavant", references: 18, usedInQuestions: 47 },
-  { id: 3, name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", type: "Guideline", status: "published", lastUpdated: "22 May 2026", author: "Dr. Arun Mehta", references: 8, usedInQuestions: 21 },
-  { id: 4, name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", type: "Pathway", status: "review", lastUpdated: "20 May 2026", author: "Jessica Park", references: 15, usedInQuestions: 28 },
-  { id: 5, name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", type: "Protocol", status: "published", lastUpdated: "18 May 2026", author: "Dr. Arun Mehta", references: 9, usedInQuestions: 19 },
-  { id: 6, name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", type: "Pathway", status: "draft", lastUpdated: "15 May 2026", author: "Jessica Park", references: 6, usedInQuestions: 8 },
-  { id: 7, name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", type: "Guideline", status: "published", lastUpdated: "12 May 2026", author: "Siddhant Udavant", references: 14, usedInQuestions: 16 },
-  { id: 8, name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", type: "Pathway", status: "review", lastUpdated: "10 May 2026", author: "Dr. Arun Mehta", references: 7, usedInQuestions: 12 },
-  { id: 9, name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", type: "Protocol", status: "published", lastUpdated: "8 May 2026", author: "Siddhant Udavant", references: 11, usedInQuestions: 23 },
-  { id: 10, name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", type: "Guideline", status: "draft", lastUpdated: "5 May 2026", author: "Jessica Park", references: 4, usedInQuestions: 9 },
+  { id: 1, name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", type: "Guideline", status: "published", lastUpdated: "28 May 2026", author: "GP Edge Content Team", references: 12 },
+  { id: 2, name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", type: "Protocol", status: "published", lastUpdated: "25 May 2026", author: "GP Edge Admin", references: 18 },
+  { id: 3, name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", type: "Guideline", status: "published", lastUpdated: "22 May 2026", author: "GP Edge Content Team", references: 8 },
+  { id: 4, name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", type: "Pathway", status: "review", lastUpdated: "20 May 2026", author: "GP Edge Editorial Team", references: 15 },
+  { id: 5, name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", type: "Protocol", status: "published", lastUpdated: "18 May 2026", author: "GP Edge Content Team", references: 9 },
+  { id: 6, name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", type: "Pathway", status: "draft", lastUpdated: "15 May 2026", author: "GP Edge Editorial Team", references: 6 },
+  { id: 7, name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", type: "Guideline", status: "published", lastUpdated: "12 May 2026", author: "GP Edge Admin", references: 14 },
+  { id: 8, name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", type: "Pathway", status: "review", lastUpdated: "10 May 2026", author: "GP Edge Content Team", references: 7 },
+  { id: 9, name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", type: "Protocol", status: "published", lastUpdated: "8 May 2026", author: "GP Edge Admin", references: 11 },
+  { id: 10, name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", type: "Guideline", status: "draft", lastUpdated: "5 May 2026", author: "GP Edge Editorial Team", references: 4 },
 ];
 
 const MEDICAL_CONTENT_STORAGE_KEY = "gpedge_admin_medical_content";
@@ -452,10 +453,22 @@ export interface AutofillTemplate {
   fields: number;
   usageCount: number;
   lastUsed: string;
-  status: "active" | "draft" | "suspended";
+  status: "active" | "draft" | "suspended" | "archived";
   author: string;
   version: string;
+  slug?: string;
+  description?: string;
+  tags?: string[];
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  doctorSummary?: string;
+  patientResources?: string;
+  references?: string;
+  followupNotes?: string;
   sampleFields: { name: string; type: string; required: boolean; placeholder?: string; options?: string[] }[];
+  versions?: { version: string; updatedAt: string; changeLog: string; content: any }[];
 }
 
 export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
@@ -464,201 +477,963 @@ export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
     name: "URTI Assessment", 
     category: "Acute", 
     system: "Respiratory", 
-    fields: 12, 
+    fields: 6, 
     usageCount: 2340, 
     lastUsed: "2 mins ago", 
     status: "active", 
-    author: "Dr. Arun Mehta", 
+    author: "GP Edge Content Team", 
     version: "v3.1",
+    slug: "urti-assessment",
+    description: "Routine clinical assessment for acute viral and bacterial upper respiratory tract infections.",
+    tags: ["Sore Throat", "Cough", "Viral", "Respiratory"],
+    subjective: "Patient presents with sore throat and dry cough for {{symptom_duration}} days. No dyspnoea, no fevers. Associated rhinorrhoea.",
+    objective: "Temp: {{temperature}}C. Chest clear on auscultation. Throat: mild erythema, no tonsillar exudate, no cervical lymphadenopathy.",
+    assessment: "Viral upper respiratory tract infection (URTI) with no signs of secondary bacterial complication.",
+    plan: "Symptomatic management: paracetamol or ibuprofen PRN, warm saline gargles. Increase fluid intake and rest. Safety-netted: return if dyspnoea or high fevers develop.",
+    doctorSummary: "Standard viral URTI template. No antibiotics indicated at this stage.",
+    patientResources: "Provide RACGP viral URTI factsheet and healthdirect self-care guide.",
+    references: "Australian Therapeutic Guidelines - Respiratory. RACGP Clinical Guidelines.",
+    followupNotes: "Review in 3 days if symptoms do not improve or if systemic symptoms worsen.",
     sampleFields: [
-      { name: "Presenting Symptoms (Cough/Sore Throat)", type: "Textarea", required: true },
-      { name: "Symptom Duration (Days)", type: "Dropdown", required: true },
-      { name: "Vitals (Temp, HR, SpO2)", type: "Numeric", required: true },
-      { name: "Tonsillar Exudate / Swelling", type: "Checkbox", required: false },
-      { name: "Management Plan & Rest Guide", type: "Textarea", required: true },
-      { name: "Prescription Plan (Amoxicillin/Symptomatic)", type: "Text Input", required: false }
-    ]
+      { name: "Symptom Duration (Days)", type: "Dropdown", required: true, options: ["1-2", "3-5", "7+"] },
+      { name: "Temperature", type: "Numeric", required: true, placeholder: "e.g. 37.2" },
+      { name: "Cough Present", type: "Checkbox", required: false }
+    ],
+    versions: []
   },
   { 
     id: 2, 
     name: "Type 2 Diabetes Review", 
     category: "Chronic", 
     system: "Endocrine", 
-    fields: 18, 
+    fields: 6, 
     usageCount: 1876, 
     lastUsed: "15 mins ago", 
     status: "active", 
-    author: "Siddhant Udavant", 
+    author: "GP Edge Admin", 
     version: "v2.4",
+    slug: "t2dm-review",
+    description: "6-monthly chronic disease review for established Type 2 Diabetes Mellitus.",
+    tags: ["Diabetes", "Chronic", "Endocrine", "MBS"],
+    subjective: "Routine diabetes review. Patient reports compliance with metformin {{metformin_dose}}. No reports of hypoglycaemia or diabetic neuropathic pain.",
+    objective: "BP: {{blood_pressure}} mmHg. Weight: {{weight}} kg. Foot exam: intact sensation to 10g monofilament bilateral. Foot pulses palpable.",
+    assessment: "Established Type 2 Diabetes Mellitus, stable control. HbA1c target: {{hba1c_target}}%.",
+    plan: "1. Continue Metformin. 2. Refer to Optometrist for retinal screening (due). 3. Order HbA1c, lipids, and UEC. 4. Referral to podiatrist under TCA.",
+    doctorSummary: "Diabetes Cycle of Care checks up to date. Sensation intact.",
+    patientResources: "Diabetes Australia lifestyle information pack and NDSS leaflet.",
+    references: "RACGP/Diabetes Australia Management of Type 2 Diabetes in General Practice.",
+    followupNotes: "Review in 3 months with blood results.",
     sampleFields: [
-      { name: "Last HbA1c Results (mmol/mol)", type: "Numeric", required: true },
-      { name: "Foot Sensation (Monofilament Test)", type: "Checkbox", required: true },
-      { name: "Eye Screening Referral Status", type: "Dropdown", required: false },
-      { name: "Metformin Adherence & Side Effects", type: "Textarea", required: true },
-      { name: "Exercise & Diet Compliance Logs", type: "Checkbox", required: false },
-      { name: "Lipid Panel (LDL, HDL, Triglycerides)", type: "Text Input", required: false }
-    ]
+      { name: "Metformin Dose", type: "Dropdown", required: true, options: ["500mg daily", "1000mg daily", "1000mg BD"] },
+      { name: "Blood Pressure", type: "Text Input", required: true, placeholder: "e.g. 120/80" },
+      { name: "Weight", type: "Numeric", required: true, placeholder: "e.g. 78.5" }
+    ],
+    versions: []
   },
   { 
     id: 3, 
     name: "Mental Health Assessment", 
     category: "Mental Health", 
     system: "Psychiatry", 
-    fields: 22, 
+    fields: 6, 
     usageCount: 1543, 
     lastUsed: "1 hour ago", 
     status: "active", 
-    author: "Jessica Park", 
+    author: "GP Edge Editorial Team", 
     version: "v4.0",
+    slug: "mhap-assessment",
+    description: "Initial GP Mental Health Care Plan assessment for anxiety and depression.",
+    tags: ["Anxiety", "Depression", "MHP", "Psychiatry"],
+    subjective: "Presents complaining of low mood and sleep disturbance for {{symptom_duration}} weeks. Reports decreased energy and mild anhedonia. Denies suicidal ideation.",
+    objective: "K10 Score: {{k10_score}}. Mental State Exam: clean presentation, good eye contact, euthymic but flat affect, speech normal rate/volume.",
+    assessment: "Major Depressive Disorder, mild-to-moderate severity.",
+    plan: "1. Complete GP Mental Health Treatment Plan (Item 2715). 2. Refer to psychologist under Medicare rebate scheme (6 sessions). 3. Discuss sleep hygiene.",
+    doctorSummary: "Initial MHCP completed. Risk assessment negative for active self-harm.",
+    patientResources: "BeyondBlue depression guide and Lifeline card (13 11 14).",
+    references: "RANZCP Clinical Practice Guidelines for Mood Disorders. Black Dog Institute GP Resources.",
+    followupNotes: "Review in 2 weeks to assess psychological therapy progress.",
     sampleFields: [
-      { name: "K10 Score (Distress Level)", type: "Numeric", required: true },
-      { name: "Sleep Patterns & Insomnia Rating", type: "Dropdown", required: true },
-      { name: "Suicide Risk Assessment Profile", type: "Textarea", required: true },
-      { name: "Major Life Stressors / Triggers", type: "Textarea", required: false },
-      { name: "Coping Strategies Identified", type: "Checkbox", required: false },
-      { name: "Mental Health Care Plan Activation", type: "Checkbox", required: true }
-    ]
+      { name: "Symptom Duration (Weeks)", type: "Numeric", required: true, placeholder: "e.g. 4" },
+      { name: "K10 Score", type: "Numeric", required: true, placeholder: "e.g. 24" }
+    ],
+    versions: []
   },
   { 
     id: 4, 
     name: "Skin Check Template", 
     category: "Screening", 
     system: "Dermatology", 
-    fields: 8, 
+    fields: 6, 
     usageCount: 987, 
     lastUsed: "3 hours ago", 
     status: "active", 
-    author: "Dr. Arun Mehta", 
+    author: "GP Edge Content Team", 
     version: "v1.2",
+    slug: "skin-check",
+    description: "Structured template for full-body dermoscopic skin examinations.",
+    tags: ["Skin Cancer", "Dermoscopy", "Excision", "Dermatology"],
+    subjective: "Patient requests full skin check. Family history of melanoma. Patient reports one changing lesion on back.",
+    objective: "Dermoscopy: {{lesion_location}} - asymmetrical pigment network, atypical dots/globules. Other moles within benign limits.",
+    assessment: "Atypical melanocytic nevus on {{lesion_location}}, R/O early melanoma/dysplastic nevus.",
+    plan: "Schedule excisional biopsy of lesion on {{lesion_location}} with 2mm margins next week. Suture removal in 7 days.",
+    doctorSummary: "Atypical lesion noted. Excisional biopsy booked.",
+    patientResources: "Cancer Council Australia: Excision patient guide and sun protection leaflet.",
+    references: "Cancer Council Australia Clinical Practice Guidelines for Melanoma.",
+    followupNotes: "Review pathology results in 5 days.",
     sampleFields: [
-      { name: "Anatomical Location of Lesion", type: "Dropdown", required: true },
-      { name: "Size & Dimensions (mm)", type: "Numeric", required: true },
-      { name: "Border Regularity & Symmetry", type: "Checkbox", required: true },
-      { name: "Evolution / Growth Speed", type: "Dropdown", required: false },
-      { name: "Biopsy Plan & Patient Consent", type: "Textarea", required: false },
-      { name: "Dermoscopic Photos Uploaded", type: "Checkbox", required: true }
-    ]
+      { name: "Lesion Location", type: "Text Input", required: true, placeholder: "e.g. Right upper back" }
+    ],
+    versions: []
   },
   { 
     id: 5, 
     name: "Antenatal Visit", 
-    category: "Obstetrics", 
+    category: "Screening", 
     system: "Women's Health", 
-    fields: 24, 
+    fields: 6, 
     usageCount: 654, 
     lastUsed: "5 hours ago", 
     status: "active", 
-    author: "Siddhant Udavant", 
+    author: "GP Edge Admin", 
     version: "v2.0",
+    slug: "antenatal-visit",
+    description: "Standard checklist and summary template for antenatal checks.",
+    tags: ["Pregnancy", "Antenatal", "Screening", "Obstetrics"],
+    subjective: "Routine antenatal review. Gestation: {{gestation_weeks}} weeks. Reports good fetal movements. No bleeding, no fluid loss.",
+    objective: "BP: {{blood_pressure}} mmHg. Symphyseal-fundal height: {{sf_height}} cm. Fetal heart rate: {{fetal_hr}} bpm, regular.",
+    assessment: "Single intrauterine pregnancy at {{gestation_weeks}} weeks, progressing normally.",
+    plan: "1. Arrange routine scans (morphology scan if due). 2. Discuss gestational diabetes screening (GTT due at 24-28 weeks). 3. Standard antenatal advice.",
+    doctorSummary: "Progressing well. FHR regular.",
+    patientResources: "Pregnancy, Birth and Baby helpline contacts and gestational diabetes factsheet.",
+    references: "Australian Clinical Practice Guidelines for Pregnancy Care.",
+    followupNotes: "Review in 4 weeks for next routine antenatal visit.",
     sampleFields: [
-      { name: "Gestation Age (Weeks/Days)", type: "Numeric", required: true },
-      { name: "Maternal Blood Pressure (BP)", type: "Numeric", required: true },
-      { name: "Fetal Heart Rate (bpm)", type: "Numeric", required: true },
-      { name: "Symphyseal Fundal Height (cm)", type: "Numeric", required: false },
-      { name: "Fetal Movement Status", type: "Dropdown", required: true },
-      { name: "Urine Protein Dipstick Result", type: "Dropdown", required: false }
-    ]
+      { name: "Gestation Weeks", type: "Numeric", required: true, placeholder: "e.g. 24" },
+      { name: "SF Height (cm)", type: "Numeric", required: false, placeholder: "e.g. 24" },
+      { name: "Fetal HR (bpm)", type: "Numeric", required: true, placeholder: "e.g. 145" }
+    ],
+    versions: []
   },
   { 
     id: 6, 
     name: "Paediatric Well Child Check", 
     category: "Screening", 
     system: "Paediatrics", 
-    fields: 16, 
+    fields: 6, 
     usageCount: 432, 
     lastUsed: "1 day ago", 
     status: "active", 
-    author: "Dr. Arun Mehta", 
+    author: "GP Edge Content Team", 
     version: "v1.8",
+    slug: "paediatric-check",
+    description: "Developmental checklist for pediatric well-child visits.",
+    tags: ["Pediatrics", "Developmental", "Vaccination", "Screening"],
+    subjective: "Mother presents with child {{child_name}} aged {{child_age}} for routine development review. No parental concerns regarding milestones.",
+    objective: "Weight: {{child_weight}} kg. Developmental milestones: age-appropriate gross motor, social, and language development.",
+    assessment: "Healthy developmental progress for age, milestones met.",
+    plan: "1. Administer NIP vaccinations (due at {{child_age}}). 2. Provide guidance on safety and nutrition. 3. Book next check in 6 months.",
+    doctorSummary: "Development normal. Immunisations up to date.",
+    patientResources: "Australian NIP schedule brochure and raisingchildren.net.au portal guide.",
+    references: "NSW Health Blue Book developmental checklist. Australian Immunisation Handbook.",
+    followupNotes: "Review at next scheduled immunisation interval.",
     sampleFields: [
-      { name: "Weight & Length Percentiles", type: "Numeric", required: true },
-      { name: "Gross Motor Milestones Rating", type: "Dropdown", required: true },
-      { name: "Language / Social Development Status", type: "Dropdown", required: true },
-      { name: "Vision & Hearing Screening Result", type: "Checkbox", required: false },
-      { name: "Immunisation Status Check", type: "Checkbox", required: true },
-      { name: "Parent Concerns / Nutrition Log", type: "Textarea", required: false }
-    ]
+      { name: "Child Name", type: "Text Input", required: true, placeholder: "e.g. Leo" },
+      { name: "Child Age", type: "Dropdown", required: true, options: ["6 weeks", "4 months", "6 months", "12 months", "18 months", "4 years"] },
+      { name: "Child Weight (kg)", type: "Numeric", required: true, placeholder: "e.g. 8.2" }
+    ],
+    versions: []
   },
   { 
     id: 7, 
     name: "Hypertension Review", 
     category: "Chronic", 
     system: "Cardiovascular", 
-    fields: 14, 
+    fields: 6, 
     usageCount: 876, 
     lastUsed: "2 hours ago", 
     status: "active", 
-    author: "Siddhant Udavant", 
+    author: "GP Edge Admin", 
     version: "v3.2",
+    slug: "hypertension-review",
+    description: "Standard GP consultation outline for hypertensive patients.",
+    tags: ["Hypertension", "Cardiology", "Chronic", "BP"],
+    subjective: "Presents for routine blood pressure check. Reports regular home readings around {{home_bp}} mmHg. Denies chest pain, shortness of breath, or headache.",
+    objective: "Clinic BP: {{clinic_bp}} mmHg. Heart rate: {{heart_rate}} bpm, regular rhythm. No ankle oedema.",
+    assessment: "Essential Hypertension, stable control on current pharmacotherapy.",
+    plan: "1. Continue current antihypertensives. 2. Counsel on low-sodium diet and lifestyle. 3. Order UEC and ECG (due).",
+    doctorSummary: "Control stable. Advised on home readings.",
+    patientResources: "Heart Foundation guide to active BP management and salt restriction leaflet.",
+    references: "National Heart Foundation of Australia Hypertension Guidelines.",
+    followupNotes: "Review in 6 months with pathology results.",
     sampleFields: [
-      { name: "Home Blood Pressure Readings Log", type: "Textarea", required: true },
-      { name: "Kidney Function (eGFR & ACR)", type: "Numeric", required: true },
-      { name: "Cardiovascular Risk Score", type: "Numeric", required: false },
-      { name: "Compliance with Antihypertensives", type: "Dropdown", required: true },
-      { name: "Salt Intake & Weight Management Goals", type: "Textarea", required: false },
-      { name: "ECG Findings & Heart Sounds", type: "Text Input", required: false }
-    ]
+      { name: "Home BP", type: "Text Input", required: true, placeholder: "e.g. 130/80" },
+      { name: "Clinic BP", type: "Text Input", required: true, placeholder: "e.g. 135/85" },
+      { name: "Heart Rate", type: "Numeric", required: true, placeholder: "e.g. 72" }
+    ],
+    versions: []
   },
   { 
     id: 8, 
     name: "GORD Assessment", 
-    category: "GI", 
+    category: "Acute", 
     system: "Gastroenterology", 
-    fields: 10, 
+    fields: 6, 
     usageCount: 345, 
     lastUsed: "1 day ago", 
     status: "draft", 
-    author: "Jessica Park", 
+    author: "GP Edge Editorial Team", 
     version: "v1.0",
+    slug: "gord-assessment",
+    description: "Assessment template for gastro-oesophageal reflux disease symptoms.",
+    tags: ["Reflux", "GORD", "GI", "Dyspepsia"],
+    subjective: "Presents with retrosternal burning pain after meals for {{symptom_duration}} weeks. Exacerbated by spicy food and recumbency. Denies dysphagia or weight loss.",
+    objective: "Abdomen: soft, non-tender. No organomegaly or epigastric tenderness. Vital signs stable.",
+    assessment: "Gastro-oesophageal Reflux Disease (GORD), likely uncomplicated.",
+    plan: "1. Trial Pantoprazole {{ppi_dose}} daily for 4-8 weeks. 2. Lifestyle advice: avoid trigger foods, do not lie down immediately after eating.",
+    doctorSummary: "Classic GORD symptoms. No alarm flags present.",
+    patientResources: "Gastroenterological Society of Australia (GESA) reflux diet guide.",
+    references: "Therapeutic Guidelines - Gastrointestinal. GESA GORD guidelines.",
+    followupNotes: "Review in 4 weeks to assess PPI response.",
     sampleFields: [
-      { name: "Heartburn Frequency (Weekly)", type: "Numeric", required: true },
-      { name: "Severity & Nocturnal Symptoms", type: "Dropdown", required: true },
-      { name: "Dysphagia / Odynophagia (Alarm Flags)", type: "Checkbox", required: true },
-      { name: "PPI Trial Plan & Dose", type: "Text Input", required: false },
-      { name: "Weight Loss / Appetite Check", type: "Checkbox", required: false },
-      { name: "Endoscopy Referral Details", type: "Textarea", required: false }
-    ]
+      { name: "Symptom Duration (Weeks)", type: "Numeric", required: true, placeholder: "e.g. 3" },
+      { name: "PPI Dose", type: "Dropdown", required: true, options: ["20mg daily", "40mg daily"] }
+    ],
+    versions: []
   },
   { 
     id: 9, 
     name: "Lower Back Pain", 
-    category: "MSK", 
+    category: "Acute", 
     system: "Musculoskeletal", 
-    fields: 15, 
+    fields: 6, 
     usageCount: 567, 
     lastUsed: "6 hours ago", 
     status: "active", 
-    author: "Dr. Arun Mehta", 
+    author: "GP Edge Content Team", 
     version: "v2.1",
+    slug: "lower-back-pain",
+    description: "Comprehensive review template for mechanical lower back pain.",
+    tags: ["Back Pain", "MSK", "Acute", "Spine"],
+    subjective: "Presents with lower back pain after lifting object {{symptom_duration}} days ago. Pain is localized, no radiation down legs. Denies bowel or bladder dysfunction.",
+    objective: "Spine: tenderness over lumbar region, range of movement restricted. SLR negative at {{slr_angle}} degrees bilateral. Lower limb neurology intact.",
+    assessment: "Acute mechanical lower back pain.",
+    plan: "1. Reassurance of self-limiting nature. 2. Regular paracetamol and NSAIDs. 3. Advise active movement, avoid bed rest. 4. Refer to physio if needed.",
+    doctorSummary: "No red flags. Lumbar muscle strain suspected.",
+    patientResources: "RACGP lower back pain self-management factsheet.",
+    references: "RACGP Guideline for the Management of Musculoskeletal Pain.",
+    followupNotes: "Review in 1 week if pain is not resolving.",
     sampleFields: [
-      { name: "Onset, Trigger & Location of Pain", type: "Textarea", required: true },
-      { name: "Radiation (Sciatica) & Sensory Loss", type: "Checkbox", required: true },
-      { name: "Red Flags (Bowels/Bladder Retention)", type: "Checkbox", required: true },
-      { name: "Straight Leg Raise (SLR) Angle", type: "Numeric", required: false },
-      { name: "Analgesia Regimen (NSAIDs/Paracetamol)", type: "Text Input", required: false },
-      { name: "Physiotherapy Referral Plan", type: "Textarea", required: false }
-    ]
+      { name: "Symptom Duration (Days)", type: "Numeric", required: true, placeholder: "e.g. 2" },
+      { name: "SLR Angle (Degrees)", type: "Numeric", required: true, placeholder: "e.g. 80" }
+    ],
+    versions: []
   },
   { 
     id: 10, 
     name: "MBS 721 — GPMP Template", 
     category: "Billing", 
     system: "MBS", 
-    fields: 20, 
+    fields: 6, 
     usageCount: 198, 
     lastUsed: "2 days ago", 
     status: "draft", 
-    author: "Jessica Park", 
+    author: "GP Edge Editorial Team", 
     version: "v0.9",
+    slug: "gpmp-billing",
+    description: "Billing checklist and planning guide for GP Management Plans.",
+    tags: ["GPMP", "Billing", "MBS", "Item 721"],
+    subjective: "Eligible chronic disease patient presents for GP Management Plan (GPMP). Co-morbidities: {{chronic_conditions}}.",
+    objective: "Meets clinical criteria for chronic condition management plan under Medicare guidelines.",
+    assessment: "Chronic disease management care coordination required (MBS Item 721).",
+    plan: "1. Document patient details, management goals, and agreed care strategies. 2. Schedule allied health team reviews (TCA Item 723). 3. Obtain patient consent.",
+    doctorSummary: "GPMP completed and signed. Review scheduled.",
+    patientResources: "Medicare information pamphlet for chronic care plans.",
+    references: "Medicare Benefits Schedule (MBS) General Practice Services rules.",
+    followupNotes: "Schedule review in 6 months (Item 732).",
     sampleFields: [
-      { name: "Primary Chronic Medical Conditions", type: "Textarea", required: true },
-      { name: "Patient Co-designed Care Goals", type: "Textarea", required: true },
-      { name: "Allied Health Referrals Scheduled", type: "Checkbox", required: true },
-      { name: "Care Team Members & Contact info", type: "Textarea", required: false },
-      { name: "GPMP Consent Form Signed", type: "Checkbox", required: true },
-      { name: "Review Date Scheduled (6 months)", type: "Date Picker", required: true }
-    ]
-  }
+      { name: "Chronic Conditions", type: "Text Input", required: true, placeholder: "e.g. T2DM, Hypertension" }
+    ],
+    versions: []
+  },
+  { 
+    id: 11, 
+    name: "Male Sub-fertility Assessment", 
+    category: "Chronic", 
+    system: "Men's Health", 
+    fields: 8, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "male-sub-fertility",
+    description: "Comprehensive assessment for male factor sub-fertility including history, examination, and investigation plan.",
+    tags: ["Sub-fertility", "Semen Analysis", "Andrology", "Men's Health"],
+    subjective: `F2F — Patient and partner presenting for investigation of sub-fertility.
+
+DURATION: Trying to conceive for ^ months/years.
+
+Partner's Details:
+- Partner's age: ^ yrs
+- Known female factor issues (e.g., PCOS, endometriosis, tubal-blockage): Yes / No
+- Partner's previous conceptions: Yes / No
+
+Fertility History (Patient):
+- Previous children (with current or previous partners): Yes / No, at age ^ yrs
+
+Sexual History:
+- Frequency of intercourse: ^ times per week/month
+- Timing of intercourse (re: fertile window): ^
+- Difficulties: Erectile dysfunction (present/absent), ejaculatory issues (premature, delayed, anejaculation), dyspareunia
+- Libido: Normal / Decreased / Increased
+
+Past Medical History:
+Childhood:
+- ^ declines hx of cryptorchidism
+- ^ declines hx of scrotal surgery
+- ^ declines hx of hernia repair
+- ^ declines hx of mumps
+
+Genitourinary:
+- ^ Declines hx of STIs (Chlamydia, Gonorrhoea)
+- ^ declines hx of Epididymo-orchitis / Prostatitis
+- ^ declines hx of Testicular/scrotal trauma
+- ^ declines vasectomy
+
+Systemic Illness:
+- ^ no known hx of Diabetes Mellitus
+- ^ declines hx of chemotherapy / radiotherapy
+
+Medications & Allergies: (mention if on TRT, 5-ARIs, spironolactone or sulfasalazine)
+
+Social History:
+Occupation:
+- Exposure to: Heat / Pesticides / Solvents / Heavy metals / Radiation: Yes / No
+
+Substance Use:
+- Smoking: Current / Ex / Never (^ packs/day)
+- Alcohol: ^ standard drinks per week
+- Recreational Drugs: ^ Declines any
+  - Marijuana: Yes / No  |  Cocaine: Yes / No  |  Opiates: Yes / No
+  - Anabolic steroids (current or past): Yes / No
+
+General Health:
+- Diet and exercise: ^
+- Recent high fevers: Yes / No
+- Testicular heat exposure (e.g., saunas, hot tubs): Yes / No
+
+Family History:
+- Infertility (siblings, parents): Yes / No
+- Genetic conditions (e.g., Cystic Fibrosis, Klinefelter): Yes / No`,
+    objective: `Vitals:
+- BMI: ^  |  Height: ^  |  Weight: ^
+
+General appearance, secondary sexual characteristics (gynaecomastia, hair distribution, muscle mass): ^
+
+Genital Examination:
+- Penis: (e.g., meatal position) ^
+- Testes (Scrotal Exam):
+  - Volume (Orchidometer): Left: _____ mL  |  Right: _____ mL  (Normal >15 mL)
+  - Consistency: Firm / Soft / Other
+- Epididymis: Tender / Non-tender / Cysts
+- Vas Deferens: Present bilaterally / Absent (unilateral/bilateral)
+- Varicocele:
+  - Palpable: Yes / No
+  - Present on Valsalva: Yes / No
+- Other: (e.g., hydrocele, surgical scars)`,
+    assessment: `? Male factor sub-fertility
+^ There are no obvious predispositions on history.
+^ On examination, patient is well androgenised.`,
+    plan: `Investigations to consider:
+
+Semen Analysis (Initial):
+- [ ] Request 2x Semen Analysis (6–12 weeks apart)
+- Instructions given: 2–7 days of abstinence, deliver to lab within 1 hour, keep at body temp
+  - https://www.snp.com.au/media/ghbjmts2/item-35170-semen-collection-202601.pdf
+
+Hormonal Profile (if SA abnormal or clinical suspicion):
+- FSH, LH, Testosterone (early morning 8–10am), Prolactin (if low T or low libido), SHBG
+
+Genetic (if severe oligo- or azoospermia):
+- Karyotype (Check for Klinefelter XXY)
+- Y-chromosome microdeletions
+- CFTR gene mutation (if vas deferens absent)
+
+Imaging:
+- Scrotal Ultrasound (if exam abnormal, varicocele suspected, or testicular mass)
+
+Other:
+- STI screen (if not recent)
+
+Advice & Further Plan:
+Education:
+- Discussed fertile window and advised regular intercourse (e.g., every 2–3 days)
+- Reassurance provided
+
+Lifestyle Modifications:
+- Advised smoking cessation, reduction of alcohol, cessation of illicit drugs (esp. marijuana, anabolic steroids)
+- Weight management (if BMI high)
+- Avoid testicular heat (e.g., loose underwear, avoid spas/saunas)
+
+Medication Review:
+- Reviewed current medications; advised to stop [e.g., anabolic steroids] if applicable
+
+Supplements:
+- Discussed limited evidence but low risk of antioxidants/folic acid
+
+Follow-up & Referral:
+- [ ] Follow up to review Semen Analysis results
+- Consider referral to Fertility Specialist / Urologist if:
+  - Abnormal Semen Analysis
+  - Azoospermia or severe oligozoospermia
+  - Suspected genetic cause
+  - Significant examination finding (e.g., varicocele, absent vas)
+  - Female partner factors also present`,
+    patientResources: `1. https://www.betterhealth.vic.gov.au/health/conditionsandtreatments/infertility-in-men
+2. https://www.thewomens.org.au/health-information/fertility-information/fertility-problems/male-infertility
+3. https://www.ivf.com.au/sites/ivfa/files/2023-03/MFC05%20Male%20Fertility%20eBook%2017.03.23-LR_3.pdf`,
+    references: "RACGP; Fertility Society of Australia guidelines on male factor infertility.",
+    followupNotes: "Review semen analysis results at 6–12 weeks. Refer to urologist/fertility specialist if abnormal.",
+    sampleFields: [
+      { name: "Duration Trying to Conceive", type: "Text Input", required: true, placeholder: "e.g. 18 months" },
+      { name: "Semen Analysis Ordered", type: "Checkbox", required: false }
+    ],
+    versions: []
+  },
+  { 
+    id: 12, 
+    name: "Chronic Rhinosinusitis (CRS) Assessment", 
+    category: "Chronic", 
+    system: "Respiratory", 
+    fields: 7, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "chronic-rhinosinusitis",
+    description: "Structured assessment and management plan for Chronic Rhinosinusitis (CRS) with or without polyps, including VAS and SNOT-22 scoring.",
+    tags: ["ENT", "Chronic Rhinosinusitis", "Sinusitis", "CRS", "Polyps"],
+    subjective: `F2F — ^ presents with ^
+^ New to me, presents for ^  |  ^ Planned review for ^
+
+#? Chronic Rhinosinusitis
+- Onset and duration (>12 weeks required): ^
+- Cardinal symptoms (≥2 required):
+  - Nasal obstruction/congestion: ^
+  - Mucopurulent discharge / post-nasal drip: ^
+  - Facial pain or pressure: ^
+  - Reduction/loss of smell: ^
+- Unilateral vs bilateral (unilateral = red flag): ^
+
+Red flag screen:
+- ^ Declines vision change
+- ^ No periorbital swelling
+- ^ Declines severe headache
+- ^ Declines features suggestive of focal neurology
+- ^ Declines hx of epistaxis
+- ^ Declines hx of cacosmia
+
+- Polyps known or suspected: ^
+- Allergic rhinitis / asthma / atopy: ^
+- Aspirin/NSAID sensitivity (especially if polyps): ^
+- Smoking and environmental triggers: ^
+- Decongestant overuse (rhinitis medicamentosa): ^
+- Previous treatments — INCS, antihistamine, saline, adherence and technique: ^
+- Impact on QoL (sleep, work, mood): ^`,
+    objective: `Vitals — T ^ HR ^ BP ^ RR ^ SpO2 ^
+
+Facial sinus tenderness: ^
+Anterior rhinoscopy (mucosa, discharge, polyps, septum): ^
+Oropharynx (cobblestone throat, mucus tracks, erythema): ^
+Ear exam: ^
+Chest auscultation if asthma suspected: ^
+
+VAS (0–10): "Not at all troublesome" ————> "Worst possible troublesome"
+^ /10  — mild 0–3, moderate >3–7, severe >7–10
+(Escalate/refer if VAS ≥5 persists despite first-line care)
+
+SNOT-22 total: ^ /110 (each item 0–5)
+(Escalate/refer if SNOT-22 ≥40 persists despite first-line care)
+Available: https://entcalculator.com/snot-22`,
+    assessment: `#Chronic Rhinosinusitis (≥2 cardinal symptoms >12 weeks)
+- ^ CRS without polyps (CRSsNP)
+- ^ CRS with polyps (CRSwNP) — ENT referral, screen for asthma/AERD (adults), CF (children)
+- ^ Severity: mild / moderate / severe
+
+Differentials:
+- ^ Acute rhinosinusitis (<4 weeks)
+- ^ Allergic rhinitis (often coexists)
+- ^ Rhinitis medicamentosa
+- ^ Sinonasal neoplasm (unilateral, bleeding, crusting — urgent ENT)
+- ^ Migraine / tension headache (facial pain only, no other criteria)`,
+    plan: `Education and General Measures:
+- Chronic inflammatory condition — long-term management, not antibiotics
+- Allow ≥1 month before judging response
+- Avoid triggers; stop decongestants if used >5–7 days
+- Demonstrate crossover spray technique (right hand → left nostril, aim laterally)
+- Saline irrigation BEFORE intranasal steroid
+
+First-line (review at 1 month):
+- Saline nasal irrigation 1–2x daily, ongoing
+- INCS daily, long-term:
+  - Mometasone (Nasonex Allergy)
+  - Fluticasone furoate (Avamys)
+  - Budesonide (Rhinocort)
+- Counsel: 2–4 weeks for full effect
+- If allergic features: add intranasal azelastine or oral non-sedating antihistamine (e.g., Dymista or Rialtris)
+
+Second-line (no response after ≥1 month, or VAS ≥5 / SNOT-22 ≥40):
+- Check adherence and technique FIRST
+- Consider specific IgE (RAST) and CT sinuses (X-rays not recommended)
+- CRSsNP: prednisolone 25 mg daily 5–10 days (limited evidence)
+- CRSwNP medical polypectomy: prednisolone 25 mg daily 1 week → 12.5 mg daily 1 week → 12.5 mg alt days 1 week; continue INCS throughout
+- Antibiotics not routinely indicated in primary care
+
+Special populations:
+- Children <12: refer; if polyps, test for CF
+- Adults with polyps: screen asthma + aspirin sensitivity
+- Pregnancy: saline safe; budesonide preferred INCS; avoid oral steroids in T1 if possible`,
+    patientResources: "ENT Australia patient resources on CRS and nasal spray technique.",
+    references: "RACGP; EPOS 2020 guidelines for Rhinosinusitis; ENT Australia.",
+    followupNotes: "Review at 1 month. Refer to ENT if VAS ≥5 or SNOT-22 ≥40 persists after first-line treatment.",
+    sampleFields: [
+      { name: "VAS Score", type: "Numeric", required: true, placeholder: "0–10" },
+      { name: "SNOT-22 Score", type: "Numeric", required: false, placeholder: "0–110" },
+      { name: "Polyps Present", type: "Dropdown", required: false, options: ["Yes", "No", "Suspected"] }
+    ],
+    versions: []
+  },
+  { 
+    id: 13, 
+    name: "Wound Assessment & Review", 
+    category: "Acute", 
+    system: "Dermatology", 
+    fields: 7, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "wound-assessment",
+    description: "Structured wound assessment using the TIME framework with dressing plan and escalation criteria.",
+    tags: ["Wound Care", "Ulcer", "Dressing", "TIME Framework"],
+    subjective: `F2F — ^ presents with ^
+^ New to me, presents for wound review  |  ^ Planned present for ^
+
+- Progress: ^ Improving / Stalled / Deteriorating
+- Pain: ^ Score /10, ^ Constant / During dressing changes only, ^ Overall Improving
+- Interim events: <Fevers / Systemic symptoms / Antibiotics completed?>`,
+    objective: `Wound Assessment (TIME Framework):
+- Location: ^ Site
+- Dimensions: (Length) × (Width) × (Depth) in mm
+
+T — Tissue: ^ % Granulation / % Slough / % Eschar / % Epithelial. Colour of tissue bed: ^
+I — Infection: ^ No signs / Signs of clinical infection? Odour / Heat / Swelling / Erythema
+M — Moisture: ^ Exudate: Low / Med / High | ^ Serous / Haemoserous / Purulent. Bleeding: ^
+E — Edge: ^ Advancing / Stalled / Rolled / Macerated
+
+- Periwound: ^ Healthy / Eczematous / Cellulitic / Macerated
+- Circulation: ^ Pulses present? / Capillary refill time: ^
+
+Clinical Photography: Consent obtained; image uploaded to record.`,
+    assessment: `- Diagnosis: ^ (e.g., Venous ulcer / Dehisced surgical wound / Traumatic tear)
+- Healing Phase: ^ Inflammatory / Proliferative / Maturation
+- Debridement needed: ^ None / Autolytic / Conservative Sharp / Mechanical / Biological`,
+    plan: `- Debridement performed: <Type:> — <Result:>
+- Cleansing: <Normal saline / Prontosan / Tap water>
+- Primary Dressing: <e.g., Inadine / Aquacel Ag / Hydrogel / Foam>
+- Secondary Dressing/Fixation: <e.g., Zetuvit / Hypafix / Compression bandage>
+- Frequency: <Review in __ days / PRN if strike-through>
+- Referral/Escalation: <Wound clinic / Vascular / Not required>
+
+*If a wound is stalled, use the TIME framework assessment to guide escalation.*`,
+    patientResources: "Wound care patient information via WoundsAustralia; Wound Specialist Society resources.",
+    references: "WoundsAustralia; TIME Framework for wound management; AWMA Guidelines.",
+    followupNotes: "Review in __ days or sooner if deterioration, systemic signs, or strike-through.",
+    sampleFields: [
+      { name: "Wound Location", type: "Text Input", required: true, placeholder: "e.g. Left lower leg" },
+      { name: "Wound Dimensions (mm)", type: "Text Input", required: true, placeholder: "e.g. 30×20×5" },
+      { name: "Healing Phase", type: "Dropdown", required: false, options: ["Inflammatory", "Proliferative", "Maturation"] }
+    ],
+    versions: []
+  },
+  { 
+    id: 14, 
+    name: "Hypertrophic Scar / Keloid Assessment", 
+    category: "Acute", 
+    system: "Dermatology", 
+    fields: 7, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "hypertrophic-scar-keloid",
+    description: "Assessment and tiered management plan for hypertrophic scars and keloids, including intralesional triamcinolone guidance.",
+    tags: ["Keloid", "Hypertrophic Scar", "Triamcinolone", "Dermatology"],
+    subjective: `F2F — ^ presents with ^
+^ New to me, presents for ^  |  ^ Planned review for ^
+
+#? Hypertrophic scar / Keloid
+- Onset, duration, inciting event: ^
+- Site(s) and growth pattern (within wound vs extending beyond): ^
+- Symptoms — pruritus, pain, restricted ROM: ^
+- Personal/family history of keloids; Fitzpatrick skin type: ^
+- Treatments trialled: ^
+- QoL/psychosocial impact; affecting sleep: ^
+- Pregnancy/planning pregnancy: ^`,
+    objective: `Site: ^
+Dimensions (L×W×H mm): ^
+Colour: ^
+Texture: ^
+Borders: ^
+^ Tenderness  |  ^ Signs of infection
+ROM if over joint: ^
+Photograph with ruler: ^
+
+*Hypertrophic — within wound borders
+*Keloid — extends beyond wound borders`,
+    assessment: `#Hypertrophic scar / Keloid
+- ^ Hypertrophic — within wound, often improves conservatively
+- ^ Keloid — extends beyond, high recurrence, needs active Rx
+- ^ Mixed / indeterminate
+
+Severity:
+- ^ Mild — small, asymptomatic
+- ^ Moderate — symptomatic or cosmetically significant
+- ^ Severe — functionally limiting or major psychological impact
+
+Differentials:
+- ^ Dermatofibroma  |  ^ DFSP  |  ^ Foreign body granuloma  |  ^ Malignancy in old scar (biopsy if atypical)`,
+    plan: `Education and General Measures:
+- Set expectations — improvement not cure
+- SPF 50+, avoid trauma/tension/piercings at site
+- Photographic monitoring
+
+Treatment Options:
+- ^ Option A: Silicone gel/sheet + compression × 3–6 months (slow, no needles)
+- ^ Option B: Intralesional triamcinolone 4–6 weekly × 2–3 sessions + silicone (faster)
+- ^ Option C: Silicone + compression first; escalate to steroid if no response at 3 months
+
+First-line — Conservative:
+- Silicone gel/sheet 12–24 hr/day, min 2–3 months (Strataderm, Dermatix, Mepiform)
+- Pressure therapy (post-burn, post-excision earlobe — 23 hr/day, 6–12 months)
+- Massage 2–3x daily once wound healed
+
+Second-line — Intralesional Triamcinolone (Kenacort-A 40):
+- 10–40 mg/mL (face 5–10, moderate 10–20, thick keloid 20–40)
+- Dilute with lignocaine 1% (e.g., 0.25 mL Kenacort + 0.75 mL lig 1% = 10 mg/mL)
+- 27–30G needle, intradermal, blanching confirms correct plane
+- 0.1–0.2 mL per cm²; max 40 mg/session
+- Repeat 4–6 weekly × 3–6 sessions
+- Cryotherapy 10–15 sec before injection softens dense keloids
+- Counsel: atrophy, hypopigmentation (esp. skin of colour), telangiectasia
+
+Third-line / Refractory — Refer:
+- 5-FU intralesional, pulsed dye laser, fractional CO2, surgery + adjuvant Rx, superficial radiotherapy
+
+Special Considerations:
+- Skin of colour: lower steroid conc, avoid aggressive cryo, PDL > ablative laser
+- Face: 5–10 mg/mL only, small volumes
+- Earlobe keloid: refer for excision + intralesional steroid + pressure earring
+
+Referrals and Follow-up:
+- ^ Derm (refractory, large keloids, laser/5-FU)
+- ^ Plastics (contracture, earlobe, large keloid)
+- ^ Burns/OT (pressure garments)
+- Biopsy if atypical
+- Review in ^ weeks/months`,
+    patientResources: `1. https://www.skinhealthinfo.org.uk/wp-content/uploads/2018/11/Keloids-PIL-April-2021-1.pdf
+2. Caulibuds/Kelloidbuds/magnetic earrings available online for earlobe pressure`,
+    doctorSummary: `Pathophysiology: Both = abnormal wound healing with excess collagen deposition (↑TGF-β1, ↑fibroblast activity, ↓collagenase).
+Hypertrophic = within wound borders, regresses over 12–24 months.
+Keloid = beyond wound borders, does NOT regress, genetic/ethnic predisposition (15× African, ↑ Fitzpatrick IV–VI).
+High-risk sites: earlobes, sternum, shoulders, upper back, deltoid.
+
+Treatment principles: Tiered and multi-modal. Goal = symptom relief + flattening, NOT cure. Early intervention (<6–12 months) more effective.
+Tier 1: silicone, pressure, massage. Tier 2: intralesional triamcinolone. Tier 3: surgery+adjuvant, laser, 5-FU, radiotherapy.
+Surgery alone for keloid = up to 100% recurrence — always combine with adjuvant Rx.
+
+Triamcinolone key points:
+- Kenacort-A 40 (40 mg/mL), dilute with lignocaine 1%
+- Concentration by site: face 5–10, moderate 10–20, dense keloid 20–40 mg/mL
+- 27–30G Luer-lock syringe, intradermal injection, blanching confirms plane
+- Max 40 mg/session (1 mg/kg in children, max 40 mg)
+- Cryo 10–15 sec pre-injection softens dense scars
+⚠ Hypopigmentation and atrophy can be PERMANENT and highly visible in skin of colour. Start low, titrate up.
+⚠ MUST counsel: atrophy, hypopigmentation, telangiectasia, menstrual irregularity (rare), pain, partial/no response.
+⚠ Max 40 mg per session; exceeding risks HPA suppression with repeated dosing.
+
+Pearls:
+- Scar beyond wound margin = keloid (not hypertrophic) — drives management aggressiveness
+- Photograph with ruler every visit — objective tracking
+- Earlobe keloids: excision alone = ~100% recurrence
+- Atypical features, rapid growth, no inciting injury → biopsy (DFSP, SCC in chronic scar are missed)
+- Dense scar won't take injection? Cryo first, then inject`,
+    references: "RACGP; Gold et al. Keloid and Hypertrophic Scar Treatment Guidelines; Dermatology Society of Australia.",
+    followupNotes: "Review in 4–6 weeks after first intralesional steroid. Photograph at every visit for objective tracking.",
+    sampleFields: [
+      { name: "Lesion Site", type: "Text Input", required: true, placeholder: "e.g. Left earlobe" },
+      { name: "Dimensions (mm)", type: "Text Input", required: true, placeholder: "e.g. 15×10×8" },
+      { name: "Fitzpatrick Skin Type", type: "Dropdown", required: false, options: ["I", "II", "III", "IV", "V", "VI"] },
+      { name: "Treatment Plan", type: "Dropdown", required: false, options: ["Option A – Silicone", "Option B – Triamcinolone", "Option C – Silicone then escalate"] }
+    ],
+    versions: []
+  },
+  { 
+    id: 15, 
+    name: "Implanon NXT Removal", 
+    category: "Women's Health", 
+    system: "Women's Health", 
+    fields: 6, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "implanon-removal",
+    description: "Structured procedural template for Implanon NXT removal including consent, technique, and post-care instructions.",
+    tags: ["Implanon", "Contraception", "Procedural", "Women's Health"],
+    subjective: `F2F — Presents alone / with partner
+Planned present / Presents for Implanon NXT removal
+
+#Issue 1: Implanon NXT Removal Discussion
+Patient requests removal of Implanon NXT
+
+Indications:
+- ^ Multiple indications — arm discomfort, weight gain, patient has made a definite decision
+- ^ Arm sore at implant site
+- ^ Allergy to cleaning solutions / LA
+
+Discussed future contraception: ^
+Contraindications screen:
+- Not on anticoagulants, no site infection, not planned to be a difficult removal
+
+Discussion of procedure-specific risks:
+- Local: Pain, bruising, swelling, or minor scarring at the site
+- Procedure-related: Difficulty in locating or removing the implant, potentially requiring a larger incision or referral for ultrasound-guided removal if non-palpable
+- Infection: Small risk of localised infection
+- Device failure: Risks associated with not starting new contraception immediately
+
+Patient verbalized understanding`,
+    objective: `- Implant location confirmed via palpation on the inner aspect of the left arm
+- ^ Already a pigmented & raised scar at the site — old scar, confirmed by patient
+- Skin over site appears healthy with no signs of localised infection`,
+    assessment: "Implanon NXT requiring removal.",
+    plan: `Procedure:
+- Aseptic technique maintained throughout
+- Local anaesthetic: 1% xylocaine with adrenaline — ^ mL injected under the distal end of the implant
+- ~ 4 mm longitudinal incision made at the distal tip
+- Removed intact. Entire 4 cm rod removed and shown to patient
+
+Closure: 1 × 4-0 Vicryl stitch / Steristrip
+Waterproof dressing and pressure bandage applied
+
+Post-care:
+- Pressure bandage to remain for 24 hours to reduce bruising
+- Waterproof dressing to remain for 3–5 days
+- Advice given: Keep site clean and dry; monitor for signs of infection (increasing pain, redness, or discharge)
+- Follow-up: 5–7 days for removal of sutures / wound review
+
+Billing (as of May 2026): 30062 (removal of implanon) + BB loading (35501)`,
+    patientResources: `- Insertion & Removal videos: https://www.nexplanonvideos.com/
+- Fillable consent form for removal: https://shq.org.au/wp-content/uploads/2025/08/Implant-Removal-Consent-Form-5-August-2025-P0056V2_fillable.pdf`,
+    references: "Organon Australia; SHQ Implanon clinical guidance; RACGP contraception guidelines.",
+    followupNotes: "Review in 5–7 days for wound check and removal of suture if used.",
+    sampleFields: [
+      { name: "LA Volume (mL)", type: "Numeric", required: true, placeholder: "e.g. 2" },
+      { name: "Closure Method", type: "Dropdown", required: true, options: ["Steristrip", "4-0 Vicryl suture", "Both"] },
+      { name: "Future Contraception Discussed", type: "Checkbox", required: false }
+    ],
+    versions: []
+  },
+  { 
+    id: 16, 
+    name: "Lichen Sclerosus Assessment", 
+    category: "Chronic", 
+    system: "Women's Health", 
+    fields: 7, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "lichen-sclerosus",
+    description: "Assessment and management template for genital Lichen Sclerosus (LS) including surveillance and topical corticosteroid guidance.",
+    tags: ["Lichen Sclerosus", "BXO", "Balanitis", "Vulval itch", "Lower Urinary Tract"],
+    subjective: `F2F — ^ presents with ^
+^ New to me, presents for ^  |  ^ Planned present for ^
+
+#Issue 1 (Lichen Sclerosus Assessment)
+- Itchiness in the anogenital area: ^
+- Presence of pain or dyspareunia: ^
+- History of constipation or dysuria (particularly if a child): ^
+- Associated autoimmune history (thyroid disease, vitiligo, pernicious anaemia): ^
+- Asymptomatic changes noted during routine screening: ^
+- Aggravating factors (tight clothing, cycling): ^
+- Current use of non-soap cleansers and emollients: ^`,
+    objective: `Vitals: ^
+Chaperone: ^
+
+Pelvic Exam:
+General Inspection:
+- Well-defined white finely wrinkled plaques observed: ^
+- Anatomical changes "figure of eight" vulval/perianal involvement: ^
+- Purpuric areas or hyperkeratotic fissured areas noted: ^
+- Ulceration from scratching observed: ^
+- Evidence of scarring, fusion, or stenosis of the vaginal opening: ^
+- Phimosis or involvement of the glans penis in males: ^
+- No suspicious lesions or signs of Squamous Cell Carcinoma (SCC): ^`,
+    assessment: `- ^ Lichen Sclerosus
+- ^ Lichen sclerosus et atrophicus
+- ^ Balanitis xerotica obliterans (BXO)
+
+Refer to Gynaecologist or Urologist for biopsy if diagnosis unclear or to exclude malignancy/atypical changes.`,
+    plan: `Potent topical corticosteroid:
+- Betamethasone dipropionate 0.05% ointment ^
+- Frequency: Apply daily or twice daily until symptoms abate (1–3 months) ^
+
+Maintenance:
+- Apply two to three times weekly long-term ^
+- Adjunct topical oestrogen for co-existing menopausal vulval atrophy ^
+
+Referral:
+- ^ Referral to Dermatologist or Gynaecologist for confirmation of diagnosis
+
+Advice:
+- Wash gently once daily and use non-soap cleansers ^
+- Avoid tight clothing and rubbing/scratching ^
+- Routine 6–12 month follow-up indefinitely for carcinoma surveillance ^`,
+    patientResources: `1. https://www.mshc.org.au/?ACT=613&path=factsheet/pdf/256
+2. https://www.thewomens.org.au/health-information/vulva-vagina/vulva-vagina-problems/lichen-sclerosus`,
+    doctorSummary: `Clinical Presentation: Often presents as white "parchment-like" skin. In females, vagina is strictly spared but "figure of eight" perianal involvement is classic.
+
+The 5% Risk: Untreated or undertreated genital Lichen Sclerosus carries a 5% risk of malignant transformation into Squamous Cell Carcinoma (SCC).
+
+Treatment Gold Standard: Potent corticosteroids (Betamethasone dipropionate 0.05% ointment) are first-line. Ointments preferred over creams as they sting less on fissured skin.
+
+Maintenance: Remission is rare; 85% of patients require indefinite maintenance (2–3 times weekly) to prevent anatomical distortion and SCC.
+
+Paediatrics: In children, LS can be mistaken for sexual abuse due to purpura/bruising; can also cause unexplained constipation or dysuria.`,
+    references: "RACGP; British Association of Dermatologists LS Guidelines; Australian Menopause Society.",
+    followupNotes: "6–12 monthly follow-up indefinitely. Refer for biopsy if any suspicious lesion or diagnostic uncertainty.",
+    sampleFields: [
+      { name: "Topical Steroid Prescribed", type: "Text Input", required: true, placeholder: "e.g. Betamethasone 0.05% ointment" },
+      { name: "Biopsy Referral Required", type: "Dropdown", required: false, options: ["Yes", "No", "Uncertain"] }
+    ],
+    versions: []
+  },
+  { 
+    id: 17, 
+    name: "MASLD (Metabolic Fatty Liver Disease)", 
+    category: "Chronic", 
+    system: "Gastroenterology", 
+    fields: 8, 
+    usageCount: 0, 
+    lastUsed: "Never", 
+    status: "active", 
+    author: "GP Edge Clinical Team", 
+    version: "v1.0",
+    slug: "masld-fatty-liver",
+    description: "Assessment and management plan for Metabolic Associated Steatotic Liver Disease (MASLD), formerly NAFLD. Includes FIB-4 scoring, liver screen, and Fibroscan referral pathway.",
+    tags: ["MASLD", "NAFLD", "Fatty Liver", "FIB-4", "Fibroscan", "Liver Disease"],
+    subjective: `F2F — ^ presents with ^
+^ New to me, presents for ^  |  ^ Planned present for ^
+
+#Issue 1 (Metabolic/Liver Review)
+- Review of recent LFTs showing derangement in ^
+- Patient is currently asymptomatic of liver disease ^
+- No history of pruritus, easy bruising, or abdominal distension ^
+- Alcohol intake is ^ standard drinks per week ^
+- History of recent rapid weight gain or sedentary lifestyle ^
+- Known history of Type 2 Diabetes or Pre-diabetes ^
+- Known history of hypertension or dyslipidaemia ^
+- Family history of chronic liver disease or premature CVD ^
+- Review of current medications and over-the-counter supplements ^`,
+    objective: `BMI: ^ kg/m²
+Waist circumference: ^ cm
+BP: ^ mmHg
+
+^ No evidence of scleral icterus or palmar erythema
+^ No spider naevi or caput medusae observed
+^ Abdomen soft and non-tender with no palpable hepatosplenomegaly
+^ No shifting dullness or peripheral oedema noted
+^ Acanthosis nigricans noted on neck or axilla`,
+    assessment: `#Suspected Metabolic Associated Steatotic Liver Disease (MASLD)
+- Pending elastography
+- Pending liver screen
+
+#Suspected MetALD (if patient meets metabolic criteria but drinks >30g/day men / >20g/day women up to 60g/day)
+
+Note: If >50g/day women or >60g/day men → classify as Alcohol-Related Liver Disease (ArLD)`,
+    plan: `1. FIB-4 Score Calculation:
+   - Required: Age, AST, ALT, Platelets
+   - FIB-4 result: ^
+   - ^ Low risk (FIB-4 <1.3): Repeat LFTs and FIB-4 in 2 years
+   - ^ Intermediate/High risk (FIB-4 >1.3): Refer for FibroScan (VCTE) or USS elastography
+
+2. Order "Liver Screen":
+   - Hep B & C serology
+   - Serum Ig, ANA, AMA, ASMA (autoimmune)
+   - Iron studies, alpha-1 antitrypsin
+   - Coeliac antibodies
+   - Consider copper studies & ceruloplasmin (younger patients / Wilson's disease)
+
+3. Organise upper abdominal ultrasound to confirm steatosis ^
+
+4. Lifestyle — Goal weight loss 7–10%:
+   - Mediterranean-style diet; dietetics referral
+   - 150–240 min moderate-vigorous aerobic exercise/week
+   - Alcohol: advise cessation or strict adherence to NHMRC guidelines (<10/week)
+
+5. Optimise management of T2DM, hypertension, and dyslipidaemia ^
+
+6. Review in ^ weeks to discuss screening and ultrasound results
+
+FibroScan results interpretation:
+- <8.0 kPa: Low risk — manage in primary care
+- ≥8.0 kPa: Concerning for significant fibrosis — refer for specialist management
+
+Repeat FibroScan:
+- No fibrosis on initial scan → repeat in 5 years
+- Mild/moderate fibrosis → earlier follow-up
+- Advanced fibrosis → specialist management, shorter follow-up`,
+    patientResources: `1. https://liverwell.org.au/making-masld-an-australian-public-health-priority/
+2. https://www.gesa.org.au/public/13/files/Education%20%26%20Resources/Patient%20Resources/Fatty%20Liver/GESA%20Fatty%20Liver%20Disease%202024.pdf`,
+    doctorSummary: `Terminology: NAFLD → MASLD (2023 name change). MetALD is a new combined category.
+Risk Factors: Excess weight, visceral fat, ultra-processed foods, dyslipidaemia, glucose intolerance/DM, HTN.
+
+Diagnosis (3 Pillars):
+1) Detection of Hepatic Steatosis — USS or FIB-4
+2) Presence of Cardiometabolic Risk Factors:
+   - Obesity: BMI >25 (Caucasian) or >23 (Asian) or WC ≥102/88 cm (men/women, Caucasian)
+   - BP ≥130/85 mmHg or on antihypertensives
+   - TG ≥1.50 mmol/L or on lipid-lowering therapy
+   - HDL <1.0 mmol/L (men) or <1.3 mmol/L (women)
+   - Pre-diabetes: HbA1c 5.7–6.4% or FBG 5.6–6.9 mmol/L
+   - HOMA-IR ≥2.5 or hs-CRP >2 mg/L
+3) Exclusion of other causes (Hep B/C, autoimmune, Wilson's)
+
+FIB-4 Score:
+- <1.3: Low risk — repeat in 2 years
+- 1.3–2.0: Intermediate — secondary testing with FibroScan (USS elastography has MBS rebate for GPs)
+- >2.0: High risk — FibroScan + consider specialist referral
+- >3.25: Very likely significant fibrosis
+
+Pharmacology:
+- GLP-1 Agonists: Powerful for weight/metabolic improvement (not yet TGA-indicated specifically for liver fibrosis)
+- Resmetirom: First FDA/internationally approved drug specifically for MASLD with fibrosis (check local PBS status 2025/2026)`,
+    references: "GESA MASLD Guidelines 2024; Rinella et al. MASLD nomenclature 2023; RACGP; Australian MASLD Consensus.",
+    followupNotes: "Review in 4–8 weeks with liver screen results and USS. FIB-4 and LFTs repeat in 2 years if low risk.",
+    sampleFields: [
+      { name: "FIB-4 Score", type: "Numeric", required: false, placeholder: "e.g. 1.5" },
+      { name: "BMI", type: "Numeric", required: true, placeholder: "e.g. 31" },
+      { name: "Waist Circumference (cm)", type: "Numeric", required: false, placeholder: "e.g. 104" },
+      { name: "Alcohol (std drinks/week)", type: "Numeric", required: false, placeholder: "e.g. 8" }
+    ],
+    versions: []
+  },
 ];
 
 const AUTOFILL_TEMPLATES_STORAGE_KEY = "gpedge_admin_autofill_templates";
@@ -671,7 +1446,27 @@ export function getAutofillTemplates(): AutofillTemplate[] {
       localStorage.setItem(AUTOFILL_TEMPLATES_STORAGE_KEY, JSON.stringify(DEFAULT_AUTOFILL_TEMPLATES));
       return DEFAULT_AUTOFILL_TEMPLATES;
     }
-    return JSON.parse(raw) as AutofillTemplate[];
+    const stored = JSON.parse(raw) as AutofillTemplate[];
+    // Merge: fill in missing SOAP fields from defaults for existing templates
+    const merged = stored.map((t) => {
+      const def = DEFAULT_AUTOFILL_TEMPLATES.find((d) => d.id === t.id);
+      if (!def) return t;
+      return {
+        ...t,
+        subjective:       t.subjective       || def.subjective,
+        objective:        t.objective        || def.objective,
+        assessment:       t.assessment       || def.assessment,
+        plan:             t.plan             || def.plan,
+        doctorSummary:    t.doctorSummary    || def.doctorSummary,
+        patientResources: t.patientResources || def.patientResources,
+        description:      t.description      || def.description,
+        references:       t.references       || def.references,
+        followupNotes:    t.followupNotes    || def.followupNotes,
+        tags:             (t.tags && t.tags.length > 0) ? t.tags : def.tags,
+        sampleFields:     (t.sampleFields && t.sampleFields.length > 0) ? t.sampleFields : def.sampleFields,
+      };
+    });
+    return merged;
   } catch {
     return DEFAULT_AUTOFILL_TEMPLATES;
   }
@@ -681,3 +1476,4 @@ export function saveAutofillTemplates(templates: AutofillTemplate[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(AUTOFILL_TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
 }
+

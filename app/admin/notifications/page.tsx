@@ -10,30 +10,29 @@ const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, trans
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 const scheduledNotifs = [
-  { id: 1, title: "Weekly Study Reminder", type: "Email", target: "All Users", scheduled: "Every Monday 9:00 AM", status: "active" as const },
-  { id: 2, title: "New Cardiology Questions Available", type: "In-app", target: "Premium", scheduled: "30 May 2026, 10:00 AM", status: "pending" as const },
-  { id: 3, title: "Exam Date Approaching", type: "Both", target: "AKT Registrants", scheduled: "1 Jun 2026, 8:00 AM", status: "pending" as const },
+  { id: 1, title: "Maintenance Window — 2:00–3:00 AM AEST", type: "In-app", target: "All Users", scheduled: "Every Sunday 1:30 AM", status: "active" as const },
+  { id: 2, title: "New Cardiology Module Available", type: "In-app", target: "All Subscribers", scheduled: "30 May 2026, 10:00 AM", status: "pending" as const },
+  { id: 3, title: "Subscription Renewal Reminder", type: "Email", target: "Expiring in 7 days", scheduled: "1 Jun 2026, 9:00 AM", status: "pending" as const },
 ];
 
 const sentHistory = [
-  { title: "Welcome to The GP Edge!", type: "Email", target: "New Users", sent: 1245, opened: 987, clicked: 432, date: "27 May 2026" },
-  { title: "New Mental Health Module", type: "In-app", target: "All Users", sent: 12847, opened: 8432, clicked: 3214, date: "25 May 2026" },
-  { title: "Subscription Renewal Reminder", type: "Email", target: "Premium", sent: 1456, opened: 1123, clicked: 876, date: "22 May 2026" },
-  { title: "Study Streak Achievement", type: "In-app", target: "Active Users", sent: 3219, opened: 2876, clicked: 1543, date: "20 May 2026" },
+  { title: "Platform Update — v2.4 Release Notes", type: "In-app", target: "All Users", sent: 14230, opened: 9870, clicked: 4120, date: "27 May 2026" },
+  { title: "New Mental Health Content Published", type: "In-app", target: "All Subscribers", sent: 12847, opened: 8432, clicked: 3214, date: "25 May 2026" },
+  { title: "Subscription Renewal Reminder", type: "Email", target: "Expiring Subscribers", sent: 1456, opened: 1123, clicked: 876, date: "22 May 2026" },
+  { title: "Billing Receipt — May 2026", type: "Email", target: "All Subscribers", sent: 1456, opened: 1302, clicked: 241, date: "20 May 2026" },
 ];
 
 const templates = [
-  { name: "Welcome Email", desc: "Sent to new users after signup" },
-  { name: "Study Reminder", desc: "Weekly study nudge for inactive users" },
-  { name: "New Content Alert", desc: "Notify about new questions or modules" },
-  { name: "Exam Countdown", desc: "Countdown reminders before exam dates" },
+  { name: "Platform Update", desc: "Announce a new release or feature change" },
+  { name: "New Content Alert", desc: "Notify subscribers about new modules or articles" },
+  { name: "Billing & Invoice", desc: "Subscription receipts and renewal reminders" },
+  { name: "Maintenance Notice", desc: "Scheduled downtime or system maintenance" },
 ];
 
 export default function NotificationsPage() {
   const [showCompose, setShowCompose] = useState(false);
-  const [inactivityDays, setInactivityDays] = useState(7);
   const [newNotifType, setNewNotifType] = useState("In-app");
-  const [newNotifTarget, setNewNotifTarget] = useState("All Users");
+  const [newNotifTarget, setNewNotifTarget] = useState("All Subscribers");
   const [newNotifSchedule, setNewNotifSchedule] = useState("Send Now");
 
   return (
@@ -41,7 +40,7 @@ export default function NotificationsPage() {
       <AdminPageHeader
         title="System"
         highlightedText="Notifications"
-        subtitle="Send in-app and email notifications to users"
+        subtitle="Broadcast platform updates, billing alerts, and content announcements"
         variants={itemVariants}
       />
 
@@ -99,10 +98,10 @@ export default function NotificationsPage() {
                     value={newNotifTarget}
                     onChange={setNewNotifTarget}
                     options={[
+                      { value: "All Subscribers", label: "All Subscribers" },
                       { value: "All Users", label: "All Users" },
-                      { value: "Premium", label: "Premium" },
-                      { value: "Free", label: "Free" },
-                      { value: "Inactive", label: "Inactive" },
+                      { value: "Expiring Soon", label: "Expiring Soon" },
+                      { value: "Monthly Plan", label: "Monthly Plan" },
                     ]}
                     className="w-full"
                   />
@@ -154,22 +153,33 @@ export default function NotificationsPage() {
           </div>
         </motion.div>
 
-        {/* Inactivity reminder */}
+        {/* Delivery targets panel */}
         <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
           <div className="relative z-10">
-            <h3 className="text-sm font-bold text-slate-900 mb-4">Inactivity Reminder</h3>
-            <div className="mb-4">
-              <p className="text-xs text-slate-400 mb-2">Send reminder after</p>
-              <div className="flex items-center gap-3">
-                <input type="range" min={1} max={30} value={inactivityDays} onChange={(e) => setInactivityDays(Number(e.target.value))} className="flex-1 h-2 bg-slate-100 rounded-full appearance-none cursor-pointer accent-teal-500" />
-                <span className="text-sm font-bold text-teal-600 w-16 text-right">{inactivityDays} days</span>
-              </div>
+            <h3 className="text-sm font-bold text-slate-900 mb-1">Audience Targets</h3>
+            <p className="text-xs text-slate-400 mb-4">Reach specific subscriber segments</p>
+            <div className="space-y-2">
+              {[
+                { label: "All Subscribers", count: "1,456", desc: "Active premium accounts" },
+                { label: "Expiring Soon", count: "87", desc: "Renewal within 7 days" },
+                { label: "Monthly Plan", count: "466", desc: "Non-annual subscribers" },
+                { label: "All Users", count: "14,230", desc: "Entire registered base" },
+              ].map((t) => (
+                <div key={t.label} className="flex items-center justify-between p-3 bg-white/40 border border-slate-100 rounded-xl hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 cursor-pointer">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700">{t.label}</p>
+                    <p className="text-xs text-slate-400">{t.desc}</p>
+                  </div>
+                  <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200/60 px-2.5 py-0.5 rounded-full">{t.count}</span>
+                </div>
+              ))}
             </div>
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Templates</h4>
+
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mt-5 mb-3">Quick Templates</h4>
             <div className="space-y-2">
               {templates.map((t) => (
-                <button key={t.name} className="w-full text-left p-3 bg-white/40 border border-slate-100 rounded-xl hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200">
+                <button key={t.name} className="w-full text-left p-3 bg-white/40 border border-slate-100 rounded-xl hover:border-teal-200 hover:bg-teal-50/30 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200">
                   <p className="text-sm font-semibold text-slate-700">{t.name}</p>
                   <p className="text-xs text-slate-400">{t.desc}</p>
                 </button>

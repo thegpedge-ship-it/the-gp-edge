@@ -52,7 +52,7 @@ export function MonthlyRevenueChart() {
           <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">Revenue</p>
           <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">Monthly Revenue</h3>
         </div>
-        <span className="text-xs font-semibold text-green-600 dark:text-green-400 hover:text-green-500 cursor-pointer transition-colors">2026 →</span>
+        <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-500 cursor-pointer transition-colors">2026 →</span>
       </div>
 
       <div className="w-full relative">
@@ -88,8 +88,8 @@ export function MonthlyRevenueChart() {
               >
                 <defs>
                   <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#16a34a" />
-                    <stop offset="100%" stopColor="#22c55e" />
+                    <stop offset="0%" stopColor="#0f766e" />
+                    <stop offset="100%" stopColor="#14b8a6" />
                   </linearGradient>
                 </defs>
               </Bar>

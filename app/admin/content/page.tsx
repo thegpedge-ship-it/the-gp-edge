@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
@@ -30,6 +30,7 @@ export default function ContentPage() {
   const [systemFilter, setSystemFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(9);
 
   // Content Upload Modal Wizard
   const [showAddModal, setShowAddModal] = useState(false);
@@ -45,17 +46,27 @@ export default function ContentPage() {
   const [treatmentInput, setTreatmentInput] = useState("");
   const [notesInput, setNotesInput] = useState("");
 
-  // PDF upload simulation
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
-  const [uploadedFileName, setUploadedFileName] = useState("");
-  const [uploadedFileSize, setUploadedFileSize] = useState("");
+  // Multiple PDF/Word uploads queue
+  interface ContentUploadQueueItem {
+    id: string;
+    name: string;
+    size: string;
+    progress: number;
+    status: "idle" | "uploading" | "extracting" | "success" | "error";
+    error?: string;
+    extractedData?: {
+      title?: string;
+      system?: string;
+      category?: string;
+      symptoms?: string;
+      treatment?: string;
+      notes?: string;
+      fullHtml?: string;
+      references?: string[];
+    };
+  }
 
-  // Document extraction states
-  const [extractionProgress, setExtractionProgress] = useState(0);
-  const [extractionState, setExtractionState] = useState<"idle" | "extracting" | "success">("idle");
-  const [extractionLog, setExtractionLog] = useState("");
-
+  const [contentUploadQueue, setContentUploadQueue] = useState<ContentUploadQueueItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [extractedData, setExtractedData] = useState<any>(null);
 
@@ -73,10 +84,33 @@ export default function ContentPage() {
     return matchSearch && matchSystem && matchType && matchStatus;
   });
 
+  const sortedContent = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const timeA = a.lastUpdated ? new Date(a.lastUpdated).getTime() : 0;
+      const timeB = b.lastUpdated ? new Date(b.lastUpdated).getTime() : 0;
+      if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return b.id - a.id;
+    });
+  }, [filtered]);
+
+  const displayedContent = useMemo(() => {
+    return sortedContent.slice(0, visibleCount);
+  }, [sortedContent, visibleCount]);
+
   const updateStatus = (id: number, newStatus: MedicalContent["status"]) => {
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
+  };
+
+  const deleteContent = (id: number) => {
+    if (confirm("Are you sure you want to delete this content? This action cannot be undone.")) {
+      const updated = content.filter((c) => c.id !== id);
+      setContent(updated);
+      saveMedicalContent(updated);
+    }
   };
 
   // Reset Modal Form
@@ -87,36 +121,50 @@ export default function ContentPage() {
     setSymptomsInput("");
     setTreatmentInput("");
     setNotesInput("");
-    setUploadProgress(0);
-    setUploadState("idle");
-    setUploadedFileSize("");
+    setContentUploadQueue([]);
     setModalStep("select");
-    setExtractionProgress(0);
-    setExtractionState("idle");
-    setExtractionLog("");
     setExtractedData(null);
   };
 
-  // Trigger File Upload simulation
-  const simulateFileUpload = () => {
-    setUploadState("uploading");
-    setUploadProgress(0);
-    setUploadedFileName("Clinical_Guideline_Ref_" + Math.floor(Math.random() * 900 + 100) + ".pdf");
-    setUploadedFileSize((Math.random() * 1.5 + 0.5).toFixed(1) + " MB");
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    const newItems: ContentUploadQueueItem[] = fileList.map((file, idx) => ({
+      id: `content-upload-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+      name: file.name,
+      size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+      progress: 5,
+      status: "uploading",
+    }));
+
+    setContentUploadQueue((prev) => [...prev, ...newItems]);
+
+    // Process each file in parallel
+    newItems.forEach((item, index) => {
+      const originalFile = fileList[index];
+      runContentExtraction(item.id, originalFile);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadedFileName(file.name);
-    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
-    setUploadState("uploading");
-    setUploadProgress(0);
-
+  const runContentExtraction = async (id: string, file: File) => {
+    // Progress interval for extraction steps
+    let currentProgress = 5;
     const progressTimer = setInterval(() => {
-      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
-    }, 150);
+      currentProgress += Math.random() * 8 + 2;
+      if (currentProgress >= 90) {
+        clearInterval(progressTimer);
+        currentProgress = 90;
+      }
+      setContentUploadQueue((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, progress: Math.min(95, Math.round(currentProgress)) } : item
+        )
+      );
+    }, 200);
 
     try {
       const formData = new FormData();
@@ -128,88 +176,156 @@ export default function ContentPage() {
       });
 
       clearInterval(progressTimer);
-      setUploadProgress(100);
-
       const result = await res.json();
+
       if (result.success) {
-        setExtractedData(result);
-        setUploadState("success");
+        setContentUploadQueue((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  status: "success",
+                  progress: 100,
+                  extractedData: {
+                    title: result.title || file.name.replace(/\.[^/.]+$/, ""),
+                    system: result.system || "Endocrine",
+                    category: result.category || "Clinical Reference",
+                    symptoms: result.symptoms || "",
+                    treatment: result.treatment || "",
+                    notes: result.notes || "",
+                    fullHtml: result.fullHtml || "",
+                    references: result.references || [],
+                  },
+                }
+              : item
+          )
+        );
       } else {
-        alert(result.error || "Failed to extract text from document");
-        setUploadState("idle");
+        setContentUploadQueue((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  status: "error",
+                  progress: 100,
+                  error: result.error || "Failed to extract content.",
+                }
+              : item
+          )
+        );
       }
     } catch (err: any) {
       clearInterval(progressTimer);
-      alert("Upload error: " + err.message);
-      setUploadState("idle");
+      setContentUploadQueue((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: "error",
+                progress: 100,
+                error: err.message || "Network error occurred.",
+              }
+            : item
+        )
+      );
     }
   };
 
-  const runTextExtraction = () => {
-    setExtractionState("extracting");
-    setExtractionProgress(0);
-    setExtractionLog("Opening document stream...");
-    
-    setTimeout(() => {
-      setExtractionProgress(25);
-      setExtractionLog("Extracting raw text from pages...");
-    }, 300);
+  const updateQueueItemMetadata = (id: string, field: "title" | "system" | "category", value: string) => {
+    setContentUploadQueue((prev) =>
+      prev.map((item) =>
+        item.id === id && item.extractedData
+          ? {
+              ...item,
+              extractedData: {
+                ...item.extractedData,
+                [field]: value,
+              },
+            }
+          : item
+      )
+    );
+  };
 
-    setTimeout(() => {
-      setExtractionProgress(55);
-      setExtractionLog("Identifying clinical sections...");
-    }, 600);
+  const removeQueueItem = (id: string) => {
+    setContentUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  };
 
-    setTimeout(() => {
-      setExtractionProgress(85);
-      setExtractionLog("Mapping fields...");
-    }, 900);
+  const handleSaveAllDocuments = () => {
+    const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
+    if (successItems.length === 0) {
+      alert("No successfully extracted documents to import.");
+      return;
+    }
 
-    setTimeout(() => {
-      setExtractionProgress(100);
-      setExtractionState("success");
-      setExtractionLog("Extraction complete!");
-      
-      // Auto-populate the states!
-      if (extractedData) {
-        setNewTitle(extractedData.title || "Extracted Document");
-        setNewSystem(extractedData.system || "Endocrine");
-        setNewCategory(extractedData.category || "Clinical Reference");
-        setSymptomsInput(extractedData.symptoms || "");
-        setTreatmentInput(extractedData.treatment || "");
-        setNotesInput(extractedData.notes || "");
+    let nextId = content.length > 0 ? Math.max(...content.map((c) => c.id)) + 1 : 1;
+    const newContentItems: MedicalContent[] = [];
+
+    successItems.forEach((item) => {
+      const ext = item.extractedData!;
+      const newItem: MedicalContent = {
+        id: nextId++,
+        name: ext.title || "Extracted Document",
+        system: ext.system || "Endocrine",
+        category: ext.category || "Clinical Reference",
+        type: "Document",
+        status: "published",
+        lastUpdated: "Just now",
+        author: "GP Edge Admin",
+        references: ext.references && ext.references.length > 0 ? ext.references.length : 1,
+        usedInQuestions: 0,
+      };
+
+      newContentItems.push(newItem);
+
+      // Save HTML body to localStorage
+      let contentHtml = "";
+      if (ext.fullHtml) {
+        contentHtml = ext.fullHtml;
       } else {
-        // Fallback to Acne
-        setNewTitle("Acne Vulgaris Guideline");
-        setNewSystem("Dermatology");
-        setNewCategory("Skin Disease");
-        setSymptomsInput("Comedones (blackheads and whiteheads)\nInflammatory papules and pustules\nSevere nodulocystic lesions\nPost-inflammatory hyperpigmentation or scarring");
-        setTreatmentInput("Mild: Topical benzoyl peroxide + retinoid (adapalene)\nModerate: Oral doxycycline 50-100mg daily + topical retinoid\nSevere: Specialist referral for oral isotretinoin (Accutane)\nMaintenance: Ongoing topical retinoid therapy to prevent microcomedones");
-        setNotesInput("Avoid oil-based cosmetics and harsh face scrubs. Educate patient that topical therapies take 6-8 weeks for visible improvement and may cause initial irritation.");
+        contentHtml = `
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "No overview provided."}</p>
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+            ${(ext.symptoms || "No symptoms listed.").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
+          </ul>
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Treatment</h2>
+          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+            ${(ext.treatment || "No treatment guidelines listed.").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
+          </ul>
+        `;
       }
-      
-      // Redirect to the condition editor step with pre-filled values
-      setModalStep("condition");
-    }, 1200);
-  };
 
-  // Handle uploading progress bar loop
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (uploadState === "uploading") {
-      timer = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(timer);
-            setUploadState("success");
-            return 100;
+      localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
+      localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
+
+      if (ext.references && ext.references.length > 0) {
+        const refObjects = ext.references.map((refText: string, index: number) => ({
+          id: index + 1,
+          text: refText,
+          url: "#"
+        }));
+        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
+      } else {
+        const defaultRefs = [
+          {
+            id: 1,
+            text: `Clinical reference handbook - Resource 1`,
+            url: "#"
           }
-          return prev + 10;
-        });
-      }, 150);
-    }
-    return () => clearInterval(timer);
-  }, [uploadState]);
+        ];
+        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
+      }
+    });
+
+    const updated = [...newContentItems, ...content];
+    setContent(updated);
+    saveMedicalContent(updated);
+    setShowAddModal(false);
+    resetForm();
+    alert(`Successfully imported ${newContentItems.length} documents!`);
+  };
 
   // Lock body scroll when modal is open to prevent background scrolling lag
   useEffect(() => {
@@ -223,12 +339,20 @@ export default function ContentPage() {
     };
   }, [showAddModal]);
 
+  // Reset visibleCount when search query or filters change
+  useEffect(() => {
+    setVisibleCount(9);
+  }, [searchQuery, statusFilter, typeFilter, systemFilter]);
+
   // Submit and save content
   const handleSaveContent = (type: MedicalContent["type"]) => {
     if (!newTitle.trim()) {
       alert("Please fill in the title field.");
       return;
     }
+
+    const extractedRefs = extractedData?.references || [];
+    const referencesCount = extractedRefs.length;
 
     const newItem: MedicalContent = {
       id: content.length > 0 ? Math.max(...content.map(c => c.id)) + 1 : 1,
@@ -238,10 +362,52 @@ export default function ContentPage() {
       type: type,
       status: "published",
       lastUpdated: "Just now",
-      author: "Dr. Siddhant Udavant",
-      references: type === "Condition" ? 3 : 1,
+      author: "GP Edge Admin",
+      references: referencesCount > 0 ? referencesCount : (type === "Condition" ? 3 : 1),
       usedInQuestions: 0,
     };
+
+    // Pre-populate HTML body if symptoms/treatment/notes exist to import into editor
+    let contentHtml = "";
+    if (extractedData && extractedData.fullHtml) {
+      contentHtml = extractedData.fullHtml;
+    } else {
+      contentHtml = `
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "No overview provided."}</p>
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+        <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+          ${(symptomsInput || "No symptoms listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+        </ul>
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Diagnosis</h2>
+        <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+          <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">Clinical diagnosis based on symptom presentation</li>
+        </ul>
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Treatment</h2>
+        <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+          ${(treatmentInput || "No treatment guidelines listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+        </ul>
+      `;
+    }
+    localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
+    localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
+
+    if (extractedRefs.length > 0) {
+      const refObjects = extractedRefs.map((refText: string, index: number) => ({
+        id: index + 1,
+        text: refText,
+        url: "#"
+      }));
+      localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
+    } else {
+      const defaultCount = type === "Condition" ? 3 : 1;
+      const defaultRefs = Array.from({ length: defaultCount }, (_, index) => ({
+        id: index + 1,
+        text: `Clinical reference handbook - Resource ${index + 1}`,
+        url: "#"
+      }));
+      localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
+    }
 
     const updated = [newItem, ...content];
     setContent(updated);
@@ -251,7 +417,8 @@ export default function ContentPage() {
   };
 
   return (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+    <>
+      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       
       <AdminPageHeader
         title="Medical"
@@ -288,12 +455,6 @@ export default function ContentPage() {
           percentage="+15%"
           data={content.filter((c) => c.type === "Document" || c.type === "Pathway").length.toString()}
           progress={content.length > 0 ? Math.round((content.filter((c) => c.type === "Document" || c.type === "Pathway").length / content.length) * 100) : 0}
-        />
-        <AnalyticsCard
-          title="Linked Questions"
-          percentage="+18%"
-          data={content.reduce((sum, c) => sum + c.usedInQuestions, 0).toLocaleString()}
-          progress={Math.min(100, content.length > 0 ? Math.round((content.reduce((sum, c) => sum + c.usedInQuestions, 0) / 300) * 100) : 0)}
         />
       </motion.div>
 
@@ -341,7 +502,7 @@ export default function ContentPage() {
 
       {/* Content cards grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((item) => (
+        {displayedContent.map((item) => (
           <motion.div
             key={item.id}
             layout
@@ -360,7 +521,7 @@ export default function ContentPage() {
                 </div>
                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{item.lastUpdated}</span>
               </div>
-              <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-850 dark:group-hover:text-slate-300 transition-colors">{item.name}</h3>
+              <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-800 dark:group-hover:text-slate-300 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -368,16 +529,12 @@ export default function ContentPage() {
                     <Lucide.Link className="w-3.5 h-3.5 text-slate-400" />
                     {item.references} refs
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Lucide.HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-                    {item.usedInQuestions} Q
-                  </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                   <Link
                     href={`/admin/content/editor?id=${item.id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-850 hover:bg-slate-50/65 dark:hover:bg-slate-950/25 transition-all"
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-50/65 dark:hover:bg-slate-950/25 transition-all"
                     title="Edit Content"
                   >
                     <Lucide.Edit className="w-4 h-4" />
@@ -392,6 +549,9 @@ export default function ContentPage() {
                       <Lucide.Check className="w-4 h-4" />
                     </button>
                   )}
+                  <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
+                    <Lucide.Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -399,10 +559,25 @@ export default function ContentPage() {
         ))}
       </motion.div>
 
+      {sortedContent.length > visibleCount && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((prev) => prev + 9)}
+            className="px-6 py-3 text-sm font-semibold rounded-xl border border-teal-200/60 dark:border-teal-900/40 text-teal-800 dark:text-teal-300 bg-white dark:bg-slate-900 hover:shadow-lg transition-all flex items-center gap-2"
+          >
+            <Lucide.ChevronDown className="w-4 h-4 animate-bounce shrink-0" />
+            See More Content
+          </button>
+        </div>
+      )}
+
+      </motion.div>
+
       {/* Content Upload wizard Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div key="content-add-modal-container" className="fixed inset-0 z-50 pointer-events-none">
+          <div key="content-add-modal-container" className="fixed inset-0 z-[60] pointer-events-none">
             <motion.div
               key="content-add-modal-backdrop"
               initial={{ opacity: 0 }}
@@ -418,7 +593,9 @@ export default function ContentPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
               transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }}
-              className="fixed inset-x-4 top-[10%] mx-auto w-full max-w-lg max-h-[80vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-y-auto flex flex-col pointer-events-auto"
+              className={`fixed inset-x-4 top-[8%] mx-auto w-full ${
+                modalStep === "condition" ? "max-w-2xl" : "max-w-lg"
+              } max-h-[85vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-y-auto flex flex-col pointer-events-auto`}
             >
               
               {/* Modal Header */}
@@ -438,45 +615,34 @@ export default function ContentPage() {
                 {/* STEP 1: Select Type */}
                 {modalStep === "select" && (
                   <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Select Content Type</p>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Choose how to add content</p>
                     
                     <div className="grid grid-cols-1 gap-3">
-                      <button
-                        onClick={() => { setModalStep("condition"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
-                      >
-                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.Stethoscope className="w-6 h-6 text-slate-600" />
-                        </span>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Clinical Condition / Guideline</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Input diagnostic criteria, treatments, clinical notes, and resources.</p>
-                        </div>
-                      </button>
-
+                      {/* Option 1: Upload PDF / Word */}
                       <button
                         onClick={() => { setModalStep("document"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-400 dark:hover:border-teal-700 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 transition-all text-left flex items-start gap-4 group cursor-pointer"
                       >
                         <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-slate-600" />
+                          <Lucide.FileUp className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Clinical Document (PDF)</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guide, chart, or official PDF summary sheet.</p>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Upload PDF or Word Document</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Upload a clinical guideline, protocol, or reference document (PDF or DOCX).</p>
                         </div>
                       </button>
 
+                      {/* Option 2: Create New Content */}
                       <button
-                        onClick={() => { setModalStep("note"); }}
-                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-500/80 hover:bg-slate-50/10 transition-all text-left flex items-start gap-4 group"
+                        onClick={() => { setModalStep("condition"); }}
+                        className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-teal-400 dark:hover:border-teal-700 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 transition-all text-left flex items-start gap-4 group cursor-pointer"
                       >
-                        <span className="bg-slate-50 dark:bg-slate-955/20 p-2.5 rounded-xl group-hover:scale-105 transition">
-                          <Lucide.FileText className="w-6 h-6 text-slate-600" />
+                        <span className="bg-slate-50 dark:bg-slate-950/20 p-2.5 rounded-xl group-hover:scale-105 transition">
+                          <Lucide.FilePlus2 className="w-6 h-6 text-slate-600" />
                         </span>
                         <div>
-                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-slate-600 transition">Structured Note</h4>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Draft simple clinical summaries, bulletins, or references.</p>
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-teal-600 transition">Create New Content</h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Start with a blank document and write clinical content in the full editor.</p>
                         </div>
                       </button>
                     </div>
@@ -513,22 +679,87 @@ export default function ContentPage() {
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category / Area</label>
-                      <input type="text" placeholder="e.g. Chronic Disease, Emergency Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
+                      <input type="text" placeholder="e.g. Chronic Disease, Reference Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Overview / Notes</label>
+                      <textarea rows={3} placeholder="Overview or introductory notes..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 resize-y min-h-[80px]" />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Symptoms (one per line)</label>
-                      <textarea rows={2} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 font-mono" />
+                      <textarea rows={3} placeholder="Polyuria&#10;Polydipsia" value={symptomsInput} onChange={(e) => setSymptomsInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 resize-y min-h-[80px]" />
                     </div>
 
                     <div>
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Treatment Options (one per line)</label>
-                      <textarea rows={2} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 font-mono" />
+                      <textarea rows={3} placeholder="First-line: Metformin&#10;Second-line: SGLT2i" value={treatmentInput} onChange={(e) => setTreatmentInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200 resize-y min-h-[80px]" />
                     </div>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow">Save Condition</button>
+                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Back</button>
+                      <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-semibold shadow transition-all cursor-pointer border-none">Save Content</button>
+                      <button
+                        onClick={() => {
+                          if (!newTitle.trim()) { alert("Please enter a title."); return; }                          const extractedRefs = extractedData?.references || [];
+                          const referencesCount = extractedRefs.length;
+                          const newItem: MedicalContent = {
+                            id: content.length > 0 ? Math.max(...content.map(c => c.id)) + 1 : 1,
+                            name: newTitle,
+                            system: newSystem,
+                            category: newCategory.trim() || "Clinical Reference",
+                            type: "Guideline",
+                            status: "draft",
+                            lastUpdated: "Just now",
+                            author: "GP Edge Admin",
+                            references: referencesCount > 0 ? referencesCount : 0,
+                            usedInQuestions: 0,
+                          };
+
+                          let contentHtml = "";
+                          if (extractedData && extractedData.fullHtml) {
+                            contentHtml = extractedData.fullHtml;
+                          } else {
+                            contentHtml = `
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "No overview provided."}</p>
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                                ${(symptomsInput || "No symptoms listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+                              </ul>
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Diagnosis</h2>
+                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                                <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">Clinical diagnosis based on symptom presentation</li>
+                              </ul>
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Treatment</h2>
+                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                                ${(treatmentInput || "No treatment guidelines listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+                              </ul>
+                            `;
+                          }
+                          localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
+                          localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
+                          
+                          if (extractedRefs.length > 0) {
+                            const refObjects = extractedRefs.map((refText: string, index: number) => ({
+                              id: index + 1,
+                              text: refText,
+                              url: "#"
+                            }));
+                            localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
+                          }
+                          
+                          const updated = [newItem, ...content];
+                          setContent(updated);
+                          saveMedicalContent(updated);
+                          router.push(`/admin/content/editor?id=${newItem.id}`);
+                        }}
+                        className="px-5 py-2 bg-teal-800 text-white rounded-xl text-xs font-semibold hover:bg-teal-900 shadow transition-all flex items-center gap-1.5 cursor-pointer border-none"
+                      >
+                        <Lucide.ArrowRight className="w-3.5 h-3.5" />
+                        Open in Editor
+                      </button>
                     </div>
                   </div>
                 )}
@@ -536,185 +767,160 @@ export default function ContentPage() {
                 {/* STEP 2B: Upload PDF Document */}
                 {modalStep === "document" && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Document Title</label>
-                        <input type="text" placeholder="e.g. ACS Emergency Protocol Guide" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
+                    {/* Document Import Template download block */}
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+                      <span className="text-[11px] text-slate-400">Download medical content import template:</span>
+                      <a href="/templates/medical_content_template.docx" download className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0">
+                        <Lucide.Download className="w-3 h-3" />
+                        Download Template
+                      </a>
+                    </div>
+
+                    {/* File Drag & Drop Zone */}
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center"
+                    >
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept=".pdf,.docx" 
+                        multiple={true}
+                        className="hidden" 
+                      />
+                      <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX files here</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from directory (Supports multiple files, Max 10MB each)</p>
+                    </div>
+
+                    {/* Interactive Queue */}
+                    {contentUploadQueue.length > 0 && (
+                      <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Upload Queue ({contentUploadQueue.length} files)</p>
+                        {contentUploadQueue.map((item) => (
+                          <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 space-y-3 relative group">
+                            {/* File Header */}
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="min-w-0 flex-1">
+                                <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{item.name}</h5>
+                                <p className="text-[10px] text-slate-400 font-semibold">{item.size}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.status === "uploading" && (
+                                  <span className="text-[10px] font-bold text-teal-850 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                    <Lucide.Loader2 className="w-3 h-3 animate-spin" /> Uploading
+                                  </span>
+                                )}
+                                {item.status === "success" && (
+                                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">
+                                    Extracted
+                                  </span>
+                                )}
+                                {item.status === "error" && (
+                                  <span className="text-[10px] font-bold text-red-800 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full">
+                                    Error
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeQueueItem(item.id)}
+                                  className="p-1 rounded-lg text-slate-455 hover:text-red-500 hover:bg-red-55 dark:hover:bg-red-950/20 transition-all border-none bg-transparent cursor-pointer"
+                                >
+                                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Progress Bar (if active) */}
+                            {item.status === "uploading" && (
+                              <div className="space-y-1">
+                                <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full bg-teal-600 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Error Details */}
+                            {item.status === "error" && (
+                              <p className="text-[10px] font-semibold text-red-500">{item.error || "Failed to extract text from document."}</p>
+                            )}
+
+                            {/* Editable Fields (if parsed successfully) */}
+                            {item.status === "success" && item.extractedData && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/40">
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Title</label>
+                                  <input
+                                    type="text"
+                                    value={item.extractedData.title || ""}
+                                    onChange={(e) => updateQueueItemMetadata(item.id, "title", e.target.value)}
+                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Body System</label>
+                                  <select
+                                    value={item.extractedData.system || "Endocrine"}
+                                    onChange={(e) => updateQueueItemMetadata(item.id, "system", e.target.value)}
+                                    className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
+                                  >
+                                    <option value="Respiratory">Respiratory</option>
+                                    <option value="Endocrine">Endocrine</option>
+                                    <option value="Psychiatry">Psychiatry</option>
+                                    <option value="Dermatology">Dermatology</option>
+                                    <option value="Women's Health">Women's Health</option>
+                                    <option value="Paediatrics">Paediatrics</option>
+                                    <option value="Cardiovascular">Cardiovascular</option>
+                                    <option value="Gastroenterology">Gastroenterology</option>
+                                    <option value="Musculoskeletal">Musculoskeletal</option>
+                                    <option value="MBS">MBS</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Category</label>
+                                  <input
+                                    type="text"
+                                    value={item.extractedData.category || ""}
+                                    onChange={(e) => updateQueueItemMetadata(item.id, "category", e.target.value)}
+                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
-                        <CustomSelect
-                          value={newSystem}
-                          onChange={setNewSystem}
-                          options={[
-                            { value: "Endocrine", label: "Endocrine" },
-                            { value: "Cardiology", label: "Cardiology" },
-                            { value: "Respiratory", label: "Respiratory" },
-                            { value: "Gastroenterology", label: "Gastrointestinal" },
-                            { value: "Psychiatry", label: "Psychiatry" },
-                            { value: "Dermatology", label: "Dermatology" },
-                            { value: "Women's Health", label: "Women's Health" },
-                            { value: "Paediatrics", label: "Paediatrics" }
-                          ]}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category</label>
-                      <input type="text" placeholder="e.g. PDF Summary, Flowchart Guide" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
-                    </div>
-
-                    {/* PDF Drag and Drop Simulator */}
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">PDF Document Attachment</label>
-                      
-                      {uploadState === "idle" && (
-                        <div 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center"
-                        >
-                          <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            onChange={handleFileChange} 
-                            accept=".pdf,.docx" 
-                            className="hidden" 
-                          />
-                          <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
-                          <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
-                        </div>
-                      )}
-
-                      {uploadState === "uploading" && (
-                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-800 space-y-3">
-                          <div className="flex items-center justify-between text-xs font-bold">
-                            <span className="text-slate-700 dark:text-slate-300 truncate max-w-[220px]">{uploadedFileName}</span>
-                            <span className="text-slate-400 font-mono">{uploadProgress}%</span>
-                          </div>
-                          
-                          <div className="flex h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-slate-400 to-slate-500 transition-all" style={{ width: `${uploadProgress}%` }} />
-                          </div>
-                          <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
-                        </div>
-                      )}
-
-                      {uploadState === "success" && (
-                        <div className="space-y-4">
-                          <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10 flex items-start gap-3 shadow-sm">
-                            <span className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center shrink-0">
-                              <Lucide.Check className="w-4 h-4 text-emerald-600 dark:text-emerald-450" />
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
-                              <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
-                              <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-600 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer">Replace file</button>
-                            </div>
-                          </div>
-
-                          {extractionState === "idle" && (
-                            <div className="bg-teal-50/40 dark:bg-teal-950/10 border border-teal-100/50 dark:border-teal-900/30 rounded-2xl p-4 text-center space-y-2.5">
-                              <div className="flex items-center justify-center gap-2 text-teal-800 dark:text-teal-450">
-                                <Lucide.Sparkles className="w-5 h-5 animate-pulse" />
-                                <span className="text-xs font-bold">Smart Document Extractor Available</span>
-                              </div>
-                              <p className="text-[10px] text-slate-450 max-w-sm mx-auto leading-relaxed">
-                                We can automatically extract clinical headings, symptoms, and treatment protocols from this document to populate your website's medical library.
-                              </p>
-                              <button 
-                                onClick={runTextExtraction}
-                                className="px-4 py-2 bg-teal-850 hover:bg-teal-900 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer flex items-center gap-1.5 mx-auto active:scale-98"
-                              >
-                                <Lucide.Cpu className="w-3.5 h-3.5" />
-                                Extract Text & Auto-Populate Fields
-                              </button>
-                            </div>
-                          )}
-
-                          {extractionState === "extracting" && (
-                            <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
-                                <span className="flex items-center gap-2">
-                                  <Lucide.Loader className="w-3.5 h-3.5 text-teal-500 animate-spin" />
-                                  <span>{extractionLog}</span>
-                                </span>
-                                <span className="font-mono text-teal-600 dark:text-teal-450">{extractionProgress}%</span>
-                              </div>
-                              <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-teal-500 transition-all duration-300" style={{ width: `${extractionProgress}%` }} />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    )}
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
                       <button 
-                        onClick={() => handleSaveContent("Document")} 
-                        disabled={uploadState !== "success"}
-                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow"
+                        type="button"
+                        onClick={() => setModalStep("select")} 
+                        disabled={contentUploadQueue.some(item => item.status === "uploading")}
+                        className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
-                        Save PDF Document
+                        Back
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleSaveAllDocuments} 
+                        disabled={!contentUploadQueue.some(item => item.status === "success")}
+                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow border-none cursor-pointer"
+                      >
+                        Import Documents ({contentUploadQueue.filter(item => item.status === "success").length})
                       </button>
                     </div>
                   </div>
                 )}
 
-                {/* STEP 2C: Create Note */}
-                {modalStep === "note" && (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Title</label>
-                        <input type="text" placeholder="e.g. Clinical pearl on Otitis Media" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Body System</label>
-                        <CustomSelect
-                          value={newSystem}
-                          onChange={setNewSystem}
-                          options={[
-                            { value: "Endocrine", label: "Endocrine" },
-                            { value: "Cardiology", label: "Cardiology" },
-                            { value: "Respiratory", label: "Respiratory" },
-                            { value: "Gastroenterology", label: "Gastrointestinal" },
-                            { value: "Psychiatry", label: "Psychiatry" },
-                            { value: "Dermatology", label: "Dermatology" },
-                            { value: "Women's Health", label: "Women's Health" },
-                            { value: "Paediatrics", label: "Paediatrics" }
-                          ]}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Note Category / Tag</label>
-                      <input type="text" placeholder="e.g. Clinical Pearl, Fact Sheet" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Structured Note Content</label>
-                      <textarea rows={4} placeholder="Draft clinical reference note..." value={notesInput} onChange={(e) => setNotesInput(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
-                    </div>
-
-                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800">Back</button>
-                      <button onClick={() => handleSaveContent("Note")} className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow">Save Note</button>
-                    </div>
-                  </div>
-                )}
 
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 }
+
