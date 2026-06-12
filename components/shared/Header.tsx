@@ -3,6 +3,7 @@
 import { memo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth, SignOutButton } from "@clerk/nextjs";
 import Logo from "./Logo";
 
 interface HeaderProps {
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
+  const { isSignedIn } = useAuth();
 
   // Hide the navbar on all admin pages and on test-taking pages (instructions + live test)
   if (pathname?.startsWith("/admin") || pathname?.startsWith("/test/")) {
@@ -80,12 +82,20 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
         {/* CTA Buttons */}
         <div className="flex items-center gap-4">
-          <Link
-            href="/login"
-            className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200"
-          >
-            Log in
-          </Link>
+          {isSignedIn ? (
+            <SignOutButton redirectUrl="/">
+              <button className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200 cursor-pointer">
+                Log out
+              </button>
+            </SignOutButton>
+          ) : (
+            <Link
+              href="/sign-in"
+              className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200"
+            >
+              Log in
+            </Link>
+          )}
           <Link
             href="/dashboard"
             className="inline-flex items-center gap-1.5 text-sm font-semibold bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-full shadow-md shadow-teal-600/20 transition-all duration-200 hover:-translate-y-0.5"
