@@ -21,6 +21,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
@@ -36,7 +37,8 @@ import {
   FileText,
   FileEdit,
 } from "lucide-react";
-import { user } from "./data";
+import { user as localUser } from "./data";
+import { useUser } from "@clerk/nextjs";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -100,6 +102,7 @@ function RailBtn({ icon, title }: { icon: React.ReactNode; title: string }) {
 export default function Sidebar() {
   const pathname = usePathname();
   const { isExpanded, ready, toggle, setHovered } = useSidebar();
+  const { user } = useUser();
 
   const leaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEnter = useCallback(() => {
@@ -180,8 +183,18 @@ export default function Sidebar() {
               overflow: "hidden", flexShrink: 0,
               boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
               marginBottom: 8,
+              position: "relative",
             }}>
-              <AvatarSVG size={38} />
+              {user?.imageUrl ? (
+                <Image
+                  src={user.imageUrl}
+                  alt={user.fullName || "User Avatar"}
+                  fill
+                  style={{ objectFit: "cover" }}
+                />
+              ) : (
+                <AvatarSVG size={38} />
+              )}
             </div>
 
             <Sep />
@@ -288,33 +301,29 @@ export default function Sidebar() {
                 {/* Banner */}
                 <div style={{
                   position: "relative", height: 82,
-                  background: "linear-gradient(135deg, #0f2027 0%, #0d4a49 55%, #0f2027 100%)",
                   overflow: "hidden",
                 }}>
-                  <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.08 }}
-                    viewBox="0 0 288 82" preserveAspectRatio="none">
-                    {Array.from({ length: 7 }).map((_, i) => (
-                      <line key={i} x1={-30 + i * 52} y1="82" x2={i * 52 + 72} y2="0"
-                        stroke="white" strokeWidth="1" />
-                    ))}
-                  </svg>
-                  <div style={{
-                    position: "absolute", top: -20, left: "45%",
-                    width: 100, height: 100, borderRadius: "50%",
-                    background: "radial-gradient(circle, rgba(20,184,166,0.3) 0%, transparent 70%)",
-                  }} />
+                  <Image
+                    src="/assets/profile/banner.png"
+                    alt="Profile Banner"
+                    fill
+                    sizes="288px"
+                    style={{ objectFit: "cover" }}
+                    priority
+                  />
                   <div style={{
                     position: "absolute", bottom: 8, right: 10,
-                    display: "flex", alignItems: "center", gap: 4, opacity: 0.28,
+                    display: "flex", alignItems: "center", gap: 4, opacity: 0.8,
+                    zIndex: 2,
                   }}>
                     <div style={{
                       width: 15, height: 15, borderRadius: 3,
-                      background: "rgba(20,184,166,0.65)",
+                      background: "rgba(20,184,166,0.95)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
                       <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
                     </div>
-                    <span style={{ color: "#99f6e4", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
+                    <span style={{ color: "#ffffff", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
                       THE GP EDGE
                     </span>
                   </div>
@@ -331,18 +340,28 @@ export default function Sidebar() {
                     borderRadius: "50%", overflow: "hidden",
                     boxShadow: "0 0 0 3px #fff, 0 2px 10px rgba(15,23,42,0.12)",
                     background: "#DCEEED", zIndex: 1,
+                    position: "relative",
                   }}>
-                    <AvatarSVG size={84} />
+                    {user?.imageUrl ? (
+                      <Image
+                        src={user.imageUrl}
+                        alt={user.fullName || "User Avatar"}
+                        fill
+                        style={{ objectFit: "cover" }}
+                      />
+                    ) : (
+                      <AvatarSVG size={84} />
+                    )}
                   </div>
                   <p style={{ margin: "9px 0 2px", fontWeight: 700, fontSize: 15.5, color: "#0f172a", letterSpacing: "-0.01em" }}>
-                    Dr. {user.firstName} {user.lastName}
+                    {user?.fullName || "User"}
                   </p>
                   <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 500 }}>
                     RACGP Candidate · PGY3
                   </p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>{user.hospital}</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>{localUser.hospital}</p>
                   <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
-                    Rank <strong style={{ color: "#334155", fontWeight: 600 }}>#{user.rank}</strong> of {user.totalUsers.toLocaleString()}
+                    Rank <strong style={{ color: "#334155", fontWeight: 600 }}>#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
                   </p>
                   <div style={{
                     marginTop: 10,
@@ -425,8 +444,8 @@ export default function Sidebar() {
 
               {/* Footer */}
               <div style={{ textAlign: "center", paddingTop: 4 }}>
-                <p style={{ margin: "0 0 2px", fontSize: 10, color: "#cbd5e1" }}>{user.joinedLabel}</p>
-                <p style={{ margin: 0, fontSize: 10, color: "#cbd5e1" }}>Synced {user.lastSyncedMin}m ago</p>
+                <p style={{ margin: "0 0 2px", fontSize: 10, color: "#cbd5e1" }}>{localUser.joinedLabel}</p>
+                <p style={{ margin: 0, fontSize: 10, color: "#cbd5e1" }}>Synced {localUser.lastSyncedMin}m ago</p>
               </div>
 
             </div>

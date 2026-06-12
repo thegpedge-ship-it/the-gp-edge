@@ -3,8 +3,19 @@
 import { memo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useAuth, SignOutButton } from "@clerk/nextjs";
+import { SignOutButton, useAuth } from "@clerk/nextjs";
 import Logo from "./Logo";
+
+// Custom reactive authentication state wrappers since SignedIn/SignedOut are removed in this Clerk version
+function SignedIn({ children }: { children: React.ReactNode }) {
+  const { isSignedIn } = useAuth();
+  return isSignedIn ? <>{children}</> : null;
+}
+
+function SignedOut({ children }: { children: React.ReactNode }) {
+  const { isSignedIn } = useAuth();
+  return !isSignedIn ? <>{children}</> : null;
+}
 
 interface HeaderProps {
   variant?: "fixed" | "static";
@@ -19,8 +30,9 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
     return null;
   }
 
-  // Hide the global fixed header on pages that use DashboardShell (which has its own static header)
-  if (variant === "fixed" && (pathname?.startsWith("/dashboard") || pathname?.startsWith("/exam-prep"))) {
+  // Hide the global fixed header if the user is signed in (as signed-in pages render the static header inside DashboardShell)
+  // or on pages that explicitly use DashboardShell (e.g. /dashboard, /exam-prep).
+  if (variant === "fixed" && (isSignedIn || pathname?.startsWith("/dashboard") || pathname?.startsWith("/exam-prep"))) {
     return null;
   }
   const outerClass =
@@ -37,7 +49,12 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
     <header className={outerClass}>
       <div className={innerClass}>
         {/* Logo */}
-        <Logo size="sm" />
+        <Link href="/" className="relative group">
+          <Logo size="sm" />
+          <span className="absolute top-full mt-4 left-0 w-max px-3 py-1.5 bg-slate-800 text-slate-50 text-xs font-medium rounded-lg shadow-lg opacity-0 translate-y-1 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 z-50">
+            Return to Landing Page
+          </span>
+        </Link>
 
         {/* Navigation */}
         <nav className="hidden md:flex items-center gap-6">
@@ -48,12 +65,6 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
             Exam Prep
           </Link>
 
-          <a
-            href="#gp-toolkit"
-            className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
-          >
-            GP Toolkit
-          </a>
           <Link
             href="/dashboard/medical-library"
             className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
@@ -72,39 +83,29 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
           >
             MBS Billing
           </Link>
-          <a
-            href="#about"
-            className="text-[14px] font-medium text-slate-500 hover:text-slate-900 transition-colors duration-200"
-          >
-            About
-          </a>
         </nav>
 
         {/* CTA Buttons */}
         <div className="flex items-center gap-4">
-          {isSignedIn ? (
-            <SignOutButton redirectUrl="/">
-              <button className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200 cursor-pointer">
+          <SignedOut>
+            <Link href="/sign-in" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
+              Log in
+            </Link>
+            <Link href="/sign-up" className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors">
+              Sign up
+            </Link>
+          </SignedOut>
+
+          <SignedIn>
+            <SignOutButton>
+              <button className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 Log out
               </button>
             </SignOutButton>
-          ) : (
-            <Link
-              href="/sign-in"
-              className="hidden sm:inline-flex text-[14px] font-medium text-slate-600 hover:text-slate-900 transition-colors duration-200"
-            >
-              Log in
+            <Link href="/dashboard" className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1">
+              Dashboard &rarr;
             </Link>
-          )}
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold bg-teal-600 hover:bg-teal-500 text-white px-5 py-2 rounded-full shadow-md shadow-teal-600/20 transition-all duration-200 hover:-translate-y-0.5"
-          >
-            Dashboard
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </Link>
+          </SignedIn>
         </div>
       </div>
     </header>
