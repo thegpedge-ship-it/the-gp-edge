@@ -1,9 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { mockDrill, mockTests } from "./data";
-import MockDrillModal from "./MockDrillModal";
-import MockTestListModal from "./MockTestListModal";
 
 /* ─── Summary Stat ────────────────────────────────────────────────────── */
 function Stat({ value, label }: { value: string; label: string }) {
@@ -17,9 +14,6 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SidePanel() {
-  const [showDrillModal, setShowDrillModal] = useState(false);
-  const [showMockModal, setShowMockModal] = useState(false);
-
   const completedMocks = mockTests.filter((t) => t.status === "completed");
   const avgScore = completedMocks.length
     ? Math.round(completedMocks.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completedMocks.length)
@@ -48,7 +42,7 @@ export default function SidePanel() {
           </div>
 
           <button
-            onClick={() => setShowMockModal(true)}
+            onClick={() => {}}
             className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
           >
             View Mock Tests &rarr;
@@ -58,7 +52,7 @@ export default function SidePanel() {
 
       {/* ─── 2. Create Your Own Quiz ───────────────────────────── */}
       <div
-        onClick={() => setShowDrillModal(true)}
+        onClick={() => {}}
         className="glass dark:glass-strong rounded-2xl border border-slate-200/50 dark:border-slate-700/40 shadow-md overflow-hidden flex-shrink-0 px-4 py-3 cursor-pointer"
       >
         <div>
@@ -87,10 +81,6 @@ export default function SidePanel() {
           Start Mock Drill &rarr;
         </button>
       </div>
-
-      {/* Modals */}
-      <MockDrillModal open={showDrillModal} onClose={() => setShowDrillModal(false)} />
-      <MockTestListModal open={showMockModal} onClose={() => setShowMockModal(false)} />
     </div>
   );
 }
