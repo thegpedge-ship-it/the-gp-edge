@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
+import { useUser } from "@clerk/nextjs";
 import {
   User,
   Shield,
@@ -19,6 +21,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Image as ImageIcon,
 } from "lucide-react";
 
 import Avatar from "@/components/ui/Avatar";
@@ -150,6 +153,7 @@ function SaveButton({ id, label = "Save Changes" }: { id: string; label?: string
 // SETTINGS PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function SettingsPage() {
+  const { user } = useUser();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -167,41 +171,71 @@ export default function SettingsPage() {
 
         {/* ── Account Information ───────────────────────────────────────── */}
         <FadeIn delay={0.04}>
-          <PageCard className="h-full">
+          <PageCard className="h-full bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
             <CardHeader icon={<User size={15} />} title="Account Information" subtitle="Login & personal details" />
-            <div className="px-5 py-4 space-y-3">
-              {/* Avatar row */}
-              <div className="flex items-center gap-4 pb-3 border-b border-slate-100">
-                <div
-                  className="relative cursor-pointer"
-                  onMouseEnter={() => setAvatarHovered(true)}
-                  onMouseLeave={() => setAvatarHovered(false)}
-                  onClick={() => avatarInputRef.current?.click()}
-                  role="button" aria-label="Update profile photo"
+            <div className="px-5 pb-5 pt-0 space-y-4">
+              
+              {/* Premium Header Banner */}
+              <div className="h-32 w-full relative overflow-hidden rounded-xl flex-shrink-0">
+                <Image
+                  src="/assets/profile/banner.png"
+                  alt="Profile Banner"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+                
+                {/* Change Cover button */}
+                <button
+                  type="button"
+                  className="absolute top-4 right-4 px-3 py-1.5 bg-slate-900/40 hover:bg-slate-900/60 backdrop-blur-md text-white text-xs font-medium rounded-lg transition-colors border border-white/10 flex items-center gap-2"
                 >
-                  <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-slate-100 bg-[#E2F0EE]">
-                    <Avatar className="w-full h-full" />
-                  </div>
-                  <div className={`absolute inset-0 rounded-full bg-slate-900/50 flex items-center justify-center transition-opacity duration-200 ${avatarHovered ? "opacity-100" : "opacity-0"}`}>
-                    <Camera size={14} className="text-white" />
-                  </div>
-                  <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800">Profile Photo</p>
-                  <p className="text-[11px] text-slate-400">JPG, PNG or GIF. Max 2 MB</p>
-                </div>
-                <button type="button" onClick={() => avatarInputRef.current?.click()}
-                  className="px-2.5 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-all">
-                  <Upload size={11} className="inline mr-1 -mt-0.5" />Upload
+                  <ImageIcon size={13} />
+                  Change Cover
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div><FieldLabel htmlFor="first-name">First Name</FieldLabel><TextInput id="first-name" defaultValue="Sarah" /></div>
-                <div><FieldLabel htmlFor="last-name">Last Name</FieldLabel><TextInput id="last-name" defaultValue="Chen" /></div>
+              {/* Avatar row with horizontal centered overlapping avatar and upload button container below */}
+              <div className="pb-3 border-b border-slate-100 relative">
+                <div className="flex justify-center -mt-16 relative z-10 mb-3">
+                  <div
+                    className="relative z-10 w-32 h-32 rounded-full ring-4 ring-white bg-white overflow-hidden shadow-sm cursor-pointer"
+                    onMouseEnter={() => setAvatarHovered(true)}
+                    onMouseLeave={() => setAvatarHovered(false)}
+                    onClick={() => avatarInputRef.current?.click()}
+                    role="button" aria-label="Update profile photo"
+                  >
+                    <Image
+                      src={user?.imageUrl || "/assets/logo.png"}
+                      alt="Profile Photo"
+                      fill
+                      className="object-cover"
+                    />
+                    <div className={`absolute inset-0 bg-slate-900/50 flex items-center justify-center transition-opacity duration-200 ${avatarHovered ? "opacity-100" : "opacity-0"}`}>
+                      <Camera size={14} className="text-white" />
+                    </div>
+                    <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" />
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center text-center gap-1">
+                  <p className="text-sm font-semibold text-slate-800">Profile Photo</p>
+                  <p className="text-[11px] text-slate-400">JPG, PNG or GIF. Max 2 MB</p>
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="mt-1.5 px-2.5 py-1 rounded-md border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 transition-all flex-shrink-0"
+                  >
+                    <Upload size={11} className="inline mr-1 -mt-0.5" />Upload Photo
+                  </button>
+                </div>
               </div>
-              <div><FieldLabel htmlFor="email">Email</FieldLabel><TextInput id="email" type="email" defaultValue="sarah.chen@thegpledge.com" /></div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div><FieldLabel htmlFor="first-name">First Name</FieldLabel><TextInput id="first-name" defaultValue={user?.firstName || ''} /></div>
+                <div><FieldLabel htmlFor="last-name">Last Name</FieldLabel><TextInput id="last-name" defaultValue={user?.lastName || ''} /></div>
+              </div>
+              <div><FieldLabel htmlFor="email">Email</FieldLabel><TextInput id="email" type="email" defaultValue={user?.primaryEmailAddress?.emailAddress || ''} /></div>
               <div>
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <div className="flex gap-2">
