@@ -70,13 +70,62 @@ export default function Footer() {
   };
 
   return (
-    <footer
-      className="relative overflow-hidden"
-      style={{ background: "linear-gradient(180deg, #f8fcfb 0%, #eef9f6 55%, #e3f6f1 100%)" }}
-    >
+    <footer className="relative overflow-hidden footer-themed">
+      <style>{`
+        .footer-themed {
+          background: linear-gradient(180deg, #f8fcfb 0%, #eef9f6 55%, #e3f6f1 100%);
+        }
+        .dark .footer-themed {
+          background: linear-gradient(180deg, #0F1115 0%, #0D1018 60%, #0B0E12 100%) !important;
+        }
+        .dark .footer-heading {
+          color: #8c98a8;
+        }
+        .dark .footer-brand-text {
+          color: #b7c0cc;
+        }
+        .dark .footer-muted {
+          color: #8c98a8;
+        }
+        .dark .footer-divider {
+          border-color: rgba(255,255,255,0.08);
+        }
+        .dark .footer-copyright {
+          color: #8c98a8;
+        }
+        .dark .footer-social-btn {
+          background: rgba(255,255,255,0.04) !important;
+          border-color: rgba(255,255,255,0.08) !important;
+          color: #8c98a8 !important;
+        }
+        .dark .footer-social-btn:hover {
+          background: rgba(88,193,174,0.1) !important;
+          border-color: rgba(88,193,174,0.2) !important;
+          color: #58c1ae !important;
+        }
+        .dark .footer-email-input {
+          background: rgba(255,255,255,0.04) !important;
+          border-color: rgba(255,255,255,0.08) !important;
+          color: #f3f4f6 !important;
+        }
+        .dark .footer-email-input::placeholder {
+          color: #8c98a8 !important;
+        }
+        .dark .footer-email-input:focus {
+          border-color: #58c1ae !important;
+          box-shadow: 0 0 0 3px rgba(88,193,174,0.12) !important;
+        }
+        .dark .footer-subscribe-btn {
+          background: #58c1ae !important;
+          box-shadow: 0 4px 12px rgba(88,193,174,0.25) !important;
+        }
+        .dark .footer-subscribe-btn:hover {
+          background: #4db3a0 !important;
+        }
+      `}</style>
       {/* ── Dot-grid background pattern (matches Hero) ── */}
       <div
-        className="absolute inset-0 opacity-[0.35] pointer-events-none"
+        className="absolute inset-0 opacity-[0.35] pointer-events-none dark:hidden"
         style={{
           backgroundImage: "radial-gradient(circle at 1px 1px, rgb(203,213,225) 1px, transparent 0)",
           backgroundSize:  "28px 28px",
@@ -103,7 +152,45 @@ export default function Footer() {
       {/* ══════════════════════════════════════════════════════════
           MAIN FOOTER BODY
       ══════════════════════════════════════════════════════════ */}
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-16">
+        <style>{`
+          .footer-link {
+            display: inline-flex;
+            align-items: center;
+            background-color: transparent;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 13.5px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.3s;
+          }
+          .dark .footer-link {
+            color: #8c98a8;
+          }
+          .footer-link:before {
+            background-color: #14b8a6;
+            content: "";
+            display: inline-block;
+            height: 1.5px;
+            margin-right: 0px;
+            transition: all .42s cubic-bezier(.25,.8,.25,1);
+            width: 0;
+          }
+          .footer-link:hover {
+            color: #0d9488;
+          }
+          .dark .footer-link:hover {
+            color: #58c1ae;
+          }
+          .dark .footer-link:before {
+            background-color: #58c1ae;
+          }
+          .footer-link:hover:before {
+            margin-right: 10px;
+            width: 2.5rem;
+          }
+        `}</style>
 
         {/*
          * 5-Column grid:
@@ -120,28 +207,28 @@ export default function Footer() {
             variants={fadeUp}
           >
             {/* Logo wordmark */}
-            <div className="flex items-center gap-2.5 mb-6">
-              <div className="relative h-10 w-10 flex-shrink-0">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="relative h-20 w-20 flex-shrink-0">
                 <Image
                   src="/assets/logo.jpeg"
                   alt="The GP Edge"
                   fill
                   sizes="40px"
-                  className="rounded-[11px] object-contain shadow-sm ring-1 ring-black/5"
+                  className="rounded-2xl object-contain shadow-sm ring-1 ring-black/5"
                 />
               </div>
               <div className="flex items-baseline gap-0.5">
-                <span className="font-light text-slate-400 text-[15px]">The</span>
-                <span className="font-extrabold text-slate-900 tracking-tight text-[15px] ml-1">GP</span>
-                <span className="font-medium text-slate-700 text-[15px] ml-1">Edge</span>
+                <span className="font-light text-slate-400 dark:text-[#8c98a8] text-[18px]">The</span>
+                <span className="font-extrabold text-slate-900 dark:text-[#f3f4f6] tracking-tight text-[18px] ml-1">GP</span>
+                <span className="font-medium text-slate-700 dark:text-[#b7c0cc] text-[18px] ml-1">Edge</span>
               </div>
             </div>
 
             {/* Brand description — professional, no marketing fluff */}
-            <p className="text-[14px] text-slate-600 leading-[1.7] max-w-[240px] mb-2">
+            <p className="text-[14px] text-slate-600 dark:text-[#b7c0cc] leading-[1.7] max-w-[240px] mb-2">
               Australia&apos;s modern preparation platform for GP registrars.
             </p>
-            <p className="text-[13px] text-slate-400 leading-[1.65] max-w-[230px] mb-8">
+            <p className="text-[13px] text-slate-400 dark:text-[#8c98a8] leading-[1.65] max-w-[230px] mb-8">
               Built to support AKT, KFP, clinical learning, medical references, and MBS billing workflows.
             </p>
 
@@ -152,7 +239,7 @@ export default function Footer() {
                   key={s.name}
                   href={s.href}
                   aria-label={s.name}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-teal-600 hover:bg-teal-50 hover:border-teal-200 active:scale-[0.95] transition-all duration-200 shadow-sm"
+                  className="footer-social-btn w-9 h-9 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-teal-600 hover:bg-teal-50 hover:border-teal-200 active:scale-[0.95] transition-all duration-200 shadow-sm"
                 >
                   <svg className="w-[14px] h-[14px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d={s.path} />
@@ -172,40 +259,28 @@ export default function Footer() {
               viewport={{ once: true, margin: "-50px" }}
               variants={fadeUp}
             >
-              <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-5">
+              <h4 className="footer-heading text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-5">
                 {col.heading}
               </h4>
               <ul className="space-y-3.5">
                 {col.links.map((link) => (
                   <li key={link.label}>
                     {"highlight" in link && link.highlight ? (
-                      /* ── "Exam Prep" — identical to navbar: animated gradient text ── */
+                      /* ── "Exam Prep" — animated gradient text with new line effect ── */
                       <a
                         href={link.href}
-                        className="group inline-flex items-center gap-0 font-extrabold tracking-tight transition-transform duration-300 hover:scale-105"
+                        className="footer-link group"
                       >
-                        {/* Sliding dash — same as other footer links */}
-                        <span
-                          className="inline-block h-[1.5px] bg-teal-500 rounded-full mr-0 group-hover:mr-2 transition-all duration-200 overflow-hidden"
-                          style={{ width: 0, maxWidth: 10 }}
-                          aria-hidden="true"
-                        />
-                        {/* Gradient text — exact classes from Header.tsx */}
-                        <span className="text-[13.5px] text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x">
+                        <span className="text-[13.5px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x group-hover:scale-105 transition-transform duration-300">
                           {link.label}
                         </span>
                       </a>
                     ) : (
-                      /* ── Normal footer link ── */
+                      /* ── Normal footer link with new line effect ── */
                       <a
                         href={link.href}
-                        className="group inline-flex items-center gap-0 text-[13.5px] text-slate-500 hover:text-teal-600 transition-colors duration-200 font-[450]"
+                        className="footer-link"
                       >
-                        <span
-                          className="inline-block h-[1.5px] bg-teal-500 rounded-full mr-0 group-hover:mr-2 transition-all duration-200 overflow-hidden"
-                          style={{ width: 0, maxWidth: 10 }}
-                          aria-hidden="true"
-                        />
                         {link.label}
                       </a>
                     )}
@@ -223,10 +298,10 @@ export default function Footer() {
             viewport={{ once: true, margin: "-50px" }}
             variants={fadeUp}
           >
-            <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-5">
+            <h4 className="footer-heading text-[11px] font-bold text-slate-400 uppercase tracking-[0.14em] mb-5">
               Stay Updated
             </h4>
-            <p className="text-[13px] text-slate-500 leading-relaxed mb-5">
+            <p className="text-[13px] text-slate-500 dark:text-[#b7c0cc] leading-relaxed mb-5">
               Exam prep resources, platform updates, and clinical insights — delivered to your inbox.
             </p>
 
@@ -245,11 +320,11 @@ export default function Footer() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className="w-full px-4 py-3 text-[13px] bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-400 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
+                  className="footer-email-input w-full px-4 py-3 text-[13px] bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-400 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
                 />
                 <button
                   type="submit"
-                  className="w-full px-4 py-3 bg-teal-600 text-white text-[13px] font-semibold rounded-2xl hover:bg-teal-700 active:scale-[0.98] transition-all duration-200 shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/25 flex items-center justify-center gap-2 group"
+                  className="footer-subscribe-btn w-full px-4 py-3 bg-teal-600 text-white text-[13px] font-semibold rounded-2xl hover:bg-teal-700 active:scale-[0.98] transition-all duration-200 shadow-md shadow-teal-600/20 hover:shadow-lg hover:shadow-teal-600/25 flex items-center justify-center gap-2 group"
                 >
                   Subscribe
                   <svg
@@ -268,16 +343,16 @@ export default function Footer() {
         {/* ══════════════════════════════════════════════════════════
             BOTTOM BAR — dedicated section with divider
         ══════════════════════════════════════════════════════════ */}
-        <div className="mt-16 pt-7 border-t border-slate-200/70">
+        <div className="footer-divider mt-10 pt-6 border-t border-slate-200/70">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
 
             {/* Left: copyright + tagline */}
             <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-5">
-              <p className="text-[12.5px] text-slate-400">
+              <p className="footer-copyright text-[12.5px] text-slate-400">
                 © 2026 The GP Edge. All rights reserved.
               </p>
-              <span className="hidden sm:block w-px h-3.5 bg-slate-300" />
-              <p className="text-[12px] text-slate-400/80">
+              <span className="hidden sm:block w-px h-3.5 bg-slate-300 dark:bg-[rgba(255,255,255,0.08)]" />
+              <p className="footer-copyright text-[12px] text-slate-400/80">
                 Built for Australian GP Registrars
               </p>
             </div>
@@ -292,7 +367,7 @@ export default function Footer() {
                 <a
                   key={item.label}
                   href={item.href}
-                  className="text-[12.5px] text-slate-400 hover:text-teal-600 transition-colors duration-200"
+                  className="footer-copyright text-[12.5px] text-slate-400 hover:text-teal-600 dark:hover:text-[#58c1ae] transition-colors duration-200"
                 >
                   {item.label}
                 </a>

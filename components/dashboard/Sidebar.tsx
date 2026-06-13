@@ -76,7 +76,8 @@ function AvatarSVG({ size = 40 }: { size?: number }) {
 
 
 function Sep() {
-  return <div style={{ width: 28, height: 1, background: "#e8edf2", margin: "4px 0" }} />;
+  // Use a CSS class so it adapts to dark mode via globals
+  return <div className="sidebar-sep" style={{ width: 28, height: 1, margin: "4px 0" }} />;
 }
 
 // ─── Collapsed rail icon button ───────────────────────────────────────────────
@@ -146,21 +147,81 @@ export default function Sidebar() {
         <div
           onMouseEnter={onEnter}
           onMouseLeave={onLeave}
+          className="sidebar-card"
           style={{
             position:      "absolute",
             top:           GAP,
             left:          GAP,
             right:         0,
-            // Expanded: full height. Collapsed: auto (determined by rail content).
             ...(isExpanded ? { bottom: GAP } : {}),
             borderRadius:  cardBorderRadius,
-            background:    "#ffffff",
-            border:        "1px solid #e8edf2",
-            boxShadow:     cardShadow,
             overflow:      "hidden",
             pointerEvents: "auto",
           }}
         >
+          <style>{`
+            .sidebar-card {
+              background: #ffffff;
+              border: 1px solid #e8edf2;
+              box-shadow: 0 4px 24px rgba(15,23,42,0.10), 0 1px 4px rgba(15,23,42,0.05);
+            }
+            .dark .sidebar-card {
+              background: #151922;
+              border: 1px solid rgba(255,255,255,0.08);
+              box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
+            }
+            .sidebar-sep {
+              background: #e8edf2;
+            }
+            .dark .sidebar-sep {
+              background: rgba(255,255,255,0.07);
+            }
+            .sidebar-nav-link {
+              color: #94a3b8;
+              background: transparent;
+            }
+            .sidebar-nav-link:hover {
+              background: #f0fdfa;
+              color: #0d9488;
+            }
+            .sidebar-nav-link.active {
+              color: #0d9488;
+              background: #f0fdfa;
+            }
+            .dark .sidebar-nav-link {
+              color: #A8B1BD;
+              background: transparent;
+            }
+            .dark .sidebar-nav-link:hover {
+              background: rgba(90,200,176,0.07);
+              color: #5AC8B0;
+            }
+            .dark .sidebar-nav-link.active {
+              color: #5AC8B0;
+              background: rgba(90,200,176,0.12);
+            }
+            .sidebar-active-bar {
+              background: #14b8a6;
+            }
+            .dark .sidebar-active-bar {
+              background: #5AC8B0;
+            }
+            .sidebar-rail-btn {
+              color: #b0bec5;
+              background: transparent;
+            }
+            .sidebar-rail-btn:hover {
+              background: #f0fdfa;
+              color: #0d9488;
+            }
+            .dark .sidebar-rail-btn {
+              color: #7D8795;
+            }
+            .dark .sidebar-rail-btn:hover {
+              background: rgba(90,200,176,0.07);
+              color: #5AC8B0;
+            }
+          `}</style>
 
           {/* ══ LAYER A — Collapsed Rail ══════════════════════════════════
               Normal-flow flex column (NOT position:absolute).
@@ -206,20 +267,25 @@ export default function Sidebar() {
                 ? pathname === "/dashboard"
                 : pathname.startsWith(href);
               return (
-                <Link key={href} href={href} prefetch title={label} style={{
-                  position: "relative",
-                  width: 40, height: 40,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  borderRadius: 10,
-                  color: active ? "#0d9488" : "#94a3b8",
-                  background: active ? "#f0fdfa" : "transparent",
-                  textDecoration: "none",
-                  transition: "background 150ms, color 150ms",
-                }}>
+                <Link
+                  key={href}
+                  href={href}
+                  prefetch
+                  title={label}
+                  className={`sidebar-nav-link${active ? " active" : ""}`}
+                  style={{
+                    position: "relative",
+                    width: 40, height: 40,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    borderRadius: 10,
+                    textDecoration: "none",
+                    transition: "background 150ms, color 150ms",
+                  }}
+                >
                   {active && (
-                    <span style={{
+                    <span className="sidebar-active-bar" style={{
                       position: "absolute", left: -6, top: 8, bottom: 8,
-                      width: 3, background: "#14b8a6", borderRadius: "0 3px 3px 0",
+                      width: 3, borderRadius: "0 3px 3px 0",
                     }} />
                   )}
                   <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />

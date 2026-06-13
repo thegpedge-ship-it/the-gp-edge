@@ -4,6 +4,36 @@ import { motion, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
+// Scroll-aware logo — only visible at top of the hero section
+function HeroCornerLogo() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setVisible(window.scrollY < 80);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div
+      className={`fixed top-4 left-4 z-40 transition-all duration-500 ${
+        visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-3 pointer-events-none"
+      }`}
+    >
+      <Image
+        src="/assets/logo.png"
+        alt="The GP Edge"
+        width={96}
+        height={96}
+        className="h-24 w-24 object-contain rounded-3xl"
+        priority
+      />
+    </div>
+  );
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -91,8 +121,8 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
       className={`group relative rounded-2xl p-5 cursor-pointer transition-all duration-300 overflow-hidden ${isTeal
         ? "bg-gradient-to-br from-teal-500 via-teal-500 to-emerald-600 text-white shadow-xl shadow-teal-500/30 border border-teal-400/30"
         : isDark
-          ? "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white border border-slate-700/80 shadow-xl shadow-slate-900/30"
-          : "bg-white text-slate-900 border border-slate-200/80 shadow-md shadow-slate-200/60 hover:shadow-lg hover:border-teal-200"
+          ? "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white border border-slate-700/80 shadow-xl shadow-slate-900/30 dark:from-[#0F1115] dark:via-[#151922] dark:to-[#0F1115] dark:border-[rgba(255,255,255,0.08)]"
+          : "bg-white dark:bg-[#1B212C] text-slate-900 dark:text-[#F5F7FA] border border-slate-200/80 dark:border-[rgba(255,255,255,0.05)] shadow-md shadow-slate-200/60 dark:shadow-none hover:shadow-lg hover:border-teal-200 dark:hover:border-[rgba(255,255,255,0.1)]"
         }`}
     >
       {/* Inner shimmer gradient overlay */}
@@ -141,15 +171,31 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
 
 export default function Hero() {
   return (
-    <section className="relative flex items-center overflow-hidden pb-8 lg:pb-10">
-      {/* Premium ambient background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(20,184,166,0.12),transparent)]" />
+    <section className="relative flex items-center overflow-hidden min-h-screen pb-8 lg:pb-10">
+      {/* Logo pinned to top-left, only visible before scroll */}
+      <HeroCornerLogo />
 
-      {/* Dot grid overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] bg-[size:24px_24px] opacity-60" />
+      {/* ── Light mode: soft teal radial glow at top ── */}
+      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(20,184,166,0.12),transparent)]" />
 
-      {/* Soft gradient orbs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {/* ── Dark mode: calm radial gradient, no busy patterns ── */}
+      <div
+        className="absolute inset-0 hidden dark:block"
+        style={{
+          background: `radial-gradient(
+            circle at center,
+            rgba(90,200,176,0.08) 0%,
+            rgba(90,200,176,0.03) 35%,
+            transparent 70%
+          ), #0F1115`,
+        }}
+      />
+
+      {/* Light mode: dot grid overlay (hidden in dark) */}
+      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] bg-[size:24px_24px] opacity-60" />
+
+      {/* Light mode: soft gradient orbs (hidden in dark) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none dark:hidden">
         <div className="absolute -top-[200px] right-[10%] w-[600px] h-[600px] bg-gradient-to-br from-teal-200/40 via-emerald-100/30 to-transparent rounded-full blur-[100px]" />
         <div className="absolute bottom-[10%] -left-[100px] w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/60 to-teal-100/40 rounded-full blur-[80px]" />
       </div>
@@ -164,12 +210,12 @@ export default function Hero() {
           {/* Left Column - Content */}
           <div className="text-center lg:text-left">
             {/* Eyebrow Badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50/80 border border-teal-200/50 mb-8 backdrop-blur-sm">
+            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50/80 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/50 dark:border-[rgba(90,200,176,0.18)] mb-8 backdrop-blur-sm">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              <span className="text-xs font-semibold text-teal-700 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] uppercase tracking-wider">
                 Built for GP Registrars
               </span>
             </motion.div>
@@ -177,7 +223,7 @@ export default function Hero() {
             {/* H1 Headline */}
             <motion.h1
               variants={itemVariants}
-              className="font-sans text-[2.75rem] sm:text-[3.25rem] lg:text-[4rem] font-bold text-slate-900 leading-[1.05] tracking-[-0.03em] mb-6"
+              className="font-sans text-[2.75rem] sm:text-[3.25rem] lg:text-[4rem] font-bold text-slate-900 dark:text-[#F5F7FA] leading-[1.05] tracking-[-0.03em] mb-6"
             >
               Study smarter.{" "}
               <span className="relative inline-block">
@@ -190,27 +236,131 @@ export default function Hero() {
             {/* Subheadline */}
             <motion.p
               variants={itemVariants}
-              className="text-lg lg:text-xl text-slate-600 max-w-xl mb-10 leading-[1.65] tracking-[-0.01em]"
+              className="text-lg lg:text-xl text-slate-600 dark:text-[#A8B1BD] max-w-xl mb-10 leading-[1.65] tracking-[-0.01em]"
             >
-              <span className="font-medium text-teal-600">Adaptive mock exams</span>, interactive{" "}
-              <span className="font-medium text-teal-600">MBS billing tools</span>, and real-world{" "}
-              <span className="font-medium text-teal-600">clinical templates</span>—everything you need to ace the AKT and KFP.
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">Adaptive mock exams</span>, interactive{" "}
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">MBS billing tools</span>, and real-world{" "}
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span>—everything you need to ace the AKT and KFP.
             </motion.p>
 
             {/* CTAs */}
             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center lg:items-start gap-4 mb-6">
+              <style>{`
+                .btn-start-free-new {
+                  position: relative;
+                  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+                  box-shadow: 0px 10px 20px rgba(20, 184, 166, 0.2);
+                  padding: 0.9rem 1.75rem;
+                  background-color: #0d9488;
+                  border-radius: 9999px;
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  cursor: pointer;
+                  color: #ffffff;
+                  gap: 8px;
+                  font-weight: 700;
+                  border: 3px solid rgba(255, 255, 255, 0.3);
+                  outline: none;
+                  overflow: hidden;
+                  font-size: 15px;
+                  width: 100%;
+                }
+                .dark .btn-start-free-new {
+                  box-shadow: 0px 10px 20px rgba(90, 200, 176, 0.15);
+                  border-color: rgba(90, 200, 176, 0.2);
+                }
+                @media (min-width: 640px) { .btn-start-free-new { width: auto; } }
+
+                .btn-start-free-icon {
+                  width: 20px;
+                  height: 20px;
+                  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+                }
+
+                .btn-start-free-new:hover {
+                  transform: scale(1.03);
+                  border-color: rgba(255, 255, 255, 0.6);
+                  box-shadow: 0px 12px 24px rgba(20, 184, 166, 0.3);
+                }
+                .dark .btn-start-free-new:hover {
+                  border-color: rgba(90, 200, 176, 0.4);
+                }
+
+                .btn-start-free-new:hover .btn-start-free-icon {
+                  transform: translateX(4px);
+                }
+
+                .btn-start-free-new:hover::before {
+                  animation: start-free-shine 1.5s ease-out infinite;
+                }
+
+                .btn-start-free-new::before {
+                  content: "";
+                  position: absolute;
+                  width: 100px;
+                  height: 100%;
+                  background-image: linear-gradient(
+                    120deg,
+                    rgba(255, 255, 255, 0) 30%,
+                    rgba(255, 255, 255, 0.8),
+                    rgba(255, 255, 255, 0) 70%
+                  );
+                  top: 0;
+                  left: -100px;
+                  opacity: 0.6;
+                }
+
+                @keyframes start-free-shine {
+                  0% { left: -100px; }
+                  60% { left: 100%; }
+                  to { left: 100%; }
+                }
+                .btn-explore {
+                  align-items: center;
+                  background-color: #FFFFFF;
+                  border: 1px solid rgba(0, 0, 0, 0.1);
+                  border-radius: 9999px;
+                  box-shadow: rgba(0, 0, 0, 0.02) 0 1px 3px 0;
+                  box-sizing: border-box;
+                  color: rgba(0, 0, 0, 0.85);
+                  cursor: pointer;
+                  display: inline-flex;
+                  font-size: 0.875rem;
+                  font-weight: 600;
+                  justify-content: center;
+                  padding: 1rem 1.5rem;
+                  text-decoration: none;
+                  transition: all 250ms;
+                  width: 100%;
+                }
+                @media (min-width: 640px) { .btn-explore { width: auto; } }
+                .btn-explore:hover, .btn-explore:focus {
+                  border-color: rgba(0, 0, 0, 0.15);
+                  box-shadow: rgba(0, 0, 0, 0.1) 0 4px 12px;
+                  color: rgba(0, 0, 0, 0.65);
+                }
+                .btn-explore:hover { transform: translateY(-1px); }
+                .btn-explore:active {
+                  background-color: #F0F0F1;
+                  border-color: rgba(0, 0, 0, 0.15);
+                  box-shadow: rgba(0, 0, 0, 0.06) 0 2px 4px;
+                  color: rgba(0, 0, 0, 0.65);
+                  transform: translateY(0);
+                }
+              `}</style>
               <a
                 href="/signup"
-                className="group inline-flex items-center justify-center gap-2 text-sm font-semibold bg-teal-600 text-white px-8 py-4 rounded-full hover:bg-teal-700 active:scale-[0.98] transition-all duration-200 shadow-lg shadow-teal-600/25 hover:shadow-xl hover:shadow-teal-600/30 w-full sm:w-auto"
+                className="btn-start-free-new"
               >
                 Start for free
-                <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                <svg fill="currentColor" viewBox="0 0 24 24" className="btn-start-free-icon">
+                  <path clipRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 10.28a.75.75 0 000-1.06l-3-3a.75.75 0 10-1.06 1.06l1.72 1.72H8.25a.75.75 0 000 1.5h5.69l-1.72 1.72a.75.75 0 101.06 1.06l3-3z" fillRule="evenodd" />
                 </svg>
               </a>
               <a
                 href="#tools"
-                className="inline-flex items-center justify-center text-sm font-medium text-slate-600 hover:text-slate-900 px-6 py-4 rounded-full hover:bg-slate-100 active:scale-[0.98] transition-all duration-200 w-full sm:w-auto"
+                className="btn-explore"
               >
                 Explore tools
               </a>
@@ -228,9 +378,9 @@ export default function Hero() {
           {/* Right Column - Dashboard Snapshot Stats Widget */}
           <motion.div variants={itemVariants} className="relative">
             {/* Container panel - premium glassmorphic Apple-style */}
-            <div className="relative p-6 rounded-[2rem] bg-white/60 backdrop-blur-xl border border-white shadow-2xl ring-1 ring-slate-900/5">
+            <div className="relative p-6 rounded-[2rem] bg-white/60 dark:bg-[rgba(21,25,34,0.6)] backdrop-blur-xl border border-white dark:border-[rgba(255,255,255,0.08)] shadow-2xl dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] ring-1 ring-slate-900/5 dark:ring-white/5">
               {/* Inner glow */}
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 pointer-events-none" />
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 dark:from-[rgba(255,255,255,0.05)] dark:to-transparent pointer-events-none" />
 
               {/* Dashboard header */}
               <div className="relative flex items-center justify-between mb-4 pl-6">

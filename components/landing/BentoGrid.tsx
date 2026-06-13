@@ -258,7 +258,7 @@ function MBSBillingCardInline() {
     <motion.div
       ref={scope}
       variants={cardVariants}
-      className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-gradient-to-br from-teal-50 to-emerald-50/80 rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-teal-200/50 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-teal-300/60 active:scale-[0.99] transition-all duration-300"
+      className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-gradient-to-br from-teal-50 to-emerald-50/80 dark:from-[#1B212C] dark:to-[#1E2835] rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-teal-200/50 dark:border-[rgba(90,200,176,0.15)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-teal-300/60 dark:hover:border-[rgba(90,200,176,0.30)] active:scale-[0.99] transition-all duration-300"
     >
       {/* Decorative circles */}
       <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-teal-200/30 rounded-full blur-2xl" />
@@ -494,7 +494,7 @@ function ClinicalAutofillsCardInline() {
     <motion.div
       ref={scope}
       variants={cardVariants}
-      className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-white rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-slate-300 active:scale-[0.99] transition-all duration-300"
+      className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-white dark:bg-[#1B212C] rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300"
     >
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-4">
@@ -1259,7 +1259,7 @@ function AdaptiveExamPrepCardInline() {
 
 export default function BentoGrid() {
   return (
-    <section id="tools" className="pt-10 pb-20 lg:pt-12 lg:pb-28 bg-slate-50/50">
+    <section id="tools" className="pt-10 pb-20 lg:pt-12 lg:pb-28 bg-slate-50/50 dark:bg-transparent relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
@@ -1270,17 +1270,17 @@ export default function BentoGrid() {
           className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-14"
         >
           <div>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-teal-600 mb-3">
+            <span className="inline-flex items-center gap-2 text-sm font-semibold text-teal-600 dark:text-[#5AC8B0] mb-3">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
               </svg>
               Four Core Tools
             </span>
-            <h2 className="font-sans text-3xl lg:text-[2.5rem] font-bold text-slate-900 tracking-[-0.02em]">
+            <h2 className="font-sans text-3xl lg:text-[2.5rem] font-bold text-slate-900 dark:text-[#F8FAFC] tracking-[-0.02em]">
               Everything a registrar needs
             </h2>
           </div>
-          <a href="#all-tools" className="text-sm font-medium text-slate-500 hover:text-teal-600 active:scale-[0.98] transition-all flex items-center gap-1.5 group">
+          <a href="#all-tools" className="text-sm font-medium text-slate-500 dark:text-[#7D8795] hover:text-teal-600 dark:hover:text-[#5AC8B0] active:scale-[0.98] transition-all flex items-center gap-1.5 group">
             View all
             <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -1308,7 +1308,7 @@ export default function BentoGrid() {
           {/* Card 4: Medical Directory */}
           <motion.div
             variants={cardVariants}
-            className="col-span-12 lg:col-span-7 relative bg-white rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 shadow-[0_4px_20px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-slate-300 active:scale-[0.99] transition-all duration-300"
+            className="col-span-12 lg:col-span-7 relative bg-white dark:bg-[#1B212C] rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300"
           >
             <div className="relative z-10 flex flex-col lg:flex-row lg:items-start gap-5">
               {/* Left: Header + Carousel */}

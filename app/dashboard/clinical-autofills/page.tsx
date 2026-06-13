@@ -513,8 +513,8 @@ export default function ClinicalAutofillsPage() {
       <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-8">
         <div
           className={`w-full h-14 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
-              ? "border-teal-500 ring-2 ring-teal-500/20"
-              : "border-slate-200 hover:border-slate-300"
+            ? "border-teal-500 ring-2 ring-teal-500/20"
+            : "border-slate-200 hover:border-slate-300"
             }`}
         >
           <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
@@ -652,8 +652,8 @@ export default function ClinicalAutofillsPage() {
                 dismissTooltip();
               }}
               className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 ${showBookmarks
-                  ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600"
+                ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600"
                 }`}
             >
               {showBookmarks
@@ -663,8 +663,8 @@ export default function ClinicalAutofillsPage() {
               Saved Bookmarks
               {savedTemplates.length > 0 && (
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 text-slate-500"
                   }`}>
                   {savedTemplates.length}
                 </span>
@@ -718,8 +718,8 @@ export default function ClinicalAutofillsPage() {
                     onClick={e => toggleSaved(t.title, e)}
                     title={isBookmarked ? "Remove bookmark" : "Bookmark template"}
                     className={`absolute top-4 right-4 z-10 p-1.5 rounded-xl transition-all duration-150 ${isBookmarked
-                        ? "text-teal-600 bg-teal-50 hover:bg-teal-100"
-                        : "text-slate-300 hover:text-teal-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100"
+                      ? "text-teal-600 bg-teal-50 hover:bg-teal-100"
+                      : "text-slate-300 hover:text-teal-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100"
                       }`}
                   >
                     {isBookmarked
@@ -862,13 +862,13 @@ export default function ClinicalAutofillsPage() {
               <button
                 onClick={() => handleModalCopy(selectedTemplate.content)}
                 className={`flex items-center gap-2 py-3 px-7 rounded-xl font-bold text-[14px] shadow-md transition-all duration-200 ${modalCopied
-                    ? "bg-emerald-500 text-white scale-95"
-                    : "bg-teal-600 hover:bg-teal-700 text-white hover:shadow-lg"
+                  ? "bg-emerald-500 text-white scale-95"
+                  : "bg-teal-600 hover:bg-teal-700 text-white hover:shadow-lg"
                   }`}
               >
                 {modalCopied
                   ? <><Check className="w-5 h-5" /> Copied!</>
-                  : <><Copy className="w-5 h-5" /> Copy to Clipboard</>
+                  : <><Copy className="w-5 h-5" /> Copy</>
                 }
               </button>
             </div>
@@ -879,8 +879,8 @@ export default function ClinicalAutofillsPage() {
       {/* ── GLOBAL QUICK-COPY TOAST ──────────────────────────────────────────── */}
       <div
         className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm bg-slate-900 text-white px-5 py-3.5 rounded-2xl flex items-center gap-3 shadow-2xl transition-all duration-300 ${isCopied
-            ? "translate-y-0 opacity-100 scale-100"
-            : "translate-y-6 opacity-0 scale-95 pointer-events-none"
+          ? "translate-y-0 opacity-100 scale-100"
+          : "translate-y-6 opacity-0 scale-95 pointer-events-none"
           }`}
       >
         <div className="w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
