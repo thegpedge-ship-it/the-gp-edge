@@ -27,42 +27,35 @@ interface ContentBlock {
 }
 
 const initialBlocks: ContentBlock[] = [
-  { id: "b1", type: "heading", content: "[Clinical Guideline/Article Title]" },
+  { id: "b1", type: "heading", content: "[Enter Title Here]" },
   { id: "b2", type: "heading", content: "1. Overview" },
-  { id: "b3", type: "paragraph", content: "[Provide a brief overview of the condition, background context, epidemiology, and general practice relevance here. Keep the description clear, concise, and focused on clinical utility.]" },
-  { id: "b4", type: "heading", content: "2. Symptoms" },
-  { id: "b5", type: "list", content: "[Key symptom, history question, or clinical feature 1]\n[Key symptom, history question, or clinical feature 2]\n[Physical examination finding or diagnostic sign 3]\n[Physical examination finding or diagnostic sign 4]" },
-  { id: "b6", type: "heading", content: "3. Diagnosis" },
-  { id: "b7", type: "paragraph", content: "[Specify the diagnostic process, diagnostic tools, investigations, or specific testing criteria below:]" },
-  { id: "b8", type: "callout", content: "Diagnostic Reference / Criteria Guide:\n• [Diagnostic criteria step 1, classification rule, or clinical tool referral]\n• [Diagnostic criteria step 2, classification rule, or clinical tool referral]\n• [Key laboratory test, radiological investigation, or screening threshold]\n• [Key laboratory test, radiological investigation, or screening threshold]", meta: { variant: "info" } },
-  { id: "b9", type: "heading", content: "4. Complications" },
-  { id: "b10", type: "table", content: "Complication / Risk|Clinical Notes / Prevention\n[Complication or risk 1]|[Clinical notes, preventative strategies, or management implications for complication 1]\n[Complication or risk 2]|[Clinical notes, preventative strategies, or management implications for complication 2]\n[Complication or risk 3]|[Clinical notes, preventative strategies, or management implications for complication 3]\n[Complication or risk 4]|[Clinical notes, preventative strategies, or management implications for complication 4]" },
+  { id: "b3", type: "paragraph", content: "[Enter Overview Here]" },
+  { id: "b4", type: "heading", content: "2. Pathophysiology" },
+  { id: "b5", type: "paragraph", content: "[Enter Pathophysiology Here]" },
+  { id: "b6", type: "heading", content: "3. Clinical Features" },
+  { id: "b7", type: "list", content: "[Enter Clinical Feature 1]\n[Enter Clinical Feature 2]" },
+  { id: "b8", type: "heading", content: "4. Diagnosis & Investigations" },
+  { id: "b9", type: "paragraph", content: "[Enter Diagnosis & Investigations Here]" },
+  { id: "b10", type: "callout", content: "Diagnostic Reference & Key Points:\n• [Enter Key Point 1]\n• [Enter Key Point 2]", meta: { variant: "info" } },
   { id: "b11", type: "heading", content: "5. Management" },
-  { id: "b12", type: "paragraph", content: "[Detail the care pathway, non-pharmacological adjustments, and drug therapies below. Cite relevant national guidelines where applicable.]" },
+  { id: "b12", type: "paragraph", content: "[Enter Management Here]" },
   { id: "b13", type: "heading", content: "5a. Non-Pharmacological Management" },
-  { id: "b14", type: "paragraph", content: "[Identify lifestyle modifications, patient education topics, and non-pharmacological strategies to address at each consultation:]" },
-  { id: "b15", type: "list", content: "[Lifestyle modification, diet/exercise advice, or sleep hygiene parameter 1]\n[Lifestyle modification, diet/exercise advice, or sleep hygiene parameter 2]\n[Cognitive behavioral therapy, relaxation training, or allied health referral]\n[Allied health or physical therapy intervention]" },
-  { id: "b16", type: "heading", content: "5b. Pharmacological Management" },
-  { id: "b17", type: "paragraph", content: "[Detail pharmacological treatment choices, starting doses, titration schedules, and maximum limits in the table below. Avoid medication overuse risks.]" },
-  { id: "b18", type: "table", content: "Drug Class / Example|Starting Dose|Maximum Dose|Titration & Key Side Effects\n[First-line drug or class 1]|[Starting dose, route, and frequency]|[Maximum dose/24h or duration limit]|[Titration notes, contraindications, and main side effects]\n[First-line drug or class 2]|[Starting dose, route, and frequency]|[Maximum dose/24h or duration limit]|[Titration notes, contraindications, and main side effects]\n[Second-line drug or class 3]|[Starting dose, route, and frequency]|[Maximum dose/24h or duration limit]|[Titration notes, contraindications, and main side effects]\n[Alternative / Adjoint class 4]|[Starting dose, route, and frequency]|[Maximum dose/24h or duration limit]|[Titration notes, contraindications, and main side effects]" },
-  { id: "b19", type: "heading", content: "6. Warning Signs" },
-  { id: "b20", type: "paragraph", content: "[Identify clinical red flags, alarm symptoms, or indicators that require immediate escalation or referral:]" },
-  { id: "b21", type: "callout", content: "Warning Signs & Emergency Red Flags:\n• [Warning sign or alarm symptom requiring urgent secondary workup 1]\n• [Warning sign or alarm symptom requiring urgent secondary workup 2]\n• [Contraindication or clinical criteria requiring immediate specialist escalation]", meta: { variant: "warning" } },
-  { id: "b22", type: "heading", content: "7. When to Refer" },
-  { id: "b23", type: "paragraph", content: "[List specific criteria for outpatient specialist referral, allied health coordination, or diagnostic support:]" },
-  { id: "b24", type: "list", content: "[Referral criteria 1]\n[Referral criteria 2]\n[Referral criteria 3]" },
-  { id: "b25", type: "heading", content: "8. Prognosis" },
-  { id: "b26", type: "list", content: "[Expected clinical course and recovery timeline for acute presentations]\n[Long-term outcomes, recurrence rates, and risk of progression to chronic disease]\n[Expected improvement with lifestyle modifications and secondary prevention compliance]" },
-  { id: "b27", type: "heading", content: "9. Resources" },
-  { id: "b28", type: "paragraph", content: "For Health Professionals:" },
-  { id: "b29", type: "list", content: "[Primary national guidelines or reference handbook 1]\n[Secondary reference website or decision support tool link 2]" },
-  { id: "b30", type: "paragraph", content: "For Patients:" },
-  { id: "b31", type: "list", content: "[Patient information factsheet, support organization website, or mobile application 1]\n[Patient information factsheet, support organization website, or mobile application 2]" }
+  { id: "b14", type: "list", content: "[Enter Non-Pharmacological Management Item 1]\n[Enter Non-Pharmacological Management Item 2]" },
+  { id: "b15", type: "heading", content: "5b. Pharmacological Management" },
+  { id: "b16", type: "table", content: "Drug Class / Example|Starting Dose|Maximum Dose|Titration & Key Side Effects\n[Enter Drug]|[Enter Starting Dose]|[Enter Max Dose]|[Enter Titration Notes]" },
+  { id: "b17", type: "heading", content: "6. Complications" },
+  { id: "b18", type: "table", content: "Complication / Risk|Clinical Notes / Prevention\n[Enter Complication]|[Enter Notes]" },
+  { id: "b19", type: "heading", content: "7. When to Refer" },
+  { id: "b20", type: "list", content: "[Enter Referral Criteria 1]\n[Enter Referral Criteria 2]" },
+  { id: "b21", type: "heading", content: "8. Prognosis" },
+  { id: "b22", type: "list", content: "[Enter Prognosis Item 1]\n[Enter Prognosis Item 2]" },
+  { id: "b23", type: "heading", content: "9. Resources" },
+  { id: "b24", type: "list", content: "[Enter Resource 1]\n[Enter Resource 2]" }
 ];
 
 const initialReferences = [
-  { id: 1, text: "[Reference 1, e.g., Primary national guidelines or reference handbook]", url: "#" },
-  { id: 2, text: "[Reference 2, e.g., Secondary reference website or decision support tool link]", url: "#" }
+  { id: 1, text: "[Enter Reference 1 Here]", url: "#" },
+  { id: 2, text: "[Enter Reference 2 Here]", url: "#" }
 ];
 
 
@@ -78,39 +71,54 @@ function blocksToHtml(blocks: ContentBlock[]): string {
         return `<ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">${items}</ul>`;
       case "callout": {
         const variant = block.meta?.variant || "info";
-        let bg = "#f0fdfa";
-        let border = "#ccfbf1";
-        let color = "#0f766e";
+        let bg = "#e6f7f4";
+        let border = "#e6f7f4";
+        let color = "#1a5c51";
+        let titleColor = "#2bb09c";
         let label = "Guideline";
+        let icon = "ℹ️";
         if (variant === "billing") {
           bg = "#f8fafc";
-          border = "#e2e8f0";
-          color = "#475569";
+          border = "#f8fafc";
+          color = "#334155";
+          titleColor = "#475569";
           label = "Billing";
+          icon = "📋";
         } else if (variant === "pearl") {
-          bg = "#ecfdf5";
-          border = "#d1fae5";
-          color = "#059669";
-          label = "Clinical Pearl";
+          bg = "#e6f7f4";
+          border = "#e6f7f4";
+          color = "#1a5c51";
+          titleColor = "#2bb09c";
+          label = "Key Points";
+          icon = "☑";
         } else if (variant === "warning") {
-          bg = "#fffbeb";
-          border = "#fef3c7";
-          color = "#b45309";
-          label = "Warning";
+          bg = "#fff9e6";
+          border = "#fff9e6";
+          color = "#7b341e";
+          titleColor = "#dd6b20";
+          label = "Important";
+          icon = "⚡";
+        } else if (variant === "danger") {
+          bg = "#fff5f5";
+          border = "#fff5f5";
+          color = "#9b2c2c";
+          titleColor = "#c53030";
+          label = "Red Flags";
+          icon = "⚠️";
         }
         return `
-          <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${border}; border-left: 5px solid ${color}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
-            <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;">${label}</div>
+          <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${border}; border-left: 5px solid ${titleColor}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
+            <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: ${titleColor};">${icon} ${label}</div>
             <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">${block.content}</div>
           </div>
         `;
       }
       case "table": {
         const rows = block.content.split("\n").map(r => r.split("|"));
-        const ths = rows[0]?.map(cell => `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #0f766e; border-bottom: 2px solid #cbd5e1; color: #ffffff;">${cell}</th>`).join("");
+        const ths = rows[0]?.map(cell => `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">${cell}</th>`).join("");
         const tds = rows.slice(1).map((row, ri) => {
           const bg = ri % 2 === 1 ? "#f8fafc" : "#ffffff";
-          const cells = row.map((cell, ci) => `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border-bottom: 1px solid #e2e8f0; background-color: ${bg}; color: ${ci === 0 ? "#0f172a" : "#475569"};">${cell}</td>`).join("");
+          const cells = row.map((cell, ci) => `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; background-color: ${bg}; color: ${ci === 0 ? "#0f172a" : "#475569"};">${cell}</td>`).join("");
           return `<tr>${cells}</tr>`;
         }).join("");
         return `
@@ -901,32 +909,46 @@ function ContentEditorContent() {
     updateCounts();
     saveToHistory();
   };
-
-  const insertCallout = (variant: "info" | "warning" | "pearl" | "billing") => {
-    let bg = "#f0fdfa";
-    let border = "#ccfbf1";
-    let color = "#0f766e";
+  const insertCallout = (variant: "info" | "warning" | "pearl" | "billing" | "danger") => {
+    let bg = "#e6f7f4";
+    let border = "#e6f7f4";
+    let color = "#1a5c51";
+    let titleColor = "#2bb09c";
     let label = "Guideline";
+    let icon = "ℹ️";
     if (variant === "billing") {
       bg = "#f8fafc";
-      border = "#e2e8f0";
-      color = "#475569";
+      border = "#f8fafc";
+      color = "#334155";
+      titleColor = "#475569";
       label = "Billing";
+      icon = "📋";
     } else if (variant === "pearl") {
-      bg = "#ecfdf5";
-      border = "#d1fae5";
-      color = "#059669";
-      label = "Clinical Pearl";
+      bg = "#e6f7f4";
+      border = "#e6f7f4";
+      color = "#1a5c51";
+      titleColor = "#2bb09c";
+      label = "Key Points";
+      icon = "☑";
     } else if (variant === "warning") {
-      bg = "#fffbeb";
-      border = "#fef3c7";
-      color = "#b45309";
-      label = "Warning";
+      bg = "#fff9e6";
+      border = "#fff9e6";
+      color = "#7b341e";
+      titleColor = "#dd6b20";
+      label = "Important";
+      icon = "⚡";
+    } else if (variant === "danger") {
+      bg = "#fff5f5";
+      border = "#fff5f5";
+      color = "#9b2c2c";
+      titleColor = "#c53030";
+      label = "Red Flags";
+      icon = "⚠️";
     }
     
     const calloutHtml = `
-      <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${border}; border-left: 5px solid ${color}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
-        <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;">${label}</div>
+      <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${border}; border-left: 5px solid ${titleColor}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
+        <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: ${titleColor};">${icon} ${label}</div>
         <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">Callout instruction / guidelines context...</div>
       </div>
     `;
@@ -941,14 +963,14 @@ function ContentEditorContent() {
     
     let tableHtml = `<div style="overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 0.75rem; margin-bottom: 1.25rem; background-color: #ffffff;"><table style="width: 100%; border-collapse: collapse; text-align: left;"><thead><tr>`;
     for (let i = 0; i < colCount; i++) {
-      tableHtml += `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #0f766e; border-bottom: 2px solid #cbd5e1; color: #ffffff;">Header ${i+1}</th>`;
+      tableHtml += `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">Header ${i+1}</th>`;
     }
     tableHtml += `</tr></thead><tbody>`;
     for (let r = 0; r < rowCount; r++) {
       const bg = r % 2 === 1 ? "#f8fafc" : "#ffffff";
       tableHtml += `<tr>`;
       for (let c = 0; c < colCount; c++) {
-        tableHtml += `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border-bottom: 1px solid #e2e8f0; background-color: ${bg}; color: #475569;">Cell</td>`;
+        tableHtml += `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; background-color: ${bg}; color: #475569;">Cell</td>`;
       }
       tableHtml += `</tr>`;
     }
@@ -1307,15 +1329,21 @@ function ContentEditorContent() {
           text-transform: uppercase !important;
           letter-spacing: 0.05em !important;
           padding: 0.75rem 1rem !important;
-          background-color: #0f766e !important;
+          background-color: #2bb09c !important;
           color: #ffffff !important;
-          border-bottom: 2px solid #cbd5e1 !important;
+          border: 1px solid #cbd5e1 !important;
         }
         .print-area td {
           padding: 0.75rem 1rem !important;
           font-size: 0.825rem !important;
-          border-bottom: 1px solid #e2e8f0 !important;
+          border: 1px solid #e2e8f0 !important;
           color: #475569 !important;
+        }
+        .print-area td p, .print-area th p {
+          margin: 0 !important;
+          font-size: inherit !important;
+          color: inherit !important;
+          line-height: inherit !important;
         }
         .print-area tr:nth-child(even) td {
           background-color: #f8fafc !important;
@@ -1328,30 +1356,52 @@ function ContentEditorContent() {
           padding: 1rem !important;
           margin-bottom: 1.25rem !important;
         }
+        .print-area .callout-block p {
+          color: inherit !important;
+          font-size: inherit !important;
+          line-height: inherit !important;
+          margin-bottom: 0.75rem !important;
+        }
+        .print-area .callout-block p:last-child {
+          margin-bottom: 0 !important;
+        }
+        .print-area .callout-block ul, .print-area .callout-block ol {
+          margin-bottom: 0.75rem !important;
+        }
+        .print-area .callout-block li {
+          color: inherit !important;
+          font-size: inherit !important;
+        }
         .print-area .callout-block[data-variant="info"], 
         .print-area .callout-block:not([data-variant]) {
-          background-color: #f0fdfa !important;
-          border: 1px solid #ccfbf1 !important;
-          border-left: 5px solid #0f766e !important;
-          color: #0f766e !important;
+          background-color: #e6f7f4 !important;
+          border: 1px solid #e6f7f4 !important;
+          border-left: 5px solid #2bb09c !important;
+          color: #1a5c51 !important;
         }
         .print-area .callout-block[data-variant="pearl"] {
-          background-color: #ecfdf5 !important;
-          border: 1px solid #d1fae5 !important;
-          border-left: 5px solid #059669 !important;
-          color: #059669 !important;
+          background-color: #e6f7f4 !important;
+          border: 1px solid #e6f7f4 !important;
+          border-left: 5px solid #2bb09c !important;
+          color: #1a5c51 !important;
         }
         .print-area .callout-block[data-variant="warning"] {
-          background-color: #fffbeb !important;
-          border: 1px solid #fef3c7 !important;
-          border-left: 5px solid #b45309 !important;
-          color: #b45309 !important;
+          background-color: #fff9e6 !important;
+          border: 1px solid #fff9e6 !important;
+          border-left: 5px solid #dd6b20 !important;
+          color: #7b341e !important;
+        }
+        .print-area .callout-block[data-variant="danger"] {
+          background-color: #fff5f5 !important;
+          border: 1px solid #fff5f5 !important;
+          border-left: 5px solid #c53030 !important;
+          color: #9b2c2c !important;
         }
         .print-area .callout-block[data-variant="billing"] {
           background-color: #f8fafc !important;
-          border: 1px solid #e2e8f0 !important;
-          border-left: 5px solid #475569 !important;
-          color: #475569 !important;
+          border: 1px solid #f8fafc !important;
+          border-left: 5px solid #64748b !important;
+          color: #334155 !important;
         }
       ` }} />
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-4">
@@ -1853,6 +1903,7 @@ function ContentEditorContent() {
                         { value: "info", label: "Guideline", bg: "bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-400" },
                         { value: "pearl", label: "Clinical Pearl", bg: "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400" },
                         { value: "warning", label: "Warning", bg: "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400" },
+                        { value: "danger", label: "Red Flag", bg: "bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-400" },
                         { value: "billing", label: "Billing", bg: "bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-300" }
                       ].map((item) => (
                         <button
@@ -1865,7 +1916,7 @@ function ContentEditorContent() {
                           }}
                           className="w-full text-left px-2.5 py-1.5 text-xs rounded-md transition-colors font-medium hover:bg-teal-50/50 dark:hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-300 border-none bg-transparent"
                         >
-                          <span className={`w-2 h-2 rounded-full ${item.value === 'billing' ? 'bg-slate-400' : item.value === 'warning' ? 'bg-amber-500' : item.value === 'pearl' ? 'bg-emerald-500' : 'bg-teal-500'}`} />
+                          <span className={`w-2 h-2 rounded-full ${item.value === 'billing' ? 'bg-slate-400' : item.value === 'warning' ? 'bg-amber-500' : item.value === 'pearl' ? 'bg-emerald-500' : item.value === 'danger' ? 'bg-red-500' : 'bg-teal-500'}`} />
                           <span>{item.label}</span>
                         </button>
                       ))}

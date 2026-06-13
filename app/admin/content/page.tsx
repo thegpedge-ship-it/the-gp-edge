@@ -285,15 +285,41 @@ export default function ContentPage() {
       } else {
         contentHtml = `
           <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "No overview provided."}</p>
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
           <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.symptoms || "No symptoms listed.").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
+            ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
           </ul>
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Treatment</h2>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis & Investigations Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
           <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.treatment || "No treatment guidelines listed.").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
+            ${(ext.treatment || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
           </ul>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
         `;
       }
 
@@ -374,19 +400,41 @@ export default function ContentPage() {
     } else {
       contentHtml = `
         <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "No overview provided."}</p>
-        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "[Enter Overview Here]"}</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
         <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-          ${(symptomsInput || "No symptoms listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+          ${(symptomsInput || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
         </ul>
-        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Diagnosis</h2>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Clinical diagnosis based on symptom presentation</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
         <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-          <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">Clinical diagnosis based on symptom presentation</li>
+          ${(treatmentInput || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
         </ul>
-        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Treatment</h2>
-        <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-          ${(treatmentInput || "No treatment guidelines listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
-        </ul>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+        
+        <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+        <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
       `;
     }
     localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
@@ -723,19 +771,41 @@ export default function ContentPage() {
                           } else {
                             contentHtml = `
                               <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "No overview provided."}</p>
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Symptoms</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "[Enter Overview Here]"}</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
                               <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                                ${(symptomsInput || "No symptoms listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
+                                ${(symptomsInput || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
                               </ul>
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Diagnosis</h2>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Clinical diagnosis based on symptom presentation</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
                               <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                                <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">Clinical diagnosis based on symptom presentation</li>
+                                ${(treatmentInput || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
                               </ul>
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Treatment</h2>
-                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                                ${(treatmentInput || "No treatment guidelines listed.").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
-                              </ul>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+                              
+                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
                             `;
                           }
                           localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());

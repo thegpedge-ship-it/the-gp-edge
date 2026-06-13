@@ -234,6 +234,7 @@ export default function EditQuizPage() {
         try {
           const formData = new FormData();
           formData.append("file", file);
+          formData.append("type", "question");
 
           updateBatchFile(idx, { status: "extracting", progress: 40 });
 

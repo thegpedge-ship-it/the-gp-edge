@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
+import { getMedicalContent } from "@/lib/quizData";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
@@ -91,6 +92,22 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
     borderLeft: "border-l-teal-500",
     gradient: "from-teal-500 to-teal-600",
   },
+  Musculoskeletal: {
+    glow: "from-indigo-500/10 dark:from-indigo-500/20",
+    border: "hover:border-indigo-400/80 dark:hover:border-indigo-500/40",
+    text: "text-indigo-600 dark:text-indigo-400",
+    accent: "bg-indigo-500",
+    borderLeft: "border-l-indigo-500",
+    gradient: "from-indigo-500 to-indigo-600",
+  },
+  MBS: {
+    glow: "from-amber-500/10 dark:from-amber-500/20",
+    border: "hover:border-amber-400/80 dark:hover:border-amber-500/40",
+    text: "text-amber-600 dark:text-amber-400",
+    accent: "bg-amber-500",
+    borderLeft: "border-l-amber-500",
+    gradient: "from-amber-500 to-amber-600",
+  },
 };
 
 const getSystem = (id: SystemId): SystemStyle =>
@@ -102,6 +119,22 @@ const getSystem = (id: SystemId): SystemStyle =>
     borderLeft: "border-l-green-500",
     gradient: "from-green-500 to-green-600",
   };
+
+function normalizeSystemName(sys: string): string {
+  const s = (sys || "").trim().toLowerCase();
+  if (s === "cardiovascular" || s === "cardiology") return "Cardiology";
+  if (s === "gastroenterology" || s === "gastrointestinal") return "Gastrointestinal";
+  if (s === "psychiatry" || s === "psychology" || s === "mental health") return "Psychiatry";
+  if (s === "endocrine") return "Endocrine";
+  if (s === "respiratory") return "Respiratory";
+  if (s === "dermatology") return "Dermatology";
+  if (s === "women's health" || s === "womens health") return "Women's Health";
+  if (s === "paediatrics" || s === "pediatrics") return "Paediatrics";
+  if (s === "neurology") return "Neurology";
+  if (s === "musculoskeletal" || s === "msk") return "Musculoskeletal";
+  if (s === "mbs" || s === "billing") return "MBS";
+  return sys;
+}
 
 const gridVariants = {
   hidden: { opacity: 0 },
@@ -147,6 +180,53 @@ function MedicalLibraryContent() {
     references: false,
   });
 
+  const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const adminContent = getMedicalContent();
+      const mapped: MedicalCondition[] = adminContent.map((item) => {
+        const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
+        let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
+        if (referencesRaw) {
+          try { refs = JSON.parse(referencesRaw); } catch {}
+        }
+        
+        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+          item.type === "Condition" ? "Condition" :
+          item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
+          item.type === "Note" ? "Note" : "Document";
+
+        return {
+          id: `CUSTOM-${item.id}`,
+          name: item.name,
+          system: normalizeSystemName(item.system) as any,
+          category: item.category,
+          type: normalizedType,
+          lastUpdated: item.lastUpdated,
+          author: item.author,
+          symptoms: [],
+          diagnosisCriteria: [],
+          treatmentOptions: [],
+          clinicalNotes: "",
+          references: refs,
+          document: {
+            filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
+            fileSize: "1.2 MB",
+            totalPages: 1,
+            downloadUrl: "#",
+            summary: item.name
+          }
+        };
+      });
+      setCustomConditions(mapped);
+    }
+  }, []);
+
+  const allConditions = useMemo(() => {
+    return [...mockConditions, ...customConditions];
+  }, [customConditions]);
+
   const toggleSection = useCallback((section: string) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -157,8 +237,16 @@ function MedicalLibraryContent() {
   const selectedConditionId = searchParams.get("id");
   const selectedCondition = useMemo(() => {
     if (!selectedConditionId) return null;
-    return mockConditions.find((c) => c.id === selectedConditionId) ?? null;
-  }, [selectedConditionId]);
+    return allConditions.find((c) => c.id === selectedConditionId) ?? null;
+  }, [selectedConditionId, allConditions]);
+
+  const customHtml = useMemo(() => {
+    if (typeof window === "undefined" || !selectedCondition || !selectedCondition.id.startsWith("CUSTOM-")) {
+      return "";
+    }
+    const cleanId = selectedCondition.id.replace("CUSTOM-", "");
+    return localStorage.getItem(`gpedge_content_body_${cleanId}`) || "";
+  }, [selectedCondition]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState<number>(720);
@@ -198,16 +286,16 @@ function MedicalLibraryContent() {
   // Memoize system counts
   const systemCounts = useMemo(() => {
     const map = new Map<string, number>();
-    for (const c of mockConditions) {
+    for (const c of allConditions) {
       map.set(c.system, (map.get(c.system) ?? 0) + 1);
     }
     return map;
-  }, []);
+  }, [allConditions]);
 
   // Memoize filtered conditions
   const filteredConditions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return mockConditions.filter((c) => {
+    return allConditions.filter((c) => {
       const matchesSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
@@ -220,7 +308,7 @@ function MedicalLibraryContent() {
       const matchesSystem = selectedSystem === "all" || c.system === selectedSystem;
       return matchesSearch && matchesSystem;
     });
-  }, [searchQuery, selectedSystem]);
+  }, [searchQuery, selectedSystem, allConditions]);
 
   const handleOpenCondition = useCallback((condition: MedicalCondition) => {
     const params = new URLSearchParams(window.location.search);
@@ -258,7 +346,7 @@ function MedicalLibraryContent() {
           Explore the Medical Directory
         </h1>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal max-w-2xl">
-          Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries. {mockConditions.length} conditions across major body systems.
+          Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries. {allConditions.length} conditions across major body systems.
         </p>
       </div>
 
@@ -518,89 +606,116 @@ function MedicalLibraryContent() {
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.lastUpdated}</span>
                     </div>
                   </div>
-
-                  {/* Symptoms Section */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Clinical Signs & Symptoms</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {selectedCondition.symptoms.map((symptom, i) => (
-                        <div
-                          key={i}
-                          className="flex gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
-                        >
-                          <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
-                          <span>{symptom}</span>
+                
+                  {/* Rest of Clinical Details */}
+                  {!selectedCondition.id.startsWith("CUSTOM-") ? (
+                    <>
+                      {/* Symptoms Section */}
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Clinical Signs & Symptoms</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {selectedCondition.symptoms.map((symptom, i) => (
+                            <div
+                              key={i}
+                              className="flex gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
+                            >
+                              <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
+                              <span>{symptom}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Diagnosis Steps Section */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Diagnosis & Assessment Criteria</h4>
-                    <div className="space-y-2.5">
-                      {selectedCondition.diagnosisCriteria.map((crit, i) => (
-                        <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
-                          <span className="text-[10px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm">
-                            Step {i + 1}
-                          </span>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">{crit}</p>
+                      {/* Diagnosis Steps Section */}
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Diagnosis & Assessment Criteria</h4>
+                        <div className="space-y-2.5">
+                          {selectedCondition.diagnosisCriteria.map((crit, i) => (
+                            <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
+                              <span className="text-[10px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm">
+                                Step {i + 1}
+                              </span>
+                              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">{crit}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
 
-                  {/* Treatment & Management Section */}
-                  <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Management & Treatment Regimen</h4>
-                    <div className="space-y-2.5">
-                      {selectedCondition.treatmentOptions.map((opt, i) => {
-                        const sys = getSystem(selectedCondition.system);
-                        return (
-                          <div key={i} className={`bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl border-l-4 ${sys.borderLeft} flex items-start gap-3`}>
-                            <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
-                              {i + 1}
-                            </span>
-                            <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold flex-1">{opt}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                      {/* Treatment & Management Section */}
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Management & Treatment Regimen</h4>
+                        <div className="space-y-2.5">
+                          {selectedCondition.treatmentOptions.map((opt, i) => {
+                            const sys = getSystem(selectedCondition.system);
+                            return (
+                              <div key={i} className={`bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl border-l-4 ${sys.borderLeft} flex items-start gap-3`}>
+                                <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
+                                  {i + 1}
+                                </span>
+                                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold flex-1">{opt}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
 
-                  {/* Clinical Pearls & Guidelines */}
-                  <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
-                    <h4 className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Lucide.Lightbulb className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" /> Clinical Pearls & Guidelines
-                    </h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line font-medium">
-                      {selectedCondition.clinicalNotes}
-                    </p>
-                  </div>
+                      {/* Clinical Pearls & Guidelines */}
+                      {selectedCondition.clinicalNotes && (
+                        <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
+                          <h4 className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-widest flex items-center gap-1.5">
+                            <Lucide.Lightbulb className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" /> Clinical Pearls & Guidelines
+                          </h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line font-medium">
+                            {selectedCondition.clinicalNotes}
+                          </p>
+                        </div>
+                      )}
+
+                    </>
+                  ) : (
+                    <>
+                      {/* For custom guidelines: show summary and info box */}
+                      <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-5 space-y-4">
+                        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-350 flex items-center gap-1.5">
+                          <Lucide.Info className="w-4 h-4 text-teal-600" />
+                          Guideline Reference Note
+                        </h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                          This is a custom clinical reference guideline uploaded directly to the library database. 
+                          The full document content is rendered as a standalone page-layout in the preview pane on the right.
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                          Use the controls on the top-right of the preview to zoom, search, download, or open the document in a standalone page to print the clinical guidelines.
+                        </p>
+                      </div>
+                    </>
+                  )}
 
                   {/* Clinical References */}
-                  <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
-                      Clinical References ({selectedCondition.references.length})
-                    </h4>
-                    <div className="grid grid-cols-1 gap-2">
-                      {selectedCondition.references.map((ref) => (
-                        <div key={ref.id} className="flex gap-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
-                          <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center shrink-0 font-bold text-[10px] text-slate-500">
-                            {ref.id}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="leading-snug font-semibold">{ref.text}</p>
-                            {ref.url && (
-                              <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[11px] font-bold">
-                                Access Online Source →
-                              </a>
-                            )}
+                  {selectedCondition.references && selectedCondition.references.length > 0 && (
+                    <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
+                      <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
+                        Clinical References ({selectedCondition.references.length})
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {selectedCondition.references.map((ref) => (
+                          <div key={ref.id} className="flex gap-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
+                            <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center shrink-0 font-bold text-[10px] text-slate-500">
+                              {ref.id}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="leading-snug font-semibold">{ref.text}</p>
+                              {ref.url && (
+                                <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[11px] font-bold">
+                                  Access Online Source →
+                                </a>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
@@ -619,15 +734,17 @@ function MedicalLibraryContent() {
                           {selectedCondition.document.fileSize}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
-                          <Lucide.ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="font-mono text-xs font-semibold">Page {pdfPage} of {selectedCondition.document.totalPages}</span>
-                        <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
-                          <Lucide.ChevronRight className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {!selectedCondition.id.startsWith("CUSTOM-") && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                            <Lucide.ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="font-mono text-xs font-semibold">Page {pdfPage} of {selectedCondition.document.totalPages}</span>
+                          <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                            <Lucide.ChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800">
                           <Lucide.Minus className="w-3.5 h-3.5" />
@@ -639,26 +756,134 @@ function MedicalLibraryContent() {
                       </div>
                     </div>
 
+                    {/* CSS Styles for Callouts & Tables */}
+                    <style dangerouslySetInnerHTML={{ __html: `
+                      .print-area h2 {
+                        font-family: Georgia, serif !important;
+                        font-size: 1.35rem !important;
+                        font-weight: bold !important;
+                        color: #0f766e !important;
+                        border-left: 4px solid #0f766e !important;
+                        padding-left: 0.75rem !important;
+                        margin-top: 1.75rem !important;
+                        margin-bottom: 0.75rem !important;
+                        line-height: 1.25 !important;
+                      }
+                      .print-area table {
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        text-align: left !important;
+                        margin-bottom: 1.25rem !important;
+                        border: 1px solid #cbd5e1 !important;
+                        border-radius: 0.75rem !important;
+                        overflow: hidden !important;
+                      }
+                      .print-area th {
+                        text-align: left !important;
+                        font-weight: 600 !important;
+                        font-size: 0.75rem !important;
+                        text-transform: uppercase !important;
+                        letter-spacing: 0.05em !important;
+                        padding: 0.75rem 1rem !important;
+                        background-color: #2bb09c !important;
+                        color: #ffffff !important;
+                        border: 1px solid #cbd5e1 !important;
+                      }
+                      .print-area td {
+                        padding: 0.75rem 1rem !important;
+                        font-size: 0.825rem !important;
+                        border: 1px solid #e2e8f0 !important;
+                        color: #475569 !important;
+                      }
+                      .print-area td p, .print-area th p {
+                        margin: 0 !important;
+                        font-size: inherit !important;
+                        color: inherit !important;
+                        line-height: inherit !important;
+                      }
+                      .print-area tr:nth-child(even) td {
+                        background-color: #f8fafc !important;
+                      }
+                      .print-area tr:nth-child(odd) td {
+                        background-color: #ffffff !important;
+                      }
+                      .print-area .callout-block {
+                        border-radius: 0.75rem !important;
+                        padding: 1rem !important;
+                        margin-bottom: 1.25rem !important;
+                      }
+                      .print-area .callout-block p {
+                        color: inherit !important;
+                        font-size: inherit !important;
+                        line-height: inherit !important;
+                        margin-bottom: 0.75rem !important;
+                      }
+                      .print-area .callout-block p:last-child {
+                        margin-bottom: 0 !important;
+                      }
+                      .print-area .callout-block ul, .print-area .callout-block ol {
+                        margin-bottom: 0.75rem !important;
+                      }
+                      .print-area .callout-block li {
+                        color: inherit !important;
+                        font-size: inherit !important;
+                      }
+                      .print-area .callout-block[data-variant="info"], 
+                      .print-area .callout-block:not([data-variant]) {
+                        background-color: #e6f7f4 !important;
+                        border: 1px solid #e6f7f4 !important;
+                        border-left: 5px solid #2bb09c !important;
+                        color: #1a5c51 !important;
+                      }
+                      .print-area .callout-block[data-variant="pearl"] {
+                        background-color: #e6f7f4 !important;
+                        border: 1px solid #e6f7f4 !important;
+                        border-left: 5px solid #2bb09c !important;
+                        color: #1a5c51 !important;
+                      }
+                      .print-area .callout-block[data-variant="warning"] {
+                        background-color: #fff9e6 !important;
+                        border: 1px solid #fff9e6 !important;
+                        border-left: 5px solid #dd6b20 !important;
+                        color: #7b341e !important;
+                      }
+                      .print-area .callout-block[data-variant="danger"] {
+                        background-color: #fff5f5 !important;
+                        border: 1px solid #fff5f5 !important;
+                        border-left: 5px solid #c53030 !important;
+                        color: #9b2c2c !important;
+                      }
+                      .print-area .callout-block[data-variant="billing"] {
+                        background-color: #f8fafc !important;
+                        border: 1px solid #f8fafc !important;
+                        border-left: 5px solid #64748b !important;
+                        color: #334155 !important;
+                      }
+                    ` }} />
+
                     {/* PDF mock viewer */}
                     <div
                       ref={containerRef}
-                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px]"
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px] w-full"
                     >
                       <div
                         style={{
                           width: `${720 * currentZoomScale}px`,
-                          height: `${940 * currentZoomScale}px`,
+                          height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : `${940 * currentZoomScale}px`,
                           position: "relative",
                           flexShrink: 0,
                         }}
                       >
                         <div
-                          className="bg-white text-slate-800 p-8 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text"
+                          className="bg-white text-slate-800 p-8 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area"
                           style={{
                             transform: `scale(${currentZoomScale})`,
                             transformOrigin: "top left",
                             width: "720px",
-                            height: "940px",
+                            height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : "940px",
+                            position: selectedCondition.id.startsWith("CUSTOM-") ? "relative" : "absolute",
+                            top: 0,
+                            left: 0,
                           }}
                         >
                           {/* Watermark */}
@@ -675,119 +900,129 @@ function MedicalLibraryContent() {
                             <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
                           </div>
 
-                          {/* PAGE 1 CONTENT */}
-                          {pdfPage === 1 && (
-                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
-                              <div className="text-center">
-                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
-                                <h2 className="font-sans text-lg font-extrabold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
-                                <p className="text-[9px] text-slate-500 mt-0.5 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
-                              </div>
-                              <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">{selectedCondition.document.summary}</p>
-                              
-                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-2">
-                                <p className="font-bold text-slate-900">Metadata Profile:</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="space-y-0.5">
-                                    <p className="text-slate-400">Target System</p>
-                                    <p className="font-semibold text-slate-700">{selectedCondition.system} Pathology</p>
+                          {/* Render custom guideline HTML or paginated default content */}
+                          {selectedCondition.id.startsWith("CUSTOM-") ? (
+                            <div 
+                              className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
+                              dangerouslySetInnerHTML={{ __html: customHtml }}
+                            />
+                          ) : (
+                            <>
+                              {/* PAGE 1 CONTENT */}
+                              {pdfPage === 1 && (
+                                <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                                  <div className="text-center">
+                                    <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
+                                    <h2 className="font-sans text-lg font-extrabold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
+                                    <p className="text-[9px] text-slate-500 mt-0.5 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
                                   </div>
-                                  <div className="space-y-0.5">
-                                    <p className="text-slate-400">Subcategory Classification</p>
-                                    <p className="font-semibold text-slate-700">{selectedCondition.category}</p>
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <p className="text-slate-400">Authoring Board</p>
-                                    <p className="font-semibold text-slate-700">{selectedCondition.author}</p>
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <p className="text-slate-400">Version Control</p>
-                                    <p className="font-semibold text-slate-700">Release May 2026</p>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2 pt-2 border-t border-slate-100">
-                                <h3 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider">Clinical Presentation Summary</h3>
-                                <p className="text-slate-605 leading-relaxed font-medium">
-                                  {selectedCondition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* PAGE 2 CONTENT */}
-                          {pdfPage === 2 && (
-                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
-                              <div className="border-b border-slate-100 pb-2">
-                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
-                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
-                              </div>
-                              <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {selectedCondition.name}:</p>
-                              <div className="space-y-2">
-                                {selectedCondition.diagnosisCriteria.map((c, i) => (
-                                  <div key={i} className="flex gap-3 border border-slate-150 p-3 rounded-lg bg-slate-50/50 shadow-sm">
-                                    <span className="font-mono font-bold text-green-600 dark:text-green-500 shrink-0 text-xs">0{i + 1}</span>
-                                    <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* PAGE 3 CONTENT */}
-                          {pdfPage === 3 && (
-                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
-                              <div className="border-b border-slate-100 pb-2">
-                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
-                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
-                              </div>
-                              <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
-                              <div className="space-y-2">
-                                {selectedCondition.treatmentOptions.map((opt, i) => (
-                                  <div key={i} className="flex gap-3 items-start border border-slate-150 bg-slate-50/40 p-3 rounded-lg shadow-sm">
-                                    <span className="w-5 h-5 rounded bg-green-600 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                                      {i + 1}
-                                    </span>
-                                    <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* PAGE 4+ CONTENT */}
-                          {pdfPage >= 4 && (
-                            <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
-                              <div className="border-b border-slate-100 pb-2">
-                                <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
-                                <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
-                              </div>
-                              
-                              <div className="bg-green-50/80 dark:bg-green-950/20 border border-green-200/60 dark:border-green-900/30 p-3 rounded-lg text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-300 italic space-y-1">
-                                <p className="font-bold text-green-700 dark:text-green-400 not-italic mb-0.5 flex items-center gap-1 text-[10px]">
-                                  <Lucide.Lightbulb className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
-                                  Key Summary Pearls:
-                                </p>
-                                <p className="font-medium whitespace-pre-line leading-relaxed">{selectedCondition.clinicalNotes}</p>
-                              </div>
-
-                              <div className="space-y-2 mt-4">
-                                <h3 className="font-bold text-[9px] text-slate-400 uppercase tracking-widest">References</h3>
-                                <div className="divide-y divide-slate-100">
-                                  {selectedCondition.references.map((ref) => (
-                                    <div key={ref.id} className="py-2 flex items-start gap-2.5 text-[9.5px]">
-                                      <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
-                                      <div className="flex-1">
-                                        <p className="text-slate-700 font-medium leading-relaxed">
-                                          {ref.text}
-                                        </p>
+                                  <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">{selectedCondition.document.summary}</p>
+                                  
+                                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-2">
+                                    <p className="font-bold text-slate-900">Metadata Profile:</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div className="space-y-0.5">
+                                        <p className="text-slate-400">Target System</p>
+                                        <p className="font-semibold text-slate-700">{selectedCondition.system} Pathology</p>
+                                      </div>
+                                      <div className="space-y-0.5">
+                                        <p className="text-slate-400">Subcategory Classification</p>
+                                        <p className="font-semibold text-slate-700">{selectedCondition.category}</p>
+                                      </div>
+                                      <div className="space-y-0.5">
+                                        <p className="text-slate-400">Authoring Board</p>
+                                        <p className="font-semibold text-slate-700">{selectedCondition.author}</p>
+                                      </div>
+                                      <div className="space-y-0.5">
+                                        <p className="text-slate-400">Version Control</p>
+                                        <p className="font-semibold text-slate-700">Release May 2026</p>
                                       </div>
                                     </div>
-                                  ))}
+                                  </div>
+
+                                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                                    <h3 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider">Clinical Presentation Summary</h3>
+                                    <p className="text-slate-605 leading-relaxed font-medium">
+                                      {selectedCondition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
+                                    </p>
+                                  </div>
                                 </div>
-                              </div>
-                            </div>
+                              )}
+
+                              {/* PAGE 2 CONTENT */}
+                              {pdfPage === 2 && (
+                                <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                                  <div className="border-b border-slate-100 pb-2">
+                                    <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
+                                    <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
+                                  </div>
+                                  <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {selectedCondition.name}:</p>
+                                  <div className="space-y-2">
+                                    {selectedCondition.diagnosisCriteria.map((c, i) => (
+                                      <div key={i} className="flex gap-3 border border-slate-150 p-3 rounded-lg bg-slate-50/50 shadow-sm">
+                                        <span className="font-mono font-bold text-green-600 dark:text-green-500 shrink-0 text-xs">0{i + 1}</span>
+                                        <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* PAGE 3 CONTENT */}
+                              {pdfPage === 3 && (
+                                <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                                  <div className="border-b border-slate-100 pb-2">
+                                    <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
+                                    <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
+                                  </div>
+                                  <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
+                                  <div className="space-y-2">
+                                    {selectedCondition.treatmentOptions.map((opt, i) => (
+                                      <div key={i} className="flex gap-3 items-start border border-slate-150 bg-slate-50/40 p-3 rounded-lg shadow-sm">
+                                        <span className="w-5 h-5 rounded bg-green-600 text-white font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                                          {i + 1}
+                                        </span>
+                                        <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* PAGE 4+ CONTENT */}
+                              {pdfPage >= 4 && (
+                                <div className="space-y-4 text-[10.5px] leading-relaxed text-slate-700">
+                                  <div className="border-b border-slate-100 pb-2">
+                                    <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
+                                    <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
+                                  </div>
+                                  
+                                  <div className="bg-green-50/80 dark:bg-green-950/20 border border-green-200/60 dark:border-green-900/30 p-3 rounded-lg text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-300 italic space-y-1">
+                                    <p className="font-bold text-green-700 dark:text-green-400 not-italic mb-0.5 flex items-center gap-1 text-[10px]">
+                                      <Lucide.Lightbulb className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
+                                      Key Summary Pearls:
+                                    </p>
+                                    <p className="font-medium whitespace-pre-line leading-relaxed">{selectedCondition.clinicalNotes}</p>
+                                  </div>
+
+                                  <div className="space-y-2 mt-4">
+                                    <h3 className="font-bold text-[9px] text-slate-400 uppercase tracking-widest">References</h3>
+                                    <div className="divide-y divide-slate-100">
+                                      {selectedCondition.references.map((ref) => (
+                                        <div key={ref.id} className="py-2 flex items-start gap-2.5 text-[9.5px]">
+                                          <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
+                                          <div className="flex-1">
+                                            <p className="text-slate-700 font-medium leading-relaxed">
+                                              {ref.text}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
                           )}
 
                           {/* Footer */}

@@ -532,29 +532,67 @@ export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
   },
   { 
     id: 3, 
-    name: "Mental Health Assessment", 
+    name: "Mental Health Treatment Plan", 
     category: "Mental Health", 
     system: "Psychiatry", 
-    fields: 6, 
+    fields: 13, 
     usageCount: 1543, 
     lastUsed: "1 hour ago", 
     status: "active", 
     author: "GP Edge Editorial Team", 
     version: "v4.0",
-    slug: "mhap-assessment",
-    description: "Initial GP Mental Health Care Plan assessment for anxiety and depression.",
-    tags: ["Anxiety", "Depression", "MHP", "Psychiatry"],
-    subjective: "Presents complaining of low mood and sleep disturbance for {{symptom_duration}} weeks. Reports decreased energy and mild anhedonia. Denies suicidal ideation.",
-    objective: "K10 Score: {{k10_score}}. Mental State Exam: clean presentation, good eye contact, euthymic but flat affect, speech normal rate/volume.",
-    assessment: "Major Depressive Disorder, mild-to-moderate severity.",
-    plan: "1. Complete GP Mental Health Treatment Plan (Item 2715). 2. Refer to psychologist under Medicare rebate scheme (6 sessions). 3. Discuss sleep hygiene.",
-    doctorSummary: "Initial MHCP completed. Risk assessment negative for active self-harm.",
-    patientResources: "BeyondBlue depression guide and Lifeline card (13 11 14).",
-    references: "RANZCP Clinical Practice Guidelines for Mood Disorders. Black Dog Institute GP Resources.",
-    followupNotes: "Review in 2 weeks to assess psychological therapy progress.",
+    slug: "mental-health-plan",
+    description: "Standardised GP Mental Health Treatment Plan (MHTP) including presenting issue, history, risk assessment, and management plan.",
+    tags: ["Mental Health", "MHTP", "Psychiatry", "Referral", "MBS"],
+    subjective: `Patient Name: {{patient_name}}
+DOB: {{dob}}
+Date: {{date}}
+
+PRESENTING ISSUE:
+- Main psychological symptoms: {{presenting_issue}}
+- Duration: {{duration}}
+- Impact on daily functioning: {{impact_on_functioning}}
+
+HISTORY:
+- Past mental health history: {{past_mh_history}}
+- Current medications: {{current_medications}}
+- Social history: {{social_history}}`,
+    objective: `RISK ASSESSMENT:
+- Harm to self: {{harm_to_self}}
+- Harm to others: {{harm_to_others}}
+
+Mental State Examination (MSE):
+- Appearance & Behaviour: Appropriate dress, cooperative
+- Speech: Normal rate, volume, and tone
+- Mood & Affect: Euthymic / anxious / flat
+- Thought Content & Process: No delusions, logical and goal-directed
+- Perception: No hallucinations
+- Cognition: Alert and oriented x3
+- Insight & Judgement: Intact`,
+    assessment: `GP Mental Health Treatment Plan (MBS Item 2715/2717)
+Provisional Diagnosis: {{provisional_diagnosis}}`,
+    plan: `MANAGEMENT PLAN:
+1. Referral to Psychology: {{psychologist_name}} for focused psychological strategies (initial course of 6 sessions).
+2. Review: in 4 weeks (MBS Item 2712).
+3. Patient provided with crisis contact numbers (Lifeline 13 11 14).`,
+    doctorSummary: "Standardised GP Mental Health Treatment Plan (MHTP). Enables MBS rebates for up to 10 psychology sessions per calendar year in Australia. Must include assessment, risk profile, and structured management plan.",
+    patientResources: "- Lifeline Australia (24/7 Crisis Support): 13 11 14 (https://www.lifeline.org.au)\n- Beyond Blue: 1300 22 4636 (https://www.beyondblue.org.au)\n- Headspace (for young people 12-25): 1800 650 890 (https://headspace.org.au)",
+    references: "MBS Online (Items 2715, 2717, 2712); RACGP GP Mental Health Treatment Plan Guide; GPMHSC Guidelines.",
+    followupNotes: "Review in 4 weeks for MHTP Review (MBS Item 2712) to assess progress and psychologist feedback.",
     sampleFields: [
-      { name: "Symptom Duration (Weeks)", type: "Numeric", required: true, placeholder: "e.g. 4" },
-      { name: "K10 Score", type: "Numeric", required: true, placeholder: "e.g. 24" }
+      { name: "Patient Name", type: "Text Input", required: true, placeholder: "e.g. John Doe" },
+      { name: "DOB", type: "Text Input", required: true, placeholder: "e.g. 15/08/1988" },
+      { name: "Date", type: "Text Input", required: true, placeholder: "e.g. 14/06/2026" },
+      { name: "Presenting Issue", type: "Textarea", required: true, placeholder: "Describe main psychological symptoms..." },
+      { name: "Duration", type: "Text Input", required: false, placeholder: "e.g. 3 months" },
+      { name: "Impact on Functioning", type: "Dropdown", required: false, options: ["Mild", "Moderate", "Severe"] },
+      { name: "Past MH History", type: "Text Input", required: false, placeholder: "e.g. Previous episode of anxiety in 2021" },
+      { name: "Current Medications", type: "Text Input", required: false, placeholder: "e.g. Nil" },
+      { name: "Social History", type: "Text Input", required: false, placeholder: "e.g. Lives with partner, employed full-time" },
+      { name: "Harm to Self", type: "Dropdown", required: true, options: ["Low", "Medium", "High"] },
+      { name: "Harm to Others", type: "Dropdown", required: true, options: ["Low", "Medium", "High"] },
+      { name: "Provisional Diagnosis", type: "Dropdown", required: true, options: ["Generalized Anxiety Disorder", "Major Depressive Disorder", "Adjustment Disorder", "Other / Mixed Anxiety & Depression"] },
+      { name: "Psychologist Name", type: "Text Input", required: false, placeholder: "e.g. Peak Psychology" }
     ],
     versions: []
   },
@@ -1447,22 +1485,36 @@ export function getAutofillTemplates(): AutofillTemplate[] {
       return DEFAULT_AUTOFILL_TEMPLATES;
     }
     const stored = JSON.parse(raw) as AutofillTemplate[];
+    
+    // Merge: add any default templates that are missing in stored (e.g. newly introduced templates)
+    const missing = DEFAULT_AUTOFILL_TEMPLATES.filter((d) => !stored.some((t) => t.id === d.id));
+    const all = [...stored, ...missing];
+    
     // Merge: fill in missing SOAP fields from defaults for existing templates
-    const merged = stored.map((t) => {
+    const merged = all.map((t) => {
       const def = DEFAULT_AUTOFILL_TEMPLATES.find((d) => d.id === t.id);
       if (!def) return t;
+      
+      // Force migration for old default template ID 3 to the new MHTP template
+      if (t.id === 3 && (t.name === "Mental Health Assessment" || !t.subjective || t.subjective.includes("low mood and sleep disturbance"))) {
+        return def;
+      }
+      
       return {
         ...t,
+        name:             t.name             || def.name,
+        category:         t.category         || def.category,
+        system:           t.system           || def.system,
+        description:      t.description      || def.description,
+        tags:             (t.tags && t.tags.length > 0) ? t.tags : def.tags,
         subjective:       t.subjective       || def.subjective,
         objective:        t.objective        || def.objective,
         assessment:       t.assessment       || def.assessment,
         plan:             t.plan             || def.plan,
         doctorSummary:    t.doctorSummary    || def.doctorSummary,
         patientResources: t.patientResources || def.patientResources,
-        description:      t.description      || def.description,
         references:       t.references       || def.references,
         followupNotes:    t.followupNotes    || def.followupNotes,
-        tags:             (t.tags && t.tags.length > 0) ? t.tags : def.tags,
         sampleFields:     (t.sampleFields && t.sampleFields.length > 0) ? t.sampleFields : def.sampleFields,
       };
     });

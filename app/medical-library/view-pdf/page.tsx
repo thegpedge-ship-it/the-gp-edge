@@ -3,15 +3,33 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
-import { mockConditions, bodySystems } from "@/app/medical-library/libraryData";
+import { mockConditions, bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
+import { getMedicalContent } from "@/lib/quizData";
+
+function normalizeSystemName(sys: string): string {
+  const s = (sys || "").trim().toLowerCase();
+  if (s === "cardiovascular" || s === "cardiology") return "Cardiology";
+  if (s === "gastroenterology" || s === "gastrointestinal") return "Gastrointestinal";
+  if (s === "psychiatry" || s === "psychology" || s === "mental health") return "Psychiatry";
+  if (s === "endocrine") return "Endocrine";
+  if (s === "respiratory") return "Respiratory";
+  if (s === "dermatology") return "Dermatology";
+  if (s === "women's health" || s === "womens health") return "Women's Health";
+  if (s === "paediatrics" || s === "pediatrics") return "Paediatrics";
+  if (s === "neurology") return "Neurology";
+  if (s === "musculoskeletal" || s === "msk") return "Musculoskeletal";
+  if (s === "mbs" || s === "billing") return "MBS";
+  return sys;
+}
 
 function PDFViewerContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const id = searchParams.get("id");
 
-  const condition = mockConditions.find((c) => c.id === id);
-
+  const [condition, setCondition] = useState<MedicalCondition | null>(null);
+  const [customHtml, setCustomHtml] = useState<string>("");
+  const [loading, setLoading] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
 
@@ -27,11 +45,69 @@ function PDFViewerContent() {
   };
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      let found = mockConditions.find((c) => c.id === id) || null;
+      if (!found && id && id.startsWith("CUSTOM-")) {
+        const adminContent = getMedicalContent();
+        const cleanId = id.replace("CUSTOM-", "");
+        const item = adminContent.find((c) => String(c.id) === cleanId);
+        if (item) {
+          const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
+          let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
+          if (referencesRaw) {
+            try { refs = JSON.parse(referencesRaw); } catch {}
+          }
+          const savedHtml = localStorage.getItem(`gpedge_content_body_${item.id}`) || "";
+          setCustomHtml(savedHtml);
+
+          const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+            item.type === "Condition" ? "Condition" :
+            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
+            item.type === "Note" ? "Note" : "Document";
+
+          found = {
+            id: `CUSTOM-${item.id}`,
+            name: item.name,
+            system: normalizeSystemName(item.system) as any,
+            category: item.category,
+            type: normalizedType,
+            lastUpdated: item.lastUpdated,
+            author: item.author,
+            symptoms: [],
+            diagnosisCriteria: [],
+            treatmentOptions: [],
+            clinicalNotes: "",
+            references: refs,
+            document: {
+              filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
+              fileSize: "1.2 MB",
+              totalPages: 1,
+              downloadUrl: "#",
+              summary: item.name
+            }
+          };
+        }
+      }
+      setCondition(found);
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
     // Set page title dynamically
     if (condition?.document) {
       document.title = `${condition.document.filename} - GP EDGE Library`;
     }
   }, [condition]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-slate-400">
+        <Lucide.Loader2 className="w-8 h-8 animate-spin text-teal-500 mb-2 animate-bounce" />
+        <span className="text-xs font-semibold">Loading clinical document...</span>
+      </div>
+    );
+  }
 
   if (!condition || !condition.document) {
     return (
@@ -90,6 +166,107 @@ function PDFViewerContent() {
             display: none !important;
           }
         }
+        .print-area h2 {
+          font-family: Georgia, serif !important;
+          font-size: 1.35rem !important;
+          font-weight: bold !important;
+          color: #0f766e !important;
+          border-left: 4px solid #0f766e !important;
+          padding-left: 0.75rem !important;
+          margin-top: 1.75rem !important;
+          margin-bottom: 0.75rem !important;
+          line-height: 1.25 !important;
+        }
+        .print-area table {
+          width: 100% !important;
+          border-collapse: collapse !important;
+          text-align: left !important;
+          margin-bottom: 1.25rem !important;
+          border: 1px solid #cbd5e1 !important;
+          border-radius: 0.75rem !important;
+          overflow: hidden !important;
+        }
+        .print-area th {
+          text-align: left !important;
+          font-weight: 600 !important;
+          font-size: 0.75rem !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.05em !important;
+          padding: 0.75rem 1rem !important;
+          background-color: #2bb09c !important;
+          color: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+        }
+        .print-area td {
+          padding: 0.75rem 1rem !important;
+          font-size: 0.825rem !important;
+          border: 1px solid #e2e8f0 !important;
+          color: #475569 !important;
+        }
+        .print-area td p, .print-area th p {
+          margin: 0 !important;
+          font-size: inherit !important;
+          color: inherit !important;
+          line-height: inherit !important;
+        }
+        .print-area tr:nth-child(even) td {
+          background-color: #f8fafc !important;
+        }
+        .print-area tr:nth-child(odd) td {
+          background-color: #ffffff !important;
+        }
+        .print-area .callout-block {
+          border-radius: 0.75rem !important;
+          padding: 1rem !important;
+          margin-bottom: 1.25rem !important;
+        }
+        .print-area .callout-block p {
+          color: inherit !important;
+          font-size: inherit !important;
+          line-height: inherit !important;
+          margin-bottom: 0.75rem !important;
+        }
+        .print-area .callout-block p:last-child {
+          margin-bottom: 0 !important;
+        }
+        .print-area .callout-block ul, .print-area .callout-block ol {
+          margin-bottom: 0.75rem !important;
+        }
+        .print-area .callout-block li {
+          color: inherit !important;
+          font-size: inherit !important;
+        }
+        .print-area .callout-block[data-variant="info"], 
+        .print-area .callout-block:not([data-variant]) {
+          background-color: #e6f7f4 !important;
+          border: 1px solid #e6f7f4 !important;
+          border-left: 5px solid #2bb09c !important;
+          color: #1a5c51 !important;
+        }
+        .print-area .callout-block[data-variant="pearl"] {
+          background-color: #e6f7f4 !important;
+          border: 1px solid #e6f7f4 !important;
+          border-left: 5px solid #2bb09c !important;
+          color: #1a5c51 !important;
+        }
+        .print-area .callout-block[data-variant="warning"] {
+          background-color: #fff9e6 !important;
+          border: 1px solid #fff9e6 !important;
+          border-left: 5px solid #dd6b20 !important;
+          color: #7b341e !important;
+        }
+        .print-area .callout-block[data-variant="danger"] {
+          background-color: #fff5f5 !important;
+          border: 1px solid #fff5f5 !important;
+          border-left: 5px solid #c53030 !important;
+          color: #9b2c2c !important;
+        }
+        .print-area .callout-block[data-variant="billing"] {
+          background-color: #f8fafc !important;
+          border: 1px solid #f8fafc !important;
+          border-left: 5px solid #64748b !important;
+          color: #334155 !important;
+        }
       `}</style>
 
       {/* Standalone PDF Toolbar */}
@@ -120,27 +297,29 @@ function PDFViewerContent() {
         </div>
 
         {/* Middle Side: Page navigation */}
-        <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
-            disabled={pdfPage === 1}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-            title="Previous Page"
-          >
-            <Lucide.ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="font-mono text-xs font-semibold px-2 text-slate-300">
-            Page {pdfPage} of {doc.totalPages}
-          </span>
-          <button
-            onClick={() => setPdfPage((p) => Math.min(doc.totalPages, p + 1))}
-            disabled={pdfPage === doc.totalPages}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-            title="Next Page"
-          >
-            <Lucide.ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
+        {!condition.id.startsWith("CUSTOM-") && (
+          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
+              disabled={pdfPage === 1}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              title="Previous Page"
+            >
+              <Lucide.ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="font-mono text-xs font-semibold px-2 text-slate-300">
+              Page {pdfPage} of {doc.totalPages}
+            </span>
+            <button
+              onClick={() => setPdfPage((p) => Math.min(doc.totalPages, p + 1))}
+              disabled={pdfPage === doc.totalPages}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              title="Next Page"
+            >
+              <Lucide.ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
 
         {/* Right Side: Zoom and actions */}
         <div className="flex items-center gap-3">
@@ -194,19 +373,20 @@ function PDFViewerContent() {
         <div
           style={{
             width: `${720 * (pdfZoom / 100)}px`,
-            height: `${940 * (pdfZoom / 100)}px`,
+            height: condition.id.startsWith("CUSTOM-") ? "auto" : `${940 * (pdfZoom / 100)}px`,
             position: "relative",
             flexShrink: 0,
           }}
         >
           <div 
             id="printable-pdf-area"
-            className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text"
+            className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
             style={{
               transform: `scale(${pdfZoom / 100})`,
               transformOrigin: "top left",
               width: "720px",
-              height: "940px",
+              height: condition.id.startsWith("CUSTOM-") ? "auto" : "940px",
+              position: condition.id.startsWith("CUSTOM-") ? "relative" : "absolute",
             }}
           >
             {/* Faint Confidential Watermark */}
@@ -223,129 +403,139 @@ function PDFViewerContent() {
               <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
             </div>
 
-            {/* PAGE 1 CONTENT */}
-            {pdfPage === 1 && (
-              <div className="space-y-8 text-xs leading-relaxed text-slate-700">
-                <div className="text-center">
-                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
-                  <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
-                  <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
-                </div>
-                <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
-                
-                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 text-[11.5px] space-y-3">
-                  <p className="font-bold text-slate-900 text-xs">Metadata Profile:</p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <p className="text-slate-400">Target System</p>
-                      <p className="font-semibold text-slate-700">{condition.system} Pathology</p>
+            {/* Render custom guideline HTML or paginated default content */}
+            {condition.id.startsWith("CUSTOM-") ? (
+              <div 
+                className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
+                dangerouslySetInnerHTML={{ __html: customHtml }}
+              />
+            ) : (
+              <>
+                {/* PAGE 1 CONTENT */}
+                {pdfPage === 1 && (
+                  <div className="space-y-8 text-xs leading-relaxed text-slate-700">
+                    <div className="text-center">
+                      <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
+                      <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
+                      <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400">Subcategory Classification</p>
-                      <p className="font-semibold text-slate-700">{condition.category}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400">Authoring Board</p>
-                      <p className="font-semibold text-slate-700">{condition.author}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-slate-400">Version Control</p>
-                      <p className="font-semibold text-slate-700">Release May 2026</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                  <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Clinical Presentation Summary</h3>
-                  <p className="text-slate-600 leading-relaxed font-medium">
-                    {condition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 2 CONTENT */}
-            {pdfPage === 2 && (
-              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-                <div className="border-b border-slate-100 pb-3">
-                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
-                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
-                </div>
-                <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {condition.name}:</p>
-                <div className="space-y-3">
-                  {condition.diagnosisCriteria.map((c, i) => (
-                    <div key={i} className="flex gap-4 border border-slate-200/80 p-4 rounded-xl bg-slate-50/50 shadow-sm">
-                      <span className="font-mono font-bold text-teal-700 shrink-0 text-sm">0{i + 1}</span>
-                      <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 3 CONTENT */}
-            {pdfPage === 3 && (
-              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-                <div className="border-b border-slate-100 pb-3">
-                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
-                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
-                </div>
-                <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {condition.name}:</p>
-                <div className="space-y-3.5">
-                  {condition.treatmentOptions.map((opt, i) => (
-                    <div key={i} className="flex gap-4 items-start border border-slate-150 bg-slate-50/40 p-4 rounded-xl shadow-sm">
-                      <span className="w-5.5 h-5.5 rounded bg-teal-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                        {i + 1}
-                      </span>
-                      <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* PAGE 4+ CONTENT */}
-            {pdfPage >= 4 && (
-              <div className="space-y-6 text-xs leading-relaxed text-slate-700">
-                <div className="border-b border-slate-100 pb-3">
-                  <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
-                  <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
-                </div>
-                
-                <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
-                  <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
-                    <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
-                    Key Summary Pearls:
-                  </p>
-                  <p className="font-medium whitespace-pre-line leading-relaxed">{condition.clinicalNotes}</p>
-                </div>
-
-                <div className="space-y-3 mt-6">
-                  <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">References</h3>
-                  <div className="divide-y divide-slate-100">
-                    {condition.references.map((ref) => (
-                      <div key={ref.id} className="py-3.5 flex items-start gap-3 text-[11px]">
-                        <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
-                        <div className="flex-1">
-                          <p className="text-slate-700 font-medium leading-relaxed">
-                            {ref.text}
-                          </p>
-                          {ref.url && (
-                            <a 
-                              href={ref.url} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="text-teal-600 font-semibold hover:underline mt-1 inline-block no-print text-[10px]"
-                            >
-                              Access Original Source →
-                            </a>
-                          )}
+                    <p className="font-medium text-slate-605 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
+                    
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-5 text-[11.5px] space-y-3">
+                      <p className="font-bold text-slate-900 text-xs">Metadata Profile:</p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <p className="text-slate-400">Target System</p>
+                          <p className="font-semibold text-slate-700">{condition.system} Pathology</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400">Subcategory Classification</p>
+                          <p className="font-semibold text-slate-700">{condition.category}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400">Authoring Board</p>
+                          <p className="font-semibold text-slate-700">{condition.author}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-slate-400">Version Control</p>
+                          <p className="font-semibold text-slate-700">Release May 2026</p>
                         </div>
                       </div>
-                    ))}
+                    </div>
+
+                    <div className="space-y-3 pt-4 border-t border-slate-100">
+                      <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Clinical Presentation Summary</h3>
+                      <p className="text-slate-600 leading-relaxed font-medium">
+                        {condition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
+                )}
+
+                {/* PAGE 2 CONTENT */}
+                {pdfPage === 2 && (
+                  <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                    <div className="border-b border-slate-100 pb-3">
+                      <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
+                      <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
+                    </div>
+                    <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {condition.name}:</p>
+                    <div className="space-y-3">
+                      {condition.diagnosisCriteria.map((c, i) => (
+                        <div key={i} className="flex gap-4 border border-slate-200/80 p-4 rounded-xl bg-slate-50/50 shadow-sm">
+                          <span className="font-mono font-bold text-teal-700 shrink-0 text-sm">0{i + 1}</span>
+                          <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PAGE 3 CONTENT */}
+                {pdfPage === 3 && (
+                  <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                    <div className="border-b border-slate-100 pb-3">
+                      <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
+                      <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
+                    </div>
+                    <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {condition.name}:</p>
+                    <div className="space-y-3.5">
+                      {condition.treatmentOptions.map((opt, i) => (
+                        <div key={i} className="flex gap-4 items-start border border-slate-150 bg-slate-50/40 p-4 rounded-xl shadow-sm">
+                          <span className="w-5.5 h-5.5 rounded bg-teal-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                            {i + 1}
+                          </span>
+                          <p className="text-slate-700 leading-relaxed font-semibold flex-1">{opt}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PAGE 4+ CONTENT */}
+                {pdfPage >= 4 && (
+                  <div className="space-y-6 text-xs leading-relaxed text-slate-700">
+                    <div className="border-b border-slate-100 pb-3">
+                      <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
+                      <h2 className="font-sans text-xl font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
+                    </div>
+                    
+                    <div className="bg-teal-50/80 border border-teal-200/60 p-5 rounded-xl text-[11.5px] leading-relaxed text-slate-700 italic space-y-2">
+                      <p className="font-bold text-teal-850 not-italic mb-1 flex items-center gap-1.5 text-xs">
+                        <Lucide.Lightbulb className="w-4.5 h-4.5 text-teal-600" />
+                        Key Summary Pearls:
+                      </p>
+                      <p className="font-medium whitespace-pre-line leading-relaxed">{condition.clinicalNotes}</p>
+                    </div>
+
+                    <div className="space-y-3 mt-6">
+                      <h3 className="font-bold text-[10px] text-slate-400 uppercase tracking-widest">References</h3>
+                      <div className="divide-y divide-slate-100">
+                        {condition.references.map((ref) => (
+                          <div key={ref.id} className="py-3.5 flex items-start gap-3 text-[11px]">
+                            <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
+                            <div className="flex-1">
+                              <p className="text-slate-700 font-medium leading-relaxed">
+                                {ref.text}
+                              </p>
+                              {ref.url && (
+                                <a 
+                                  href={ref.url} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="text-teal-600 font-semibold hover:underline mt-1 inline-block no-print text-[10px]"
+                                >
+                                  Access Original Source →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Professional PDF Footer */}

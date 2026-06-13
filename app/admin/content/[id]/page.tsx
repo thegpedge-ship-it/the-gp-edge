@@ -56,6 +56,36 @@ export default function ContentDetailPage() {
         setBodyHtml(`
           <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
           <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No overview provided.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No pathophysiology details provided.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No clinical features listed.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No diagnosis and investigations outline provided.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No management overview provided.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No non-pharmacological directives listed.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No pharmacological directives listed.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No complications listed.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No referral guidelines listed.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No prognosis outlook provided.</p>
+          
+          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No reference resources provided.</p>
         `);
       }
     }
@@ -172,15 +202,21 @@ export default function ContentDetailPage() {
               text-transform: uppercase !important;
               letter-spacing: 0.05em !important;
               padding: 0.75rem 1rem !important;
-              background-color: #0f766e !important;
+              background-color: #2bb09c !important;
               color: #ffffff !important;
-              border-bottom: 2px solid #cbd5e1 !important;
+              border: 1px solid #cbd5e1 !important;
             }
             .print-area td {
               padding: 0.75rem 1rem !important;
               font-size: 0.825rem !important;
-              border-bottom: 1px solid #e2e8f0 !important;
+              border: 1px solid #e2e8f0 !important;
               color: #475569 !important;
+            }
+            .print-area td p, .print-area th p {
+              margin: 0 !important;
+              font-size: inherit !important;
+              color: inherit !important;
+              line-height: inherit !important;
             }
             .print-area tr:nth-child(even) td {
               background-color: #f8fafc !important;
@@ -193,30 +229,52 @@ export default function ContentDetailPage() {
               padding: 1rem !important;
               margin-bottom: 1.25rem !important;
             }
+            .print-area .callout-block p {
+              color: inherit !important;
+              font-size: inherit !important;
+              line-height: inherit !important;
+              margin-bottom: 0.75rem !important;
+            }
+            .print-area .callout-block p:last-child {
+              margin-bottom: 0 !important;
+            }
+            .print-area .callout-block ul, .print-area .callout-block ol {
+              margin-bottom: 0.75rem !important;
+            }
+            .print-area .callout-block li {
+              color: inherit !important;
+              font-size: inherit !important;
+            }
             .print-area .callout-block[data-variant="info"], 
             .print-area .callout-block:not([data-variant]) {
-              background-color: #f0fdfa !important;
-              border: 1px solid #ccfbf1 !important;
-              border-left: 5px solid #0f766e !important;
-              color: #0f766e !important;
+              background-color: #e6f7f4 !important;
+              border: 1px solid #e6f7f4 !important;
+              border-left: 5px solid #2bb09c !important;
+              color: #1a5c51 !important;
             }
             .print-area .callout-block[data-variant="pearl"] {
-              background-color: #ecfdf5 !important;
-              border: 1px solid #d1fae5 !important;
-              border-left: 5px solid #059669 !important;
-              color: #059669 !important;
+              background-color: #e6f7f4 !important;
+              border: 1px solid #e6f7f4 !important;
+              border-left: 5px solid #2bb09c !important;
+              color: #1a5c51 !important;
             }
             .print-area .callout-block[data-variant="warning"] {
-              background-color: #fffbeb !important;
-              border: 1px solid #fef3c7 !important;
-              border-left: 5px solid #b45309 !important;
-              color: #b45309 !important;
+              background-color: #fff9e6 !important;
+              border: 1px solid #fff9e6 !important;
+              border-left: 5px solid #dd6b20 !important;
+              color: #7b341e !important;
+            }
+            .print-area .callout-block[data-variant="danger"] {
+              background-color: #fff5f5 !important;
+              border: 1px solid #fff5f5 !important;
+              border-left: 5px solid #c53030 !important;
+              color: #9b2c2c !important;
             }
             .print-area .callout-block[data-variant="billing"] {
               background-color: #f8fafc !important;
-              border: 1px solid #e2e8f0 !important;
-              border-left: 5px solid #475569 !important;
-              color: #475569 !important;
+              border: 1px solid #f8fafc !important;
+              border-left: 5px solid #64748b !important;
+              color: #334155 !important;
             }
           ` }} />
           <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm h-full`}>

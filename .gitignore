@@ -62,3 +62,8 @@ NOTES.md
 
 # clerk configuration (can include secrets)
 /.clerk/
+
+# Client doc images (do not sync to github)
+/New folder/
+/new folder/
+

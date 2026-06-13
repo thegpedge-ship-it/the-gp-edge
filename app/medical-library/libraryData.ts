@@ -9,7 +9,7 @@ export interface Reference {
 export interface MedicalCondition {
   id: string;
   name: string;
-  system: "Cardiology" | "Respiratory" | "Endocrine" | "Gastrointestinal" | "Psychiatry" | "Dermatology" | "Women's Health" | "Paediatrics" | "Neurology";
+  system: "Cardiology" | "Respiratory" | "Endocrine" | "Gastrointestinal" | "Psychiatry" | "Dermatology" | "Women's Health" | "Paediatrics" | "Neurology" | "Musculoskeletal" | "MBS";
   category: string;
   type: "Condition" | "Guideline" | "Document" | "Note";
   isPremium?: boolean;
@@ -43,6 +43,8 @@ export const bodySystems = [
   { id: "Women's Health", name: "Women's Health", iconName: "User", color: "from-slate-500 to-slate-600", lightBg: "bg-slate-100 dark:bg-slate-900/60", textColor: "text-slate-600 dark:text-slate-300" },
   { id: "Paediatrics", name: "Paediatrics", iconName: "Baby", color: "from-emerald-400 to-emerald-500", lightBg: "bg-emerald-50 dark:bg-emerald-950/20", textColor: "text-emerald-600 dark:text-emerald-400" },
   { id: "Neurology", name: "Neurology", iconName: "Brain", color: "from-blue-500 to-blue-600", lightBg: "bg-blue-50 dark:bg-blue-955/20", textColor: "text-blue-600 dark:text-blue-400" },
+  { id: "Musculoskeletal", name: "Musculoskeletal", iconName: "Bone", color: "from-indigo-550 to-indigo-650", lightBg: "bg-indigo-50 dark:bg-indigo-950/20", textColor: "text-indigo-600 dark:text-indigo-400" },
+  { id: "MBS", name: "MBS Billing", iconName: "FileText", color: "from-amber-500 to-amber-600", lightBg: "bg-amber-50 dark:bg-amber-950/20", textColor: "text-amber-600 dark:text-amber-400" },
 ];
 
 const initialMockConditions: MedicalCondition[] = [

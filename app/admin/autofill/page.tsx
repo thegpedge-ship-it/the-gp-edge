@@ -121,7 +121,7 @@ export default function AutofillPage() {
         setExtractedData(result);
         setUploadState("success");
         // Auto-trigger extraction immediately — no manual button needed
-        runTextExtraction();
+        runTextExtraction(result);
       } else {
         alert(result.error || "Failed to extract text from document");
         setUploadState("idle");
@@ -134,7 +134,7 @@ export default function AutofillPage() {
   };
 
   // Run text extraction simulation
-  const runTextExtraction = () => {
+  const runTextExtraction = (data?: any) => {
     setExtractionState("extracting");
     setExtractionProgress(0);
     setExtractionLog("Opening document stream...");
@@ -159,16 +159,17 @@ export default function AutofillPage() {
       setExtractionState("success");
       setExtractionLog("Extraction complete!");
       
-      if (extractedData) {
-        setReviewTitle(extractedData.title || "Extracted Template");
-        setReviewSystem(extractedData.system || "Respiratory");
-        setReviewCategory(extractedData.category || "Acute");
-        setReviewSymptoms(extractedData.symptoms || extractedData.subjective || "");
-        setReviewObjective(extractedData.objective || "");
-        setReviewTreatment(extractedData.treatment || extractedData.plan || "");
-        setReviewNotes(extractedData.notes || extractedData.assessment || "");
-        setReviewDoctorSummary(extractedData.doctorSummary || "");
-        setReviewPatientResources(extractedData.patientResources || "");
+      const activeData = data || extractedData;
+      if (activeData) {
+        setReviewTitle(activeData.title || "Extracted Template");
+        setReviewSystem(activeData.system || "Respiratory");
+        setReviewCategory(activeData.category || "Acute");
+        setReviewSymptoms(activeData.symptoms || activeData.subjective || "");
+        setReviewObjective(activeData.objective || "");
+        setReviewTreatment(activeData.treatment || activeData.plan || "");
+        setReviewNotes(activeData.notes || activeData.assessment || "");
+        setReviewDoctorSummary(activeData.doctorSummary || "");
+        setReviewPatientResources(activeData.patientResources || "");
       } else {
         setReviewTitle("Acne SOAP Template");
         setReviewSystem("Dermatology");
