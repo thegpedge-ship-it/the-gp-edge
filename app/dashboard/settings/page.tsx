@@ -181,6 +181,7 @@ export default function SettingsPage() {
                   src="/assets/profile/banner.png"
                   alt="Profile Banner"
                   fill
+                  sizes="(max-width: 1200px) 100vw, 50vw"
                   className="object-cover"
                   priority
                 />

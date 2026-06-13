@@ -126,6 +126,7 @@ export default function Footer() {
                   src="/assets/logo.jpeg"
                   alt="The GP Edge"
                   fill
+                  sizes="40px"
                   className="rounded-[11px] object-contain shadow-sm ring-1 ring-black/5"
                 />
               </div>

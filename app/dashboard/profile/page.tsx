@@ -59,6 +59,7 @@ export default async function ProfilePage() {
                   src="/assets/profile/banner.png"
                   alt="Profile Banner"
                   fill
+                  sizes="(max-width: 1200px) 100vw, 33vw"
                   className="object-cover"
                   priority
                 />
