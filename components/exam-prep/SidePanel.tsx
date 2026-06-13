@@ -1,6 +1,15 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { mockDrill, mockTests } from "./data";
+import {
+  buildInstructionsUrl,
+  parseDurationToMinutes,
+  saveCustomTestConfig,
+} from "@/lib/testSession";
+import MockTestsModal from "./MockTestsModal";
+import CreateQuizModal from "./CreateQuizModal";
 
 /* ─── Summary Stat ────────────────────────────────────────────────────── */
 function Stat({ value, label }: { value: string; label: string }) {
@@ -14,6 +23,19 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function SidePanel() {
+  const router = useRouter();
+  const [mockTestsOpen, setMockTestsOpen] = useState(false);
+  const [createQuizOpen, setCreateQuizOpen] = useState(false);
+
+  const startMockDrill = () => {
+    saveCustomTestConfig({
+      name: mockDrill.title,
+      questionCount: mockDrill.questionCount,
+      durationMinutes: parseDurationToMinutes(mockDrill.duration),
+    });
+    router.push(buildInstructionsUrl("custom"));
+  };
+
   const completedMocks = mockTests.filter((t) => t.status === "completed");
   const avgScore = completedMocks.length
     ? Math.round(completedMocks.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completedMocks.length)
@@ -42,7 +64,7 @@ export default function SidePanel() {
           </div>
 
           <button
-            onClick={() => {}}
+            onClick={() => setMockTestsOpen(true)}
             className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
           >
             View Mock Tests &rarr;
@@ -52,7 +74,7 @@ export default function SidePanel() {
 
       {/* ─── 2. Create Your Own Quiz ───────────────────────────── */}
       <div
-        onClick={() => {}}
+        onClick={() => setCreateQuizOpen(true)}
         className="glass dark:glass-strong rounded-2xl border border-slate-200/50 dark:border-slate-700/40 shadow-md overflow-hidden flex-shrink-0 px-4 py-3 cursor-pointer"
       >
         <div>
@@ -77,10 +99,19 @@ export default function SidePanel() {
           <span>{mockDrill.difficulty}</span>
         </div>
 
-        <button className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300">
+        <button
+          onClick={startMockDrill}
+          className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
+        >
           Start Mock Drill &rarr;
         </button>
       </div>
+
+      {/* ─── Mock Tests modal ──────────────────────────────────── */}
+      <MockTestsModal open={mockTestsOpen} onClose={() => setMockTestsOpen(false)} />
+
+      {/* ─── Create Your Own Quiz modal ────────────────────────── */}
+      <CreateQuizModal open={createQuizOpen} onClose={() => setCreateQuizOpen(false)} />
     </div>
   );
 }

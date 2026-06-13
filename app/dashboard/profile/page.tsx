@@ -74,6 +74,7 @@ export default async function ProfilePage() {
                       src={user?.imageUrl || "/assets/logo.png"}
                       alt={user?.fullName || "User Avatar"}
                       fill
+                      sizes="96px"
                       className="object-cover"
                     />
                   </div>

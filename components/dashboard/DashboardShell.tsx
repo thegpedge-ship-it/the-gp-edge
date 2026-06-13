@@ -28,27 +28,33 @@ const DashboardInner = memo(function DashboardInner({
   children,
   className = "px-6 sm:px-8 pt-6 sm:pt-8 pb-12",
   bgClassName = "bg-slate-100 dark:bg-slate-950",
+  hideSidebar = false,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
+  hideSidebar?: boolean;
 }) {
   const { isExpanded, ready } = useSidebar();
   const { isSignedIn } = useAuth();
+
+  const showSidebar = !hideSidebar && isSignedIn;
 
   return (
     <div className={`min-h-screen ${bgClassName}`}>
       <Header variant="static" />
 
-      {/* Fixed sidebar */}
-      <SignedIn>
-        <Sidebar />
-      </SignedIn>
+      {/* Fixed sidebar — suppressed on pages that opt out (e.g. the landing/home page) */}
+      {!hideSidebar && (
+        <SignedIn>
+          <Sidebar />
+        </SignedIn>
+      )}
 
-      {/* Content — margin-left matches sidebar width only when signed in, otherwise 0px */}
+      {/* Content — margin-left matches sidebar width only when the sidebar is shown, otherwise 0px */}
       <main
         style={{
-          marginLeft: isSignedIn ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
+          marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
           transition: ready ? MARGIN_TRANSITION : "none",
         }}
         className={`min-h-screen ${className}`}
@@ -69,14 +75,16 @@ export default function DashboardShell({
   children,
   className,
   bgClassName,
+  hideSidebar = false,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
+  hideSidebar?: boolean;
 }) {
   return (
     <SidebarProvider>
-      <DashboardInner className={className} bgClassName={bgClassName}>
+      <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
         {children}
       </DashboardInner>
     </SidebarProvider>

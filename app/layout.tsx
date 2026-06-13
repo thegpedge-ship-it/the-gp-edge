@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en" className="scroll-smooth">
+      <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth">
         <body className="bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-screen">
           <Header />
           {children}

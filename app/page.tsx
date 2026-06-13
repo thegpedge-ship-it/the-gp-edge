@@ -19,7 +19,7 @@ export default async function Home() {
 
   if (userId) {
     return (
-      <DashboardShell className="" bgClassName="bg-slate-50 dark:bg-slate-950">
+      <DashboardShell className="" bgClassName="bg-slate-50 dark:bg-slate-950" hideSidebar>
         {content}
       </DashboardShell>
     );

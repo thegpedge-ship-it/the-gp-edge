@@ -95,8 +95,10 @@ export function resolveTestConfig(testId: string): TestConfig | null {
 }
 
 /**
- * Fetch the questions for a test. Cycles the published question bank
- * to fill the requested count until a real backend exists.
+ * Fetch the questions for a test. Draws a random subset of the published
+ * question bank to fill the requested count until a real backend exists.
+ * The bank is shuffled so each attempt yields a different random selection
+ * (and order); if the bank is smaller than `count`, it cycles the shuffle.
  */
 export async function fetchTestQuestions(count: number): Promise<Question[]> {
   // Simulate network latency so the loading state is visible
@@ -104,8 +106,16 @@ export async function fetchTestQuestions(count: number): Promise<Question[]> {
   const bank = getQuestions().filter((q) => q.status === "published");
   const source = bank.length > 0 ? bank : getQuestions();
   if (source.length === 0) return [];
+
+  // Fisher–Yates shuffle on a copy so selection + order are random
+  const shuffled = [...source];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
   return Array.from({ length: count }, (_, i) => {
-    const q = source[i % source.length];
+    const q = shuffled[i % shuffled.length];
     return { ...q, id: i + 1 };
   });
 }

@@ -209,6 +209,7 @@ export default function SettingsPage() {
                       src={user?.imageUrl || "/assets/logo.png"}
                       alt="Profile Photo"
                       fill
+                      sizes="128px"
                       className="object-cover"
                     />
                     <div className={`absolute inset-0 bg-slate-900/50 flex items-center justify-center transition-opacity duration-200 ${avatarHovered ? "opacity-100" : "opacity-0"}`}>

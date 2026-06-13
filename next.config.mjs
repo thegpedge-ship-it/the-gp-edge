@@ -16,8 +16,9 @@ const nextConfig = {
     ],
   },
 
+  outputFileTracingRoot: path.resolve(__dirname),
+
   experimental: {
-    outputFileTracingRoot: path.resolve(__dirname),
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
 };

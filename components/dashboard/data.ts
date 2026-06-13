@@ -171,8 +171,6 @@ export const subjectTestBreakdown: Record<string, { test: string; correct: numbe
     { test: "Mock 3", correct: 9, incorrect: 1, unattempted: 0 },
     { test: "Mock 4", correct: 9, incorrect: 1, unattempted: 0 },
     { test: "Mock 5", correct: 9, incorrect: 1, unattempted: 0 },
-    { test: "Mock 5", correct: 9, incorrect: 1, unattempted: 0 },
-    
   ],
   Respiratory: [
     { test: "Mock 1", correct: 5, incorrect: 3, unattempted: 2 },

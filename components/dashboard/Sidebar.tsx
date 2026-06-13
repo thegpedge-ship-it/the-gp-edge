@@ -190,6 +190,7 @@ export default function Sidebar() {
                   src={user.imageUrl}
                   alt={user.fullName || "User Avatar"}
                   fill
+                  sizes="38px"
                   style={{ objectFit: "cover" }}
                 />
               ) : (
@@ -347,6 +348,7 @@ export default function Sidebar() {
                         src={user.imageUrl}
                         alt={user.fullName || "User Avatar"}
                         fill
+                        sizes="84px"
                         style={{ objectFit: "cover" }}
                       />
                     ) : (
