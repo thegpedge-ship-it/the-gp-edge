@@ -175,6 +175,7 @@ export default function AdminSidebar({
               src="/assets/logo.png"
               alt="The GP Edge"
               fill
+              sizes="36px"
               className="rounded-xl object-contain"
               priority
             />
