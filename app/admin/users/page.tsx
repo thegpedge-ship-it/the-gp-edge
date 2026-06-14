@@ -104,38 +104,38 @@ export default function UsersPage() {
       {/* Plan distribution bar */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-5 shadow-md shadow-slate-200/30 relative overflow-hidden"
+        className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 p-5 shadow-md shadow-slate-200/30 relative overflow-hidden"
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none rounded-2xl" />
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Subscription Distribution</p>
-              <p className="text-sm font-semibold text-slate-700 mt-0.5">{users.length} total accounts</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Subscription Distribution</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-0.5">{users.length} total accounts</p>
             </div>
-            <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/50 px-3 py-1 rounded-full">
+            <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/50 px-3 py-1 rounded-full dark:text-teal-400 dark:bg-teal-950/30 dark:border-teal-900/40">
               MRR contribution: {premiumCount} × $24–199
             </span>
           </div>
-          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+          <div className="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
             <div
               className="h-full bg-teal-600 transition-all duration-700"
               style={{ width: `${premiumRate}%` }}
               title={`Premium: ${premiumCount} (${premiumRate}%)`}
             />
             <div
-              className="h-full bg-slate-300 transition-all duration-700"
+              className="h-full bg-slate-300 dark:bg-slate-700 transition-all duration-700"
               style={{ width: `${100 - premiumRate}%` }}
               title={`Free: ${freeCount} (${100 - premiumRate}%)`}
             />
           </div>
-          <div className="flex items-center justify-between mt-2 text-[11px] font-semibold text-slate-500 px-0.5">
+          <div className="flex items-center justify-between mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 px-0.5">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-teal-600" />
               Premium — {premiumCount} accounts ({premiumRate}%)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-300" />
+              <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
               Free — {freeCount} accounts ({100 - premiumRate}%)
             </span>
           </div>
@@ -215,7 +215,7 @@ export default function UsersPage() {
               {filteredUsers.map((user) => (
                 <tr
                   key={user.id}
-                  className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
+                  className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">

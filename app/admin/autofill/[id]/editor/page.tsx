@@ -21,22 +21,13 @@ import { addUserNotification } from "@/utils/notifications";
 // SOAP → HTML seed
 // ─────────────────────────────────────────────────────────────
 function soapToHtml(t: AutofillTemplate): string {
-  const sections = [
-    { heading: "Subjective (Symptoms / Presentation)", content: t.subjective || "" },
-    { heading: "Objective (Examination / Investigations)", content: t.objective || "" },
-    { heading: "Assessment (Clinical Impression)", content: t.assessment || "" },
-    { heading: "Plan (Management / Treatment)", content: t.plan || "" },
-    { heading: "Doctor Revision Summary", content: t.doctorSummary || "" },
-    { heading: "Patient Resources", content: t.patientResources || "" },
-  ];
   let html = `<h1 style="font-family:Georgia,serif;font-size:1.7rem;font-weight:700;color:#0f172a;margin:0 0 0.25rem;line-height:1.2">${t.name}</h1>`;
   html += `<p style="font-size:0.8rem;color:#64748b;margin:0 0 2rem;font-family:'DM Sans',sans-serif">${t.description || ""}</p>`;
-  sections.forEach(({ heading, content }) => {
-    html += `<h2 style="font-family:Georgia,serif;font-size:1.1rem;font-weight:700;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin:1.75rem 0 0.5rem;line-height:1.25">${heading}</h2>`;
-    html += content.trim()
-      ? `<p style="font-size:0.875rem;color:#334155;line-height:1.75;margin:0 0 1rem;font-family:'DM Sans',sans-serif">${content}</p>`
-      : `<p style="font-size:0.875rem;color:#94a3b8;font-style:italic;line-height:1.75;margin:0 0 1rem;font-family:'DM Sans',sans-serif">[Click to add content]</p>`;
-  });
+  
+  const content = t.content || [t.subjective, t.objective, t.assessment, t.plan, t.doctorSummary, t.patientResources].filter(Boolean).join("\n\n");
+  
+  html += `<p style="font-size:0.875rem;color:#334155;line-height:1.75;margin:0 0 1rem;font-family:'DM Sans',sans-serif;white-space:pre-wrap">${content.replace(/\n/g, '<br />')}</p>`;
+  
   if (t.references) {
     html += `<hr style="border:0;border-top:1px solid #cbd5e1;margin:1.75rem 0"/>`;
     html += `<h2 style="font-family:Georgia,serif;font-size:1.1rem;font-weight:700;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-bottom:0.5rem">References</h2>`;
@@ -138,19 +129,13 @@ function TemplateEditorContent() {
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
-  // SOAP
-  const [soapSubjective, setSoapSubjective] = useState("");
-  const [soapObjective, setSoapObjective] = useState("");
-  const [soapAssessment, setSoapAssessment] = useState("");
-  const [soapPlan, setSoapPlan] = useState("");
-  const [soapDoctorSummary, setSoapDoctorSummary] = useState("");
-  const [soapPatientResources, setSoapPatientResources] = useState("");
+  // Content
+  const [templateContent, setTemplateContent] = useState("");
 
   // Layout
   const [ribbonTab, setRibbonTab] = useState<"home" | "insert" | "layout">("home");
   const [showSidebar, setShowSidebar] = useState(true);
   const [sidebarTab, setSidebarTab] = useState<"meta" | "refs" | "pages" | "soap">("soap");
-  const [previewMode, setPreviewMode] = useState(false);
   const [showFlowchart, setShowFlowchart] = useState(false);
 
   // Flowchart edit — stores the wrapper element being re-edited + pre-loaded data
@@ -224,6 +209,170 @@ function TemplateEditorContent() {
   const editorRef = useRef<HTMLDivElement>(null);
   const savedRangeRef = useRef<Range | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Document import states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [docImportFile, setDocImportFile] = useState<File | null>(null);
+  const [docUploadState, setDocUploadState] = useState<"idle" | "uploading" | "success" | "extracting">("idle");
+  const [docUploadProgress, setDocUploadProgress] = useState(0);
+  const [docExtractionProgress, setDocExtractionProgress] = useState(0);
+  const [docExtractionLog, setDocExtractionLog] = useState("");
+  const [docUploadedFileName, setDocUploadedFileName] = useState("");
+  const [docUploadedFileSize, setDocUploadedFileSize] = useState("");
+
+
+
+  const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    triggerDocImport(file);
+  };
+
+  const triggerDocImport = async (file: File) => {
+    setDocImportFile(file);
+    setDocUploadedFileName(file.name);
+    setDocUploadedFileSize((file.size / 1024 / 1024).toFixed(2) + " MB");
+    setDocUploadState("uploading");
+    setDocUploadProgress(0);
+    setShowImportModal(true);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", "autofill");
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/extract", true);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setDocUploadProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        try {
+          const result = JSON.parse(xhr.responseText);
+          if (result.success) {
+            setDocUploadProgress(100);
+            setDocUploadState("success");
+            runDocExtraction(result);
+          } else {
+            alert(result.error || "Failed to extract text from document");
+            setDocUploadState("idle");
+            setShowImportModal(false);
+          }
+        } catch {
+          alert("Error parsing extraction response");
+          setDocUploadState("idle");
+          setShowImportModal(false);
+        }
+      } else {
+        alert("Upload failed with status code: " + xhr.status);
+        setDocUploadState("idle");
+        setShowImportModal(false);
+      }
+    };
+
+    xhr.onerror = () => {
+      alert("Network error during file upload");
+      setDocUploadState("idle");
+      setShowImportModal(false);
+    };
+
+    xhr.send(formData);
+  };
+
+  const runDocExtraction = (data: any) => {
+    setDocUploadState("extracting");
+    setDocExtractionProgress(0);
+    setDocExtractionLog("Opening document stream...");
+
+    setTimeout(() => {
+      setDocExtractionProgress(25);
+      setDocExtractionLog("Extracting raw text from pages...");
+    }, 300);
+
+    setTimeout(() => {
+      setDocExtractionProgress(55);
+      setDocExtractionLog("Identifying clinical sections...");
+    }, 600);
+
+    setTimeout(() => {
+      setDocExtractionProgress(85);
+      setDocExtractionLog("Mapping fields...");
+    }, 900);
+
+    setTimeout(() => {
+      setDocExtractionProgress(100);
+      setDocExtractionLog("Extraction complete!");
+
+      const title = data.title || "Extracted Template";
+      const system = data.system || "Respiratory";
+      const category = data.category || "Acute";
+      const subjective = data.subjective || data.symptoms || "";
+      const objective = data.objective || "";
+      const assessment = data.assessment || data.notes || "";
+      const plan = data.plan || data.treatment || "";
+      const doctorSummary = data.doctorSummary || "";
+      const patientResources = data.patientResources || "";
+      const references = data.references || [];
+      const fullHtml = data.fullHtml || "";
+      const content = data.content || [subjective, objective, assessment, plan, doctorSummary, patientResources].filter(Boolean).join("\n\n");
+
+      setDocTitle(title);
+      setSelectedSystem(system);
+      setSelectedCategory(category);
+      setTemplateContent(content);
+
+      if (references && references.length > 0) {
+        setDocReferences(references.map((refText: string, i: number) => ({
+          id: i + 1,
+          text: refText,
+          url: "#"
+        })));
+      }
+
+      if (editorRef.current) {
+        let finalHtml = fullHtml;
+        if (!finalHtml) {
+          finalHtml = soapToHtml({
+            id: templateId,
+            name: title,
+            system: system,
+            category: category,
+            status: templateStatus,
+            author,
+            tags,
+            fields: 0,
+            version: "1.0",
+            usageCount: 0,
+            lastUsed: "Never",
+            sampleFields: [],
+            versions: [],
+            subjective,
+            objective,
+            assessment,
+            plan,
+            doctorSummary,
+            patientResources,
+            references: references ? references.join("\n") : ""
+          });
+        }
+        editorRef.current.innerHTML = finalHtml;
+        setPages([finalHtml]);
+        setActivePage(0);
+        updateCounts();
+        saveToHistory();
+      }
+
+      setShowImportModal(false);
+      setDocUploadState("idle");
+      addUserNotification("Template Imported", `Successfully imported content from "${title}".`, 1, "custom");
+    }, 1200);
+  };
 
   const dropdownRefs = {
     font: useRef<HTMLDivElement>(null),
@@ -304,12 +453,7 @@ function TemplateEditorContent() {
     setTemplateStatus(item.status === "archived" ? "draft" : item.status);
     setAuthor(item.author);
     setTags(item.tags || []);
-    setSoapSubjective(item.subjective || "");
-    setSoapObjective(item.objective || "");
-    setSoapAssessment(item.assessment || "");
-    setSoapPlan(item.plan || "");
-    setSoapDoctorSummary(item.doctorSummary || "");
-    setSoapPatientResources(item.patientResources || "");
+    setTemplateContent(item.content || [item.subjective, item.objective, item.assessment, item.plan, item.doctorSummary, item.patientResources].filter(Boolean).join("\n\n"));
 
     let savedHtml = localStorage.getItem(`gpedge_template_body_${templateId}`);
     if (!savedHtml) savedHtml = soapToHtml(item);
@@ -925,8 +1069,7 @@ function TemplateEditorContent() {
     const up = list.map((t) => t.id === templateId ? {
       ...t, name: docTitle.trim(), system: selectedSystem, category: selectedCategory,
       status: templateStatus as AutofillTemplate["status"], author, tags,
-      subjective: soapSubjective, objective: soapObjective, assessment: soapAssessment,
-      plan: soapPlan, doctorSummary: soapDoctorSummary, patientResources: soapPatientResources,
+      content: templateContent,
     } : t);
     setTemplates(up); saveAutofillTemplates(up);
     addUserNotification("Template Saved", `Saved changes to "${docTitle}".`, 1, "custom");
@@ -1350,9 +1493,6 @@ function TemplateEditorContent() {
           <RibbonBtn title="Toggle Sidebar" onClick={() => setShowSidebar(s => !s)} active={showSidebar}>
             <Lucide.PanelRight className="w-5 h-5" /><span>Sidebar</span>
           </RibbonBtn>
-          <RibbonBtn title="Toggle Preview" onClick={() => setPreviewMode(p => !p)} active={previewMode}>
-            <Lucide.Eye className="w-5 h-5" /><span>Preview</span>
-          </RibbonBtn>
         </RibbonGroup>
       </div>
     );
@@ -1437,13 +1577,6 @@ function TemplateEditorContent() {
                   </AnimatePresence>
                 </div>
 
-                {/* Preview toggle */}
-                <button
-                  onClick={() => setPreviewMode(p => !p)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all flex items-center gap-1.5 ${previewMode ? "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"}`}
-                >
-                  {previewMode ? (<><Lucide.Edit2 className="w-3.5 h-3.5" /><span>Edit</span></>) : (<><Lucide.Eye className="w-3.5 h-3.5" /><span>Preview</span></>)}
-                </button>
 
                 {/* Sidebar toggle */}
                 <button
@@ -1461,6 +1594,17 @@ function TemplateEditorContent() {
                 >
                   <Lucide.FileDown className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Export PDF</span>
+                </button>
+
+
+                {/* Import Document */}
+                <button
+                  onClick={() => docFileInputRef.current?.click()}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer"
+                  title="Import DOCX or PDF"
+                >
+                  <Lucide.Upload className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
+                  <span>Import Document</span>
                 </button>
 
                 {/* Duplicate */}
@@ -1506,11 +1650,9 @@ function TemplateEditorContent() {
                 ))}
               </div>
               {/* Ribbon content — overflow-visible so dropdowns can escape */}
-              {!previewMode && (
-                <div className="overflow-visible">
-                  {ribbonContent()}
-                </div>
-              )}
+              <div className="overflow-visible">
+                {ribbonContent()}
+              </div>
             </div>
 
             {/* ── Ruler ── */}
@@ -1551,7 +1693,7 @@ function TemplateEditorContent() {
             >
               <div
                 ref={editorRef}
-                contentEditable={!previewMode}
+                contentEditable={true}
                 suppressContentEditableWarning
                 className="word-editor print-area"
                 style={{ padding: "96px 96px 80px", minHeight: "1123px", color: "#0f172a" }}
@@ -1583,7 +1725,7 @@ function TemplateEditorContent() {
                       {(["pages", "meta", "refs", "soap"] as const).map((tab) => (
                         <button key={tab} onClick={() => setSidebarTab(tab)}
                           className={`flex-1 px-2 py-3 text-xs font-semibold text-center transition-all whitespace-nowrap ${sidebarTab === tab ? "text-teal-700 border-b-2 border-teal-500 bg-teal-50/30 dark:bg-teal-950/20 dark:text-teal-400" : "text-slate-500 hover:text-slate-700"}`}>
-                          {tab === "pages" ? "Pages" : tab === "meta" ? "Meta" : tab === "refs" ? "Refs" : "SOAP"}
+                          {tab === "pages" ? "Pages" : tab === "meta" ? "Meta" : tab === "refs" ? "Refs" : "Content"}
                         </button>
                       ))}
                     </div>
@@ -1717,23 +1859,14 @@ function TemplateEditorContent() {
                         </div>
                       )}
 
-                      {/* SOAP tab */}
+                      {/* Content tab */}
                       {sidebarTab === "soap" && (
                         <div className="space-y-3">
-                          {[
-                            ["Subjective", soapSubjective, setSoapSubjective],
-                            ["Objective", soapObjective, setSoapObjective],
-                            ["Assessment", soapAssessment, setSoapAssessment],
-                            ["Plan", soapPlan, setSoapPlan],
-                            ["Doctor Summary", soapDoctorSummary, setSoapDoctorSummary],
-                            ["Patient Resources", soapPatientResources, setSoapPatientResources],
-                          ].map(([label, val, setter]) => (
-                            <div key={label as string}>
-                              <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{label as string}</label>
-                              <textarea rows={2} value={val as string} onChange={(e) => (setter as any)(e.target.value)} className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 resize-none" />
-                            </div>
-                          ))}
-                          <button onClick={() => { if (editorRef.current && templateItem) { const t = { ...templateItem, subjective: soapSubjective, objective: soapObjective, assessment: soapAssessment, plan: soapPlan, doctorSummary: soapDoctorSummary, patientResources: soapPatientResources }; editorRef.current.innerHTML = soapToHtml(t); updateCounts(); saveToHistory(); } }} className="w-full py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none"><Lucide.RefreshCw className="w-3 h-3" /> Regenerate Document</button>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-650 dark:text-slate-400 mb-1.5">Template Content</label>
+                            <textarea rows={16} value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 resize-y font-mono" />
+                          </div>
+                          <button onClick={() => { if (editorRef.current && templateItem) { const t = { ...templateItem, content: templateContent }; editorRef.current.innerHTML = soapToHtml(t); updateCounts(); saveToHistory(); } }} className="w-full py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none"><Lucide.RefreshCw className="w-3 h-3" /> Regenerate Document</button>
                         </div>
                       )}
                     </div>
@@ -2010,6 +2143,93 @@ function TemplateEditorContent() {
         )}
       </AnimatePresence>
 
+      {/* ── Document Import & Review Modal ── */}
+      <AnimatePresence>
+        {showImportModal && (
+          <div key="doc-import-modal-container" className="fixed inset-0 z-50 pointer-events-none">
+            <motion.div
+              key="doc-import-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm pointer-events-auto"
+              onClick={() => {
+                if (docUploadState !== "uploading" && docUploadState !== "extracting") {
+                  setShowImportModal(false);
+                }
+              }}
+            />
+            <motion.div
+              key="doc-import-modal-content"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-x-4 top-[8%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[84vh] pointer-events-auto text-slate-950 dark:text-slate-50"
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-5 border-b border-slate-105 dark:border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Lucide.Sparkles className="w-5 h-5 text-teal-600" />
+                    <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100">
+                      Import Document Content
+                    </h3>
+                  </div>
+                  {(docUploadState !== "uploading" && docUploadState !== "extracting") && (
+                    <button
+                      onClick={() => setShowImportModal(false)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-650 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border-none outline-none bg-transparent cursor-pointer"
+                    >
+                      <Lucide.X className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+
+                {docUploadState === "uploading" && (
+                  <div className="py-8 text-center space-y-4">
+                    <Lucide.Loader className="w-10 h-10 text-teal-700 animate-spin mx-auto" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-355">Uploading "{docUploadedFileName}"...</p>
+                      <p className="text-xs text-slate-400">File size: {docUploadedFileSize}</p>
+                    </div>
+                    <div className="max-w-md mx-auto">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-450 mb-1">
+                        <span>Uploading...</span>
+                        <span>{docUploadProgress}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-700 transition-all duration-150" style={{ width: `${docUploadProgress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {docUploadState === "extracting" && (
+                  <div className="py-8 text-center space-y-4">
+                    <Lucide.Cpu className="w-10 h-10 text-teal-700 animate-bounce mx-auto" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-slate-700 dark:text-slate-355">Analyzing Clinical Document...</p>
+                      <p className="text-xs text-teal-650 dark:text-teal-400 font-medium">{docExtractionLog}</p>
+                    </div>
+                    <div className="max-w-md mx-auto">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-450 mb-1">
+                        <span>Extracting fields...</span>
+                        <span>{docExtractionProgress}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-700 transition-all duration-300" style={{ width: `${docExtractionProgress}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ── Persistent hidden file input — lives outside all portals so it's always in DOM ── */}
       <input
         type="file"
@@ -2022,6 +2242,17 @@ function TemplateEditorContent() {
           setImageAnchor(null);
           // Reset so the same file can be re-selected next time
           if (fileInputRef.current) fileInputRef.current.value = "";
+        }}
+      />
+
+      <input
+        type="file"
+        ref={docFileInputRef}
+        accept=".pdf,.docx"
+        className="hidden"
+        onChange={(e) => {
+          handleDocFileChange(e);
+          if (docFileInputRef.current) docFileInputRef.current.value = "";
         }}
       />
     </>

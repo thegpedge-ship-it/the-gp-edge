@@ -49,7 +49,7 @@ MANAGEMENT PLAN:
   },
   {
     id: 2,
-    title: "Diabetes Review",
+    title: "DIABETES ANNUAL CYCLE OF CARE",
     category: "Chronic Disease",
     description: "Structured template for diabetes review and ongoing management.",
     updated: "4 days ago",
@@ -284,7 +284,7 @@ Follow-up & Referral:
 
 const RECENT_TEMPLATES = [
   { id: 1, title: "Mental Health Care Plan", time: "2h ago" },
-  { id: 2, title: "Diabetes Review", time: "Yesterday" },
+  { id: 2, title: "DIABETES ANNUAL CYCLE OF CARE", time: "Yesterday" },
   { id: 3, title: "Asthma Management Plan", time: "2 days" },
   { id: 7, title: "Wound Review", time: "4 days" },
 ];
@@ -298,7 +298,7 @@ const DEFAULT_SAVED = [
 // Carousel suggestions for the search bar
 const SEARCH_SUGGESTIONS = [
   "Mental Health Care Plan",
-  "Diabetes Review",
+  "DIABETES ANNUAL CYCLE OF CARE",
   "Asthma Management Plan",
   "Skin Cancer Follow-Up",
   "Chronic Disease Management Plan",

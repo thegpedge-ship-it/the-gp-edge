@@ -221,7 +221,7 @@ export default function QuizzesPage() {
                             if (deleted) setQuizzes(getQuizzes());
                           }
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 transition-all"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all"
                         title="Delete Quiz"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -238,7 +238,7 @@ export default function QuizzesPage() {
       {/* ========== TABLE VIEW ========== */}
       {viewMode === "table" && (
         <motion.div variants={itemVariants} className={`${themePanel} overflow-hidden relative`}>
-          <div className="absolute inset-0 bg-gradient-to-br from-teal-50/15 via-transparent to-teal-50/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-teal-50/15 dark:from-slate-900/60 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none" />
           <div className="relative z-10">
             <div className={`px-6 py-4 border-b ${themeBorder}`}>
               <h3 className="text-sm font-bold text-teal-900 dark:text-teal-100">All Quizzes</h3>
@@ -308,7 +308,7 @@ export default function QuizzesPage() {
 
       {/* Stuck sessions */}
       <motion.div variants={itemVariants} className={`${themePanel} overflow-hidden relative`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/15 via-transparent to-teal-50/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/15 dark:from-slate-900/60 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none" />
         <div className="relative z-10">
           <div className={`px-6 py-4 border-b flex items-center justify-between ${themeBorder}`}>
             <div className="flex items-center gap-2">

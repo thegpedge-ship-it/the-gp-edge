@@ -14,7 +14,7 @@ export const themeText = "text-teal-950 dark:text-teal-50/90";
 export const themeSurface = "bg-teal-50/40 dark:bg-teal-950/15";
 
 export const themePanel =
-  "bg-white/70 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-teal-900/5";
+  "bg-white/70 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-teal-900/5";
 
 export const themeBtnGhost =
   "px-4 py-2.5 text-sm font-medium text-teal-800 dark:text-teal-300 border border-teal-200/80 dark:border-teal-800/50 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/25 transition-all";

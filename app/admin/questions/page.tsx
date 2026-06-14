@@ -465,7 +465,7 @@ export default function QuestionsPage() {
       </motion.div>
 
       {/* Questions table */}
-      <motion.div variants={itemVariants} className={`bg-white/60 backdrop-blur-xl rounded-2xl shadow-md shadow-teal-900/5 overflow-hidden relative ${themeBorder} border`}>
+      <motion.div variants={itemVariants} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-md shadow-teal-900/5 overflow-hidden relative ${themeBorder} border`}>
         <div className="relative z-10 overflow-x-auto">
           <table className="w-full">
             <thead>

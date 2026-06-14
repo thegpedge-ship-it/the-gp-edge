@@ -130,15 +130,15 @@ export default function BillingPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Subscription breakdown panel */}
-        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
+        <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 p-6 shadow-md shadow-slate-200/30 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-teal-50/10 dark:to-teal-950/10 pointer-events-none rounded-2xl" />
           <div className="relative z-10 space-y-6">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Subscription Plan Adoption</h3>
-                <p className="text-xs text-slate-400 mt-0.5 font-semibold">Distribution of premium users by payment tier</p>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Subscription Plan Adoption</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-semibold">Distribution of premium users by payment tier</p>
               </div>
-              <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/50 px-3 py-1 rounded-full">1,456 Active Subscriptions</span>
+              <span className="text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200/50 px-3 py-1 rounded-full dark:text-teal-400 dark:bg-teal-950/30 dark:border-teal-900/40">1,456 Active Subscriptions</span>
             </div>
 
             {/* Segmented Progress Bar */}
@@ -147,7 +147,7 @@ export default function BillingPage() {
                 <div className="h-full bg-gradient-to-r from-teal-500 to-teal-400" style={{ width: "68%" }} title="Premium Annual (68%)" />
                 <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: "32%" }} title="Premium Monthly (32%)" />
               </div>
-              <div className="flex justify-between text-[11px] font-bold text-slate-500 px-1">
+              <div className="flex justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 px-1">
                 <span>Premium Annual: 68%</span>
                 <span>Premium Monthly: 32%</span>
               </div>
@@ -155,39 +155,39 @@ export default function BillingPage() {
 
             {/* Plan Details Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 space-y-3">
+              <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
-                    <span className="text-xs font-bold text-slate-800">Premium Annual</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Premium Annual</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-500">$199/yr</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">$199/yr</span>
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-600">990 Users</span>
-                    <span className="text-teal-600 font-bold">$197,010/yr</span>
+                    <span className="text-slate-600 dark:text-slate-400">990 Users</span>
+                    <span className="text-teal-650 dark:text-teal-400 font-bold">$197,010/yr</span>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div className="h-full bg-teal-500" style={{ width: "68%" }} />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-slate-50/50 border border-slate-100 rounded-xl p-4 space-y-3">
+              <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                    <span className="text-xs font-bold text-slate-800">Premium Monthly</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Premium Monthly</span>
                   </div>
-                  <span className="text-xs font-bold text-slate-500">$24/mo</span>
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">$24/mo</span>
                 </div>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-600">466 Users</span>
-                    <span className="text-emerald-600 font-bold">$11,184/mo</span>
+                    <span className="text-slate-600 dark:text-slate-400">466 Users</span>
+                    <span className="text-emerald-650 dark:text-emerald-400 font-bold">$11,184/mo</span>
                   </div>
-                  <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div className="h-full bg-emerald-400" style={{ width: "32%" }} />
                   </div>
                 </div>
@@ -195,7 +195,7 @@ export default function BillingPage() {
             </div>
 
             {/* Billing gateway health */}
-            <div className="flex items-center justify-between border-t border-slate-100/60 pt-4 text-xs font-semibold text-slate-500">
+            <div className="flex items-center justify-between border-t border-slate-100/60 dark:border-slate-800/60 pt-4 text-xs font-semibold text-slate-500 dark:text-slate-400">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                 <span>Stripe Gateway: Connected</span>
@@ -206,24 +206,24 @@ export default function BillingPage() {
         </motion.div>
 
         {/* Failed payments */}
-        <motion.div variants={itemVariants} className="bg-slate-50/40 backdrop-blur-xl rounded-2xl border border-slate-200/60 shadow-md shadow-slate-200/5 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/40 via-transparent to-slate-50/10 pointer-events-none" />
+        <motion.div variants={itemVariants} className="bg-slate-50/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-2xl border border-slate-200/60 dark:border-slate-800 shadow-md shadow-slate-200/5 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-white/40 dark:from-slate-900/40 via-transparent to-slate-50/10 dark:to-slate-950/10 pointer-events-none" />
           <div className="relative z-10">
-            <div className="px-5 py-4 border-b border-slate-200/60 bg-slate-50/30 flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-slate-500" />
-              <h3 className="text-sm font-bold text-slate-800">Failed Payments</h3>
+            <div className="px-5 py-4 border-b border-slate-200/60 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-slate-550 dark:bg-slate-400" />
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Failed Payments</h3>
             </div>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {failedPayments.map((p, i) => (
                 <div key={i} className="px-5 py-4">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm font-semibold text-slate-800">{p.user}</p>
-                    <span className="text-sm font-bold text-slate-700">{p.amount}</span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{p.user}</p>
+                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{p.amount}</span>
                   </div>
-                  <p className="text-xs text-slate-400">{p.reason} · {p.date} · {p.retries} retries</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{p.reason} · {p.date} · {p.retries} retries</p>
                   <div className="flex gap-2 mt-2">
-                    <button className="px-3 py-1 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-all">Retry</button>
-                    <button className="px-3 py-1 text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all">Cancel</button>
+                    <button className="px-3 py-1 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-all dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 dark:hover:bg-teal-900/30">Retry</button>
+                    <button className="px-3 py-1 text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-750">Cancel</button>
                   </div>
                 </div>
               ))}
@@ -233,31 +233,31 @@ export default function BillingPage() {
       </div>
 
       {/* Subscriptions table */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
+      <motion.div variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none" />
         <div className="relative z-10">
-          <div className="px-6 py-4 border-b border-slate-200/40"><h3 className="text-sm font-bold text-slate-900">Active Subscriptions</h3></div>
+          <div className="px-6 py-4 border-b border-slate-200/40 dark:border-slate-800"><h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Active Subscriptions</h3></div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="border-b border-slate-200/40">
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">User</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Plan</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Amount</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Started</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Next Billing</th>
-                <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
+              <thead><tr className="border-b border-slate-200/40 dark:border-slate-800">
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-6 py-3">User</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Plan</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Amount</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Started</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Next Billing</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Status</th>
               </tr></thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {subscriptions.map((s, i) => (
                   <tr
                     key={i}
-                    className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
+                    className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
                   >
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-800">{s.user}</td>
-                    <td className="px-4 py-4 text-sm text-slate-600">{s.plan}</td>
-                    <td className="px-4 py-4 text-sm font-medium text-slate-700">{s.amount}</td>
-                    <td className="px-4 py-4 text-sm text-slate-500">{s.start}</td>
-                    <td className="px-4 py-4 text-sm text-slate-500">{s.nextBilling}</td>
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-800 dark:text-slate-200">{s.user}</td>
+                    <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300">{s.plan}</td>
+                    <td className="px-4 py-4 text-sm font-medium text-slate-700 dark:text-slate-200">{s.amount}</td>
+                    <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">{s.start}</td>
+                    <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">{s.nextBilling}</td>
                     <td className="px-4 py-4"><StatusBadge variant={s.status} /></td>
                   </tr>
                 ))}
@@ -268,22 +268,22 @@ export default function BillingPage() {
       </motion.div>
 
       {/* Refund requests */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
+      <motion.div variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none rounded-2xl" />
         <div className="relative z-10">
-          <div className="px-6 py-4 border-b border-slate-200/40 flex items-center gap-2">
+          <div className="px-6 py-4 border-b border-slate-200/40 dark:border-slate-800 flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-amber-500" />
-            <h3 className="text-sm font-bold text-slate-900">Refund Requests</h3>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Refund Requests</h3>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {refunds.map((r, i) => (
               <div
                 key={i}
-                className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
+                className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
               >
                 <div>
-                  <p className="text-sm font-semibold text-slate-800">{r.user} — <span className="text-amber-600">{r.amount}</span></p>
-                  <p className="text-xs text-slate-400">{r.reason} · {r.date}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{r.user} — <span className="text-amber-600 dark:text-amber-400">{r.amount}</span></p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{r.reason} · {r.date}</p>
                   {r.note && (
                     <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-1 font-medium bg-teal-50/60 dark:bg-teal-950/20 px-2.5 py-0.5 rounded-lg border border-teal-100/60 dark:border-teal-900/40 w-fit">
                       Note: {r.note}
@@ -294,13 +294,13 @@ export default function BillingPage() {
                   <div className="flex gap-2 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "approve"); }}
-                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all cursor-pointer dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
                     >
                       Approve
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "deny"); }}
-                      className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all cursor-pointer dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/30"
                     >
                       Deny
                     </button>
@@ -308,8 +308,8 @@ export default function BillingPage() {
                 ) : (
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wider ${
                     r.status === "approved"
-                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : "bg-red-50 text-red-700 border-red-200"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400"
+                      : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400"
                   }`}>
                     {r.status}
                   </span>
@@ -335,22 +335,22 @@ export default function BillingPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="bg-white rounded-2xl shadow-2xl border border-slate-200/60 w-full max-w-md overflow-hidden"
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800 w-full max-w-md overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
                     {actionType === "approve" ? "Approve Refund" : "Deny Refund"}
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5 font-semibold">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-semibold">
                     {activeRefund.user} · {activeRefund.amount}
                   </p>
                 </div>
                 <button
                   onClick={() => { setActiveRefund(null); setActionType(null); }}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
+                  className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -361,27 +361,27 @@ export default function BillingPage() {
               {/* Body */}
               <div className="px-6 py-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
                     Add a Note/Message for the User
                   </label>
                   <textarea
                     rows={4}
                     value={refundNote}
                     onChange={(e) => setRefundNote(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all resize-none text-slate-800"
+                    className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all resize-none text-slate-800 dark:text-slate-200"
                     placeholder="Enter reason for approval or denial..."
                   />
-                  <p className="text-[11px] text-slate-400 mt-1.5 leading-normal">
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5 leading-normal">
                     This note will be logged in the system and sent to the user's notification feed.
                   </p>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
                 <button
                   onClick={() => { setActiveRefund(null); setActionType(null); }}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+                  className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
                 >
                   Cancel
                 </button>

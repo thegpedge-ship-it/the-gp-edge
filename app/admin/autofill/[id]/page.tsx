@@ -8,6 +8,7 @@ import * as Lucide from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
+import { addUserNotification } from "@/utils/notifications";
 import {
   themeBorder,
   themeBtnGhost,
@@ -52,12 +53,7 @@ export default function AutofillDetailPage() {
   const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
 
   // SOAP Fields states
-  const [newSubjective, setNewSubjective] = useState("");
-  const [newObjective, setNewObjective] = useState("");
-  const [newAssessment, setNewAssessment] = useState("");
-  const [newPlan, setNewPlan] = useState("");
-  const [newDoctorSummary, setNewDoctorSummary] = useState("");
-  const [newPatientResources, setNewPatientResources] = useState("");
+  const [newContent, setNewContent] = useState("");
   const [newTagsString, setNewTagsString] = useState("");
 
   // Wizard tab & ref
@@ -75,16 +71,7 @@ export default function AutofillDetailPage() {
   const [extractionLog, setExtractionLog] = useState("");
   const [extractedData, setExtractedData] = useState<any>(null);
 
-  // Editable review states to let the user "arrange" the extracted document content
-  const [reviewTitle, setReviewTitle] = useState("");
-  const [reviewSystem, setReviewSystem] = useState("Respiratory");
-  const [reviewCategory, setReviewCategory] = useState("Acute");
-  const [reviewSymptoms, setReviewSymptoms] = useState("");
-  const [reviewObjective, setReviewObjective] = useState("");
-  const [reviewTreatment, setReviewTreatment] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [reviewDoctorSummary, setReviewDoctorSummary] = useState("");
-  const [reviewPatientResources, setReviewPatientResources] = useState("");
+  // Handle file selection and API call
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,6 +90,7 @@ export default function AutofillDetailPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("type", "autofill");
 
       const res = await fetch("/api/extract", {
         method: "POST",
@@ -155,61 +143,45 @@ export default function AutofillDetailPage() {
       setExtractionState("success");
       setExtractionLog("Extraction complete!");
       
+      if (!template) return;
       const activeData = data || extractedData;
-      if (activeData) {
-        setReviewTitle(activeData.title || "Extracted Template");
-        setReviewSystem(activeData.system || "Respiratory");
-        setReviewCategory(activeData.category || "Acute");
-        setReviewSymptoms(activeData.symptoms || activeData.subjective || "");
-        setReviewObjective(activeData.objective || "");
-        setReviewTreatment(activeData.treatment || activeData.plan || "");
-        setReviewNotes(activeData.notes || activeData.assessment || "");
-        setReviewDoctorSummary(activeData.doctorSummary || "");
-        setReviewPatientResources(activeData.patientResources || "");
-      } else {
-        setReviewTitle("Acne SOAP Template");
-        setReviewSystem("Dermatology");
-        setReviewCategory("SOAP Template");
-        setReviewSymptoms("Comedones, papules, pustules on face.");
-        setReviewObjective("Skin exam: multiple open and closed comedones on forehead and chin. Mild erythema.");
-        setReviewTreatment("Topical benzoyl peroxide, oral doxycycline.");
-        setReviewNotes("Educate patient on 6-8 weeks timeline.");
-        setReviewDoctorSummary("Standard acne SOAP note. No systemic features.");
-        setReviewPatientResources("Australasian College of Dermatologists acne factsheet.");
-      }
+      const title = activeData?.title || "Extracted Template";
+      const system = activeData?.system || "Respiratory";
+      const category = activeData?.category || "Acute";
+      const subjective = activeData?.symptoms || activeData?.subjective || "";
+      const objective = activeData?.objective || "";
+      const plan = activeData?.treatment || activeData?.plan || "";
+      const assessment = activeData?.notes || activeData?.assessment || "";
+      const doctorSummary = activeData?.doctorSummary || "";
+      const patientResources = activeData?.patientResources || "";
+      const content = activeData?.content || [subjective, objective, assessment, plan, doctorSummary, patientResources].filter(Boolean).join("\n\n");
+
+      // Load templates and update the current one
+      const list = getAutofillTemplates();
+      const updatedTemplate: AutofillTemplate = {
+        ...template,
+        name: title,
+        system: system,
+        category: category,
+        fields: 0,
+        content,
+        sampleFields: []
+      };
+
+      const updatedTemplates = list.map((t) =>
+        t.id === template.id ? updatedTemplate : t
+      );
+      saveAutofillTemplates(updatedTemplates);
+
+      // Close modal and redirect to editor page
+      setUploadState("idle");
+      setExtractionState("idle");
+      setShowEditor(false);
+
+      // Notify and redirect to editor!
+      addUserNotification("Template Updated", `Successfully updated "${title}" and opened it in the editor.`, 1, "custom");
+      router.push(`/admin/autofill/${template.id}/editor`);
     }, 1200);
-  };
-
-  // Convert reviewed text sections into template fields
-  const handleProceedGenerateFields = () => {
-    setNewName(reviewTitle);
-    setNewSystem(reviewSystem);
-    setNewCategory(reviewCategory);
-
-    const generated: { name: string; type: string; required: boolean; placeholder?: string }[] = [];
-    if (reviewSymptoms.trim()) {
-      generated.push({ name: "Subjective (Symptoms)", type: "Textarea", required: true, placeholder: reviewSymptoms.trim() });
-    }
-    if (reviewObjective.trim()) {
-      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: reviewObjective.trim() });
-    } else {
-      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: "Physical examination findings and relevant investigation results." });
-    }
-    if (reviewNotes.trim()) {
-      generated.push({ name: "Assessment (Clinical Notes)", type: "Textarea", required: true, placeholder: reviewNotes.trim() });
-    }
-    if (reviewTreatment.trim()) {
-      generated.push({ name: "Plan (Management / Treatment)", type: "Textarea", required: true, placeholder: reviewTreatment.trim() });
-    }
-    if (reviewDoctorSummary.trim()) {
-      generated.push({ name: "Doctor Revision Summary", type: "Textarea", required: false, placeholder: reviewDoctorSummary.trim() });
-    }
-    if (reviewPatientResources.trim()) {
-      generated.push({ name: "Patient Resources", type: "Textarea", required: false, placeholder: reviewPatientResources.trim() });
-    }
-
-    setTempFields(generated);
-    setActiveTab("manual");
   };
 
   useEffect(() => {
@@ -237,12 +209,7 @@ export default function AutofillDetailPage() {
     setNewSystem(template.system);
     setNewCategory(template.category);
     setTempFields(template.sampleFields);
-    setNewSubjective(template.subjective || "");
-    setNewObjective(template.objective || "");
-    setNewAssessment(template.assessment || "");
-    setNewPlan(template.plan || "");
-    setNewDoctorSummary(template.doctorSummary || "");
-    setNewPatientResources(template.patientResources || "");
+    setNewContent(template.content || [template.subjective, template.objective, template.assessment, template.plan, template.doctorSummary, template.patientResources].filter(Boolean).join("\n\n"));
     setNewTagsString(template.tags?.join(", ") || "");
     setShowEditor(true);
   };
@@ -260,12 +227,7 @@ export default function AutofillDetailPage() {
       category: newCategory,
       fields: tempFields.length,
       sampleFields: tempFields,
-      subjective: newSubjective,
-      objective: newObjective,
-      assessment: newAssessment,
-      plan: newPlan,
-      doctorSummary: newDoctorSummary,
-      patientResources: newPatientResources,
+      content: newContent,
       tags: newTagsString.split(",").map((t) => t.trim()).filter(Boolean),
     };
 
@@ -303,7 +265,7 @@ export default function AutofillDetailPage() {
       <AdminPageHeader
         title={template.name}
         highlightedText=""
-        subtitle={`${template.system} · ${template.category} · ${template.fields} Fields`}
+        subtitle={`${template.system} · ${template.category}`}
         actions={null}
         variants={itemVariants}
       />
@@ -327,12 +289,12 @@ export default function AutofillDetailPage() {
             </button>
             <button
               onClick={handleOpenEdit}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer"
             >
               <Lucide.Edit className="w-4 h-4" />
               Edit Template Form
             </button>
-            <button className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-850 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer">
+            <button className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer">
               <Lucide.Copy className="w-4 h-4" />
               Duplicate Template
             </button>
@@ -343,7 +305,7 @@ export default function AutofillDetailPage() {
           {/* SOAP Document Template Preview */}
           <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl shadow-sm overflow-hidden`}>
             {/* Header */}
-            <div className="bg-slate-50/70 dark:bg-slate-850/50 px-6 py-4 border-b border-slate-150 dark:border-slate-800 flex items-center justify-between">
+            <div className="bg-slate-50/70 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-150 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center">
                   <Lucide.FileText className="w-4 h-4 text-teal-700 dark:text-teal-400" />
@@ -360,63 +322,9 @@ export default function AutofillDetailPage() {
 
             {/* Document sheet body */}
             <div className="p-8 space-y-6 font-sans select-text leading-relaxed bg-white dark:bg-slate-900/40">
-              {/* Subjective */}
               <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Subjective
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.subjective || <em className="text-slate-400 dark:text-slate-505 font-light">No subjective notes defined in template.</em>}
-                </div>
-              </div>
-
-              {/* Objective */}
-              <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Objective
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.objective || <em className="text-slate-400 dark:text-slate-505 font-light">No objective measurements defined in template.</em>}
-                </div>
-              </div>
-
-              {/* Assessment */}
-              <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Assessment
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.assessment || <em className="text-slate-400 dark:text-slate-505 font-light">No assessment notes defined in template.</em>}
-                </div>
-              </div>
-
-              {/* Plan */}
-              <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Plan
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.plan || <em className="text-slate-400 dark:text-slate-505 font-light">No management plan defined in template.</em>}
-                </div>
-              </div>
-
-              {/* Doctor Revision Summary */}
-              <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Doctor Revision Summary
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.doctorSummary || <em className="text-slate-400 dark:text-slate-505 font-light">No revision summary notes defined in template.</em>}
-                </div>
-              </div>
-
-              {/* Patient Resources */}
-              <div className="space-y-2">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-base font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
-                  Patient Resources
-                </h4>
-                <div className="text-sm text-slate-650 dark:text-slate-305 pl-4 font-normal leading-relaxed whitespace-pre-wrap">
-                  {template.patientResources || <em className="text-slate-400 dark:text-slate-505 font-light">No patient resources specified in template.</em>}
+                <div className="text-sm text-slate-700 dark:text-slate-300 font-normal leading-relaxed whitespace-pre-wrap">
+                  {template.content || [template.subjective, template.objective, template.assessment, template.plan, template.doctorSummary, template.patientResources].filter(Boolean).join("\n\n")}
                 </div>
               </div>
 
@@ -443,61 +351,7 @@ export default function AutofillDetailPage() {
             </div>
           </div>
 
-          {/* Form Fields Preview */}
-          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm`}>
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Form Fields Preview</h3>
-            <motion.div
-              variants={modalListVariants}
-              initial="hidden"
-              animate="visible"
-              className="space-y-3"
-            >
-              {template.sampleFields.map((field) => {
-                let iconSvg = <Lucide.FileText className="w-3.5 h-3.5" />;
-                let badgeColor = "bg-teal-50 text-teal-800 dark:bg-teal-950/20 dark:text-teal-400 border border-teal-100/30 dark:border-teal-900/20";
 
-                if (field.type === "Textarea") {
-                  iconSvg = <Lucide.AlignLeft className="w-3.5 h-3.5" />;
-                } else if (field.type === "Dropdown") {
-                  iconSvg = <Lucide.ChevronDown className="w-3.5 h-3.5" />;
-                } else if (field.type === "Numeric") {
-                  iconSvg = <Lucide.Binary className="w-3.5 h-3.5" />;
-                } else if (field.type === "Checkbox") {
-                  iconSvg = <Lucide.CheckSquare className="w-3.5 h-3.5" />;
-                } else if (field.type === "Text Input") {
-                  iconSvg = <Lucide.Type className="w-3.5 h-3.5" />;
-                } else if (field.type === "Date Picker") {
-                  iconSvg = <Lucide.Calendar className="w-3.5 h-3.5" />;
-                }
-
-                return (
-                  <motion.div
-                    key={field.name}
-                    variants={modalItemVariants}
-                    className="flex items-start justify-between border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/20 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all group"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{field.name}</p>
-                      {field.placeholder && (
-                        <p className="text-xs text-slate-400 dark:text-slate-505 mt-1 font-medium">{field.placeholder}</p>
-                      )}
-                      {field.options && (
-                        <div className="flex flex-wrap gap-1 mt-2.5">
-                          {field.options.map((opt) => (
-                            <span key={opt} className="text-[9.5px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-450 px-2 py-0.5 rounded-md border border-slate-200/10">{opt}</span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5 capitalize shrink-0 select-none ${badgeColor}`}>
-                      {iconSvg}
-                      {field.type}
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          </div>
         </motion.div>
       </div>
 
@@ -604,68 +458,13 @@ export default function AutofillDetailPage() {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Subjective (Symptoms / Presentation)</label>
+                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Template Content</label>
                       <textarea
-                        value={newSubjective}
-                        onChange={(e) => setNewSubjective(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Subjective template text..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Objective (Exam / Investigation)</label>
-                      <textarea
-                        value={newObjective}
-                        onChange={(e) => setNewObjective(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Objective template text..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Assessment (Clinical Guidelines / Callout Box)</label>
-                      <textarea
-                        value={newAssessment}
-                        onChange={(e) => setNewAssessment(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Assessment template text..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Plan (Management / Treatment Plan)</label>
-                      <textarea
-                        value={newPlan}
-                        onChange={(e) => setNewPlan(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Plan template text..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Doctor Revision Summary</label>
-                      <textarea
-                        value={newDoctorSummary}
-                        onChange={(e) => setNewDoctorSummary(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Summary for internal doctor revision..."
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Patient Resources (Links / Advice)</label>
-                      <textarea
-                        value={newPatientResources}
-                        onChange={(e) => setNewPatientResources(e.target.value)}
-                        rows={2}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                        placeholder="Patient-facing advice / leaflets / links..."
+                        value={newContent}
+                        onChange={(e) => setNewContent(e.target.value)}
+                        rows={12}
+                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200 font-mono"
+                        placeholder="Template text content..."
                       />
                     </div>
 
@@ -678,40 +477,6 @@ export default function AutofillDetailPage() {
                         className={`w-full px-4 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
                         placeholder="e.g. Asthma, Paediatrics, Inhaler"
                       />
-                    </div>
-
-                    <div>
-                      {tempFields.length > 0 && (
-                        <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
-                          <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-500 font-bold mb-1.5">Current Template Fields ({tempFields.length})</p>
-                          {tempFields.map((field, i) => (
-                            <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-350">{field.name} <span className="text-[10px] font-normal text-slate-400">({field.type})</span></span>
-                              <button
-                                onClick={() => setTempFields((prev) => prev.filter((_, idx) => idx !== i))}
-                                className="text-red-500 hover:text-red-750 font-bold text-[10px] border-none bg-transparent cursor-pointer"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Form Fields Editor</label>
-                      <div className="border border-dashed border-slate-200 dark:border-slate-850 rounded-xl p-4 text-center hover:border-teal-500/80 transition-colors">
-                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">Click a field type below to append to template:</p>
-                        <div className="flex flex-wrap gap-1.5 justify-center mt-2.5">
-                          {fieldTypes.map((ft) => (
-                            <span
-                              key={ft}
-                              onClick={() => addField(ft)}
-                              className="text-[10px] font-medium text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-900/40 transition-all select-none"
-                            >
-                              + {ft}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-2">
@@ -743,20 +508,6 @@ export default function AutofillDetailPage() {
                             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                          <div className="flex items-center gap-2">
-                            <Lucide.FileText className="w-4 h-4 text-teal-700 dark:text-teal-400" />
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Need the document import template?</span>
-                          </div>
-                          <a 
-                            href="/templates/autofill_template.docx" 
-                            download 
-                            className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0 no-underline cursor-pointer"
-                          >
-                            <Lucide.Download className="w-3 h-3" />
-                            Download Template
-                          </a>
                         </div>
                       </div>
                     )}
@@ -803,139 +554,7 @@ export default function AutofillDetailPage() {
                           </div>
                         )}
 
-                        {/* Extracted content review & rearrangement */}
-                        {extractionState === "success" && (
-                          <div className="space-y-3 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10">
-                            <div className="flex items-center gap-1.5 text-teal-850 dark:text-teal-450 mb-1">
-                              <Lucide.Sparkles className="w-4 h-4" />
-                              <span className="text-xs font-bold">Review Extracted Content</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-normal mb-3">
-                              The document has been analyzed. You can edit and rearrange these fields to clean up the content before generating the template.
-                            </p>
 
-                            <div className="space-y-3.5">
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Template Name</label>
-                                <input
-                                  type="text"
-                                  value={reviewTitle}
-                                  onChange={(e) => setReviewTitle(e.target.value)}
-                                  className={`w-full px-3 py-2 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">System</label>
-                                  <CustomSelect
-                                    value={reviewSystem}
-                                    onChange={setReviewSystem}
-                                    options={[
-                                      { value: "Respiratory", label: "Respiratory" },
-                                      { value: "Cardiovascular", label: "Cardiovascular" },
-                                      { value: "Endocrine", label: "Endocrine" },
-                                      { value: "Psychiatry", label: "Psychiatry" },
-                                      { value: "Dermatology", label: "Dermatology" },
-                                      { value: "Women's Health", label: "Women's Health" },
-                                      { value: "Paediatrics", label: "Paediatrics" }
-                                    ]}
-                                    className="w-full text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
-                                  <CustomSelect
-                                    value={reviewCategory}
-                                    onChange={setReviewCategory}
-                                    options={[
-                                      { value: "Acute", label: "Acute" },
-                                      { value: "Chronic", label: "Chronic" },
-                                      { value: "Screening", label: "Screening" },
-                                      { value: "Mental Health", label: "Mental Health" },
-                                    ]}
-                                    className="w-full text-xs"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Subjective (Symptoms)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewSymptoms}
-                                  onChange={(e) => setReviewSymptoms(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Objective (Exam / Investigations)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewObjective}
-                                  onChange={(e) => setReviewObjective(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Assessment (Clinical Notes)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewNotes}
-                                  onChange={(e) => setReviewNotes(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Plan (Management / Treatment)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewTreatment}
-                                  onChange={(e) => setReviewTreatment(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Doctor Revision Summary</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewDoctorSummary}
-                                  onChange={(e) => setReviewDoctorSummary(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Patient Resources</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewPatientResources}
-                                  onChange={(e) => setReviewPatientResources(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800/60 mt-4">
-                              <button
-                                onClick={() => setUploadState("idle")}
-                                className="px-3.5 py-2 border border-slate-250 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer bg-transparent"
-                              >
-                                Reset uploader
-                              </button>
-                              <button
-                                onClick={handleProceedGenerateFields}
-                                className="px-4 py-2 bg-teal-800 text-white rounded-xl text-xs font-bold hover:bg-teal-900 transition-all cursor-pointer shadow border-none"
-                              >
-                                Proceed & Generate Fields
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

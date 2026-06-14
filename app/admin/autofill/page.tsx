@@ -10,6 +10,7 @@ import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
+import { addUserNotification } from "@/utils/notifications";
 import {
   themeBorder,
   themeBtnGhost,
@@ -58,6 +59,14 @@ export default function AutofillPage() {
   const [savedTemplateId, setSavedTemplateId] = useState<number | null>(null);
   const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
 
+  // SOAP extracted states for uploader fallback
+  const [extractedSubjective, setExtractedSubjective] = useState("");
+  const [extractedObjective, setExtractedObjective] = useState("");
+  const [extractedAssessment, setExtractedAssessment] = useState("");
+  const [extractedPlan, setExtractedPlan] = useState("");
+  const [extractedDoctorSummary, setExtractedDoctorSummary] = useState("");
+  const [extractedPatientResources, setExtractedPatientResources] = useState("");
+
   // Wizard tab & ref
   const [activeTab, setActiveTab] = useState<"manual" | "upload">("manual");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,16 +84,7 @@ export default function AutofillPage() {
   const [extractionLog, setExtractionLog] = useState("");
   const [extractedData, setExtractedData] = useState<any>(null);
 
-  // Editable review states to let the user "arrange" the extracted document content
-  const [reviewTitle, setReviewTitle] = useState("");
-  const [reviewSystem, setReviewSystem] = useState("Respiratory");
-  const [reviewCategory, setReviewCategory] = useState("Acute");
-  const [reviewSymptoms, setReviewSymptoms] = useState("");
-  const [reviewObjective, setReviewObjective] = useState("");
-  const [reviewTreatment, setReviewTreatment] = useState("");
-  const [reviewNotes, setReviewNotes] = useState("");
-  const [reviewDoctorSummary, setReviewDoctorSummary] = useState("");
-  const [reviewPatientResources, setReviewPatientResources] = useState("");
+  // Handle file selection and API call
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +107,7 @@ export default function AutofillPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("type", "autofill");
 
       const res = await fetch("/api/extract", {
         method: "POST",
@@ -160,60 +161,53 @@ export default function AutofillPage() {
       setExtractionLog("Extraction complete!");
       
       const activeData = data || extractedData;
-      if (activeData) {
-        setReviewTitle(activeData.title || "Extracted Template");
-        setReviewSystem(activeData.system || "Respiratory");
-        setReviewCategory(activeData.category || "Acute");
-        setReviewSymptoms(activeData.symptoms || activeData.subjective || "");
-        setReviewObjective(activeData.objective || "");
-        setReviewTreatment(activeData.treatment || activeData.plan || "");
-        setReviewNotes(activeData.notes || activeData.assessment || "");
-        setReviewDoctorSummary(activeData.doctorSummary || "");
-        setReviewPatientResources(activeData.patientResources || "");
-      } else {
-        setReviewTitle("Acne SOAP Template");
-        setReviewSystem("Dermatology");
-        setReviewCategory("SOAP Template");
-        setReviewSymptoms("Comedones, papules, pustules on face.");
-        setReviewObjective("Skin exam: multiple open and closed comedones on forehead and chin. Mild erythema.");
-        setReviewTreatment("Topical benzoyl peroxide, oral doxycycline.");
-        setReviewNotes("Educate patient on 6-8 weeks timeline.");
-        setReviewDoctorSummary("Standard acne SOAP note. No systemic features.");
-        setReviewPatientResources("Australasian College of Dermatologists acne factsheet.");
-      }
+      const title = activeData?.title || "Extracted Template";
+      const system = activeData?.system || "Respiratory";
+      const category = activeData?.category || "Acute";
+      const subjective = activeData?.symptoms || activeData?.subjective || "";
+      const objective = activeData?.objective || "";
+      const plan = activeData?.treatment || activeData?.plan || "";
+      const assessment = activeData?.notes || activeData?.assessment || "";
+      const doctorSummary = activeData?.doctorSummary || "";
+      const patientResources = activeData?.patientResources || "";
+
+      // Load templates and create a new one
+      const list = getAutofillTemplates();
+      const nextId = list.length > 0 ? Math.max(...list.map(t => t.id)) + 1 : 1;
+      const newTemplate: AutofillTemplate = {
+        id: nextId,
+        name: title,
+        system: system,
+        category: category,
+        fields: 0,
+        usageCount: 0,
+        lastUsed: "Just now",
+        status: "active",
+        author: "GP Edge Admin",
+        version: "v1.0",
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
+        sampleFields: []
+      };
+      
+      const updated = [newTemplate, ...list];
+      setTemplates(updated);
+      saveAutofillTemplates(updated);
+
+      // Reset extraction and upload states
+      setUploadState("idle");
+      setExtractionState("idle");
+      setSelectedFile(null);
+      setShowEditor(false);
+
+      // Notify and redirect to template editor!
+      addUserNotification("Template Extracted", `Successfully created "${title}" and opened it in the editor.`, 1, "custom");
+      router.push(`/admin/autofill/${nextId}/editor`);
     }, 1200);
-  };
-
-  // Convert reviewed text sections into template fields
-  const handleProceedGenerateFields = () => {
-    setNewName(reviewTitle);
-    setNewSystem(reviewSystem);
-    setNewCategory(reviewCategory);
-
-    const generated: { name: string; type: string; required: boolean; placeholder?: string }[] = [];
-    if (reviewSymptoms.trim()) {
-      generated.push({ name: "Subjective (Symptoms)", type: "Textarea", required: true, placeholder: reviewSymptoms.trim() });
-    }
-    if (reviewObjective.trim()) {
-      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: reviewObjective.trim() });
-    } else {
-      generated.push({ name: "Objective (Exam / Investigations)", type: "Textarea", required: false, placeholder: "Physical examination findings and relevant investigation results." });
-    }
-    if (reviewNotes.trim()) {
-      generated.push({ name: "Assessment (Clinical Notes)", type: "Textarea", required: true, placeholder: reviewNotes.trim() });
-    }
-    if (reviewTreatment.trim()) {
-      generated.push({ name: "Plan (Management / Treatment)", type: "Textarea", required: true, placeholder: reviewTreatment.trim() });
-    }
-    if (reviewDoctorSummary.trim()) {
-      generated.push({ name: "Doctor Revision Summary", type: "Textarea", required: false, placeholder: reviewDoctorSummary.trim() });
-    }
-    if (reviewPatientResources.trim()) {
-      generated.push({ name: "Patient Resources", type: "Textarea", required: false, placeholder: reviewPatientResources.trim() });
-    }
-
-    setTempFields(generated);
-    setActiveTab("manual");
   };
 
   useEffect(() => {
@@ -250,8 +244,8 @@ export default function AutofillPage() {
               name: newName,
               system: newSystem,
               category: newCategory,
-              fields: tempFields.length,
-              sampleFields: tempFields,
+              fields: 0,
+              sampleFields: [],
             }
           : t
       );
@@ -261,16 +255,19 @@ export default function AutofillPage() {
         name: newName,
         system: newSystem,
         category: newCategory,
-        fields: tempFields.length,
+        fields: 0,
         usageCount: 0,
         lastUsed: "Just now",
         status: "active",
         author: "GP Edge Admin",
         version: "v1.0",
-        sampleFields: tempFields.length > 0 ? tempFields : [
-          { name: "Symptom Log", type: "Textarea", required: true },
-          { name: "Treatment Path", type: "Dropdown", required: true }
-        ]
+        subjective: extractedSubjective,
+        objective: extractedObjective,
+        assessment: extractedAssessment,
+        plan: extractedPlan,
+        doctorSummary: extractedDoctorSummary,
+        patientResources: extractedPatientResources,
+        sampleFields: []
       };
       updatedTemplates = [newTemplate, ...templates];
     }
@@ -315,30 +312,20 @@ export default function AutofillPage() {
         highlightedText="Templates"
         subtitle="Manage consultation autofill templates and form builders"
         actions={
-          <div className="flex items-center gap-3">
-            <a 
-              href="/templates/autofill_template.docx"
-              download
-              className="px-4 py-2.5 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-600 dark:text-slate-350 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-white dark:bg-slate-900 shadow-sm flex items-center gap-2 shrink-0 cursor-pointer no-underline outline-none"
-            >
-              <Lucide.Download className="w-4 h-4 text-teal-800 dark:text-teal-400" />
-              Download Template
-            </a>
-            <button 
-              onClick={() => {
-                setEditingTemplateId(null);
-                setNewName("");
-                setNewSystem("Respiratory");
-                setNewCategory("Acute");
-                setTempFields([]);
-                setShowEditor(true);
-              }}
-              className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none cursor-pointer"
-            >
-              <Lucide.Plus className="w-4 h-4" />
-              Add Template
-            </button>
-          </div>
+          <button 
+            onClick={() => {
+              setEditingTemplateId(null);
+              setNewName("");
+              setNewSystem("Respiratory");
+              setNewCategory("Acute");
+              setTempFields([]);
+              setShowEditor(true);
+            }}
+            className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none cursor-pointer"
+          >
+            <Lucide.Plus className="w-4 h-4" />
+            Add Template
+          </button>
         }
         variants={itemVariants}
       />
@@ -353,16 +340,16 @@ export default function AutofillPage() {
             progress={100}
           />
           <AnalyticsCard
-            title="Total Fields"
+            title="Active Templates"
             percentage=""
-            data={templates.reduce((sum, t) => sum + t.fields, 0).toString()}
-            progress={Math.min(100, Math.round((templates.reduce((sum, t) => sum + t.fields, 0) / 200) * 100))}
+            data={templates.filter(t => t.status === "active").length.toString()}
+            progress={Math.min(100, Math.round((templates.filter(t => t.status === "active").length / templates.length) * 100))}
           />
           <AnalyticsCard
-            title="Avg Fields/Template"
+            title="Total Usage Count"
             percentage=""
-            data={Math.round(templates.reduce((sum, t) => sum + t.fields, 0) / templates.length).toString()}
-            progress={Math.min(100, Math.round((Math.round(templates.reduce((sum, t) => sum + t.fields, 0) / templates.length) / 30) * 100))}
+            data={templates.reduce((sum, t) => sum + (t.usageCount || 0), 0).toString()}
+            progress={Math.min(100, Math.round((templates.reduce((sum, t) => sum + (t.usageCount || 0), 0) / 100) * 100))}
           />
         </motion.div>
       )}
@@ -403,25 +390,7 @@ export default function AutofillPage() {
 
                 {/* Title + subtitle */}
                 <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-0.5 leading-tight">{template.name}</h3>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{template.system} · {template.fields} fields</p>
-
-
-
-                {/* Field pills */}
-                {template.sampleFields.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {template.sampleFields.slice(0, 3).map((field, i) => (
-                      <span key={i} className="text-[9px] font-medium px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 truncate max-w-[130px]">
-                        {field.name}
-                      </span>
-                    ))}
-                    {template.sampleFields.length > 3 && (
-                      <span className="text-[9px] font-medium px-2 py-0.5 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
-                        +{template.sampleFields.length - 3}
-                      </span>
-                    )}
-                  </div>
-                )}
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{template.system}</p>
 
                 {/* Footer */}
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -440,7 +409,7 @@ export default function AutofillPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenEdit(template); }}
                       className="p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent"
-                      title="Edit Fields"
+                      title="Edit Template Info"
                     >
                       <Lucide.Edit className="w-4 h-4" />
                     </button>
@@ -576,39 +545,7 @@ export default function AutofillPage() {
                       </div>
                     </div>
 
-                    <div>
-                      {tempFields.length > 0 && (
-                        <div className="space-y-2 mb-4 max-h-[160px] overflow-y-auto pr-1 border border-slate-100 dark:border-slate-800 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/20">
-                          <p className="text-[10px] uppercase tracking-wider text-slate-400 dark:text-slate-505 font-bold mb-1.5">Current Template Fields ({tempFields.length})</p>
-                          {tempFields.map((field, i) => (
-                            <div key={i} className="flex items-center justify-between px-3 py-1.5 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-xs">
-                              <span className="font-semibold text-slate-700 dark:text-slate-350">{field.name} <span className="text-[10px] font-normal text-slate-400">({field.type})</span></span>
-                              <button
-                                onClick={() => setTempFields((prev) => prev.filter((_, idx) => idx !== i))}
-                                className="text-red-500 hover:text-red-750 font-bold text-[10px] border-none bg-transparent cursor-pointer"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Form Fields Editor</label>
-                      <div className="border border-dashed border-slate-200 dark:border-slate-850 rounded-xl p-4 text-center hover:border-teal-500/80 transition-colors">
-                        <p className="text-xs font-bold text-slate-505 dark:text-slate-400 mb-1">Click a field type below to append to template:</p>
-                        <div className="flex flex-wrap gap-1.5 justify-center mt-2.5">
-                          {fieldTypes.map((ft) => (
-                            <span
-                              key={ft}
-                              onClick={() => addField(ft)}
-                              className="text-[10px] font-medium text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/25 px-2.5 py-1 rounded-full border border-teal-100 dark:border-teal-900/40 cursor-pointer hover:bg-teal-100/50 dark:hover:bg-teal-900/40 transition-all select-none"
-                            >
-                              + {ft}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+
 
                     <div className="flex justify-end gap-3 pt-2">
                       <button onClick={() => setShowEditor(false)} className={`px-4 py-2.5 text-sm font-medium ${themeBtnGhost}`}>Cancel</button>
@@ -680,21 +617,6 @@ export default function AutofillPage() {
                             </button>
                           </div>
                         )}
-
-                        <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800/60">
-                          <div className="flex items-center gap-2">
-                            <Lucide.FileText className="w-4 h-4 text-teal-700 dark:text-teal-400" />
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Need the document import template?</span>
-                          </div>
-                          <a
-                            href="/templates/autofill_template.docx"
-                            download
-                            className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0 no-underline cursor-pointer"
-                          >
-                            <Lucide.Download className="w-3 h-3" />
-                            Download Template
-                          </a>
-                        </div>
                       </div>
                     )}
 
@@ -740,156 +662,7 @@ export default function AutofillPage() {
                           </div>
                         )}
 
-                        {/* Extracted content review & rearrangement */}
-                        {extractionState === "success" && (
-                          <div className="space-y-3 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10">
-                            <div className="flex items-center gap-1.5 text-teal-850 dark:text-teal-450 mb-1">
-                              <Lucide.Sparkles className="w-4 h-4" />
-                              <span className="text-xs font-bold">Review Extracted Content</span>
-                            </div>
-                            <p className="text-[10px] text-slate-400 leading-normal mb-3">
-                              The document has been analyzed. You can edit and rearrange these fields to clean up the content before generating the template.
-                            </p>
 
-                            <div className="space-y-3.5">
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Template Name</label>
-                                <input
-                                  type="text"
-                                  value={reviewTitle}
-                                  onChange={(e) => setReviewTitle(e.target.value)}
-                                  className={`w-full px-3 py-2 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">System</label>
-                                  <CustomSelect
-                                    value={reviewSystem}
-                                    onChange={setReviewSystem}
-                                    options={[
-                                      { value: "Respiratory", label: "Respiratory" },
-                                      { value: "Cardiovascular", label: "Cardiovascular" },
-                                      { value: "Endocrine", label: "Endocrine" },
-                                      { value: "Psychiatry", label: "Psychiatry" },
-                                      { value: "Dermatology", label: "Dermatology" },
-                                      { value: "Women's Health", label: "Women's Health" },
-                                      { value: "Paediatrics", label: "Paediatrics" }
-                                    ]}
-                                    className="w-full text-xs"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Category</label>
-                                  <CustomSelect
-                                    value={reviewCategory}
-                                    onChange={setReviewCategory}
-                                    options={[
-                                      { value: "Acute", label: "Acute" },
-                                      { value: "Chronic", label: "Chronic" },
-                                      { value: "Screening", label: "Screening" },
-                                      { value: "Mental Health", label: "Mental Health" },
-                                    ]}
-                                    className="w-full text-xs"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Subjective (Symptoms)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewSymptoms}
-                                  onChange={(e) => setReviewSymptoms(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Objective (Exam / Investigations)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewObjective}
-                                  onChange={(e) => setReviewObjective(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Assessment (Clinical Notes)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewNotes}
-                                  onChange={(e) => setReviewNotes(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Plan (Management / Treatment)</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewTreatment}
-                                  onChange={(e) => setReviewTreatment(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Doctor Revision Summary</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewDoctorSummary}
-                                  onChange={(e) => setReviewDoctorSummary(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Patient Resources</label>
-                                <textarea
-                                  rows={2}
-                                  value={reviewPatientResources}
-                                  onChange={(e) => setReviewPatientResources(e.target.value)}
-                                  className="w-full px-3 py-2 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800/60 mt-4">
-                              <button
-                                onClick={() => { setUploadState("idle"); setExtractionState("idle"); setSelectedFile(null); }}
-                                className="px-3.5 py-2 border border-slate-250 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer bg-transparent"
-                              >
-                                Reset
-                              </button>
-                              <button
-                                onClick={handleProceedGenerateFields}
-                                className="px-4 py-2 border border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300 rounded-xl text-xs font-bold hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer bg-transparent"
-                              >
-                                Generate Fields
-                              </button>
-                              {savedTemplateId && (
-                                <button
-                                  onClick={() => router.push(`/admin/autofill/${savedTemplateId}/editor`)}
-                                  className="px-4 py-2 bg-teal-800 text-white rounded-xl text-xs font-bold hover:bg-teal-900 transition-all cursor-pointer shadow border-none flex items-center gap-1.5"
-                                >
-                                  <Lucide.FileEdit className="w-3.5 h-3.5" />
-                                  Open in Editor
-                                </button>
-                              )}
-                              {!savedTemplateId && (
-                                <button
-                                  onClick={() => { handleProceedGenerateFields(); }}
-                                  className="px-4 py-2 bg-teal-800 text-white rounded-xl text-xs font-bold hover:bg-teal-900 transition-all cursor-pointer shadow border-none"
-                                >
-                                  Proceed &amp; Generate Fields
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

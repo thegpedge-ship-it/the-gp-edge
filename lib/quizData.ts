@@ -469,6 +469,7 @@ export interface AutofillTemplate {
   followupNotes?: string;
   sampleFields: { name: string; type: string; required: boolean; placeholder?: string; options?: string[] }[];
   versions?: { version: string; updatedAt: string; changeLog: string; content: any }[];
+  content?: string;
 }
 
 export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
@@ -503,30 +504,79 @@ export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
   },
   { 
     id: 2, 
-    name: "Type 2 Diabetes Review", 
+    name: "DIABETES ANNUAL CYCLE OF CARE", 
     category: "Chronic", 
     system: "Endocrine", 
-    fields: 6, 
+    fields: 15, 
     usageCount: 1876, 
     lastUsed: "15 mins ago", 
     status: "active", 
     author: "GP Edge Admin", 
     version: "v2.4",
     slug: "t2dm-review",
-    description: "6-monthly chronic disease review for established Type 2 Diabetes Mellitus.",
+    description: "DIABETES ANNUAL CYCLE OF CARE Chronic Disease management plan template.",
     tags: ["Diabetes", "Chronic", "Endocrine", "MBS"],
-    subjective: "Routine diabetes review. Patient reports compliance with metformin {{metformin_dose}}. No reports of hypoglycaemia or diabetic neuropathic pain.",
-    objective: "BP: {{blood_pressure}} mmHg. Weight: {{weight}} kg. Foot exam: intact sensation to 10g monofilament bilateral. Foot pulses palpable.",
-    assessment: "Established Type 2 Diabetes Mellitus, stable control. HbA1c target: {{hba1c_target}}%.",
-    plan: "1. Continue Metformin. 2. Refer to Optometrist for retinal screening (due). 3. Order HbA1c, lipids, and UEC. 4. Referral to podiatrist under TCA.",
+    subjective: `Patient Name: {{patient_name}}
+DOB: {{dob}}
+Date: {{date}}
+
+CURRENT STATUS:
+- Latest HbA1c: {{hba1c}} %
+- Fasting Lipids: Chol {{cholesterol}}, Trig {{triglycerides}}, HDL {{hdl}}, LDL {{ldl}}
+- eGFR: {{egfr}}
+- Urine ACR: {{urine_acr}}`,
+    objective: `EXAMINATIONS:
+- Blood Pressure: {{blood_pressure}} mmHg
+- BMI: {{bmi}} kg/m2
+- Foot Exam: {{foot_exam}}
+- Eye Check: {{eye_check}}`,
+    assessment: "Established Type 2 Diabetes Mellitus.",
+    plan: `MANAGEMENT PLAN:
+1. Continue current medications: {{medications}}
+2. Dietary advice provided.
+3. Encourage 150 mins moderate exercise per week.
+4. Next review in 6 months.`,
+    content: `Patient Name: {{patient_name}}
+DOB: {{dob}}
+Date: {{date}}
+
+CURRENT STATUS:
+- Latest HbA1c: {{hba1c}} %
+- Fasting Lipids: Chol {{cholesterol}}, Trig {{triglycerides}}, HDL {{hdl}}, LDL {{ldl}}
+- eGFR: {{egfr}}
+- Urine ACR: {{urine_acr}}
+
+EXAMINATIONS:
+- Blood Pressure: {{blood_pressure}} mmHg
+- BMI: {{bmi}} kg/m2
+- Foot Exam: {{foot_exam}}
+- Eye Check: {{eye_check}}
+
+MANAGEMENT PLAN:
+1. Continue current medications: {{medications}}
+2. Dietary advice provided.
+3. Encourage 150 mins moderate exercise per week.
+4. Next review in 6 months.`,
     doctorSummary: "Diabetes Cycle of Care checks up to date. Sensation intact.",
     patientResources: "Diabetes Australia lifestyle information pack and NDSS leaflet.",
     references: "RACGP/Diabetes Australia Management of Type 2 Diabetes in General Practice.",
-    followupNotes: "Review in 3 months with blood results.",
+    followupNotes: "Review in 6 months.",
     sampleFields: [
-      { name: "Metformin Dose", type: "Dropdown", required: true, options: ["500mg daily", "1000mg daily", "1000mg BD"] },
-      { name: "Blood Pressure", type: "Text Input", required: true, placeholder: "e.g. 120/80" },
-      { name: "Weight", type: "Numeric", required: true, placeholder: "e.g. 78.5" }
+      { name: "Patient Name", type: "Text Input", required: true, placeholder: "e.g. John Doe" },
+      { name: "DOB", type: "Text Input", required: true, placeholder: "e.g. 15/08/1980" },
+      { name: "Date", type: "Text Input", required: true, placeholder: "e.g. 14/06/2026" },
+      { name: "Latest HbA1c (%)", type: "Numeric", required: true, placeholder: "e.g. 6.8" },
+      { name: "Cholesterol", type: "Numeric", required: true, placeholder: "e.g. 4.2" },
+      { name: "Triglycerides", type: "Numeric", required: true, placeholder: "e.g. 1.7" },
+      { name: "HDL", type: "Numeric", required: true, placeholder: "e.g. 1.1" },
+      { name: "LDL", type: "Numeric", required: true, placeholder: "e.g. 2.4" },
+      { name: "eGFR", type: "Numeric", required: true, placeholder: "e.g. 75" },
+      { name: "Urine ACR", type: "Numeric", required: true, placeholder: "e.g. 1.5" },
+      { name: "Blood Pressure", type: "Text Input", required: true, placeholder: "e.g. 130/80" },
+      { name: "BMI", type: "Numeric", required: true, placeholder: "e.g. 27.5" },
+      { name: "Foot Exam", type: "Text Input", required: true, placeholder: "e.g. Intact sensation, pulses present. No ulcers." },
+      { name: "Eye Check", type: "Text Input", required: true, placeholder: "e.g. Optometrist review completed on 14/06/2026" },
+      { name: "Medications", type: "Textarea", required: true, placeholder: "e.g. Metformin 1000mg BD" }
     ],
     versions: []
   },
@@ -1500,6 +1550,11 @@ export function getAutofillTemplates(): AutofillTemplate[] {
         return def;
       }
       
+      // Force migration for old default template ID 2 to the new Diabetes template
+      if (t.id === 2 && (t.name === "Type 2 Diabetes Review" || !t.subjective || !t.subjective.includes("DIABETES ANNUAL CYCLE OF CARE"))) {
+        return def;
+      }
+      
       return {
         ...t,
         name:             t.name             || def.name,
@@ -1516,6 +1571,7 @@ export function getAutofillTemplates(): AutofillTemplate[] {
         references:       t.references       || def.references,
         followupNotes:    t.followupNotes    || def.followupNotes,
         sampleFields:     (t.sampleFields && t.sampleFields.length > 0) ? t.sampleFields : def.sampleFields,
+        content:          t.content          || def.content || [t.subjective, t.objective, t.assessment, t.plan, t.doctorSummary, t.patientResources].filter(Boolean).join("\n\n"),
       };
     });
     return merged;

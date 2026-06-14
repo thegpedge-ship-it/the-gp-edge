@@ -165,17 +165,17 @@ function parseHeaderMetadata(headerHtml: string, fileName: string): { title: str
   let category = "Acute";
   const tags: string[] = [];
   
-  const titleMatch = text.match(/title[:\s]+([^System:]+)/i);
+  const titleMatch = text.match(/title[:\s]+(.*?)(?=\s*system:|\s*category:|\s*tags:|$)/i);
   if (titleMatch && titleMatch[1].trim()) {
     title = titleMatch[1].replace(/\[|\]/g, "").trim();
   }
   
-  const systemMatch = text.match(/system[:\s]+([^\sCategory:]+)/i);
+  const systemMatch = text.match(/system[:\s]+(.*?)(?=\s*category:|\s*tags:|$)/i);
   if (systemMatch && systemMatch[1].trim()) {
     system = systemMatch[1].replace(/\[|\]/g, "").trim();
   }
   
-  const categoryMatch = text.match(/category[:\s]+([^Tags:]+)/i);
+  const categoryMatch = text.match(/category[:\s]+(.*?)(?=\s*tags:|$)/i);
   if (categoryMatch && categoryMatch[1].trim()) {
     category = categoryMatch[1].replace(/\[|\]/g, "").trim();
   }
@@ -917,6 +917,45 @@ export async function POST(req: NextRequest) {
     const tempDir = os.tmpdir();
     tempPath = join(tempDir, `gpedgesync_${Date.now()}_${fileName}`);
     await writeFile(tempPath, buffer);
+
+    // Determine if this is an autofill template upload
+    const isAutofillType = type === "autofill";
+
+    if (isAutofillType) {
+      let rawText = "";
+      if (ext === "pdf") {
+        rawText = extractTextFromPdfBuffer(buffer);
+      } else {
+        const result = await mammoth.extractRawText({ buffer });
+        rawText = result.value.trim() || extractTextFromPdfBuffer(buffer);
+      }
+
+      // Cleanup temp file
+      if (tempPath && fs.existsSync(tempPath)) {
+        try { fs.unlinkSync(tempPath); } catch {}
+        tempPath = null;
+      }
+
+      const title = inferTitle(fileName, rawText);
+
+      return NextResponse.json({
+        success: true,
+        type: "autofill",
+        title: title,
+        system: "General",
+        category: "General",
+        content: rawText,
+        subjective: "",
+        objective: "",
+        assessment: rawText, // backward compatibility
+        plan: "",
+        doctorSummary: "",
+        patientResources: "",
+        references: [],
+        rawTextLength: rawText.length,
+        fileName,
+      });
+    }
 
     // Determine if this is a question bank upload
     const isQuestionType =

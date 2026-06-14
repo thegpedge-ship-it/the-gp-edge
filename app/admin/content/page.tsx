@@ -560,7 +560,7 @@ export default function ContentPage() {
             className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-300 cursor-pointer"
             onClick={() => router.push(`/admin/content/${item.id}`)}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-slate-50/5 dark:to-slate-900/5 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/60 via-transparent to-slate-50/5 dark:to-teal-950/5 pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -572,9 +572,9 @@ export default function ContentPage() {
               <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-800 dark:group-hover:text-slate-300 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>
               <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-4 text-xs text-slate-500">
+                <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                   <span className="flex items-center gap-1">
-                    <Lucide.Link className="w-3.5 h-3.5 text-slate-400" />
+                    <Lucide.Link className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                     {item.references} refs
                   </span>
                 </div>
@@ -663,7 +663,7 @@ export default function ContentPage() {
                 {/* STEP 1: Select Type */}
                 {modalStep === "select" && (
                   <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Choose how to add content</p>
+                    <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest text-center">Choose how to add content</p>
                     
                     <div className="grid grid-cols-1 gap-3">
                       {/* Option 1: Upload PDF / Word */}
@@ -867,7 +867,7 @@ export default function ContentPage() {
                     {/* Interactive Queue */}
                     {contentUploadQueue.length > 0 && (
                       <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Upload Queue ({contentUploadQueue.length} files)</p>
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Upload Queue ({contentUploadQueue.length} files)</p>
                         {contentUploadQueue.map((item) => (
                           <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 space-y-3 relative group">
                             {/* File Header */}
@@ -925,7 +925,7 @@ export default function ContentPage() {
                                     type="text"
                                     value={item.extractedData.title || ""}
                                     onChange={(e) => updateQueueItemMetadata(item.id, "title", e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
+                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
                                   />
                                 </div>
                                 <div>
@@ -933,7 +933,7 @@ export default function ContentPage() {
                                   <select
                                     value={item.extractedData.system || "Endocrine"}
                                     onChange={(e) => updateQueueItemMetadata(item.id, "system", e.target.value)}
-                                    className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
+                                    className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
                                   >
                                     <option value="Respiratory">Respiratory</option>
                                     <option value="Endocrine">Endocrine</option>
@@ -953,7 +953,7 @@ export default function ContentPage() {
                                     type="text"
                                     value={item.extractedData.category || ""}
                                     onChange={(e) => updateQueueItemMetadata(item.id, "category", e.target.value)}
-                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-850 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
+                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700"
                                   />
                                 </div>
                               </div>
