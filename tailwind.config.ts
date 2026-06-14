@@ -33,8 +33,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ["DM Serif Display", "Georgia", "serif"],
-        sans: ["DM Sans", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "sans-serif"],
+        serif: ["var(--font-lora)", "serif"],
       },
       borderRadius: {
         "4xl": "2rem",
