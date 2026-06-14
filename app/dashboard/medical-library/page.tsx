@@ -335,17 +335,17 @@ function MedicalLibraryContent() {
 
       {/* ── Page Header (Minimalist Style) ────────────────────────────────────── */}
       <div className="space-y-2 select-none">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-950/30 text-[10px] font-bold text-green-700 dark:text-green-400 border border-green-200/30 dark:border-green-800/30 uppercase tracking-[0.12em]">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-955/30 text-[10px] font-bold text-green-700 dark:text-green-400 border border-green-200/30 dark:border-green-800/30 uppercase tracking-[0.12em]">
           <span className="relative flex h-1.5 w-1.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
           </span>
           Reference Library
         </div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight leading-none">
+        <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
           Explore the Medical Directory
         </h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal max-w-2xl">
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
           Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries. {allConditions.length} conditions across major body systems.
         </p>
       </div>
@@ -477,7 +477,7 @@ function MedicalLibraryContent() {
                       >
                         <div>
                           <div className="flex justify-between items-center mb-3">
-                            <span className="text-sm font-bold font-mono text-green-600 dark:text-green-400">
+                            <span className="font-sans text-sm font-bold text-green-600 dark:text-green-400">
                               {condition.id}
                             </span>
                             <div className="flex items-center gap-1.5">
@@ -489,12 +489,12 @@ function MedicalLibraryContent() {
                             </div>
                           </div>
 
-                          <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
+                          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
                             {condition.name}
                           </h3>
 
-                          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mb-4">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                          <p className="font-sans text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mb-4">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-350 dark:bg-slate-700" />
                             {condition.category}
                           </p>
 
@@ -502,7 +502,7 @@ function MedicalLibraryContent() {
                             {condition.symptoms.slice(0, 2).map((sym, i) => (
                               <p
                                 key={i}
-                                className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
+                                className="font-sans text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
                               >
                                 <span className="text-green-600 dark:text-green-500 font-bold">•</span>
                                 <span className="truncate">{sym}</span>
@@ -516,12 +516,12 @@ function MedicalLibraryContent() {
                             onClick={(e) => handleTagClick(e, "system", condition.system)}
                             className="flex flex-col cursor-pointer group/footer"
                           >
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">System</span>
+                            <span className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
                           </div>
                           <div className="flex flex-col text-right">
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Last Updated</span>
-                            <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Last Updated</span>
+                            <span className={`font-sans text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
                           </div>
                         </div>
                       </motion.div>
@@ -578,7 +578,7 @@ function MedicalLibraryContent() {
                           </span>
                         )}
                       </div>
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight mt-1 leading-snug">
+                      <h2 className="font-sans text-xl md:text-2xl font-semibold leading-snug text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                         {selectedCondition.name}
                       </h2>
                     </div>
@@ -587,23 +587,23 @@ function MedicalLibraryContent() {
                   {/* Metadata profile chips */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/30 dark:border-slate-800/30">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Author</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.author}</span>
+                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Author</span>
+                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.author}</span>
                     </div>
                     <div
                       onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
                       className="cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/85 p-1.5 rounded-xl transition-colors"
                     >
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">System</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.system}</span>
+                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">System</span>
+                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.system}</span>
                     </div>
                     <div className="p-1.5 rounded-xl">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Category</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.category}</span>
+                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Category</span>
+                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.category}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Last Updated</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedCondition.lastUpdated}</span>
+                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Last Updated</span>
+                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.lastUpdated}</span>
                     </div>
                   </div>
                 
@@ -612,14 +612,14 @@ function MedicalLibraryContent() {
                     <>
                       {/* Symptoms Section */}
                       <div className="space-y-3">
-                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Clinical Signs & Symptoms</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Clinical Signs & Symptoms</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {selectedCondition.symptoms.map((symptom, i) => (
                             <div
                               key={i}
-                              className="flex gap-2.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
+                              className="flex gap-2.5 font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
                             >
-                              <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
+                              <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-1" />
                               <span>{symptom}</span>
                             </div>
                           ))}
@@ -628,14 +628,14 @@ function MedicalLibraryContent() {
 
                       {/* Diagnosis Steps Section */}
                       <div className="space-y-3">
-                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Diagnosis & Assessment Criteria</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Diagnosis & Assessment Criteria</h4>
                         <div className="space-y-2.5">
                           {selectedCondition.diagnosisCriteria.map((crit, i) => (
                             <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
                               <span className="text-[10px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm">
                                 Step {i + 1}
                               </span>
-                              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold">{crit}</p>
+                              <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">{crit}</p>
                             </div>
                           ))}
                         </div>
@@ -643,7 +643,7 @@ function MedicalLibraryContent() {
 
                       {/* Treatment & Management Section */}
                       <div className="space-y-3">
-                        <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">Management & Treatment Regimen</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Management & Treatment Regimen</h4>
                         <div className="space-y-2.5">
                           {selectedCondition.treatmentOptions.map((opt, i) => {
                             const sys = getSystem(selectedCondition.system);
@@ -652,7 +652,7 @@ function MedicalLibraryContent() {
                                 <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
                                   {i + 1}
                                 </span>
-                                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-semibold flex-1">{opt}</p>
+                                <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 flex-1">{opt}</p>
                               </div>
                             );
                           })}
@@ -662,10 +662,10 @@ function MedicalLibraryContent() {
                       {/* Clinical Pearls & Guidelines */}
                       {selectedCondition.clinicalNotes && (
                         <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
-                          <h4 className="text-[10px] font-bold text-green-700 dark:text-green-400 uppercase tracking-widest flex items-center gap-1.5">
+                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                             <Lucide.Lightbulb className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" /> Clinical Pearls & Guidelines
                           </h4>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-line font-medium">
+                          <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-705 dark:text-slate-300 whitespace-pre-line">
                             {selectedCondition.clinicalNotes}
                           </p>
                         </div>
@@ -676,15 +676,15 @@ function MedicalLibraryContent() {
                     <>
                       {/* For custom guidelines: show summary and info box */}
                       <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-5 space-y-4">
-                        <h4 className="text-xs font-bold text-slate-700 dark:text-slate-350 flex items-center gap-1.5">
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                           <Lucide.Info className="w-4 h-4 text-teal-600" />
                           Guideline Reference Note
                         </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
                           This is a custom clinical reference guideline uploaded directly to the library database. 
                           The full document content is rendered as a standalone page-layout in the preview pane on the right.
                         </p>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                        <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
                           Use the controls on the top-right of the preview to zoom, search, download, or open the document in a standalone page to print the clinical guidelines.
                         </p>
                       </div>
@@ -694,7 +694,7 @@ function MedicalLibraryContent() {
                   {/* Clinical References */}
                   {selectedCondition.references && selectedCondition.references.length > 0 && (
                     <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
-                      <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">
+                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">
                         Clinical References ({selectedCondition.references.length})
                       </h4>
                       <div className="grid grid-cols-1 gap-2">
@@ -704,7 +704,7 @@ function MedicalLibraryContent() {
                               {ref.id}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <p className="leading-snug font-semibold">{ref.text}</p>
+                              <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-705 dark:text-slate-300">{ref.text}</p>
                               {ref.url && (
                                 <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[11px] font-bold">
                                   Access Online Source →

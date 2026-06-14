@@ -507,11 +507,11 @@ export default function ClinicalAutofillsPage() {
     <div className="w-full px-4 sm:px-6 pb-24 pt-2" style={{ fontFamily: "inherit" }}>
 
       {/* ── PAGE HEADER ──────────────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+      <div className="space-y-2 select-none mb-6">
+        <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-55">
           Clinical Autofills
         </h1>
-        <p className="mt-1 text-[15px] text-slate-500 font-medium">
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
           Pre-written templates — edit and copy directly into Best Practice.
         </p>
       </div>
@@ -608,18 +608,18 @@ export default function ClinicalAutofillsPage() {
                 onClick={() => tmpl && setSelectedTemplate(tmpl)}
                 className="
                   h-[58px] flex items-center gap-2.5 px-3.5
-                  bg-white border border-slate-200
+                  bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800
                   border-l-2 border-l-transparent
-                  hover:border-l-teal-500 hover:bg-slate-50/70
+                  hover:border-l-teal-500 dark:hover:border-l-teal-400 hover:bg-slate-50/70 dark:hover:bg-slate-800/70
                   rounded-xl cursor-pointer transition-all duration-150 text-left group
                 "
               >
                 <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 group-hover:text-teal-500 transition-colors" />
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-slate-700 group-hover:text-teal-700 transition-colors leading-tight">
+                  <p className="truncate font-sans text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors leading-tight">
                     {rt.title}
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{rt.time}</p>
+                  <p className="font-sans text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rt.time}</p>
                 </div>
               </button>
             );
@@ -716,7 +716,7 @@ export default function ClinicalAutofillsPage() {
               return (
                 <div
                   key={t.id}
-                  className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col"
                   onClick={() => setSelectedTemplate(t)}
                 >
                   {/* Bookmark icon — top-right, appears on hover; always shown if bookmarked */}
@@ -724,8 +724,8 @@ export default function ClinicalAutofillsPage() {
                     onClick={e => toggleSaved(t.title, e)}
                     title={isBookmarked ? "Remove bookmark" : "Bookmark template"}
                     className={`absolute top-4 right-4 z-10 p-1.5 rounded-xl transition-all duration-150 ${isBookmarked
-                      ? "text-teal-600 bg-teal-50 hover:bg-teal-100"
-                      : "text-slate-300 hover:text-teal-600 hover:bg-slate-50 opacity-0 group-hover:opacity-100"
+                      ? "text-teal-600 bg-teal-50 dark:bg-teal-950 dark:text-teal-400 hover:bg-teal-100 dark:hover:bg-teal-900"
+                      : "text-slate-300 dark:text-slate-600 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-50 dark:hover:bg-slate-800 opacity-0 group-hover:opacity-100"
                       }`}
                   >
                     {isBookmarked
@@ -736,24 +736,24 @@ export default function ClinicalAutofillsPage() {
 
                   {/* Title */}
                   <div className="pr-8 mb-2">
-                    <h3 className="text-[16px] font-bold text-slate-900 leading-snug group-hover:text-teal-700 transition-colors">
+                    <h3 className="font-sans text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
                       {t.title}
                     </h3>
                   </div>
 
                   {/* Uniform slate badge — no color coding */}
-                  <span className="inline-block self-start mb-3 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                  <span className="inline-block self-start mb-3 font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
                     {t.category}
                   </span>
 
                   {/* Description — 2-line clamp */}
-                  <p className="text-[12px] text-slate-500 leading-relaxed flex-1 mb-4 line-clamp-2">
+                  <p className="font-sans text-sm font-normal leading-relaxed text-slate-500 dark:text-slate-400 flex-1 mb-4 line-clamp-2">
                     {t.description}
                   </p>
 
                   {/* Footer row */}
-                  <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-                    <p className="text-[11px] text-slate-400 font-medium">Updated {t.updated}</p>
+                  <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
+                    <p className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Updated {t.updated}</p>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={e => { e.stopPropagation(); handleQuickCopy(t.id, t.content); }}
@@ -831,24 +831,24 @@ export default function ClinicalAutofillsPage() {
           >
 
             {/* ① FIXED HEADER — never scrolls */}
-            <div className="flex-shrink-0 px-7 py-5 border-b border-slate-100 bg-white z-10">
+            <div className="flex-shrink-0 px-7 py-5 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 z-10">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0 pr-4">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="inline-flex items-center text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                    <span className="inline-flex items-center font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
                       {selectedTemplate.category}
                     </span>
-                    <span className="text-[12px] text-slate-400 font-medium">
+                    <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-400">
                       Updated {selectedTemplate.updated}
                     </span>
                   </div>
-                  <h2 className="text-[20px] font-extrabold text-slate-900 leading-tight">
+                  <h2 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100">
                     {selectedTemplate.title}
                   </h2>
                 </div>
                 <button
                   onClick={() => setSelectedTemplate(null)}
-                  className="flex-shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
+                  className="flex-shrink-0 w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -857,9 +857,9 @@ export default function ClinicalAutofillsPage() {
             </div>
 
             {/* ② INSTRUCTION BANNER — never scrolls, solid bg blocks text bleed */}
-            <div className="flex-shrink-0 px-7 pt-4 pb-3 bg-white z-10">
-              <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
-                <p className="text-[13px] text-teal-800 font-medium leading-relaxed">
+            <div className="flex-shrink-0 px-7 pt-4 pb-3 bg-white dark:bg-slate-900 z-10">
+              <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 rounded-xl px-4 py-3">
+                <p className="font-sans text-sm font-normal leading-relaxed text-teal-850 dark:text-teal-400">
                   Copy the text below and paste directly into{" "}
                   <span className="font-bold">Best Practice</span>.{" "}
                   Formatting will be preserved.
@@ -868,9 +868,9 @@ export default function ClinicalAutofillsPage() {
             </div>
 
             {/* ③ SCROLLABLE CONTENT — min-h-0 is essential to confine it */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-7 pb-2 pt-3 custom-scrollbar">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-inner">
-                <pre className="whitespace-pre-wrap font-mono text-[13px] text-slate-800 leading-relaxed">
+            <div className="flex-1 min-h-0 overflow-y-auto px-7 pb-2 pt-3 bg-white dark:bg-slate-900 custom-scrollbar">
+              <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-inner">
+                <pre className="font-mono text-sm md:text-base leading-relaxed text-slate-800 dark:text-slate-300 whitespace-pre-wrap bg-slate-50 dark:bg-slate-900 p-4 rounded-md border border-slate-200 dark:border-slate-700">
                   {selectedTemplate.content}
                 </pre>
               </div>

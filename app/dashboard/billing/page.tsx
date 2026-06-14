@@ -23,8 +23,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { mbsItems, complexityConfig, MBSItem } from "@/components/mbs-billing/data";
 
 // ─── Animation configs ────────────────────────────────────────────────────────
-// Note: page-level entry handled by DashboardShell PageTransition.
-// Only within-page transitions are defined here.
 const gridVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.22 } },
@@ -232,11 +230,13 @@ function BillingContent() {
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div>
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-teal-50 border border-teal-100 rounded-lg mb-2">
-          <span className="text-xs font-semibold text-teal-700">MBS Learning System</span>
+        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900 rounded-lg mb-2">
+          <span className="font-sans text-xs font-semibold text-teal-700 dark:text-teal-400">MBS Learning System</span>
         </div>
-        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">MBS Decision & Billing Guide</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
+          MBS Decision & Billing Guide
+        </h1>
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1">
           Learn to bill correctly with plain-English guidance and interactive scenarios.
         </p>
       </div>
@@ -430,27 +430,27 @@ function BillingContent() {
                   </button>
                   <div className="pr-8">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-sm font-bold font-mono text-teal-600 dark:text-teal-400">
+                      <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">
                         Item {item.id}
                       </span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-2">
+                    <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-2">
                       {item.humanTitle}
                     </h3>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mb-4">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                    <p className="font-sans text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mb-4">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-350 dark:bg-slate-700" />
                       Timeframe: {item.timeRange}
                     </p>
                   </div>
 
                   <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Schedule Fee</span>
-                      <span className="text-base font-bold text-slate-900 dark:text-white">${item.scheduleFee.toFixed(2)}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Schedule Fee</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-white">${item.scheduleFee.toFixed(2)}</span>
                     </div>
                     <div className="flex flex-col text-right">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Rebate (85%)</span>
-                      <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">${item.medicareRebate.toFixed(2)}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Rebate (85%)</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-emerald-600 dark:text-emerald-400">${item.medicareRebate.toFixed(2)}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -491,10 +491,10 @@ function BillingContent() {
 
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
                     <div>
-                      <div className="text-sm font-bold font-mono text-teal-600 dark:text-teal-400 mb-1">
+                      <div className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400 mb-1">
                         Item {selectedItem.id}
                       </div>
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight mt-1 leading-snug">
+                      <h2 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-white tracking-tight mt-1">
                         {selectedItem.humanTitle}
                       </h2>
                     </div>
@@ -503,37 +503,37 @@ function BillingContent() {
                   {/* Metadata chips */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/30 dark:border-slate-800/30">
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Consult Time</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{selectedItem.timeRange}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Consult Time</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-slate-100">{selectedItem.timeRange}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Schedule Fee</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">${selectedItem.scheduleFee.toFixed(2)}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Schedule Fee</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-slate-100">${selectedItem.scheduleFee.toFixed(2)}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Govt Rebate</span>
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">${selectedItem.medicareRebate.toFixed(2)}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Govt Rebate</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-slate-100">${selectedItem.medicareRebate.toFixed(2)}</span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">Bulk Billable</span>
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{selectedItem.bulkBillable ? "Eligible" : "No"}</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Bulk Billable</span>
+                      <span className="font-sans text-base md:text-lg font-semibold text-emerald-600 dark:text-emerald-400">{selectedItem.bulkBillable ? "Eligible" : "No"}</span>
                     </div>
                   </div>
 
                   {/* Plain English */}
                   <div className="space-y-2">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">What This Item Means</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed bg-white/40 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/20 dark:border-slate-800/20">
+                    <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-550 dark:text-slate-400">What This Item Means</h4>
+                    <p className="font-sans text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-4 rounded-2xl border border-slate-200/20 dark:border-slate-800/20">
                       {selectedItem.plainEnglish}
                     </p>
                   </div>
 
                   {/* Common uses */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">What This Item Is Used For</h4>
+                    <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-550 dark:text-slate-400">What This Item Is Used For</h4>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {selectedItem.commonUses.map((use, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15">
+                        <li key={i} className="flex items-start gap-2 font-sans text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15">
                           <Check className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                           <span>{use}</span>
                         </li>
@@ -544,22 +544,22 @@ function BillingContent() {
                   {/* Comparison */}
                   {selectedItem.comparisonItem && (
                     <div className="space-y-3">
-                      <h4 className="text-xs font-extrabold uppercase tracking-widest text-slate-400">When should you use this item?</h4>
+                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-555 dark:text-slate-400">When should you use this item?</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl p-4 border border-teal-500/20 shadow-sm">
-                          <span className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase">This Item ({selectedItem.id})</span>
-                          <div className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Duration:</span> {selectedItem.timeRange}</p>
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Complexity:</span> {complexityConfig[selectedItem.complexity].label}</p>
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Intent:</span> {selectedItem.plainEnglish.split(".")[0]}.</p>
+                          <span className="font-sans text-xs font-semibold tracking-wider uppercase text-teal-600 dark:text-teal-400">This Item ({selectedItem.id})</span>
+                          <div className="mt-2.5 space-y-1.5 font-sans text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Duration:</span> {selectedItem.timeRange}</p>
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Complexity:</span> {complexityConfig[selectedItem.complexity].label}</p>
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Intent:</span> {selectedItem.plainEnglish.split(".")[0]}.</p>
                           </div>
                         </div>
                         <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-200/50 dark:border-slate-800/50 shadow-sm">
-                          <span className="text-xs font-bold text-slate-500 uppercase">Step-Up: Item {selectedItem.comparisonItem.id}</span>
-                          <div className="mt-2.5 space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Duration:</span> {selectedItem.comparisonItem.duration}</p>
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Complexity:</span> {selectedItem.comparisonItem.complexity}</p>
-                            <p><span className="font-bold text-slate-700 dark:text-slate-300">Intent:</span> {selectedItem.comparisonItem.intent}</p>
+                          <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500">Step-Up: Item {selectedItem.comparisonItem.id}</span>
+                          <div className="mt-2.5 space-y-1.5 font-sans text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Duration:</span> {selectedItem.comparisonItem.duration}</p>
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Complexity:</span> {selectedItem.comparisonItem.complexity}</p>
+                            <p><span className="font-bold text-slate-900 dark:text-slate-100">Intent:</span> {selectedItem.comparisonItem.intent}</p>
                           </div>
                         </div>
                       </div>
@@ -569,13 +569,13 @@ function BillingContent() {
                   {/* Billing restrictions */}
                   {selectedItem.billingRestrictions && selectedItem.billingRestrictions.length > 0 && (
                     <div className="bg-red-500/5 dark:bg-red-500/10 border border-red-200/20 dark:border-red-900/30 rounded-2xl p-4 space-y-2">
-                      <h4 className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-red-700 dark:text-red-400 flex items-center gap-1.5">
                         <ShieldAlert className="w-3.5 h-3.5 text-red-500" /> Billing Restrictions & Rules
                       </h4>
-                      <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                      <ul className="space-y-1 font-sans text-base font-normal leading-relaxed text-red-700 dark:text-red-400">
                         {selectedItem.billingRestrictions.map((restriction, idx) => (
                           <li key={idx} className="flex items-start gap-1.5">
-                            <span className="text-slate-400">•</span>
+                            <span className="text-red-400 dark:text-red-500/80">•</span>
                             <span>{restriction}</span>
                           </li>
                         ))}
@@ -590,7 +590,7 @@ function BillingContent() {
                         onClick={() => setNotesExpanded(!notesExpanded)}
                         className="w-full flex items-center justify-between p-3.5 bg-slate-100/50 dark:bg-slate-900/60 hover:bg-slate-100 dark:hover:bg-slate-800/60 rounded-2xl border border-slate-200/35 dark:border-slate-800/40 transition-colors"
                       >
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-700 dark:text-slate-350">
                           View Official Medicare Notes
                         </span>
                         {notesExpanded ? (
@@ -610,7 +610,7 @@ function BillingContent() {
                             <div className="mt-2.5 p-4 bg-white/40 dark:bg-slate-950/40 rounded-2xl border border-slate-200/25 dark:border-slate-800/20">
                               <ul className="space-y-2">
                                 {selectedItem.officialNotes.map((note, i) => (
-                                  <li key={i} className="flex gap-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                  <li key={i} className="flex gap-2 font-sans text-xs text-slate-500 dark:text-slate-405 leading-relaxed">
                                     <span className="text-slate-300 dark:text-slate-700">•</span>
                                     <span>{note}</span>
                                   </li>
@@ -631,7 +631,7 @@ function BillingContent() {
                 {/* Scenarios */}
                 <div className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-lg space-y-4">
                   <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    <h3 className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wider">
                       Patient Case Scenarios
                     </h3>
                   </div>
@@ -639,22 +639,22 @@ function BillingContent() {
                     {selectedItem.scenarios && selectedItem.scenarios.length > 0 ? (
                       selectedItem.scenarios.map((scenario, index) => (
                         <div key={index} className="bg-slate-50 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200/30 dark:border-slate-800/40 space-y-2.5">
-                          <span className="text-[10px] font-bold tracking-widest text-teal-600 dark:text-teal-400 uppercase block">
+                          <span className="font-sans text-xs font-semibold tracking-wider text-teal-600 dark:text-teal-400 uppercase block">
                             Clinical Case #{index + 1}
                           </span>
-                          <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{scenario.presentation}</p>
-                          <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-100 dark:bg-slate-900 p-2 rounded-xl">
+                          <p className="font-sans text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">{scenario.presentation}</p>
+                          <div className="grid grid-cols-2 gap-2 font-sans text-xs bg-slate-100 dark:bg-slate-900 p-2 rounded-xl">
                             <div>
-                              <span className="text-slate-400 font-bold block uppercase">Duration</span>
-                              <span className="font-semibold text-slate-700 dark:text-slate-300">{scenario.time}</span>
+                              <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-400 dark:text-slate-550 block">Duration</span>
+                              <span className="font-sans text-base font-semibold text-slate-700 dark:text-slate-350">{scenario.time}</span>
                             </div>
                             <div>
-                              <span className="text-slate-400 font-bold block uppercase">Correct billing</span>
-                              <span className="font-semibold text-teal-600 dark:text-teal-400">Item {scenario.correctItem}</span>
+                              <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-400 dark:text-slate-550 block">Correct billing</span>
+                              <span className="font-sans text-base font-semibold text-teal-600 dark:text-teal-400">Item {scenario.correctItem}</span>
                             </div>
                           </div>
-                          <div className="text-[10px] text-slate-500 pt-1.5 border-t border-slate-200/40 dark:border-slate-800/20 leading-relaxed">
-                            <span className="font-bold text-slate-700 dark:text-slate-300">Reasoning:</span> {scenario.reasoning}
+                          <div className="font-sans text-xs text-slate-550 dark:text-slate-450 pt-1.5 border-t border-slate-200/40 dark:border-slate-800/20 leading-relaxed">
+                            <span className="font-bold text-slate-750 dark:text-slate-300">Reasoning:</span> {scenario.reasoning}
                           </div>
                         </div>
                       ))
@@ -669,18 +669,18 @@ function BillingContent() {
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.03)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
                   <div className="relative z-10 space-y-4">
                     <div>
-                      <span className="text-[9px] font-black text-teal-400 uppercase tracking-widest block mb-1">Fee Obligation Summary</span>
-                      <h4 className="text-base font-bold text-slate-100 leading-snug">
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-teal-400 block mb-1">Fee Obligation Summary</span>
+                      <h4 className="font-sans text-lg md:text-xl font-semibold text-slate-100 leading-snug">
                         Expected Patient Out-Of-Pocket Expenses:
                       </h4>
                     </div>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-black font-mono tracking-tight text-white">
+                      <span className="font-sans text-3xl font-bold tracking-tight text-white">
                         ${Math.max(0, parsedCustomFee - selectedItem.medicareRebate).toFixed(2)}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">/ Patient Gap</span>
+                      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-400">/ Patient Gap</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <p className="font-sans text-xs text-slate-400 leading-relaxed">
                       Calculated based on your private fee setting of ${parsedCustomFee.toFixed(2)} minus the Medicare rebate of ${selectedItem.medicareRebate.toFixed(2)}.
                     </p>
                   </div>
@@ -739,8 +739,8 @@ function BillingContent() {
               <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100 dark:border-slate-800/80">
                 <Calculator className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                 <div>
-                  <h3 className="text-base font-bold uppercase tracking-wider leading-none">MBS Fee Calculator</h3>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block mt-1">
+                  <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 uppercase">MBS Fee Calculator</h3>
+                  <span className="font-sans text-xs text-slate-400 dark:text-slate-500 block mt-1">
                     Item {selectedItem.id} · {selectedItem.humanTitle}
                   </span>
                 </div>
@@ -748,7 +748,7 @@ function BillingContent() {
 
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+                  <label className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">
                     Practice Private Fee Charged ($)
                   </label>
                   <div className="relative rounded-xl shadow-sm">
@@ -760,26 +760,26 @@ function BillingContent() {
                       value={customFee}
                       onChange={(e) => setCustomFee(e.target.value)}
                       placeholder={selectedItem.scheduleFee.toFixed(2)}
-                      className="w-full pl-9 pr-4 py-3 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-800 dark:text-slate-100 font-mono font-bold"
+                      className="w-full pl-9 pr-4 py-3 font-sans text-base font-semibold bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-slate-850 dark:text-slate-100"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 block">
+                  <span className="font-sans text-[10px] text-slate-400 dark:text-slate-500 block">
                     Base Schedule Fee: ${selectedItem.scheduleFee.toFixed(2)}
                   </span>
                 </div>
 
                 <div className="bg-slate-50 dark:bg-slate-950/60 border border-slate-200/50 dark:border-slate-800/40 rounded-2xl p-5 space-y-4">
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center font-sans text-xs">
                     <span className="text-slate-500 font-medium">Practice Gross Margin:</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white text-sm">${parsedCustomFee.toFixed(2)}</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-sm">${parsedCustomFee.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
+                  <div className="flex justify-between items-center font-sans text-xs">
                     <span className="text-slate-500 font-medium">Medicare Rebate (85%):</span>
-                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">-${selectedItem.medicareRebate.toFixed(2)}</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">-${selectedItem.medicareRebate.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+                  <div className="flex justify-between items-center pt-3 border-t border-slate-200/50 dark:border-slate-800/50 font-sans text-xs">
                     <span className="text-slate-800 dark:text-slate-200 font-bold">Expected Patient Out-Of-Pocket Gap:</span>
-                    <span className="font-mono font-black text-teal-600 dark:text-teal-400 text-lg">
+                    <span className="font-black text-teal-600 dark:text-teal-400 text-lg">
                       ${Math.max(0, parsedCustomFee - selectedItem.medicareRebate).toFixed(2)}
                     </span>
                   </div>
