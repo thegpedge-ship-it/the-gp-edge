@@ -15,9 +15,9 @@ const PerformanceCard = memo(function PerformanceCard({
     <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm pl-6 pr-4 pt-6 pb-6 h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-0">
-            Subject mastery
-          </p>
+          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100">
+            Subject Mastery
+          </h3>
         </div>
       </div>
 
@@ -44,7 +44,7 @@ const PerformanceCard = memo(function PerformanceCard({
                 >
                   {row.subject}
                 </span>
-                <span className="text-sm font-serif font-semibold text-slate-900 dark:text-slate-50">
+                <span className="text-sm font-sans font-bold text-slate-900 dark:text-slate-50">
                   {row.mastery}%
                 </span>
               </div>

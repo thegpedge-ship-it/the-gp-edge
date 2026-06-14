@@ -75,11 +75,11 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
           >
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  Mock exam scores
-                </p>
+                <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+                  Mock Exam Scores
+                </h3>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-serif text-3xl text-slate-900 dark:text-slate-50">
+                  <span className="font-sans text-3xl md:text-4xl font-bold tracking-tighter text-slate-900 dark:text-slate-50">
                     {latest.score}%
                   </span>
                   {delta !== 0 && (
@@ -193,11 +193,11 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
           >
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
-                  {selectedSubject} — Test breakdown
-                </p>
+                <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+                  {selectedSubject} — Test Breakdown
+                </h3>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-serif text-3xl text-slate-900 dark:text-slate-50">
+                  <span className="font-sans text-3xl md:text-4xl font-bold tracking-tighter text-slate-900 dark:text-slate-50">
                     {subjectRow?.mastery}%
                   </span>
                   {subjectRow && subjectRow.change !== 0 && (

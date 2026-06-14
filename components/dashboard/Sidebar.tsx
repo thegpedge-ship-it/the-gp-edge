@@ -340,24 +340,22 @@ export default function Sidebar() {
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
                   onClick={toggle}
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    padding: "5px 12px", borderRadius: 999,
-                    border: "1px solid #e8edf2", background: "#f8fafc",
-                    color: "#94a3b8", fontSize: 11, fontWeight: 500,
-                    cursor: "pointer", letterSpacing: "0.01em",
-                    transition: "all 150ms",
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa"; e.currentTarget.style.color = "#0d9488"; e.currentTarget.style.borderColor = "#99f6e4"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.color = "#94a3b8"; e.currentTarget.style.borderColor = "#e8edf2"; }}
+                  className="
+                    inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                    border border-slate-200 dark:border-slate-800
+                    bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400
+                    hover:bg-teal-50 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-900/50
+                    font-sans text-[11px] font-semibold tracking-wide
+                    cursor-pointer transition-all duration-150
+                  "
                 >
                   <ChevronLeft size={12} strokeWidth={2} /> Collapse
                 </button>
               </div>
 
               {/* ── Profile Card ── */}
-              <div style={{
-                borderRadius: 20, border: "1px solid #e8edf2",
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
+                borderRadius: 20,
                 overflow: "hidden",
                 boxShadow: "0 2px 12px rgba(15,23,42,0.07)",
               }}>
@@ -396,7 +394,7 @@ export default function Sidebar() {
                 <div style={{
                   display: "flex", flexDirection: "column",
                   alignItems: "center", textAlign: "center",
-                  padding: "0 18px 18px", background: "#fff",
+                  padding: "0 18px 18px",
                 }}>
                   <div style={{
                     marginTop: -42, width: 84, height: 84,
@@ -417,24 +415,25 @@ export default function Sidebar() {
                       <AvatarSVG size={84} />
                     )}
                   </div>
-                  <p style={{ margin: "9px 0 2px", fontWeight: 700, fontSize: 15.5, color: "#0f172a", letterSpacing: "-0.01em" }}>
+                  <p className="font-sans text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100" style={{ margin: "9px 0 2px" }}>
                     {user?.fullName || "User"}
                   </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 500 }}>
+                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: 0 }}>
                     RACGP Candidate · PGY3
                   </p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11.5, color: "#64748b" }}>{localUser.hospital}</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "#94a3b8" }}>
-                    Rank <strong style={{ color: "#334155", fontWeight: 600 }}>#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
+                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
+                    {localUser.hospital}
                   </p>
-                  <div style={{
+                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
+                    Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
+                  </p>
+                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30" style={{
                     marginTop: 10,
                     display: "inline-flex", alignItems: "center", gap: 6,
                     padding: "5px 12px", borderRadius: 999,
-                    background: "#f0fdfa", border: "1px solid #99f6e4",
                   }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#14b8a6", flexShrink: 0 }} />
-                    <span style={{ fontSize: 11.5, fontWeight: 600, color: "#0d9488" }}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                    <span className="font-sans text-xs md:text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-400">
                       Preparing for AKT · Aug 2026
                     </span>
                   </div>
@@ -442,9 +441,9 @@ export default function Sidebar() {
               </div>
 
               {/* ── Navigation ── */}
-              <div style={{
-                borderRadius: 16, border: "1px solid #e8edf2",
-                background: "#fff", overflow: "hidden",
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
+                borderRadius: 16,
+                overflow: "hidden",
                 boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
               }}>
                 {NAV.map(({ href, icon: Icon, label }, i) => {
@@ -452,64 +451,62 @@ export default function Sidebar() {
                     ? pathname === "/dashboard"
                     : pathname.startsWith(href);
                   return (
-                    <Link key={href} href={href} prefetch style={{
-                      position: "relative",
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "11px 14px",
-                      borderBottom: i < NAV.length - 1 ? "1px solid #f1f5f9" : "none",
-                      background: active ? "#f0fdfa" : "#fff",
-                      color: active ? "#0d9488" : "#475569",
-                      fontSize: 13.5, fontWeight: active ? 600 : 450,
-                      textDecoration: "none",
-                      transition: "background 150ms, color 150ms",
-                    }}>
+                    <Link
+                      key={href}
+                      href={href}
+                      prefetch
+                      className={`
+                        relative flex items-center gap-2.5 px-3.5 py-2.5
+                        transition-all duration-150 border-b border-slate-100 dark:border-slate-800/80 last:border-b-0
+                        ${active
+                          ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-base font-semibold"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium"
+                        }
+                      `}
+                      style={{ textDecoration: "none" }}
+                    >
                       {active && (
                         <span style={{
                           position: "absolute", left: 0, top: 8, bottom: 8,
                           width: 3, background: "#14b8a6", borderRadius: "0 3px 3px 0",
                         }} />
                       )}
-                      <span style={{
-                        width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: active ? "#ccfbf1" : "#f8fafc",
-                        color: active ? "#0d9488" : "#94a3b8",
-                        transition: "background 150ms, color 150ms",
-                      }}>
+                      <span className={`
+                        w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center transition-all duration-150
+                        ${active
+                          ? "bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-400"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+                        }
+                      `} style={{ width: 30, height: 30 }}>
                         <Icon size={14} strokeWidth={active ? 2.2 : 1.8} />
                       </span>
-                      {label}
+                      <span>{label}</span>
                       <ChevronRight size={12} strokeWidth={2}
-                        style={{ marginLeft: "auto", color: active ? "#5eead4" : "#e2e8f0" }} />
+                        className={`ml-auto transition-colors ${active ? "text-teal-400 dark:text-teal-500" : "text-slate-300 dark:text-slate-700"}`} />
                     </Link>
                   );
                 })}
               </div>
 
               {/* ── Help & Support ── */}
-              <button style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "11px 14px", borderRadius: 14,
-                border: "1px solid #e8edf2", background: "#fff",
-                color: "#475569", fontSize: 13.5, fontWeight: 450,
-                cursor: "pointer", width: "100%", textAlign: "left",
-                boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
-                transition: "background 150ms, color 150ms",
-              }}>
-                <span style={{
-                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "#f8fafc", color: "#94a3b8",
-                }}>
+              <button className="
+                flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                border border-slate-200 dark:border-slate-800
+                bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
+                hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
+                font-sans text-sm md:text-base font-medium
+                transition-all duration-150 cursor-pointer w-full text-left shadow-sm
+              ">
+                <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
                   <HelpCircle size={14} strokeWidth={1.8} />
                 </span>
-                Help &amp; Support
+                <span>Help &amp; Support</span>
               </button>
 
               {/* Footer */}
-              <div style={{ textAlign: "center", paddingTop: 4 }}>
-                <p style={{ margin: "0 0 2px", fontSize: 10, color: "#cbd5e1" }}>{localUser.joinedLabel}</p>
-                <p style={{ margin: 0, fontSize: 10, color: "#cbd5e1" }}>Synced {localUser.lastSyncedMin}m ago</p>
+              <div className="text-center pt-1">
+                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{localUser.joinedLabel}</p>
+                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0">Synced {localUser.lastSyncedMin}m ago</p>
               </div>
 
             </div>
@@ -555,35 +552,44 @@ function MobileDrawer({ pathname }: { pathname: string }) {
         transition: `opacity 200ms ${ease}`,
       }} />
 
-      <div style={{
-        position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 49,
-        width: 270, background: "#fff",
-        boxShadow: "4px 0 24px rgba(15,23,42,0.14)",
-        transform: open ? "translateX(0)" : "translateX(-100%)",
-        transition: `transform 280ms ${ease}`,
-        overflowY: "auto",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px", borderBottom: "1px solid #f1f5f9" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>Navigation</span>
+      <div
+        className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
+        style={{
+          position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 49,
+          width: 270,
+          boxShadow: "4px 0 24px rgba(15,23,42,0.14)",
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          transition: `transform 280ms ${ease}`,
+          overflowY: "auto",
+        }}
+      >
+        <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800">
+          <span className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">Navigation</span>
           <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div className="p-3 flex flex-col gap-1">
           {NAV.map(({ href, icon: Icon, label }) => {
-            const active = pathname.startsWith(href);
+            const active = href === "/dashboard"
+              ? pathname === "/dashboard"
+              : pathname.startsWith(href);
             return (
-              <Link key={href} href={href} prefetch style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "11px 14px", borderRadius: 10,
-                background: active ? "#f0fdfa" : "transparent",
-                border: `1px solid ${active ? "#99f6e4" : "transparent"}`,
-                color: active ? "#0d9488" : "#475569",
-                fontSize: 13.5, fontWeight: active ? 600 : 450,
-                textDecoration: "none",
-              }}>
+              <Link
+                key={href}
+                href={href}
+                prefetch
+                className={`
+                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+                  ${active
+                    ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-base font-semibold border border-teal-100 dark:border-teal-900/40"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent"
+                  }
+                `}
+                style={{ textDecoration: "none" }}
+              >
                 <Icon size={15} /> {label}
               </Link>
             );

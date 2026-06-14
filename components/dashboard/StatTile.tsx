@@ -113,7 +113,7 @@ const StatTile = memo(function StatTile({
           </div>
 
           <div className="flex items-baseline gap-1.5">
-            <span className="font-serif text-[2rem] leading-none text-slate-900 dark:text-slate-50">
+            <span className="font-sans text-3xl md:text-4xl font-bold tracking-tighter leading-none text-slate-900 dark:text-slate-50">
               {value}
             </span>
             {unit && <span className="text-sm font-medium text-slate-400">{unit}</span>}
