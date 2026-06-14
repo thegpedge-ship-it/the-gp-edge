@@ -144,13 +144,13 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
         {/* Count-up number */}
         <div
           ref={ref}
-          className={`font-sans text-[2rem] lg:text-[2.25rem] font-bold tracking-tight leading-none mb-1 tabular-nums ${isDefault ? "text-slate-900" : "text-white"
+          className={`font-sans text-3xl md:text-4xl font-bold tracking-tighter leading-none mb-1 tabular-nums ${isDefault ? "text-slate-900" : "text-white"
             }`}
         >
           {displayStr}
         </div>
 
-        <div className={`text-xs font-semibold uppercase tracking-wider ${isTeal ? "text-teal-100" : isDark ? "text-slate-400" : "text-slate-500"
+        <div className={`font-sans text-xs sm:text-sm font-semibold uppercase tracking-wide ${isTeal ? "text-teal-100" : isDark ? "text-slate-400" : "text-slate-500"
           }`}>
           {stat.label}
         </div>
@@ -223,7 +223,7 @@ export default function Hero() {
             {/* H1 Headline */}
             <motion.h1
               variants={itemVariants}
-              className="font-sans text-[2.75rem] sm:text-[3.25rem] lg:text-[4rem] font-bold text-slate-900 dark:text-[#F5F7FA] leading-[1.05] tracking-[-0.03em] mb-6"
+              className="font-serif text-4xl md:text-6xl lg:text-7xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-[#F5F7FA] mb-6"
             >
               Study smarter.{" "}
               <span className="relative inline-block">
@@ -236,7 +236,7 @@ export default function Hero() {
             {/* Subheadline */}
             <motion.p
               variants={itemVariants}
-              className="text-lg lg:text-xl text-slate-600 dark:text-[#A8B1BD] max-w-xl mb-10 leading-[1.65] tracking-[-0.01em]"
+              className="font-sans text-lg md:text-xl font-normal leading-relaxed text-slate-600 dark:text-[#A8B1BD] max-w-xl mb-10"
             >
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">Adaptive mock exams</span>, interactive{" "}
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">MBS billing tools</span>, and real-world{" "}
@@ -263,7 +263,7 @@ export default function Hero() {
                   border: 3px solid rgba(255, 255, 255, 0.3);
                   outline: none;
                   overflow: hidden;
-                  font-size: 15px;
+                  font-size: 16px;
                   width: 100%;
                 }
                 .dark .btn-start-free-new {
@@ -301,10 +301,10 @@ export default function Hero() {
                   width: 100px;
                   height: 100%;
                   background-image: linear-gradient(
-                    120deg,
-                    rgba(255, 255, 255, 0) 30%,
-                    rgba(255, 255, 255, 0.8),
-                    rgba(255, 255, 255, 0) 70%
+                     120deg,
+                     rgba(255, 255, 255, 0) 30%,
+                     rgba(255, 255, 255, 0.8),
+                     rgba(255, 255, 255, 0) 70%
                   );
                   top: 0;
                   left: -100px;
@@ -326,10 +326,10 @@ export default function Hero() {
                   color: rgba(0, 0, 0, 0.85);
                   cursor: pointer;
                   display: inline-flex;
-                  font-size: 0.875rem;
+                  font-size: 16px;
                   font-weight: 600;
                   justify-content: center;
-                  padding: 1rem 1.5rem;
+                  padding: 1rem 1.75rem;
                   text-decoration: none;
                   transition: all 250ms;
                   width: 100%;

@@ -358,11 +358,11 @@ export default function IntelligenceEngine() {
               Adaptive Intelligence
             </span>
             
-            <h2 className="font-sans text-3xl lg:text-[2.75rem] font-bold text-slate-900 dark:text-[#F5F7FA] mb-5 leading-[1.1] tracking-[-0.02em]">
+            <h2 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 dark:text-[#F5F7FA] mb-5">
               Gets smarter the more you use it
             </h2>
             
-            <p className="text-slate-600 dark:text-[#A8B1BD] text-base lg:text-lg leading-relaxed mb-10">
+            <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-[#A8B1BD] mb-10">
               The GP Edge learns your <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">cognitive style</span>, tracks <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">knowledge gaps</span>, and adapts every session. The closer you get to exam day, the sharper your prep becomes.
             </p>
 

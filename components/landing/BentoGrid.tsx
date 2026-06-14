@@ -271,11 +271,11 @@ function MBSBillingCardInline() {
           <span className="text-xs text-teal-600 font-medium">Full access</span>
         </div>
 
-        <h3 className="font-sans text-xl lg:text-2xl font-bold text-slate-900 mb-2 tracking-[-0.01em]">
+        <h3 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 mb-2">
           Master MBS Billing
         </h3>
 
-        <p className="text-slate-600 text-sm leading-relaxed mb-5">
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 mb-5">
           Interactive <span className="font-medium text-teal-600">item number explorer</span> with real-world GP scenarios.
         </p>
 
@@ -501,11 +501,11 @@ function ClinicalAutofillsCardInline() {
           
         </div>
 
-        <h3 className="font-sans text-xl lg:text-2xl font-bold text-slate-900 mb-2 tracking-[-0.01em]">
+        <h3 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 mb-2">
           Clinical Autofills
         </h3>
 
-        <p className="text-slate-600 text-sm leading-relaxed mb-5">
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 mb-5">
           <span className="font-medium text-teal-600">Copy-paste templates</span> for common GP presentations. Consult better, miss less.
         </p>
 
@@ -1009,11 +1009,11 @@ function AdaptiveExamPrepCardInline() {
           </span>
         </div>
 
-        <h3 className="font-sans text-2xl lg:text-3xl font-bold text-white mb-3 tracking-[-0.01em]">
+        <h3 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-white mb-3">
           Adaptive Exam Prep
         </h3>
 
-        <p className="text-slate-400 text-sm lg:text-base leading-relaxed max-w-md mb-6">
+        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-400 max-w-md mb-6">
           Dynamic mock exams for <span className="text-teal-400 font-medium">AKT</span> and <span className="text-teal-400 font-medium">KFP</span>. The platform learns your weak spots and prioritizes them—every minute counts.
         </p>
 
@@ -1317,11 +1317,11 @@ export default function BentoGrid() {
 
                 </div>
 
-                <h3 className="font-sans text-xl lg:text-2xl font-bold text-slate-900 mb-2 tracking-[-0.01em]">
+                <h3 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 mb-2">
                   Medical Directory
                 </h3>
 
-                <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 mb-4">
                   <span className="font-medium text-teal-600">300+ conditions</span> catalogued. Browse, search, and revise on the go.
                 </p>
 
