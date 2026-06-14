@@ -15,8 +15,8 @@ import CreateQuizModal from "./CreateQuizModal";
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-center flex-1">
-      <span className="text-2xl font-extrabold text-slate-800 dark:text-slate-100 leading-none">{value}</span>
-      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">{label}</span>
+      <span className="font-sans text-xl md:text-2xl font-bold tracking-tighter text-slate-800 dark:text-slate-100 leading-none">{value}</span>
+      <span className="font-sans text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1.5">{label}</span>
     </div>
   );
 }
@@ -51,7 +51,7 @@ export default function SidePanel() {
         <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-green-400/10 dark:bg-green-500/5 group-hover:scale-110 transition-transform duration-700" />
 
         <div className="relative">
-          <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-0.5">Mock Tests</h3>
+          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-800 dark:text-slate-100 mb-0.5">Mock Tests</h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-3">Full AKT simulations under exam conditions</p>
 
           {/* Summary stats */}
