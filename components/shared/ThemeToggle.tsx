@@ -81,7 +81,7 @@ export default function ThemeToggle() {
           transition: 0.4s;
         }
       `}</style>
-      <div className="theme-switch-container">
+      <div className="theme-switch-container relative group">
         <input 
           type="checkbox" 
           className="theme-switch-checkbox" 
@@ -90,6 +90,17 @@ export default function ThemeToggle() {
           onChange={() => setTheme(isDark ? 'light' : 'dark')}
         />
         <label htmlFor="theme-switch-checkbox" className="theme-switch-label"> </label>
+
+        {/* Theme Toggle Popup */}
+        <div className="absolute top-full right-1/2 translate-x-1/2 mt-5 w-[180px] p-3.5 bg-slate-900 dark:bg-slate-800 rounded-xl shadow-xl opacity-0 translate-y-2 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 z-[60] border border-slate-700">
+          <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-900 dark:bg-slate-800 border-l border-t border-slate-700 rotate-45 rounded-sm" />
+          <div className="relative z-10 flex justify-between items-center mb-1.5">
+            <span className="text-[11px] font-bold text-[#58c1ae] uppercase tracking-wider">Appearance</span>
+          </div>
+          <p className="relative z-10 text-[12px] text-slate-300 dark:text-slate-200 leading-[1.4] m-0">
+            Switch between light and dark themes.
+          </p>
+        </div>
       </div>
     </>
   );

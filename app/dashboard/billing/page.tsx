@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, Suspense, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -14,6 +14,10 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
+  Bookmark,
+  BookmarkCheck,
+  FileText,
+  ChevronRight,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mbsItems, complexityConfig, MBSItem } from "@/components/mbs-billing/data";
@@ -38,6 +42,96 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } },
 };
 
+const SEARCH_SUGGESTIONS = [
+  "Standard consult",
+  "Skin excision",
+  "Mental health",
+  "Chronic disease",
+  "Health assessment",
+];
+
+function SearchCarousel() {
+  const [idx, setIdx] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "exit" | "enter">("idle");
+
+  useEffect(() => {
+    const idleTimer = setTimeout(() => {
+      setPhase("exit");
+      const exitTimer = setTimeout(() => {
+        setIdx(i => (i + 1) % SEARCH_SUGGESTIONS.length);
+        setPhase("enter");
+        const enterTimer = setTimeout(() => setPhase("idle"), 350);
+        return () => clearTimeout(enterTimer);
+      }, 350);
+      return () => clearTimeout(exitTimer);
+    }, 3000);
+    return () => clearTimeout(idleTimer);
+  }, [idx]);
+
+  const style: React.CSSProperties = {
+    display: "inline-block",
+    transition: "transform 350ms cubic-bezier(0.22,1,0.36,1), opacity 350ms ease",
+    transform: phase === "exit" ? "translateY(-14px)" : phase === "enter" ? "translateY(14px)" : "translateY(0)",
+    opacity: phase === "idle" ? 1 : 0,
+    willChange: "transform, opacity",
+  };
+
+  return (
+    <span className="flex items-center gap-0 text-slate-400 text-base pointer-events-none select-none">
+      <span className="text-slate-400">Search - &nbsp;</span>
+      <span className="overflow-hidden" style={{ height: "1.5em", display: "inline-flex", alignItems: "center" }}>
+        <span style={style}>{SEARCH_SUGGESTIONS[idx]}</span>
+      </span>
+    </span>
+  );
+}
+
+function BookmarkTooltip({ onDismiss, show }: { onDismiss: () => void; show: boolean }) {
+  return (
+    <div
+      className="pointer-events-auto"
+      style={{
+        position: "absolute",
+        top: "calc(100% + 10px)",
+        right: 0,
+        opacity: show ? 1 : 0,
+        transform: show ? "translateY(0)" : "translateY(-8px)",
+        transition: "opacity 380ms ease, transform 380ms ease",
+        zIndex: 100,
+        pointerEvents: show ? "auto" : "none",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: -5,
+          right: 20,
+          width: 10,
+          height: 10,
+          background: "#1e293b",
+          borderRadius: 2,
+          transform: "rotate(45deg)",
+        }}
+      />
+      <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 shadow-2xl flex items-start gap-2.5 max-w-[220px]">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-teal-400 mb-0.5 uppercase tracking-wide">New Feature</p>
+          <p className="text-[12px] leading-snug text-slate-200">
+            Tip: Access your saved billing items here.
+          </p>
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); onDismiss(); }}
+          className="flex-shrink-0 mt-0.5 text-slate-400 hover:text-white transition-colors"
+          aria-label="Dismiss tip"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function BillingPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading Billing Guide...</div>}>
@@ -53,6 +147,43 @@ function BillingContent() {
   const [customFee, setCustomFee] = useState<string>("");
   const [feeBuilderOpen, setFeeBuilderOpen] = useState(false);
   const [notesExpanded, setNotesExpanded] = useState(false);
+
+  // Search and Bookmarks State
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [savedItems, setSavedItems] = useState<string[]>(["23", "36", "721"]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Show tooltip after 1s
+    const t1 = setTimeout(() => setShowTooltip(true), 1000);
+    // Hide tooltip after 4s (visible for 3s)
+    const t2 = setTimeout(() => setShowTooltip(false), 4000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  const dismissTooltip = useCallback(() => setShowTooltip(false), []);
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, []);
+
+  const toggleSaved = useCallback((id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setSavedItems(prev => prev.includes(id) ? prev.filter(i => i !== id) : [id, ...prev]);
+  }, []);
 
   const selectedItemId = searchParams.get("item");
   const selectedItem = useMemo(() => {
@@ -72,8 +203,9 @@ function BillingContent() {
   // Memoize filtered items — avoid re-filtering on every render
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    if (!query) return mbsItems;
-    return mbsItems.filter(
+    const itemsToFilter = showBookmarks ? mbsItems.filter(i => savedItems.includes(i.id)) : mbsItems;
+    if (!query) return itemsToFilter;
+    return itemsToFilter.filter(
       (item) =>
         item.id.includes(query) ||
         item.humanTitle.toLowerCase().includes(query) ||
@@ -81,7 +213,11 @@ function BillingContent() {
         item.plainEnglish.toLowerCase().includes(query) ||
         item.searchTags.some((tag) => tag.toLowerCase().includes(query))
     );
-  }, [searchQuery]);
+  }, [searchQuery, showBookmarks, savedItems]);
+
+  const suggestions = searchQuery.trim().length > 0
+    ? mbsItems.filter(t => t.id.includes(searchQuery) || t.humanTitle.toLowerCase().includes(searchQuery.toLowerCase())).slice(0, 5)
+    : mbsItems.slice(0, 5);
 
   const handleSelectCard = useCallback((item: MBSItem) => {
     const params = new URLSearchParams(window.location.search);
@@ -118,25 +254,131 @@ function BillingContent() {
             exit="exit"
             className="space-y-5"
           >
-            {/* Search */}
-            <div className="relative glass dark:glass-strong rounded-2xl p-2 border border-slate-200/50 dark:border-slate-800/80 shadow-md">
-              <div className="relative flex items-center">
-                <Search className="absolute left-4 w-5 h-5 text-slate-400 dark:text-slate-500" />
+            {/* Smart Search Bar */}
+            <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-2">
+              <div
+                className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
+                  ? "border-teal-500 ring-2 ring-teal-500/20"
+                  : "border-slate-200 hover:border-slate-300"
+                  }`}
+              >
+                <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+
+                {!searchQuery && (
+                  <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
+                    <SearchCarousel />
+                  </span>
+                )}
+
                 <input
+                  ref={searchRef}
                   type="text"
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by item, condition, or keyword..."
-                  className="w-full pl-12 pr-10 py-3.5 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-base"
+                  onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => setShowSuggestions(true)}
+                  placeholder=""
+                  className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-slate-800 text-base z-10 relative"
                 />
+
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-4 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                    onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 z-10"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 )}
+              </div>
+
+              {/* Suggestion dropdown */}
+              {showSuggestions && (
+                <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+                  <div className="px-4 pt-3 pb-1">
+                    <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      {searchQuery ? "Matching Items" : "Suggested Items"}
+                    </p>
+                  </div>
+                  {suggestions.length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400">No billing items found.</div>
+                  ) : (
+                    <ul className="pb-2">
+                      {suggestions.map(t => (
+                        <li key={t.id}>
+                          <button
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              handleSelectCard(t);
+                              setShowSuggestions(false);
+                              setSearchQuery("");
+                            }}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group"
+                          >
+                            <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                                Item {t.id} - {t.humanTitle}
+                              </p>
+                              <p className="text-xs text-slate-400 dark:text-slate-500">{t.timeRange}</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 transition-colors" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Grid Header & Bookmarks Toggle */}
+            <div className="flex items-center justify-between mb-4 mt-8">
+              <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                <FileText className="w-3 h-3" />
+                {showBookmarks ? "Saved Billing Items" : "All Billing Items"}
+                {searchQuery && (
+                  <span className="ml-2 bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {filteredItems.length} result{filteredItems.length !== 1 ? "s" : ""}
+                  </span>
+                )}
+              </p>
+
+              <div className="flex items-center gap-2">
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Clear
+                  </button>
+                )}
+
+                <div className="relative">
+                  <button
+                    id="billing-bookmarks-btn"
+                    onClick={() => {
+                      setShowBookmarks(v => !v);
+                      dismissTooltip();
+                    }}
+                    className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 ${showBookmarks
+                      ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-teal-400 hover:text-teal-600"
+                      }`}
+                  >
+                    {showBookmarks ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                    Saved Items
+                    {savedItems.length > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                        }`}>
+                        {savedItems.length}
+                      </span>
+                    )}
+                  </button>
+                  <BookmarkTooltip onDismiss={dismissTooltip} show={showTooltip} />
+                </div>
               </div>
             </div>
 
@@ -144,22 +386,28 @@ function BillingContent() {
             {filteredItems.length === 0 && (
               <div className="glass rounded-3xl border border-slate-200/50 dark:border-slate-800/50 p-12 text-center max-w-lg mx-auto">
                 <Search className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">No Billing Items Found</h3>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">
+                  {showBookmarks ? "No bookmarks yet" : "No Billing Items Found"}
+                </h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  No results match &quot;{searchQuery}&quot;. Try other keywords or item numbers.
+                  {showBookmarks 
+                    ? "Bookmark billing items from the grid to save them here." 
+                    : `No results match "${searchQuery}". Try other keywords.`}
                 </p>
                 <button
-                  onClick={() => setSearchQuery("")}
+                  onClick={() => { setSearchQuery(""); setShowBookmarks(false); }}
                   className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-semibold hover:bg-teal-500 transition-colors"
                 >
-                  Clear Filter
+                  {showBookmarks ? "Browse All Items" : "Clear Filter"}
                 </button>
               </div>
             )}
 
             {/* Item Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredItems.map((item) => (
+              {filteredItems.map((item) => {
+                const isBookmarked = savedItems.includes(item.id);
+                return (
                 <motion.div
                   key={item.id}
                   variants={cardVariants}
@@ -168,9 +416,19 @@ function BillingContent() {
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={() => handleSelectCard(item)}
-                  className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                  className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group relative"
                 >
-                  <div>
+                  <button
+                    onClick={e => toggleSaved(item.id, e)}
+                    title={isBookmarked ? "Remove bookmark" : "Bookmark item"}
+                    className={`absolute top-4 right-4 z-10 p-1.5 rounded-xl transition-all duration-150 ${isBookmarked
+                      ? "text-teal-600 bg-teal-50 dark:bg-teal-500/10"
+                      : "text-slate-300 dark:text-slate-600 hover:text-teal-600 hover:bg-slate-50 dark:hover:bg-slate-800 opacity-0 group-hover:opacity-100"
+                      }`}
+                  >
+                    {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
+                  </button>
+                  <div className="pr-8">
                     <div className="flex justify-between items-center mb-3">
                       <span className="text-sm font-bold font-mono text-teal-600 dark:text-teal-400">
                         Item {item.id}
@@ -196,7 +454,8 @@ function BillingContent() {
                     </div>
                   </div>
                 </motion.div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
 

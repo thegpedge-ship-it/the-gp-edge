@@ -427,8 +427,14 @@ export default function ClinicalAutofillsPage() {
   const [showTooltip, setShowTooltip] = useState(false);
 
   useEffect(() => {
-    const t = setTimeout(() => setShowTooltip(true), 1000);
-    return () => clearTimeout(t);
+    // Show tooltip after 1s
+    const t1 = setTimeout(() => setShowTooltip(true), 1000);
+    // Hide tooltip after 4s (visible for 3s)
+    const t2 = setTimeout(() => setShowTooltip(false), 4000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
   }, []);
 
   const dismissTooltip = useCallback(() => {
@@ -455,12 +461,13 @@ export default function ClinicalAutofillsPage() {
     document.body.style.overflow = selectedTemplate ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
   }, [selectedTemplate]);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   // Quick Copy (outside modal)
-  const handleQuickCopy = useCallback((text: string) => {
+  const handleQuickCopy = useCallback((id: number, text: string) => {
     navigator.clipboard.writeText(text);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2500);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
   // Modal Copy
@@ -512,12 +519,11 @@ export default function ClinicalAutofillsPage() {
       {/* ── SMART COMMAND BAR ────────────────────────────────────────────────── */}
       <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-8">
         <div
-          className={`w-full h-14 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
+          className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
             ? "border-teal-500 ring-2 ring-teal-500/20"
             : "border-slate-200 hover:border-slate-300"
             }`}
-        >
-          <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+        >       <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
 
           {/* Animated placeholder — only shown when field is empty */}
           {!searchQuery && (
@@ -548,7 +554,7 @@ export default function ClinicalAutofillsPage() {
 
         {/* Suggestion dropdown */}
         {showSuggestions && (
-          <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
+          <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl overflow-hidden">
             <div className="px-4 pt-3 pb-1">
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">
                 {searchQuery ? "Matching Templates" : "Suggested Templates"}
@@ -567,13 +573,13 @@ export default function ClinicalAutofillsPage() {
                         setShowSuggestions(false);
                         setSearchQuery("");
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left group"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left group"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center flex-shrink-0">
+                      <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
                         <FileText className="w-4 h-4 text-slate-500" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate group-hover:text-teal-700 transition-colors">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
                           {t.title}
                         </p>
                         <p className="text-xs text-slate-400">{t.category}</p>
@@ -750,10 +756,23 @@ export default function ClinicalAutofillsPage() {
                     <p className="text-[11px] text-slate-400 font-medium">Updated {t.updated}</p>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={e => { e.stopPropagation(); handleQuickCopy(t.content); }}
-                        className="text-[12px] font-semibold text-slate-500 hover:text-teal-600 px-2 py-1 rounded-lg hover:bg-teal-50 transition-all flex items-center gap-1"
+                        onClick={e => { e.stopPropagation(); handleQuickCopy(t.id, t.content); }}
+                        className={`quick-copy-btn flex items-center justify-center gap-1.5 ${copiedId === t.id ? "is-copied" : ""}`}
                       >
-                        <Copy className="w-3.5 h-3.5" /> Quick Copy
+                        <span data-text-end="Copied!" data-text-initial="Copy to clipboard" className="qc-tooltip" />
+                        <span className="flex items-center gap-1.5 relative">
+                          <svg xmlSpace="preserve" viewBox="0 0 6.35 6.35" y={0} x={0} xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" className="qc-clipboard w-3.5 h-3.5">
+                            <g>
+                              <path fill="currentColor" d="M2.43.265c-.3 0-.548.236-.573.53h-.328a.74.74 0 0 0-.735.734v3.822a.74.74 0 0 0 .735.734H4.82a.74.74 0 0 0 .735-.734V1.529a.74.74 0 0 0-.735-.735h-.328a.58.58 0 0 0-.573-.53zm0 .529h1.49c.032 0 .049.017.049.049v.431c0 .032-.017.049-.049.049H2.43c-.032 0-.05-.017-.05-.049V.843c0-.032.018-.05.05-.05zm-.901.53h.328c.026.292.274.528.573.528h1.49a.58.58 0 0 0 .573-.529h.328a.2.2 0 0 1 .206.206v3.822a.2.2 0 0 1-.206.205H1.53a.2.2 0 0 1-.206-.205V1.529a.2.2 0 0 1 .206-.206z" />
+                            </g>
+                          </svg>
+                          <svg xmlSpace="preserve" viewBox="0 0 24 24" y={0} x={0} xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" className="qc-checkmark w-3.5 h-3.5">
+                            <g>
+                              <path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" />
+                            </g>
+                          </svg>
+                          <span className="text-[12px] font-semibold tracking-wide">Quick Copy</span>
+                        </span>
                       </button>
                       <button
                         onClick={e => { e.stopPropagation(); setSelectedTemplate(t); }}
@@ -849,7 +868,7 @@ export default function ClinicalAutofillsPage() {
             </div>
 
             {/* ③ SCROLLABLE CONTENT — min-h-0 is essential to confine it */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-7 pb-2 pt-3">
+            <div className="flex-1 min-h-0 overflow-y-auto px-7 pb-2 pt-3 custom-scrollbar">
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-inner">
                 <pre className="whitespace-pre-wrap font-mono text-[13px] text-slate-800 leading-relaxed">
                   {selectedTemplate.content}
@@ -858,18 +877,25 @@ export default function ClinicalAutofillsPage() {
             </div>
 
             {/* ④ PINNED COPY FOOTER — never scrolls */}
-            <div className="flex-shrink-0 px-7 py-4 bg-white border-t border-slate-100 flex justify-end">
+            <div className="flex-shrink-0 px-7 py-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 flex justify-end">
               <button
                 onClick={() => handleModalCopy(selectedTemplate.content)}
-                className={`flex items-center gap-2 py-3 px-7 rounded-xl font-bold text-[14px] shadow-md transition-all duration-200 ${modalCopied
-                  ? "bg-emerald-500 text-white scale-95"
-                  : "bg-teal-600 hover:bg-teal-700 text-white hover:shadow-lg"
-                  }`}
+                className={`btn-modal-copy flex items-center gap-2 px-4 py-2 font-semibold text-sm ${modalCopied ? 'is-copied' : ''}`}
               >
-                {modalCopied
-                  ? <><Check className="w-5 h-5" /> Copied!</>
-                  : <><Copy className="w-5 h-5" /> Copy</>
-                }
+                <span data-text-end="Copied!" data-text-initial="Copy to clipboard" className="modal-tooltip" />
+                <span className="flex items-center gap-2 relative">
+                  <svg xmlSpace="preserve" viewBox="0 0 6.35 6.35" height={16} width={16} xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" className="modal-clipboard">
+                    <g>
+                      <path fill="currentColor" d="M2.43.265c-.3 0-.548.236-.573.53h-.328a.74.74 0 0 0-.735.734v3.822a.74.74 0 0 0 .735.734H4.82a.74.74 0 0 0 .735-.734V1.529a.74.74 0 0 0-.735-.735h-.328a.58.58 0 0 0-.573-.53zm0 .529h1.49c.032 0 .049.017.049.049v.431c0 .032-.017.049-.049.049H2.43c-.032 0-.05-.017-.05-.049V.843c0-.032.018-.05.05-.05zm-.901.53h.328c.026.292.274.528.573.528h1.49a.58.58 0 0 0 .573-.529h.328a.2.2 0 0 1 .206.206v3.822a.2.2 0 0 1-.206.205H1.53a.2.2 0 0 1-.206-.205V1.529a.2.2 0 0 1 .206-.206z" />
+                    </g>
+                  </svg>
+                  <svg xmlSpace="preserve" viewBox="0 0 24 24" height={16} width={16} xmlnsXlink="http://www.w3.org/1999/xlink" version="1.1" xmlns="http://www.w3.org/2000/svg" className="modal-checkmark">
+                    <g>
+                      <path data-original="#000000" fill="currentColor" d="M9.707 19.121a.997.997 0 0 1-1.414 0l-5.646-5.647a1.5 1.5 0 0 1 0-2.121l.707-.707a1.5 1.5 0 0 1 2.121 0L9 14.171l9.525-9.525a1.5 1.5 0 0 1 2.121 0l.707.707a1.5 1.5 0 0 1 0 2.121z" />
+                    </g>
+                  </svg>
+                  Copy
+                </span>
               </button>
             </div>
           </div>
@@ -903,6 +929,173 @@ export default function ClinicalAutofillsPage() {
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+
+        /* QUICK COPY BUTTON STYLES */
+        .quick-copy-btn {
+          --button-bg: transparent;
+          --button-hover-bg: #f1f5f9;
+          --button-text-color: #64748b;
+          --button-hover-text-color: #0d9488;
+          --button-border-radius: 8px;
+          --button-outline-width: 1px;
+          --button-outline-color: #cbd5e1;
+          --tooltip-bg: #1e293b;
+          --toolptip-border-radius: 6px;
+          --tooltip-font-family: inherit;
+          --tooltip-font-size: 11px;
+          --tootip-text-color: #ffffff;
+          --tooltip-padding-x: 8px;
+          --tooltip-padding-y: 6px;
+          --tooltip-offset: 10px;
+          --tooltip-transition-duration: 0.2s;
+          box-sizing: border-box;
+          padding: 6px 10px;
+          border-radius: var(--button-border-radius);
+          background-color: var(--button-bg);
+          color: var(--button-text-color);
+          border: none;
+          cursor: pointer;
+          position: relative;
+          outline: none;
+          transition: all 0.2s ease;
+        }
+        .dark .quick-copy-btn {
+          --button-hover-bg: rgba(20,184,166,0.1);
+          --button-text-color: #94a3b8;
+          --button-hover-text-color: #58c1ae;
+          --tooltip-bg: #0f172a;
+          --tootip-text-color: #e2e8f0;
+        }
+        .qc-tooltip {
+          position: absolute;
+          opacity: 0;
+          visibility: hidden;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          white-space: nowrap;
+          font: var(--tooltip-font-size) var(--tooltip-font-family);
+          color: var(--tootip-text-color);
+          background: var(--tooltip-bg);
+          padding: var(--tooltip-padding-y) var(--tooltip-padding-x);
+          border-radius: var(--toolptip-border-radius);
+          pointer-events: none;
+          transition: all var(--tooltip-transition-duration) cubic-bezier(0.68, -0.55, 0.265, 1.55);
+          z-index: 50;
+        }
+        .qc-tooltip::before {
+          content: attr(data-text-initial);
+        }
+        .qc-tooltip::after {
+          content: "";
+          position: absolute;
+          bottom: calc(var(--tooltip-padding-y) / 2 * -1);
+          width: var(--tooltip-padding-y);
+          height: var(--tooltip-padding-y);
+          background: inherit;
+          left: 50%;
+          transform: translateX(-50%) rotate(45deg);
+          z-index: -999;
+          pointer-events: none;
+        }
+        .qc-checkmark {
+          display: none;
+        }
+        .quick-copy-btn:hover .qc-tooltip,
+        .quick-copy-btn.is-copied .qc-tooltip {
+          opacity: 1;
+          visibility: visible;
+          top: calc((100% + var(--tooltip-offset)) * -1);
+        }
+        .quick-copy-btn.is-copied .qc-tooltip::before {
+          content: attr(data-text-end);
+        }
+        .quick-copy-btn.is-copied .qc-clipboard {
+          display: none;
+        }
+        .quick-copy-btn.is-copied .qc-checkmark {
+          display: block;
+        }
+        .quick-copy-btn:hover,
+        .quick-copy-btn:focus {
+          background-color: var(--button-hover-bg);
+          color: var(--button-hover-text-color);
+        }
+        .quick-copy-btn:active {
+          outline: var(--button-outline-width) solid var(--button-outline-color);
+        }
+
+        /* MODAL COPY BUTTON STYLES */
+        .animated-modal-copy {
+          position: relative;
+          background-color: #f2f7fa;
+          width: 100px;
+          height: 30px;
+          border: none;
+          border-radius: 10px;
+          font-weight: 600;
+          cursor: pointer;
+          overflow: hidden;
+          transition-duration: 700ms;
+        }
+        .dark .animated-modal-copy {
+          background-color: #1e293b;
+        }
+        .animated-modal-copy span:first-child {
+          color: #0e418f;
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          white-space: nowrap;
+          transition-duration: 400ms;
+        }
+        .dark .animated-modal-copy span:first-child {
+          color: #5ac8b0;
+        }
+        .animated-modal-copy span:last-child {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          color: #b5ccf3;
+          font-weight: 700;
+          opacity: 0;
+          transform: translateY(100%) translateX(-50%);
+          height: 14px;
+          line-height: 13px;
+          transition-duration: 400ms;
+        }
+        .dark .animated-modal-copy span:last-child {
+          color: #2dd4bf;
+        }
+        .animated-modal-copy:focus {
+          background-color: #0e418f;
+          width: 120px;
+          height: 40px;
+          transition-delay: 100ms;
+          transition-duration: 500ms;
+        }
+        .dark .animated-modal-copy:focus {
+          background-color: #0f766e;
+        }
+        .animated-modal-copy:focus span:first-child {
+          transform: translateX(-50%) translateY(-150%);
+          opacity: 0;
+          transition-duration: 500ms;
+        }
+        .animated-modal-copy:focus span:last-child {
+          transform: translateX(-50%) translateY(-50%);
+          opacity: 1;
+          color: #ffffff;
+          transition-delay: 300ms;
+          transition-duration: 500ms;
+        }
+        .dark .animated-modal-copy:focus span:last-child {
+          color: #ffffff;
+        }
+        .animated-modal-copy:focus:not(:active) {
+          transition-duration: 900ms;
         }
       `}</style>
     </div>

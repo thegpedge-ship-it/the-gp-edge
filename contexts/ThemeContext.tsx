@@ -9,7 +9,7 @@ import {
   ReactNode,
 } from "react";
 
-export type Theme = "system" | "light" | "dark";
+export type Theme = "light" | "dark";
 
 interface ThemeContextValue {
   theme: Theme;
@@ -18,20 +18,19 @@ interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: "system",
+  theme: "light",
   resolvedTheme: "light",
   setTheme: () => {},
 });
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("light");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
   // Apply class to <html>
   const applyTheme = useCallback((t: Theme) => {
     const root = document.documentElement;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const isDark = t === "dark" || (t === "system" && prefersDark);
+    const isDark = t === "dark";
 
     root.classList.remove("dark", "light");
     if (isDark) root.classList.add("dark");
@@ -40,24 +39,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // On mount: read from localStorage
   useEffect(() => {
-    const saved = (localStorage.getItem("gpedge-theme") as Theme) || "system";
-    setThemeState(saved);
-    applyTheme(saved);
-
-    // Watch OS preference changes when on "system" mode
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      const current = (localStorage.getItem("gpedge-theme") as Theme) || "system";
-      if (current === "system") applyTheme("system");
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    let saved = localStorage.getItem("gpedge-theme-v2") as string;
+    if (saved !== "dark" && saved !== "light") {
+      saved = "light";
+      localStorage.setItem("gpedge-theme-v2", "light");
+    }
+    setThemeState(saved as Theme);
+    applyTheme(saved as Theme);
   }, [applyTheme]);
 
   const setTheme = useCallback(
     (t: Theme) => {
       setThemeState(t);
-      localStorage.setItem("gpedge-theme", t);
+      localStorage.setItem("gpedge-theme-v2", t);
       applyTheme(t);
     },
     [applyTheme]

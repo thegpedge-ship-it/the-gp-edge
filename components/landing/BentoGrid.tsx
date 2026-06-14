@@ -261,9 +261,9 @@ function MBSBillingCardInline() {
       className="col-span-12 sm:col-span-6 lg:col-span-5 relative bg-gradient-to-br from-teal-50 to-emerald-50/80 dark:from-[#1B212C] dark:to-[#1E2835] rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-teal-200/50 dark:border-[rgba(90,200,176,0.15)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-teal-300/60 dark:hover:border-[rgba(90,200,176,0.30)] active:scale-[0.99] transition-all duration-300"
     >
       {/* Decorative circles */}
-      <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-teal-200/30 rounded-full blur-2xl" />
-      <div className="absolute top-4 right-4 w-24 h-24 border border-teal-200/40 rounded-full" />
-      <div className="absolute top-10 right-10 w-14 h-14 border border-teal-200/30 rounded-full" />
+      <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-teal-200/30 rounded-full blur-2xl dark:opacity-0 transition-opacity" />
+      <div className="absolute top-4 right-4 w-24 h-24 border border-teal-200/40 rounded-full dark:opacity-0 transition-opacity" />
+      <div className="absolute top-10 right-10 w-14 h-14 border border-teal-200/30 rounded-full dark:opacity-0 transition-opacity" />
 
       <div className="relative z-10">
         <div className="flex items-center gap-2 mb-4">

@@ -147,7 +147,7 @@ export default function Sidebar() {
         <div
           onMouseEnter={onEnter}
           onMouseLeave={onLeave}
-          className="sidebar-card"
+          className="sidebar-card bg-white dark:bg-[#151922] border border-[#e8edf2] dark:border-white/10 shadow-[0_4px_24px_rgba(15,23,42,0.10)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
           style={{
             position:      "absolute",
             top:           GAP,
@@ -161,14 +161,10 @@ export default function Sidebar() {
         >
           <style>{`
             .sidebar-card {
-              background: #ffffff;
-              border: 1px solid #e8edf2;
-              box-shadow: 0 4px 24px rgba(15,23,42,0.10), 0 1px 4px rgba(15,23,42,0.05);
+              /* Relies on Tailwind classes for background, border, and shadow */
             }
             .dark .sidebar-card {
-              background: #151922;
-              border: 1px solid rgba(255,255,255,0.08);
-              box-shadow: 0 4px 24px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
+              /* Relies on Tailwind classes for background, border, and shadow */
             }
             .sidebar-sep {
               background: #e8edf2;
