@@ -33,6 +33,140 @@ function paletteClasses(status: QuestionStatus, isCurrent: boolean): string {
   }
 }
 
+/* Full-screen zoomable image viewer. Opens at the image's natural size
+   (capped to the viewport), supports wheel / button zoom and drag-to-pan. */
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const MIN = 1;
+  const MAX = 6;
+  const clamp = (v: number) => Math.min(MAX, Math.max(MIN, v));
+
+  const reset = useCallback(() => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  }, []);
+
+  const zoomBy = useCallback((delta: number) => {
+    setScale((s) => {
+      const next = clamp(s + delta);
+      if (next === 1) setOffset({ x: 0, y: 0 });
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "+" || e.key === "=") zoomBy(0.5);
+      else if (e.key === "-") zoomBy(-0.5);
+      else if (e.key === "0") reset();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, zoomBy, reset]);
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    zoomBy(e.deltaY < 0 ? 0.4 : -0.4);
+  };
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (scale <= 1) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: offset.x, baseY: offset.y };
+    setDragging(true);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return;
+    setOffset({
+      x: dragRef.current.baseX + (e.clientX - dragRef.current.startX),
+      y: dragRef.current.baseY + (e.clientY - dragRef.current.startY),
+    });
+  };
+
+  const endDrag = () => {
+    dragRef.current = null;
+    setDragging(false);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
+    >
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Controls */}
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+        <button
+          onClick={() => zoomBy(-0.5)}
+          title="Zoom out (-)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        </button>
+        <span className="min-w-[3.5rem] text-center text-[12px] font-semibold text-white tabular-nums">{Math.round(scale * 100)}%</span>
+        <button
+          onClick={() => zoomBy(0.5)}
+          title="Zoom in (+)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        </button>
+        <button
+          onClick={reset}
+          title="Reset (0)"
+          className="px-3 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition-colors"
+        >
+          Reset
+        </button>
+        <button
+          onClick={onClose}
+          title="Close (Esc)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        </button>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.96 }}
+        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className="relative max-w-[92vw] max-h-[88vh] overflow-hidden rounded-xl"
+        onWheel={onWheel}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt="Question illustration enlarged"
+          draggable={false}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onDoubleClick={() => (scale > 1 ? reset() : zoomBy(1))}
+          style={{
+            transform: `translate(${offset.x}px, ${offset.y}px) scale(${scale})`,
+            cursor: scale > 1 ? (dragging ? "grabbing" : "grab") : "zoom-in",
+            transition: dragging ? "none" : "transform 0.12s ease-out",
+          }}
+          className="block max-w-[92vw] max-h-[88vh] object-contain select-none touch-none"
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function TestPage() {
   const router = useRouter();
   const { testId } = useParams<{ testId: string }>();
@@ -46,6 +180,7 @@ export default function TestPage() {
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
   const [timeLeft, setTimeLeft] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const submittedRef = useRef(false);
 
@@ -64,6 +199,11 @@ export default function TestPage() {
     }
     setConfig(resolveTestConfig(testId));
   }, [testId, router]);
+
+  /* Close the image lightbox whenever the question changes */
+  useEffect(() => {
+    setLightboxOpen(false);
+  }, [current]);
 
   /* Fetch questions once the test is resolved */
   useEffect(() => {
@@ -257,12 +397,28 @@ export default function TestPage() {
                 </p>
 
                 {question.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={question.image}
-                    alt="Question illustration"
-                    className="mt-4 max-h-64 rounded-xl border border-slate-200 dark:border-slate-700 object-contain"
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setLightboxOpen(true)}
+                    title="Click to enlarge and zoom"
+                    className="group relative mt-4 block w-fit rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={question.image}
+                      alt="Question illustration"
+                      className="max-h-64 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
+                    />
+                    <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                        <circle cx="11" cy="11" r="7" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="11" y1="8" x2="11" y2="14" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                      </svg>
+                      Click to zoom
+                    </span>
+                  </button>
                 )}
 
                 <div className="mt-6 space-y-3">
@@ -419,6 +575,13 @@ export default function TestPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Question image lightbox ────────────────────────────────── */}
+      <AnimatePresence>
+        {lightboxOpen && question.image && (
+          <ImageLightbox src={question.image} onClose={() => setLightboxOpen(false)} />
         )}
       </AnimatePresence>
     </div>
