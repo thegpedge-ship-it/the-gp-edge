@@ -3,6 +3,7 @@
 import { motion, animate } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { useAuth } from "@clerk/nextjs";
 
 // Scroll-aware logo — only visible at top of the hero section
 function HeroCornerLogo() {
@@ -25,9 +26,9 @@ function HeroCornerLogo() {
       <Image
         src="/assets/logo.png"
         alt="The GP Edge"
-        width={96}
-        height={96}
-        className="h-24 w-24 object-contain rounded-3xl"
+        width={64}
+        height={64}
+        className="h-16 w-16 object-contain rounded-2xl"
         priority
       />
     </div>
@@ -170,6 +171,8 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
 }
 
 export default function Hero() {
+  const { isSignedIn } = useAuth();
+
   return (
     <section className="relative flex items-center overflow-hidden min-h-screen pb-8 lg:pb-10">
       {/* Logo pinned to top-left, only visible before scroll */}
@@ -200,7 +203,9 @@ export default function Hero() {
         <div className="absolute bottom-[10%] -left-[100px] w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/60 to-teal-100/40 rounded-full blur-[80px]" />
       </div>
 
-      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 sm:pt-32 lg:pt-36 pb-16 lg:pb-20">
+      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 lg:pb-20 ${
+        isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
+      }`}>
         <motion.div
           variants={containerVariants}
           initial="hidden"

@@ -26,6 +26,11 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,6 +43,10 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
   const isHomePage = pathname === "/";
   const showNavbarLogo = !isHomePage || isScrolled;
+
+  if (!mounted) {
+    return null;
+  }
 
   // Hide the navbar on all admin pages and on test-taking pages (instructions + live test)
   if (pathname?.startsWith("/admin") || pathname?.startsWith("/test/")) {

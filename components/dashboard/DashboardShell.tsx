@@ -42,7 +42,14 @@ const DashboardInner = memo(function DashboardInner({
 
   return (
     <div className={`min-h-screen ${bgClassName}`}>
-      <Header variant="static" />
+      <div
+        style={{
+          marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
+          transition: ready ? MARGIN_TRANSITION : "none",
+        }}
+      >
+        <Header variant="static" />
+      </div>
 
       {/* Fixed sidebar — suppressed on pages that opt out (e.g. the landing/home page) */}
       {!hideSidebar && (
