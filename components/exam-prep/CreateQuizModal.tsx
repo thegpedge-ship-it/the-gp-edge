@@ -10,9 +10,9 @@ import {
   saveCustomTestConfig,
 } from "@/lib/testSession";
 
-/* Custom quizzes always run a random subset of this many questions, drawn
-   from the pool of selected subtopics (or fewer if not that many exist). */
-const QUIZ_SIZE = 50;
+/* Default question count when the modal opens — the user can change it,
+   but it is always clamped to the pool of selected subtopics. */
+const DEFAULT_QUIZ_SIZE = 50;
 
 /* ─── Green theme (matches SubjectMenu) ───────────────────────────────── */
 const theme = {
@@ -47,12 +47,14 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
 
   const [activeSubject, setActiveSubject] = useState<Subject | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [desiredCount, setDesiredCount] = useState(DEFAULT_QUIZ_SIZE);
 
   // Reset selection each time the modal opens fresh
   useEffect(() => {
     if (open) {
       setSelected(new Set());
       setActiveSubject(null);
+      setDesiredCount(DEFAULT_QUIZ_SIZE);
     }
   }, [open]);
 
@@ -65,6 +67,16 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Lock background scroll while the modal is open
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   /* ── Selection helpers ── */
   const toggleSubtopic = (id: string) => {
@@ -105,7 +117,11 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
     [selected, byId],
   );
   const totalQuestions = selectedList.reduce((sum, e) => sum + e.questionCount, 0);
-  const quizQuestionCount = Math.min(QUIZ_SIZE, totalQuestions); // random subset, capped at 50
+  // User-chosen count, always clamped to the available pool (and ≥ 1 when any topic is picked).
+  const quizQuestionCount =
+    totalQuestions === 0 ? 0 : Math.min(Math.max(1, desiredCount), totalQuestions);
+  // Exam time scales with the quiz size: 1.5 minutes per question.
+  const durationMinutes = Math.max(5, Math.ceil(quizQuestionCount * 1.5));
   const everythingSelected = selected.size === entries.length && entries.length > 0;
 
   /* ── Start ── */
@@ -118,7 +134,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
     saveCustomTestConfig({
       name,
       questionCount: quizQuestionCount,
-      durationMinutes: Math.max(5, quizQuestionCount), // ~1 min per question
+      durationMinutes,
     });
     onClose();
     router.push(buildInstructionsUrl("custom"));
@@ -142,7 +158,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
             role="dialog"
             aria-modal="true"
             aria-label="Create Your Own Quiz"
-            className="relative w-[92vw] lg:w-[60vw] h-[80vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
+            className="relative w-[92vw] lg:w-[60vw] h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -181,7 +197,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                 className={`border-r border-slate-200/60 dark:border-slate-700/40 overflow-y-auto overflow-x-hidden scrollbar-hide transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   activeSubject ? "flex-shrink-0" : "flex-1"
                 }`}
-                style={activeSubject ? { width: 100 } : undefined}
+                style={activeSubject ? { width: 160 } : undefined}
               >
                 <div
                   onClick={activeSubject ? () => setActiveSubject(null) : undefined}
@@ -207,7 +223,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                       >
                         {isActive && <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${theme.dot}`} />}
                         <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? theme.dot : "bg-slate-300 dark:bg-slate-600"}`} />
-                        <span className={`text-[13px] truncate flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
+                        <span className={`text-[12px] truncate flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                           {subject.name}
                         </span>
                         {count > 0 && (
@@ -266,7 +282,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                               </svg>
                             )}
                           </span>
-                          <span className={`text-[13px] truncate flex-shrink min-w-0 ${isSelected ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
+                          <span className={`text-[12px] truncate flex-shrink min-w-0 ${isSelected ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                             {st.name}
                           </span>
                           <span className="ml-auto flex-shrink-0 text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{st.questionCount} Qs</span>
@@ -298,7 +314,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                   selectedList.map((e) => (
                     <span
                       key={e.subtopicId}
-                      className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/40 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
+                      className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
                     >
                       <span className="truncate max-w-[180px]">{e.subtopicName}</span>
                       <button
@@ -317,19 +333,47 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
             </div>
 
             {/* ── Footer ── */}
-            <div className="flex-shrink-0 flex items-center justify-between gap-4 px-5 py-4 border-t border-slate-200/60 dark:border-slate-700/40">
-              <div className="text-[12px] text-slate-500 dark:text-slate-400">
-                <span className="font-bold text-slate-700 dark:text-slate-200">{selectedList.length}</span> topics ·{" "}
-                random quiz of <span className="font-bold text-slate-700 dark:text-slate-200">{quizQuestionCount}</span>{" "}
-                question{quizQuestionCount === 1 ? "" : "s"}
-                {totalQuestions > QUIZ_SIZE && (
-                  <span className="text-slate-400 dark:text-slate-500"> (from {totalQuestions} available)</span>
-                )}
+            <div className="flex-shrink-0 flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-5 py-4 border-t border-slate-200/60 dark:border-slate-700/40">
+              {/* Question count picker */}
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="flex flex-col gap-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Questions</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                      {totalQuestions > 0 ? `max ${totalQuestions}` : "select topics"}
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.max(1, totalQuestions)}
+                    value={totalQuestions === 0 ? "" : quizQuestionCount}
+                    disabled={totalQuestions === 0}
+                    placeholder="0"
+                    onChange={(e) => setDesiredCount(Number(e.target.value))}
+                    onBlur={(e) => {
+                      const n = Number(e.target.value);
+                      if (!n || n < 1) setDesiredCount(1);
+                      else if (n > totalQuestions) setDesiredCount(totalQuestions);
+                    }}
+                    className="w-40 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[12px] font-bold text-slate-800 dark:text-slate-100 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  />
+                </div>
+
+                <div className="hidden sm:block w-px self-stretch bg-slate-200 dark:bg-slate-700/60" />
+
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Time</span>
+                  <span className="text-[15px] font-bold text-slate-700 dark:text-slate-200 tabular-nums mt-0.5">
+                    {quizQuestionCount > 0 ? `${durationMinutes} min` : "—"}
+                  </span>
+                </div>
               </div>
+
               <button
                 onClick={startQuiz}
                 disabled={selectedList.length === 0}
-                className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
+                className={`flex-shrink-0 px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
                   selectedList.length === 0
                     ? "bg-slate-200 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
                     : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"

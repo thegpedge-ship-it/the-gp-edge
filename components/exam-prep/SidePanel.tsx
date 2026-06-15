@@ -74,12 +74,10 @@ export default function SidePanel() {
       {/* ─── 2. Create Your Own Quiz ───────────────────────────── */}
       <div
         onClick={() => setCreateQuizOpen(true)}
-        className="glass dark:glass-strong rounded-2xl border border-slate-200/50 dark:border-slate-700/40 shadow-md overflow-hidden flex-shrink-0 px-4 py-3 cursor-pointer"
+        className="rounded-2xl overflow-hidden flex-shrink-0 px-5 py-3.5 cursor-pointer bg-white dark:bg-slate-900 border border-dashed border-emerald-700 dark:border-emerald-600 shadow-sm hover:shadow-md hover:border-emerald-800 dark:hover:border-emerald-500 transition-all duration-300"
       >
-        <div>
-          <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">Create Your Own Quiz</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">Pick your topics, set your rules.</p>
-        </div>
+        <h3 className="text-[14px] font-bold text-slate-900 dark:text-slate-100 leading-snug">Create Your Own Quiz</h3>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Pick your topics, set your rules.</p>
       </div>
 
       {/* ─── 3. Mock Drill ─────────────────────────────────────── */}
