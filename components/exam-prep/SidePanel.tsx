@@ -12,11 +12,11 @@ import MockTestsModal from "./MockTestsModal";
 import CreateQuizModal from "./CreateQuizModal";
 
 /* ─── Summary Stat ────────────────────────────────────────────────────── */
-function Stat({ value, label }: { value: string; label: string }) {
+function Stat({ value, label, onDark = false }: { value: string; label: string; onDark?: boolean }) {
   return (
     <div className="flex flex-col items-center flex-1">
-      <span className="font-sans text-xl md:text-2xl font-bold tracking-tighter text-slate-800 dark:text-slate-100 leading-none">{value}</span>
-      <span className="font-sans text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-1.5">{label}</span>
+      <span className={`font-sans text-xl md:text-2xl font-bold tracking-tighter leading-none ${onDark ? "text-white" : "text-slate-800 dark:text-slate-100"}`}>{value}</span>
+      <span className={`font-sans text-[9px] font-bold uppercase tracking-wider mt-1.5 ${onDark ? "text-slate-400" : "text-slate-400 dark:text-slate-500"}`}>{label}</span>
     </div>
   );
 }
@@ -44,28 +44,33 @@ export default function SidePanel() {
   return (
     <div className="flex flex-col gap-4 h-full">
 
-      {/* ─── 1. Upcoming Mock Exam — Hero Card ─────────────────── */}
-      <div className="relative glass dark:glass-strong rounded-2xl p-4 border border-emerald-400 dark:border-emerald-600 shadow-lg overflow-hidden group flex-shrink-0">
-        {/* Decorative circles */}
-        <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-emerald-400/10 dark:bg-emerald-500/5 group-hover:scale-110 transition-transform duration-700" />
-        <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-green-400/10 dark:bg-green-500/5 group-hover:scale-110 transition-transform duration-700" />
+      {/* ─── 1. Mock Tests — Premium Hero Card ─────────────────── */}
+      <div className="relative rounded-2xl p-5 overflow-hidden flex-shrink-0 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/50 ring-1 ring-emerald-500/10 shadow-xl shadow-slate-900/[0.07]">
+        {/* Hairline emerald accent along the top edge */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
         <div className="relative">
-          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-800 dark:text-slate-100 mb-0.5">Mock Tests</h3>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-3">Full AKT simulations under exam conditions</p>
+          {/* Eyebrow */}
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Exam Simulation</span>
+          </div>
+
+          <h3 className="font-sans text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">Mock Tests</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-4">Full AKT simulations under exam conditions</p>
 
           {/* Summary stats */}
-          <div className="flex items-stretch gap-2 mb-4 px-2 py-3 rounded-xl bg-white/50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/40">
+          <div className="flex items-stretch gap-2 mb-4 px-2 py-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-800/30">
             <Stat value={String(mockTests.length)} label="Tests" />
-            <div className="w-px bg-slate-200 dark:bg-slate-700/60" />
+            <div className="w-px bg-emerald-200/70 dark:bg-emerald-800/40" />
             <Stat value={String(completedMocks.length)} label="Done" />
-            <div className="w-px bg-slate-200 dark:bg-slate-700/60" />
+            <div className="w-px bg-emerald-200/70 dark:bg-emerald-800/40" />
             <Stat value={`${avgScore}%`} label="Avg" />
           </div>
 
           <button
             onClick={() => setMockTestsOpen(true)}
-            className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
+            className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-lg shadow-emerald-600/25 hover:bg-emerald-500 hover:-translate-y-0.5 transition-all duration-300"
           >
             View Mock Tests &rarr;
           </button>
