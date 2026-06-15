@@ -64,8 +64,8 @@ export default function SubjectMenu() {
     <div className="flex flex-col h-full">
       {/* Title */}
       <div className="mb-4 pl-4 sm:pl-6 mt-1">
-        <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-100">Medical Subjects</h1>
-        <p className="font-sans text-base font-normal leading-relaxed text-slate-500 dark:text-slate-400 mt-1">Master every topic, drill your weak areas, and pass with confidence.</p>
+        <h1 className="font-serif text-[1.5rem] md:text-[1.8rem] lg:text-[2.4rem] font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-100">Exam Preparation</h1>
+        <p className="font-sans text-sm font-normal leading-relaxed text-slate-500 dark:text-slate-400 mt-1">Master every topic, drill your weak areas, and pass with confidence.</p>
       </div>
 
       {/* ─── 3-Column Vertical Menu ───────────────────────────────────── */}

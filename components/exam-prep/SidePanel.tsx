@@ -50,12 +50,6 @@ export default function SidePanel() {
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
         <div className="relative">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">Exam Simulation</span>
-          </div>
-
           <h3 className="font-sans text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">Mock Tests</h3>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mb-4">Full AKT simulations under exam conditions</p>
 
