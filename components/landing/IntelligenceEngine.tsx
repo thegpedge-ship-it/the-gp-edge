@@ -326,12 +326,20 @@ export default function IntelligenceEngine() {
   const [highlightFeatures, setHighlightFeatures] = useState(false);
 
   return (
-    <section className="py-24 lg:py-32 bg-slate-50 dark:bg-slate-950 relative overflow-hidden transition-colors duration-300">
-      {/* Subtle teal radial gradient */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-teal-100/40 dark:from-teal-950/20 via-teal-50/20 dark:via-transparent to-transparent rounded-full blur-[120px] pointer-events-none" />
+    <section className="py-24 lg:py-32 bg-slate-50 dark:bg-transparent relative overflow-hidden transition-colors duration-300">
+      {/* Light: subtle teal radial gradient — hidden in dark */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-teal-100/40 via-teal-50/20 to-transparent rounded-full blur-[120px] pointer-events-none dark:hidden" />
 
-      {/* Dot grid pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] dark:bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
+      {/* Light: Dot grid pattern — hidden in dark */}
+      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
+
+      {/* Dark: very subtle radial accent near top (matches hero feel) */}
+      <div
+        className="absolute inset-0 hidden dark:block pointer-events-none"
+        style={{
+          background: `radial-gradient(ellipse 60% 40% at 50% 0%, rgba(90,200,176,0.05) 0%, transparent 70%)`,
+        }}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
@@ -342,7 +350,7 @@ export default function IntelligenceEngine() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-900/60 text-teal-700 dark:text-teal-400 text-xs font-semibold mb-6">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/60 dark:border-[rgba(90,200,176,0.18)] text-teal-700 dark:text-[#5AC8B0] text-xs font-semibold mb-6">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
@@ -350,12 +358,12 @@ export default function IntelligenceEngine() {
               Adaptive Intelligence
             </span>
             
-            <h2 className="font-sans text-3xl lg:text-[2.75rem] font-bold text-slate-900 dark:text-white mb-5 leading-[1.1] tracking-[-0.02em]">
+            <h2 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 dark:text-[#F5F7FA] mb-5">
               Gets smarter the more you use it
             </h2>
             
-            <p className="text-slate-600 dark:text-slate-400 text-base lg:text-lg leading-relaxed mb-10">
-              The GP Edge learns your <span className="text-teal-600 dark:text-teal-400 font-medium">cognitive style</span>, tracks <span className="text-teal-600 dark:text-teal-400 font-medium">knowledge gaps</span>, and adapts every session. The closer you get to exam day, the sharper your prep becomes.
+            <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-[#A8B1BD] mb-10">
+              The GP Edge learns your <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">cognitive style</span>, tracks <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">knowledge gaps</span>, and adapts every session. The closer you get to exam day, the sharper your prep becomes.
             </p>
 
             {/* Feature pills - 2x2 grid */}
@@ -374,19 +382,19 @@ export default function IntelligenceEngine() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: 0.2 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
-                    className={`px-4 py-3.5 rounded-xl bg-white dark:bg-slate-900 border cursor-pointer active:scale-[0.98] transition-all duration-300 ${
+                    className={`px-4 py-3.5 rounded-xl bg-white dark:bg-[#1B212C] border cursor-pointer active:scale-[0.98] transition-all duration-300 ${
                       isHighlighted
-                        ? "border-teal-400 dark:border-teal-500 shadow-[0_0_15px_rgba(20,184,166,0.35)] dark:shadow-[0_0_20px_rgba(20,184,166,0.45)] scale-[1.02]"
-                        : "border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-teal-200 dark:hover:border-teal-700"
+                        ? "border-teal-400 dark:border-[rgba(90,200,176,0.5)] shadow-[0_0_15px_rgba(20,184,166,0.35)] dark:shadow-[0_0_20px_rgba(90,200,176,0.15)] scale-[1.02]"
+                        : "border-slate-200 dark:border-[rgba(255,255,255,0.08)] shadow-sm hover:shadow-md hover:border-teal-200 dark:hover:border-[rgba(90,200,176,0.3)]"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-lg bg-teal-50 dark:bg-teal-950/40 flex items-center justify-center flex-shrink-0">
+                      <div className="w-11 h-11 rounded-lg bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] flex items-center justify-center flex-shrink-0">
                         {featureIcons[feature.label as keyof typeof featureIcons]}
                       </div>
                       <div>
-                        <div className="text-slate-900 dark:text-white text-sm font-semibold">{feature.label}</div>
-                        <div className="text-slate-500 dark:text-slate-400 text-xs">{feature.description}</div>
+                        <div className="text-slate-900 dark:text-[#F5F7FA] text-sm font-semibold">{feature.label}</div>
+                        <div className="text-slate-500 dark:text-[#7D8795] text-xs">{feature.description}</div>
                       </div>
                     </div>
                   </motion.div>

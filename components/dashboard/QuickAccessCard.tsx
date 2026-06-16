@@ -1,4 +1,5 @@
 import { memo } from "react";
+import Link from "next/link";
 import { quickAccess } from "./data";
 
 /**
@@ -17,9 +18,17 @@ const QuickAccessCard = memo(function QuickAccessCard() {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {quickAccess.map((q) => (
-          <a
+          <Link
             key={q.key}
-            href="#"
+            href={
+              q.key === "mbs"
+                ? "/dashboard/billing"
+                : q.key === "conditions"
+                ? "/dashboard/medical-library"
+                : q.key === "autofills"
+                ? "/dashboard/tools"
+                : "/dashboard/profile"
+            }
             className="group relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 min-h-[78px] flex flex-col justify-center hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
           >
             <div className="pr-9">
@@ -38,7 +47,7 @@ const QuickAccessCard = memo(function QuickAccessCard() {
 
             {/* Hover underline accent */}
             <span className="absolute bottom-0 left-0 h-[3px] w-0 bg-gradient-to-r from-emerald-400 to-teal-500 group-hover:w-full transition-all duration-300" />
-          </a>
+          </Link>
         ))}
       </div>
     </div>

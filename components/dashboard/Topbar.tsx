@@ -18,10 +18,9 @@ export default function Topbar() {
       <div className="relative flex items-center justify-between gap-6">
         <div className="flex-1 min-w-0 max-w-xl">
           <p className="inline-flex items-center gap-2 text-[14px] text-slate-600 dark:text-slate-300 font-medium mb-1">
-            <span className="text-xl">{greeting.emoji}</span>
             {greeting.salutation}
           </p>
-          <h1 className="font-serif text-4xl lg:text-5xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
             {greeting.title}{" "}
             <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">
               {greeting.highlight}

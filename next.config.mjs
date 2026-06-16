@@ -1,13 +1,24 @@
-/** @type {import('next').NextConfig} */
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
 const nextConfig = {
   reactStrictMode: true,
+  outputFileTracingRoot: path.resolve(__dirname),
 
-  /**
-   * optimizePackageImports — enables Next.js to tree-shake icons and motion imports
-   * more aggressively, reducing the initial JS bundle size.
-   * framer-motion: only the components actually used get bundled.
-   * lucide-react: only the specific icons imported get included.
-   */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "img.clerk.com",
+      },
+    ],
+  },
+
+  outputFileTracingRoot: path.resolve(__dirname),
+
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },

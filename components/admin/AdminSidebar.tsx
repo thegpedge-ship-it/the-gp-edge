@@ -33,17 +33,8 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Management",
+    title: "Content",
     items: [
-      {
-        label: "Users",
-        href: "/admin/users",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        ),
-      },
       {
         label: "Questions",
         href: "/admin/questions",
@@ -83,37 +74,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "Intelligence",
-    items: [
-      {
-        label: "Analytics",
-        href: "/admin/analytics",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Adaptive",
-        href: "/admin/adaptive",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        ),
-      },
-    ],
-  },
-  {
     title: "Operations",
     items: [
       {
-        label: "Uploads",
-        href: "/admin/uploads",
+        label: "Users",
+        href: "/admin/users",
         icon: (
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
         ),
       },
@@ -175,25 +143,39 @@ const navGroups: NavGroup[] = [
 interface AdminSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
-export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
+export default function AdminSidebar({
+  collapsed,
+  onToggle,
+  mobileOpen,
+  onMobileClose,
+  onMouseEnter,
+  onMouseLeave,
+}: AdminSidebarProps) {
   const pathname = usePathname();
 
   return (
-    <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed left-0 top-0 bottom-0 z-40 bg-white/80 backdrop-blur-xl border-r border-slate-200/60 flex flex-col overflow-hidden shadow-sm"
+    <aside
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`fixed left-0 top-0 bottom-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px] lg:flex ${mobileOpen ? "flex" : "hidden"}`}
     >
       {/* Logo area */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-200/50 flex-shrink-0 bg-white/40">
-        <Link href="/admin/dashboard" className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-center h-16 px-4 border-b border-slate-200/50 dark:border-slate-800/50 flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
+        <Link href="/admin/dashboard" className="flex items-center gap-2.5 min-w-0" onClick={onMobileClose}>
           <div className="relative w-9 h-9 flex-shrink-0 shadow-sm rounded-xl overflow-hidden ring-1 ring-black/5">
             <Image
               src="/assets/logo.png"
               alt="The GP Edge"
               fill
+              sizes="36px"
               className="rounded-xl object-contain"
               priority
             />
@@ -207,9 +189,9 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
                 transition={{ duration: 0.2 }}
                 className="flex items-baseline whitespace-nowrap"
               >
-                <span className="font-light text-slate-400 text-sm">The</span>
-                <span className="font-extrabold text-slate-900 tracking-tight ml-1 text-sm">GP</span>
-                <span className="font-medium text-slate-700 ml-1 text-sm">Edge</span>
+                <span className="font-light text-slate-400 dark:text-slate-500 text-sm">The</span>
+                <span className="font-extrabold text-slate-900 dark:text-slate-200 tracking-tight ml-1 text-sm">GP</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300 ml-1 text-sm">Edge</span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -242,19 +224,16 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={onMobileClose}
                     className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 border border-transparent ${
                       isActive
-                        ? "bg-teal-50/70 border-teal-100/60 text-teal-600 shadow-sm shadow-teal-500/5"
-                        : "text-slate-500 hover:text-slate-900 hover:bg-slate-50/80"
-                    } ${collapsed ? "justify-center" : ""}`}
+                        ? "bg-teal-50/70 border-teal-100/60 text-teal-600 dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 shadow-sm shadow-teal-500/5"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50/80 dark:hover:bg-slate-800/80"
+                    } ${collapsed ? "lg:justify-center" : ""}`}
                   >
                     {/* Active indicator */}
                     {isActive && (
-                      <motion.div
-                        layoutId="sidebar-active"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-teal-500 rounded-r-full"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
+                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-teal-500 rounded-r-full" />
                     )}
 
                     <span className={`flex-shrink-0 ${isActive ? "text-teal-500" : "text-slate-400 group-hover:text-slate-600"}`}>
@@ -269,7 +248,7 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
                           exit={{ opacity: 0, x: -8 }}
                           transition={{ duration: 0.15 }}
                           className={`text-sm font-semibold whitespace-nowrap ${
-                            isActive ? "text-teal-600" : "text-slate-600 group-hover:text-slate-900"
+                            isActive ? "text-teal-600 dark:text-teal-400" : "text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
                           }`}
                         >
                           {item.label}
@@ -292,10 +271,24 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
       </nav>
 
       {/* Collapse toggle */}
-      <div className="flex-shrink-0 border-t border-slate-200/50 p-3 bg-white/40">
+      <div className="flex-shrink-0 border-t border-slate-200/50 dark:border-slate-800/50 p-3 bg-white/40 dark:bg-slate-900/40">
+        {/* Environment tag */}
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-center gap-1.5 mb-2 px-2"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide">v2.1 · Production</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <button
           onClick={onToggle}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-50 border border-transparent transition-all duration-200"
+          className="w-full lg:flex hidden items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent transition-all duration-200"
         >
           <motion.svg
             animate={{ rotate: collapsed ? 180 : 0 }}
@@ -321,6 +314,6 @@ export default function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps)
           </AnimatePresence>
         </button>
       </div>
-    </motion.aside>
+    </aside>
   );
 }

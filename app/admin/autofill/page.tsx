@@ -1,346 +1,437 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
+
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import CustomSelect from "@/components/admin/CustomSelect";
+import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
+import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
+import { addUserNotification } from "@/utils/notifications";
+import {
+  themeBorder,
+  themeBtnGhost,
+  themeBtnPrimary,
+  themeLabel,
+  themeInput,
+} from "@/lib/adminTheme";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-interface AutofillTemplate {
-  id: number;
-  name: string;
-  category: string;
-  system: string;
-  fields: number;
-  usageCount: number;
-  lastUsed: string;
-  status: "active" | "draft" | "suspended";
-  author: string;
-  version: string;
-}
 
-const mockTemplates: AutofillTemplate[] = [
-  { id: 1, name: "URTI Assessment", category: "Acute", system: "Respiratory", fields: 12, usageCount: 2340, lastUsed: "2 mins ago", status: "active", author: "Dr. Arun Mehta", version: "v3.1" },
-  { id: 2, name: "Type 2 Diabetes Review", category: "Chronic", system: "Endocrine", fields: 18, usageCount: 1876, lastUsed: "15 mins ago", status: "active", author: "Siddhant Udavant", version: "v2.4" },
-  { id: 3, name: "Mental Health Assessment", category: "Mental Health", system: "Psychiatry", fields: 22, usageCount: 1543, lastUsed: "1 hour ago", status: "active", author: "Jessica Park", version: "v4.0" },
-  { id: 4, name: "Skin Check Template", category: "Screening", system: "Dermatology", fields: 8, usageCount: 987, lastUsed: "3 hours ago", status: "active", author: "Dr. Arun Mehta", version: "v1.2" },
-  { id: 5, name: "Antenatal Visit", category: "Obstetrics", system: "Women's Health", fields: 24, usageCount: 654, lastUsed: "5 hours ago", status: "active", author: "Siddhant Udavant", version: "v2.0" },
-  { id: 6, name: "Paediatric Well Child Check", category: "Screening", system: "Paediatrics", fields: 16, usageCount: 432, lastUsed: "1 day ago", status: "active", author: "Dr. Arun Mehta", version: "v1.8" },
-  { id: 7, name: "Hypertension Review", category: "Chronic", system: "Cardiovascular", fields: 14, usageCount: 876, lastUsed: "2 hours ago", status: "active", author: "Siddhant Udavant", version: "v3.2" },
-  { id: 8, name: "GORD Assessment", category: "GI", system: "Gastroenterology", fields: 10, usageCount: 345, lastUsed: "1 day ago", status: "draft", author: "Jessica Park", version: "v1.0" },
-  { id: 9, name: "Lower Back Pain", category: "MSK", system: "Musculoskeletal", fields: 15, usageCount: 567, lastUsed: "6 hours ago", status: "active", author: "Dr. Arun Mehta", version: "v2.1" },
-  { id: 10, name: "MBS 721 — GPMP Template", category: "Billing", system: "MBS", fields: 20, usageCount: 198, lastUsed: "2 days ago", status: "draft", author: "Jessica Park", version: "v0.9" },
-];
-
-const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "Date Picker", "Numeric", "Calculated"];
 
 type ViewMode = "grid" | "table";
 
 /* ---------- System color mapping ---------- */
 const systemColors: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
-  Respiratory: { bg: "bg-teal-50", text: "text-teal-600", border: "border-teal-100", gradient: "from-teal-500 to-emerald-500" },
-  Endocrine: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", gradient: "from-emerald-500 to-green-500" },
-  Psychiatry: { bg: "bg-green-50", text: "text-green-600", border: "border-green-100", gradient: "from-green-500 to-teal-500" },
-  Dermatology: { bg: "bg-slate-100", text: "text-slate-700", border: "border-slate-200", gradient: "from-slate-500 to-slate-600" },
-  "Women's Health": { bg: "bg-teal-50/50", text: "text-teal-700", border: "border-teal-100/50", gradient: "from-teal-600 to-slate-500" },
-  Paediatrics: { bg: "bg-emerald-50/50", text: "text-emerald-700", border: "border-emerald-100/50", gradient: "from-emerald-500 to-slate-500" },
-  Cardiovascular: { bg: "bg-green-50/50", text: "text-green-700", border: "border-green-100/50", gradient: "from-green-600 to-teal-600" },
-  Gastroenterology: { bg: "bg-emerald-50", text: "text-emerald-600", border: "border-emerald-100", gradient: "from-emerald-500 to-teal-600" },
-  Musculoskeletal: { bg: "bg-teal-50", text: "text-teal-600", border: "border-teal-100", gradient: "from-teal-500 to-emerald-600" },
-  MBS: { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-200", gradient: "from-slate-500 to-slate-700" },
+  Respiratory: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Endocrine: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Psychiatry: { bg: "bg-teal-50/40 dark:bg-teal-950/10", text: "text-teal-600", border: "border-teal-100/50 dark:border-teal-900/20", gradient: "from-teal-800 to-teal-900" },
+  Dermatology: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  "Women's Health": { bg: "bg-teal-50/50 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/50 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Paediatrics: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Cardiovascular: { bg: "bg-teal-50/60 dark:bg-teal-950/25", text: "text-teal-600", border: "border-teal-100/60 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Gastroenterology: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  Musculoskeletal: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
+  MBS: { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100/70 dark:border-teal-900/30", gradient: "from-teal-800 to-teal-900" },
 };
-const defaultSystemColor = { bg: "bg-slate-50", text: "text-slate-600", border: "border-slate-100", gradient: "from-teal-500 to-emerald-600" };
+const defaultSystemColor = { bg: "bg-teal-50/60 dark:bg-teal-950/20", text: "text-teal-600", border: "border-teal-100 dark:border-teal-900/20", gradient: "from-teal-800 to-teal-900" };
 
-/* ---------- Mini field-type icons (just generic stacked bars) ---------- */
-const fieldTypeIcons: Record<string, string> = {
-  Textarea: "M4 6h16M4 10h16M4 14h10",
-  Dropdown: "M8 9l4-4 4 4m0 6l-4 4-4-4",
-  Numeric: "M7 20l4-16m2 16l4-16M6 9h14M4 15h14",
-  Checkbox: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-  "Text Input": "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
-};
+const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "Date Picker", "Numeric", "Calculated"];
 
-/* ---------- Usage sparkline (fake) ---------- */
-function UsageBar({ count, max }: { count: number; max: number }) {
-  const pct = Math.min(100, (count / max) * 100);
-  return (
-    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-      <motion.div
-        className="h-full rounded-full bg-gradient-to-r from-teal-400 to-emerald-400"
-        initial={{ width: 0 }}
-        animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-      />
-    </div>
-  );
-}
+
 
 export default function AutofillPage() {
-  const [templates, setTemplates] = useState(mockTemplates);
+  const router = useRouter();
+  const [templates, setTemplates] = useState<AutofillTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedTemplate, setSelectedTemplate] = useState<AutofillTemplate | null>(null);
+
   const [showEditor, setShowEditor] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [newSystem, setNewSystem] = useState("Respiratory");
+  const [newCategory, setNewCategory] = useState("Acute");
+  const [newName, setNewName] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
+  const [savedTemplateId, setSavedTemplateId] = useState<number | null>(null);
+  const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
+
+  // SOAP extracted states for uploader fallback
+  const [extractedSubjective, setExtractedSubjective] = useState("");
+  const [extractedObjective, setExtractedObjective] = useState("");
+  const [extractedAssessment, setExtractedAssessment] = useState("");
+  const [extractedPlan, setExtractedPlan] = useState("");
+  const [extractedDoctorSummary, setExtractedDoctorSummary] = useState("");
+  const [extractedPatientResources, setExtractedPatientResources] = useState("");
+
+  // Wizard tab & ref
+  const [activeTab, setActiveTab] = useState<"manual" | "upload">("manual");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // PDF upload & text extraction states
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
+  const [uploadedFileName, setUploadedFileName] = useState("");
+  const [uploadedFileSize, setUploadedFileSize] = useState("");
+  const [uploadedFileType, setUploadedFileType] = useState("");
+  const [uploadedFilePreview, setUploadedFilePreview] = useState<"pdf" | "docx" | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [extractionProgress, setExtractionProgress] = useState(0);
+  const [extractionState, setExtractionState] = useState<"idle" | "extracting" | "success">("idle");
+  const [extractionLog, setExtractionLog] = useState("");
+  const [extractedData, setExtractedData] = useState<any>(null);
+
+  // Handle file selection and API call
+
+  // Handle file selection and API call
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    setSelectedFile(file);
+    setUploadedFileName(file.name);
+    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
+    setUploadedFileType(ext.toUpperCase());
+    setUploadedFilePreview(ext === "pdf" ? "pdf" : "docx");
+    setUploadState("uploading");
+    setUploadProgress(0);
+
+    const progressTimer = setInterval(() => {
+      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
+    }, 150);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "autofill");
+
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(progressTimer);
+      setUploadProgress(100);
+
+      const result = await res.json();
+      if (result.success) {
+        setExtractedData(result);
+        setUploadState("success");
+        // Auto-trigger extraction immediately — no manual button needed
+        runTextExtraction(result);
+      } else {
+        alert(result.error || "Failed to extract text from document");
+        setUploadState("idle");
+      }
+    } catch (err: any) {
+      clearInterval(progressTimer);
+      alert("Upload error: " + err.message);
+      setUploadState("idle");
+    }
+  };
+
+  // Run text extraction simulation
+  const runTextExtraction = (data?: any) => {
+    setExtractionState("extracting");
+    setExtractionProgress(0);
+    setExtractionLog("Opening document stream...");
+    
+    setTimeout(() => {
+      setExtractionProgress(25);
+      setExtractionLog("Extracting raw text from pages...");
+    }, 300);
+
+    setTimeout(() => {
+      setExtractionProgress(55);
+      setExtractionLog("Identifying clinical sections...");
+    }, 600);
+
+    setTimeout(() => {
+      setExtractionProgress(85);
+      setExtractionLog("Mapping fields...");
+    }, 900);
+
+    setTimeout(() => {
+      setExtractionProgress(100);
+      setExtractionState("success");
+      setExtractionLog("Extraction complete!");
+      
+      const activeData = data || extractedData;
+      const title = activeData?.title || "Extracted Template";
+      const system = activeData?.system || "Respiratory";
+      const category = activeData?.category || "Acute";
+      const subjective = activeData?.symptoms || activeData?.subjective || "";
+      const objective = activeData?.objective || "";
+      const plan = activeData?.treatment || activeData?.plan || "";
+      const assessment = activeData?.notes || activeData?.assessment || "";
+      const doctorSummary = activeData?.doctorSummary || "";
+      const patientResources = activeData?.patientResources || "";
+
+      // Load templates and create a new one
+      const list = getAutofillTemplates();
+      const nextId = list.length > 0 ? Math.max(...list.map(t => t.id)) + 1 : 1;
+      const newTemplate: AutofillTemplate = {
+        id: nextId,
+        name: title,
+        system: system,
+        category: category,
+        fields: 0,
+        usageCount: 0,
+        lastUsed: "Just now",
+        status: "active",
+        author: "GP Edge Admin",
+        version: "v1.0",
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
+        sampleFields: []
+      };
+      
+      const updated = [newTemplate, ...list];
+      setTemplates(updated);
+      saveAutofillTemplates(updated);
+
+      // Reset extraction and upload states
+      setUploadState("idle");
+      setExtractionState("idle");
+      setSelectedFile(null);
+      setShowEditor(false);
+
+      // Notify and redirect to template editor!
+      addUserNotification("Template Extracted", `Successfully created "${title}" and opened it in the editor.`, 1, "custom");
+      router.push(`/admin/autofill/${nextId}/editor`);
+    }, 1200);
+  };
+
+  useEffect(() => {
+    setTemplates(getAutofillTemplates());
+  }, []);
+
+  const handleDeleteTemplate = (id: number) => {
+    if (!confirm("Delete this template? This cannot be undone.")) return;
+    const updated = templates.filter((t) => t.id !== id);
+    setTemplates(updated);
+    saveAutofillTemplates(updated);
+  };
+
+  const handleOpenEdit = (template: AutofillTemplate) => {    setEditingTemplateId(template.id);
+    setNewName(template.name);
+    setNewSystem(template.system);
+    setNewCategory(template.category);
+    setTempFields(template.sampleFields);
+    setShowEditor(true);
+  };
+
+  const handleSaveTemplate = () => {
+    if (!newName.trim()) {
+      alert("Please enter a template name.");
+      return;
+    }
+
+    let updatedTemplates: AutofillTemplate[];
+    if (editingTemplateId !== null) {
+      updatedTemplates = templates.map((t) =>
+        t.id === editingTemplateId
+          ? {
+              ...t,
+              name: newName,
+              system: newSystem,
+              category: newCategory,
+              fields: 0,
+              sampleFields: [],
+            }
+          : t
+      );
+    } else {
+      const newTemplate: AutofillTemplate = {
+        id: templates.length > 0 ? Math.max(...templates.map(t => t.id)) + 1 : 1,
+        name: newName,
+        system: newSystem,
+        category: newCategory,
+        fields: 0,
+        usageCount: 0,
+        lastUsed: "Just now",
+        status: "active",
+        author: "GP Edge Admin",
+        version: "v1.0",
+        subjective: extractedSubjective,
+        objective: extractedObjective,
+        assessment: extractedAssessment,
+        plan: extractedPlan,
+        doctorSummary: extractedDoctorSummary,
+        patientResources: extractedPatientResources,
+        sampleFields: []
+      };
+      updatedTemplates = [newTemplate, ...templates];
+    }
+
+    setTemplates(updatedTemplates);
+    saveAutofillTemplates(updatedTemplates);
+    // Track which template was saved so we can offer the editor link
+    const justSavedId = editingTemplateId !== null
+      ? editingTemplateId
+      : updatedTemplates[0]?.id ?? null;
+    setSavedTemplateId(justSavedId);
+    setShowEditor(false);
+    setEditingTemplateId(null);
+  };
+
+  const addField = (type: string) => {
+    const name = prompt(`Enter name for the ${type} field:`, `New ${type} Field`);
+    if (name === null) return;
+    const finalName = name.trim() || `New ${type} Field`;
+    setTempFields((prev) => [...prev, { name: finalName, type, required: true }]);
+  };
+
+  useEffect(() => {
+    if (showEditor) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [showEditor]);
 
   const filtered = templates.filter((t) => {
-    const matchSearch = t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchStatus = statusFilter === "all" || t.status === statusFilter;
-    return matchSearch && matchStatus;
+    return t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
   });
-
-  const totalUsage = templates.reduce((sum, t) => sum + t.usageCount, 0);
-  const maxUsage = Math.max(...templates.map((t) => t.usageCount));
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      {/* Header */}
-      <motion.div
-        variants={itemVariants}
-        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
-        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
-        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">Autofill Templates</h1>
-          <p className="text-sm text-teal-100 font-light">Manage consultation autofill templates and form builders</p>
-        </div>
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
-            <span className="text-xs font-semibold text-teal-200">{totalUsage.toLocaleString()} total uses</span>
-          </div>
-          {/* View Toggle */}
-          <div className="flex items-center bg-white/10 backdrop-blur-md rounded-xl p-1 gap-0.5 border border-white/10">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg transition-all ${viewMode === "grid" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
-              title="Card View"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`p-2 rounded-lg transition-all ${viewMode === "table" ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
-              title="Table View"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
-            </button>
-          </div>
-          <button onClick={() => setShowEditor(true)} className="px-4 py-2.5 bg-white text-sm font-semibold text-teal-800 rounded-full hover:bg-teal-50 transition-all shadow-sm flex items-center gap-2">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-            New Template
+      <AdminPageHeader
+        title="Autofill"
+        highlightedText="Templates"
+        subtitle="Manage consultation autofill templates and form builders"
+        actions={
+          <button 
+            onClick={() => {
+              setEditingTemplateId(null);
+              setNewName("");
+              setNewSystem("Respiratory");
+              setNewCategory("Acute");
+              setTempFields([]);
+              setShowEditor(true);
+            }}
+            className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none cursor-pointer"
+          >
+            <Lucide.Plus className="w-4 h-4" />
+            Add Template
           </button>
-        </div>
-      </motion.div>
+        }
+        variants={itemVariants}
+      />
 
       {/* Stats */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Active Templates", value: templates.filter((t) => t.status === "active").length, color: "text-teal-600", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
-          { label: "Total Fields", value: templates.reduce((sum, t) => sum + t.fields, 0), color: "text-green-600", icon: "M4 6h16M4 10h16M4 14h16M4 18h16" },
-          { label: "Total Usage", value: totalUsage.toLocaleString(), color: "text-emerald-600", icon: "M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" },
-          { label: "Avg Fields/Template", value: Math.round(templates.reduce((sum, t) => sum + t.fields, 0) / templates.length), color: "text-slate-600", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
-        ].map((s) => (
-          <div key={s.label} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 relative overflow-hidden group hover:shadow-lg hover:border-teal-200/60 hover:-translate-y-0.5 transition-all duration-300">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
-            <div className="relative z-10 flex items-start justify-between">
-              <div>
-                <p className={`text-2xl font-bold ${s.color} mb-0.5`}>{s.value}</p>
-                <p className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">{s.label}</p>
-              </div>
-              <div className={`p-2 rounded-xl bg-slate-50 ${s.color} opacity-40`}>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={s.icon} /></svg>
-              </div>
-            </div>
-          </div>
-        ))}
-      </motion.div>
+      {templates.length > 0 && (
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <AnalyticsCard
+            title="Total Templates"
+            percentage=""
+            data={templates.length.toString()}
+            progress={100}
+          />
+          <AnalyticsCard
+            title="Active Templates"
+            percentage=""
+            data={templates.filter(t => t.status === "active").length.toString()}
+            progress={Math.min(100, Math.round((templates.filter(t => t.status === "active").length / templates.length) * 100))}
+          />
+          <AnalyticsCard
+            title="Total Usage Count"
+            percentage=""
+            data={templates.reduce((sum, t) => sum + (t.usageCount || 0), 0).toString()}
+            progress={Math.min(100, Math.round((templates.reduce((sum, t) => sum + (t.usageCount || 0), 0) / 100) * 100))}
+          />
+        </motion.div>
+      )}
 
       {/* Filters */}
-      <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 max-w-sm">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input type="text" placeholder="Search templates..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white/80 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" />
+      <motion.div variants={itemVariants} className="flex items-center gap-3">
+        <div className="relative w-full max-w-sm">
+          <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input type="text" placeholder="Search templates..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700/60 dark:text-slate-100 transition-all" />
         </div>
-        {["all", "active", "draft", "suspended"].map((f) => (
-          <button key={f} onClick={() => setStatusFilter(f)} className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${statusFilter === f ? "bg-teal-50 text-teal-700 border-teal-200" : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"}`}>
-            {f.charAt(0).toUpperCase() + f.slice(1)}
-          </button>
-        ))}
       </motion.div>
 
       {/* ========== CARD GRID VIEW ========== */}
       {viewMode === "grid" && (
-        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((template, idx) => {
-            const sc = systemColors[template.system] || defaultSystemColor;
-            return (
-              <motion.div
-                key={template.id}
-                initial={{ opacity: 0, y: 16, scale: 0.97 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.45, delay: idx * 0.04, ease: [0.22, 1, 0.36, 1] }}
-                onClick={() => setSelectedTemplate(template)}
-                className="group relative bg-white/70 backdrop-blur-xl rounded-2xl border border-white/80 shadow-md shadow-slate-200/40 overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 hover:border-teal-200/60 hover:-translate-y-1 transition-all duration-300"
-              >
-                {/* Gradient header with system color */}
-                <div className={`relative bg-gradient-to-r ${sc.gradient} px-5 py-4`}>
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.1)_1px,transparent_0)] bg-[size:12px_12px] pointer-events-none" />
-                  <div className="relative z-10 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-white leading-snug">{template.name}</p>
-                      <p className="text-[11px] text-white/70 mt-1">{template.system} · {template.category}</p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1.5">
-                      <StatusBadge variant={template.status} />
-                      <span className="text-[10px] font-mono text-white/60 bg-white/10 px-1.5 py-0.5 rounded">{template.version}</span>
-                    </div>
+        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((template) => (
+            <motion.div
+              key={template.id}
+              layout
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden relative group hover:shadow-md hover:border-teal-300/60 dark:hover:border-teal-800 transition-all duration-200 cursor-pointer"
+              onClick={() => router.push(`/admin/autofill/${template.id}`)}
+            >
+              <div className="p-5">
+
+                {/* Top row: category + status + timestamp */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 bg-transparent">
+                      {template.category}
+                    </span>
+                    <StatusBadge variant={template.status === "active" ? "published" : template.status === "suspended" ? "review" : "draft"} />
                   </div>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium shrink-0">{template.lastUsed}</span>
                 </div>
 
-                <div className="p-5">
-                  {/* Mini form-layout mockup */}
-                  <div className="mb-4 space-y-1.5">
-                    {[
-                      { w: "w-full", h: "h-2.5" },
-                      { w: "w-3/4", h: "h-2" },
-                      { w: "w-1/2", h: "h-2" },
-                      { w: "w-5/6", h: "h-2.5" },
-                    ].map((bar, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <div className={`w-1.5 h-1.5 rounded-full ${sc.bg.replace("50", "400")} flex-shrink-0`} style={{ backgroundColor: `var(--${sc.text.replace("text-", "").replace("-600", "")}-400, #94a3b8)` }} />
-                        <motion.div
-                          className={`${bar.h} rounded-full bg-slate-100`}
-                          style={{ width: "100%" }}
-                          initial={{ scaleX: 0 }}
-                          animate={{ scaleX: 1 }}
-                          transition={{ duration: 0.5, delay: 0.2 + i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                        >
-                          <div className={`h-full ${bar.w} rounded-full bg-slate-200/80`} />
-                        </motion.div>
-                      </div>
-                    ))}
-                  </div>
+                {/* Title + subtitle */}
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-0.5 leading-tight">{template.name}</h3>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{template.system}</p>
 
-                  {/* Metrics row */}
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-slate-50/80 rounded-xl p-2.5 text-center">
-                      <p className="text-sm font-bold text-slate-700">{template.fields}</p>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Fields</p>
-                    </div>
-                    <div className="bg-slate-50/80 rounded-xl p-2.5 text-center">
-                      <p className="text-sm font-bold text-slate-700">{template.usageCount.toLocaleString()}</p>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Uses</p>
-                    </div>
-                    <div className="bg-slate-50/80 rounded-xl p-2.5 text-center">
-                      <p className="text-[11px] font-semibold text-slate-600 leading-tight">{template.lastUsed}</p>
-                      <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Last</p>
-                    </div>
+                {/* Footer */}
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+                    <Lucide.Clock className="w-3 h-3" />
+                    <span>{template.lastUsed}</span>
                   </div>
-
-                  {/* Usage bar */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] uppercase tracking-wider text-slate-400 font-semibold">Popularity</span>
-                      <span className="text-[9px] text-slate-400">{Math.round((template.usageCount / maxUsage) * 100)}%</span>
-                    </div>
-                    <UsageBar count={template.usageCount} max={maxUsage} />
-                  </div>
-
-                  {/* Footer */}
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-100/60">
-                    <span className="text-[10px] text-slate-400 font-medium truncate">by {template.author}</span>
-                    <div className="flex items-center gap-1 opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setSelectedTemplate(template); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all"
-                        title="View Details"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all"
-                        title="Duplicate"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
-                        title="Edit"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
-                    </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/admin/autofill/${template.id}`); }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent"
+                      title="View Details"
+                    >
+                      <Lucide.Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleOpenEdit(template); }}
+                      className="p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent"
+                      title="Edit Template Info"
+                    >
+                      <Lucide.Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); router.push(`/admin/autofill/${template.id}/editor`); }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent"
+                      title="Template Editor"
+                    >
+                      <Lucide.FileEdit className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template.id); }}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent"
+                      title="Delete Template"
+                    >
+                      <Lucide.Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-      )}
-
-      {/* ========== TABLE VIEW ========== */}
-      {viewMode === "table" && (
-        <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
-          <div className="relative z-10 overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200/40">
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Template</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">System</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Fields</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Usage</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Last Used</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Version</th>
-                  <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-4 py-3">Status</th>
-                  <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map((t) => (
-                  <tr key={t.id} className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer" onClick={() => setSelectedTemplate(t)}>
-                    <td className="px-6 py-4">
-                      <p className="text-sm font-semibold text-slate-800">{t.name}</p>
-                      <p className="text-xs text-slate-400">{t.category} · by {t.author}</p>
-                    </td>
-                    <td className="px-4 py-4"><span className="text-sm text-slate-600">{t.system}</span></td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-1">
-                          {Array.from({ length: Math.min(t.fields, 5) }).map((_, i) => (
-                            <div key={i} className="w-2 h-2 rounded-full bg-teal-400 border border-white" />
-                          ))}
-                          {t.fields > 5 && <span className="text-[10px] text-slate-400 ml-1.5">+{t.fields - 5}</span>}
-                        </div>
-                        <span className="text-sm font-medium text-slate-700">{t.fields}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="text-sm font-semibold text-slate-700">{t.usageCount.toLocaleString()}</span>
-                    </td>
-                    <td className="px-4 py-4"><span className="text-sm text-slate-500">{t.lastUsed}</span></td>
-                    <td className="px-4 py-4"><span className="text-xs font-mono font-medium text-slate-500 bg-slate-50 px-2 py-1 rounded">{t.version}</span></td>
-                    <td className="px-4 py-4"><StatusBadge variant={t.status} /></td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                        <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all" title="Edit">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); }} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" title="Duplicate">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </motion.div>
+          ))}
         </motion.div>
       )}
 
@@ -351,105 +442,237 @@ export default function AutofillPage() {
         </div>
       )}
 
-      {/* Template detail slide-over */}
-      <AnimatePresence>
-        {selectedTemplate && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" onClick={() => setSelectedTemplate(null)} />
-            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white/95 backdrop-blur-2xl border-l border-white z-50 shadow-2xl overflow-y-auto">
-              <div className="p-6">
-                <button onClick={() => setSelectedTemplate(null)} className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
-                <div className="flex items-center gap-2 mb-2">
-                  <StatusBadge variant={selectedTemplate.status} />
-                  <span className="text-xs font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{selectedTemplate.version}</span>
-                </div>
-                <h2 className="font-serif text-xl text-slate-900 mb-1">{selectedTemplate.name}</h2>
-                <p className="text-sm text-slate-500 mb-6">{selectedTemplate.system} · {selectedTemplate.category} · by {selectedTemplate.author}</p>
-
-                <div className="grid grid-cols-3 gap-3 mb-6">
-                  <div className="bg-slate-50 rounded-xl p-3 text-center"><p className="text-xl font-serif text-teal-600">{selectedTemplate.fields}</p><p className="text-[10px] text-slate-400 font-medium">Fields</p></div>
-                  <div className="bg-slate-50 rounded-xl p-3 text-center"><p className="text-xl font-serif text-emerald-600">{selectedTemplate.usageCount.toLocaleString()}</p><p className="text-[10px] text-slate-400 font-medium">Uses</p></div>
-                  <div className="bg-slate-50 rounded-xl p-3 text-center"><p className="text-sm font-semibold text-slate-700 mt-1">{selectedTemplate.lastUsed}</p><p className="text-[10px] text-slate-400 font-medium">Last Used</p></div>
-                </div>
-
-                {/* Field preview */}
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Form Fields Preview</h3>
-                <div className="space-y-2 mb-6">
-                  {[
-                    { name: "Presenting Complaint", type: "Textarea", required: true },
-                    { name: "Duration of Symptoms", type: "Dropdown", required: true },
-                    { name: "Severity (1–10)", type: "Numeric", required: true },
-                    { name: "Associated Symptoms", type: "Checkbox", required: false },
-                    { name: "Medications Tried", type: "Text Input", required: false },
-                    { name: "Examination Findings", type: "Textarea", required: true },
-                  ].map((field, i) => (
-                    <div key={i} className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-xl border border-slate-100 group hover:border-teal-200 transition-all">
-                      <div className="flex items-center gap-3">
-                        <span className="w-6 h-6 rounded-lg bg-teal-100 text-teal-600 text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
-                        <div>
-                          <p className="text-sm font-medium text-slate-700">{field.name}</p>
-                          <p className="text-[10px] text-slate-400">{field.type}{field.required ? " · Required" : ""}</p>
-                        </div>
-                      </div>
-                      <svg className="w-4 h-4 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <button className="flex-1 px-4 py-2.5 bg-teal-500 text-sm font-semibold text-white rounded-xl hover:bg-teal-600 transition-all">Edit Template</button>
-                  <button className="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Export</button>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
       {/* Template builder modal */}
       <AnimatePresence>
         {showEditor && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50" onClick={() => setShowEditor(false)} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 30 }} className="fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 backdrop-blur-2xl border border-white rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div key="autofill-builder-modal-container" className="fixed inset-0 z-50 pointer-events-none">
+            <motion.div
+              key="autofill-builder-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm pointer-events-auto"
+              onClick={() => setShowEditor(false)}
+            />
+            <motion.div
+              key="autofill-builder-modal-content"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-x-4 top-[10%] mx-auto max-w-xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200 dark:border-slate-800 rounded-2xl z-50 shadow-2xl overflow-y-auto max-h-[80vh] pointer-events-auto text-slate-950 dark:text-slate-50"
+            >
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="font-serif text-xl font-normal text-slate-900 tracking-tight">New Autofill Template</h2>
-                  <button onClick={() => setShowEditor(false)} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-100">
+                    {editingTemplateId !== null ? "Edit Autofill Template" : "Add Autofill Template"}
+                  </h3>
+                  <button
+                    onClick={() => setShowEditor(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border-none outline-none bg-transparent cursor-pointer"
+                  >
+                    <Lucide.X className="w-5 h-5" />
                   </button>
                 </div>
-                <div className="space-y-4">
-                  <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Template Name</label><input type="text" className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all" placeholder="e.g. URTI Assessment" /></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">System</label><select className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600"><option>Respiratory</option><option>Cardiovascular</option><option>Endocrine</option><option>Psychiatry</option><option>Dermatology</option></select></div>
-                    <div><label className="block text-xs font-semibold text-slate-600 mb-1.5">Category</label><select className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 text-slate-600"><option>Acute</option><option>Chronic</option><option>Screening</option><option>Mental Health</option></select></div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1.5">Form Fields</label>
-                    <div className="border border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-teal-300 transition-colors cursor-pointer">
-                      <svg className="w-8 h-8 text-slate-300 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
-                      <p className="text-sm font-medium text-slate-500">Add form fields</p>
-                      <p className="text-xs text-slate-400 mt-1">Drag and drop or click to add fields</p>
-                      <div className="flex flex-wrap gap-1.5 justify-center mt-3">
-                        {fieldTypes.map((ft) => (
-                          <span key={ft} className="text-[10px] font-medium text-teal-600 bg-teal-50 px-2 py-1 rounded-full border border-teal-100 cursor-pointer hover:bg-teal-100 transition-all">{ft}</span>
-                        ))}
+                {/* Modal Tab Switcher */}
+                <div className="flex border-b border-slate-100 dark:border-slate-800 mb-5">
+                  <button
+                    onClick={() => setActiveTab("manual")}
+                    className={`flex-1 py-2 cursor-pointer text-center text-xs font-semibold border-b-2 transition-all border-none bg-transparent ${
+                      activeTab === "manual"
+                        ? "border-b-teal-700 text-teal-700 font-bold border-solid"
+                        : "border-b-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Manual Builder
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("upload")}
+                    className={`flex-1 py-2 cursor-pointer text-center text-xs font-semibold border-b-2 transition-all border-none bg-transparent ${
+                      activeTab === "upload"
+                        ? "border-b-teal-700 text-teal-700 font-bold border-solid"
+                        : "border-b-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    }`}
+                  >
+                    Import from Document (PDF/DOCX)
+                  </button>
+                </div>
+
+                {activeTab === "manual" ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Template Name</label>
+                      <input
+                        type="text"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
+                        placeholder="e.g. Acute Sore Throat"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
+                        <CustomSelect
+                          value={newSystem}
+                          onChange={setNewSystem}
+                          options={[
+                            { value: "Respiratory", label: "Respiratory" },
+                            { value: "Cardiovascular", label: "Cardiovascular" },
+                            { value: "Endocrine", label: "Endocrine" },
+                            { value: "Psychiatry", label: "Psychiatry" },
+                            { value: "Dermatology", label: "Dermatology" },
+                            { value: "Women's Health", label: "Women's Health" },
+                            { value: "Paediatrics", label: "Paediatrics" }
+                          ]}
+                          className="w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                        <CustomSelect
+                          value={newCategory}
+                          onChange={setNewCategory}
+                          options={[
+                            { value: "Acute", label: "Acute" },
+                            { value: "Chronic", label: "Chronic" },
+                            { value: "Screening", label: "Screening" },
+                            { value: "Mental Health", label: "Mental Health" },
+                          ]}
+                          className="w-full"
+                        />
                       </div>
                     </div>
+
+
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      <button onClick={() => setShowEditor(false)} className={`px-4 py-2.5 text-sm font-medium ${themeBtnGhost}`}>Cancel</button>
+                      <button onClick={handleSaveTemplate} className={`px-4 py-2.5 text-sm font-semibold ${themeBtnPrimary}`}>
+                        {editingTemplateId !== null ? "Save Changes" : "Create Template"}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => setShowEditor(false)} className="px-4 py-2.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">Cancel</button>
-                    <button onClick={() => setShowEditor(false)} className="px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-all shadow-sm shadow-teal-500/20">Create Template</button>
+                ) : (
+                  <div className="space-y-4">
+                    {/* PDF/DOCX dropzone / uploader */}
+                    {uploadState === "idle" && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const file = e.dataTransfer.files?.[0];
+                              if (file && fileInputRef.current) {
+                                const dt = new DataTransfer();
+                                dt.items.add(file);
+                                fileInputRef.current.files = dt.files;
+                                fileInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
+                              }
+                            }}
+                            className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-600 rounded-2xl p-8 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 transition-all flex flex-col items-center justify-center gap-2 group"
+                          >
+                            <input
+                              type="file"
+                              ref={fileInputRef}
+                              onChange={handleFileChange}
+                              accept=".pdf,.docx"
+                              className="hidden"
+                            />
+                            <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <Lucide.Upload className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drop PDF or DOCX here</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">or <span className="text-teal-600 font-semibold">click to browse</span> · Max 10MB</p>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {["PDF", "DOCX", "DOC"].map((t) => (
+                                <span key={t} className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* File preview card — shown immediately on file selection */}
+                        {selectedFile && (
+                          <div className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div className={`w-10 h-12 rounded-lg flex items-center justify-center shrink-0 text-[9px] font-black text-white ${uploadedFilePreview === "pdf" ? "bg-red-500" : "bg-blue-500"}`}>
+                              {uploadedFileType}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{uploadedFileName}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{uploadedFileSize} · Ready to upload</p>
+                            </div>
+                            <button
+                              onClick={() => { setSelectedFile(null); setUploadedFileName(""); setUploadedFilePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent"
+                              title="Remove file"
+                            >
+                              <Lucide.X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {uploadState === "uploading" && (
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-800 space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span className="text-slate-700 dark:text-slate-350 truncate max-w-[220px]">{uploadedFileName}</span>
+                          <span className="text-slate-400 font-mono">{uploadProgress}%</span>
+                        </div>
+                        
+                        <div className="flex h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-teal-700 transition-all" style={{ width: `${uploadProgress}%` }} />
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
+                      </div>
+                    )}
+
+                    {uploadState === "success" && (
+                      <div className="space-y-4">
+                        <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10 flex items-start gap-3 shadow-sm">
+                          <span className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center shrink-0">
+                            <Lucide.Check className="w-4 h-4 text-emerald-600 dark:text-emerald-450" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
+                            <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
+                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-650 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer border-none bg-transparent">Replace file</button>
+                          </div>
+                        </div>
+
+                        {extractionState === "extracting" && (
+                          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
+                              <span className="flex items-center gap-2">
+                                <Lucide.Loader className="w-3.5 h-3.5 text-teal-700 animate-spin" />
+                                <span>{extractionLog}</span>
+                              </span>
+                              <span className="font-mono text-teal-700 dark:text-teal-400">{extractionProgress}%</span>
+                            </div>
+                            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div className="h-full bg-teal-700 transition-all duration-300" style={{ width: `${extractionProgress}%` }} />
+                            </div>
+                          </div>
+                        )}
+
+
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </motion.div>
   );
 }
+

@@ -12,48 +12,12 @@ interface StatCardProps {
 }
 
 const accentMap = {
-  teal: {
-    bg: "bg-teal-50",
-    iconBg: "bg-teal-100",
-    iconText: "text-teal-600",
-    trendPositive: "text-teal-600 bg-teal-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
-  emerald: {
-    bg: "bg-emerald-50",
-    iconBg: "bg-emerald-100",
-    iconText: "text-emerald-600",
-    trendPositive: "text-emerald-600 bg-emerald-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
-  amber: {
-    bg: "bg-amber-50",
-    iconBg: "bg-amber-100",
-    iconText: "text-amber-600",
-    trendPositive: "text-emerald-600 bg-emerald-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
-  red: {
-    bg: "bg-red-50",
-    iconBg: "bg-red-100",
-    iconText: "text-red-600",
-    trendPositive: "text-emerald-600 bg-emerald-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
-  violet: {
-    bg: "bg-violet-50",
-    iconBg: "bg-violet-100",
-    iconText: "text-violet-600",
-    trendPositive: "text-emerald-600 bg-emerald-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
-  slate: {
-    bg: "bg-slate-50",
-    iconBg: "bg-slate-100",
-    iconText: "text-slate-600",
-    trendPositive: "text-emerald-600 bg-emerald-50",
-    trendNegative: "text-red-600 bg-red-50",
-  },
+  teal: { iconBg: "bg-teal-100 dark:bg-teal-500/20", iconText: "text-teal-600 dark:text-teal-400", bar: "from-teal-400 to-teal-500" },
+  emerald: { iconBg: "bg-emerald-100 dark:bg-emerald-500/20", iconText: "text-emerald-600 dark:text-emerald-400", bar: "from-emerald-400 to-emerald-500" },
+  amber: { iconBg: "bg-amber-100 dark:bg-amber-500/20", iconText: "text-amber-600 dark:text-amber-400", bar: "from-amber-400 to-amber-500" },
+  red: { iconBg: "bg-red-100 dark:bg-red-500/20", iconText: "text-red-600 dark:text-red-400", bar: "from-red-400 to-red-500" },
+  violet: { iconBg: "bg-violet-100 dark:bg-violet-500/20", iconText: "text-violet-600 dark:text-violet-400", bar: "from-violet-400 to-violet-500" },
+  slate: { iconBg: "bg-slate-100 dark:bg-slate-700", iconText: "text-slate-600 dark:text-slate-400", bar: "from-slate-400 to-slate-500" },
 };
 
 export default function StatCard({
@@ -71,18 +35,22 @@ export default function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-5 shadow-md shadow-slate-200/30 hover:shadow-lg hover:border-teal-200/60 transition-all duration-300 group relative overflow-hidden"
+      className="group relative overflow-hidden rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-[0_10px_30px_-8px_rgba(16,185,129,0.2)] transition-shadow duration-300 p-5"
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/10 pointer-events-none rounded-2xl" />
-      <div className="relative z-10">
+      {/* Left accent bar */}
+      <div className={`absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b ${colors.bar}`} />
+
+      <div className="relative pl-3">
         <div className="flex items-start justify-between mb-3">
-          <div className={`w-10 h-10 rounded-xl ${colors.iconBg} flex items-center justify-center ${colors.iconText} group-hover:scale-110 transition-transform duration-300`}>
+          <div className={`w-10 h-10 rounded-xl ${colors.iconBg} flex items-center justify-center ${colors.iconText}`}>
             {icon}
           </div>
           {trend && (
             <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
-                trend.positive ? colors.trendPositive : colors.trendNegative
+              className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                trend.positive
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+                  : "bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-400"
               }`}
             >
               <svg
@@ -97,34 +65,9 @@ export default function StatCard({
             </span>
           )}
         </div>
-        <p className="text-3xl font-normal text-slate-900 tracking-tight mb-0.5 font-serif leading-none">{value}</p>
-        <p className="text-sm font-semibold text-slate-500">{title}</p>
-        {subtitle && <p className="text-xs text-slate-400 mt-1">{subtitle}</p>}
-
-        {/* Accent bars copying the homepage Hero style */}
-        <div className="mt-4 flex items-center gap-1.5">
-          <div className={`h-1 rounded-full transition-all duration-500 group-hover:w-10 w-8 ${
-            accentColor === "teal" ? "bg-teal-500" :
-            accentColor === "emerald" ? "bg-emerald-500" :
-            accentColor === "amber" ? "bg-amber-500" :
-            accentColor === "red" ? "bg-red-500" :
-            accentColor === "violet" ? "bg-violet-500" : "bg-slate-400"
-          }`} />
-          <div className={`h-1 rounded-full w-4 ${
-            accentColor === "teal" ? "bg-teal-200" :
-            accentColor === "emerald" ? "bg-emerald-200" :
-            accentColor === "amber" ? "bg-amber-200" :
-            accentColor === "red" ? "bg-red-200" :
-            accentColor === "violet" ? "bg-violet-200" : "bg-slate-300"
-          }`} />
-          <div className={`h-1 rounded-full w-2 ${
-            accentColor === "teal" ? "bg-teal-100/70" :
-            accentColor === "emerald" ? "bg-emerald-100/70" :
-            accentColor === "amber" ? "bg-amber-100/70" :
-            accentColor === "red" ? "bg-red-100/70" :
-            accentColor === "violet" ? "bg-violet-100/70" : "bg-slate-200/70"
-          }`} />
-        </div>
+        <p className="font-serif text-[2rem] leading-none text-slate-900 dark:text-slate-50 tracking-tight mb-0.5 tabular-nums">{value}</p>
+        <p className="text-[13px] font-normal text-slate-500 dark:text-slate-400">{title}</p>
+        {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{subtitle}</p>}
       </div>
     </motion.div>
   );

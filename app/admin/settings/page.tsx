@@ -3,26 +3,28 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
-const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } } };
+const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
+const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 const featureFlags = [
-  { name: "Adaptive Engine V2", desc: "Next-generation adaptive learning algorithm with improved gap detection", enabled: true, tag: "Beta" },
-  { name: "New Quiz Interface", desc: "Redesigned quiz taking experience with progress sidebar", enabled: false, tag: "Alpha" },
-  { name: "Dark Mode", desc: "System-wide dark mode support for all pages", enabled: true, tag: "Stable" },
-  { name: "AI-Powered Rationale", desc: "Auto-generate question rationales using GPT-4", enabled: false, tag: "Experimental" },
-  { name: "Peer Comparison", desc: "Show students how they compare to peers in their cohort", enabled: true, tag: "Beta" },
-  { name: "Offline Mode", desc: "Allow quiz downloads for offline studying", enabled: false, tag: "Planned" },
+  { name: "Dark Mode", desc: "System-wide dark mode support across all pages", enabled: true, tag: "Stable" },
+  { name: "PDF Export", desc: "Export clinical templates and content as print-ready PDFs", enabled: true, tag: "Stable" },
+  { name: "Document Import (AI Extract)", desc: "Extract question and template data from uploaded PDF/DOCX files", enabled: true, tag: "Beta" },
+  { name: "New Quiz Interface", desc: "Redesigned quiz-taking experience with improved navigation", enabled: false, tag: "Alpha" },
+  { name: "Flowchart Builder", desc: "Visual flowchart editor inside the template content editor", enabled: true, tag: "Beta" },
+  { name: "Offline Mode", desc: "Allow content downloads for offline access on supported devices", enabled: false, tag: "Planned" },
 ];
 
 const scheduledJobs: { name: string; schedule: string; lastRun: string; nextRun: string; status: "active" | "suspended" }[] = [
   { name: "Daily Analytics Aggregation", schedule: "Every day at 2:00 AM", lastRun: "28 May 2026, 2:00 AM", nextRun: "29 May 2026, 2:00 AM", status: "active" as const },
-  { name: "Weekly Email Digest", schedule: "Every Monday at 9:00 AM", lastRun: "26 May 2026, 9:00 AM", nextRun: "2 Jun 2026, 9:00 AM", status: "active" as const },
-  { name: "Readiness Score Recalculation", schedule: "Every 6 hours", lastRun: "28 May 2026, 6:00 PM", nextRun: "29 May 2026, 12:00 AM", status: "active" as const },
-  { name: "Content Expiry Check", schedule: "Every day at 8:00 AM", lastRun: "28 May 2026, 8:00 AM", nextRun: "29 May 2026, 8:00 AM", status: "active" as const },
+  { name: "Weekly Billing Summary Email", schedule: "Every Monday at 9:00 AM", lastRun: "26 May 2026, 9:00 AM", nextRun: "2 Jun 2026, 9:00 AM", status: "active" as const },
+  { name: "Subscription Expiry Checker", schedule: "Every 6 hours", lastRun: "28 May 2026, 6:00 PM", nextRun: "29 May 2026, 12:00 AM", status: "active" as const },
+  { name: "Content Expiry & Review Check", schedule: "Every day at 8:00 AM", lastRun: "28 May 2026, 8:00 AM", nextRun: "29 May 2026, 8:00 AM", status: "active" as const },
   { name: "Search Index Rebuild", schedule: "Every 12 hours", lastRun: "28 May 2026, 10:00 PM", nextRun: "29 May 2026, 10:00 AM", status: "active" as const },
   { name: "Database Backup", schedule: "Every day at 3:00 AM", lastRun: "28 May 2026, 3:00 AM", nextRun: "29 May 2026, 3:00 AM", status: "active" as const },
+  { name: "Failed Payment Retry", schedule: "Every day at 7:00 AM", lastRun: "28 May 2026, 7:00 AM", nextRun: "29 May 2026, 7:00 AM", status: "active" as const },
 ];
 
 const tagColors: Record<string, string> = {
@@ -49,25 +51,15 @@ export default function SettingsPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <motion.div
+      <AdminPageHeader
+        title="System"
+        highlightedText="Settings"
+        subtitle="Feature flags, maintenance mode, and system controls"
         variants={itemVariants}
-        className="relative overflow-hidden bg-gradient-to-br from-teal-800 to-teal-950 text-white rounded-3xl p-8 shadow-xl shadow-teal-900/10 flex items-center justify-between gap-6 flex-wrap"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
-        <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/[0.04] rounded-full pointer-events-none" />
-        <div className="absolute right-20 -bottom-10 w-36 h-36 bg-white/[0.03] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <h1 className="font-serif text-2xl lg:text-3xl font-normal text-white tracking-tight leading-tight mb-1">System Settings</h1>
-          <p className="text-sm text-teal-100 font-light">Feature flags, maintenance mode, and system controls</p>
-        </div>
-        <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
-          <svg className="w-3.5 h-3.5 text-teal-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          <span className="text-xs font-semibold text-teal-200">6 flags active</span>
-        </div>
-      </motion.div>
+      />
 
       {/* Maintenance mode */}
-      <motion.div variants={itemVariants} className={`bg-white/60 backdrop-blur-xl rounded-2xl border p-6 shadow-md shadow-slate-200/30 transition-all relative overflow-hidden ${maintenanceMode ? "bg-amber-50/60 border-amber-200" : "border-white"}`}>
+      <motion.div variants={itemVariants} className={`bg-white/60 backdrop-blur-xl rounded-2xl border p-6 shadow-md shadow-slate-200/30 transition-all relative overflow-hidden ${maintenanceMode ? "bg-amber-50/60 border-amber-200" : "border-slate-100/80"}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/80 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-4">
@@ -94,7 +86,7 @@ export default function SettingsPage() {
       </motion.div>
 
       {/* Feature flags */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
+      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="px-6 py-4 border-b border-slate-200/40"><h3 className="text-sm font-bold text-slate-900">Feature Flags</h3></div>
@@ -120,7 +112,7 @@ export default function SettingsPage() {
       </motion.div>
 
       {/* Upload monitoring */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
+      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 p-6 shadow-md shadow-slate-200/30 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <h3 className="text-sm font-bold text-slate-900 mb-4">Upload Monitoring</h3>
@@ -138,7 +130,7 @@ export default function SettingsPage() {
             <div className="bg-white/40 border border-slate-100 rounded-xl p-4">
               <p className="text-xs text-slate-400 mb-1">Largest File</p>
               <p className="text-xl font-bold text-slate-900">45 MB</p>
-              <p className="text-xs text-slate-400">question_bank.csv</p>
+              <p className="text-xs text-slate-400">medical_library.pdf</p>
             </div>
           </div>
           <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -149,7 +141,7 @@ export default function SettingsPage() {
       </motion.div>
 
       {/* Scheduled jobs */}
-      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-slate-200/30 overflow-hidden relative">
+      <motion.div variants={itemVariants} className="bg-white/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 shadow-md shadow-slate-200/30 overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
         <div className="relative z-10">
           <div className="px-6 py-4 border-b border-slate-200/40"><h3 className="text-sm font-bold text-slate-900">Scheduled Jobs</h3></div>

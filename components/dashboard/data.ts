@@ -130,7 +130,7 @@ export const stats = [
 ];
 
 export const greeting = {
-  emoji: "👋",
+  emoji: "",
   salutation: "Good morning, Sarah!",
   title: "Your study",
   highlight: "cockpit",
@@ -156,13 +156,58 @@ export const continueSession = {
 };
 
 export const performance = [
-  { subject: "Cardiology", mastery: 84, change: 6, color: "emerald" as const },
-  { subject: "Respiratory", mastery: 71, change: 3, color: "cyan" as const },
-  { subject: "Endocrinology", mastery: 68, change: -2, color: "violet" as const },
-  { subject: "Mental Health", mastery: 59, change: 8, color: "amber" as const },
-  { subject: "Paediatrics", mastery: 54, change: 1, color: "emerald" as const },
-  { subject: "Dermatology", mastery: 47, change: -4, color: "violet" as const },
+  { subject: "Cardiology", mastery: 84, change: 6, color: "emerald" as const, correct: 42, incorrect: 6, unattempted: 2 },
+  { subject: "Respiratory", mastery: 71, change: 3, color: "cyan" as const, correct: 32, incorrect: 10, unattempted: 3 },
+  { subject: "Endocrinology", mastery: 68, change: -2, color: "violet" as const, correct: 27, incorrect: 9, unattempted: 4 },
+  { subject: "Mental Health", mastery: 59, change: 8, color: "amber" as const, correct: 23, incorrect: 12, unattempted: 4 },
+  { subject: "Paediatrics", mastery: 54, change: 1, color: "emerald" as const, correct: 19, incorrect: 13, unattempted: 3 },
+  { subject: "Dermatology", mastery: 47, change: -4, color: "violet" as const, correct: 14, incorrect: 11, unattempted: 5 },
 ];
+
+export const subjectTestBreakdown: Record<string, { test: string; correct: number; incorrect: number; unattempted: number }[]> = {
+  Cardiology: [
+    { test: "Mock 1", correct: 7, incorrect: 2, unattempted: 1 },
+    { test: "Mock 2", correct: 8, incorrect: 1, unattempted: 1 },
+    { test: "Mock 3", correct: 9, incorrect: 1, unattempted: 0 },
+    { test: "Mock 4", correct: 9, incorrect: 1, unattempted: 0 },
+    { test: "Mock 5", correct: 9, incorrect: 1, unattempted: 0 },
+  ],
+  Respiratory: [
+    { test: "Mock 1", correct: 5, incorrect: 3, unattempted: 2 },
+    { test: "Mock 2", correct: 6, incorrect: 3, unattempted: 1 },
+    { test: "Mock 3", correct: 7, incorrect: 2, unattempted: 1 },
+    { test: "Mock 4", correct: 7, incorrect: 3, unattempted: 0 },
+    { test: "Mock 5", correct: 7, incorrect: 2, unattempted: 1 },
+  ],
+  Endocrinology: [
+    { test: "Mock 1", correct: 4, incorrect: 3, unattempted: 1 },
+    { test: "Mock 2", correct: 5, incorrect: 2, unattempted: 1 },
+    { test: "Mock 3", correct: 6, incorrect: 2, unattempted: 2 },
+    { test: "Mock 4", correct: 6, incorrect: 3, unattempted: 1 },
+    { test: "Mock 5", correct: 6, incorrect: 2, unattempted: 1 },
+  ],
+  "Mental Health": [
+    { test: "Mock 1", correct: 3, incorrect: 4, unattempted: 1 },
+    { test: "Mock 2", correct: 4, incorrect: 3, unattempted: 1 },
+    { test: "Mock 3", correct: 5, incorrect: 3, unattempted: 2 },
+    { test: "Mock 4", correct: 5, incorrect: 4, unattempted: 1 },
+    { test: "Mock 5", correct: 6, incorrect: 2, unattempted: 1 },
+  ],
+  Paediatrics: [
+    { test: "Mock 1", correct: 3, incorrect: 4, unattempted: 1 },
+    { test: "Mock 2", correct: 3, incorrect: 3, unattempted: 2 },
+    { test: "Mock 3", correct: 4, incorrect: 3, unattempted: 1 },
+    { test: "Mock 4", correct: 5, incorrect: 3, unattempted: 1 },
+    { test: "Mock 5", correct: 4, incorrect: 3, unattempted: 1 },
+  ],
+  Dermatology: [
+    { test: "Mock 1", correct: 2, incorrect: 3, unattempted: 2 },
+    { test: "Mock 2", correct: 2, incorrect: 4, unattempted: 1 },
+    { test: "Mock 3", correct: 3, incorrect: 3, unattempted: 2 },
+    { test: "Mock 4", correct: 3, incorrect: 3, unattempted: 1 },
+    { test: "Mock 5", correct: 4, incorrect: 2, unattempted: 2 },
+  ],
+};
 
 export const upcomingExam = {
   name: "AKT Mock Exam — Block 4",
@@ -188,12 +233,23 @@ export const weeklyProgress = {
   ],
 };
 
-export const accuracyTrend = {
-  current: 78.4,
-  delta: 2.1,
-  points: [62, 65, 64, 68, 71, 70, 73, 75, 74, 76, 78, 78.4],
-  labels: ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "Now"],
-};
+export const mockExamScores = [
+  { date: "12 Jan 2026", score: 58 },
+  { date: "26 Jan 2026", score: 62 },
+  { date: "09 Feb 2026", score: 61 },
+  { date: "23 Feb 2026", score: 65 },
+  { date: "09 Mar 2026", score: 68 },
+  { date: "23 Mar 2026", score: 66 },
+  { date: "06 Apr 2026", score: 71 },
+  { date: "20 Apr 2026", score: 73 },
+  { date: "04 May 2026", score: 72 },
+  { date: "18 May 2026", score: 75 },
+  { date: "01 Jun 2026", score: 78 },
+  { date: "15 Jun 2026", score: 74 },
+  { date: "29 Jun 2026", score: 80 },
+  { date: "13 Jul 2026", score: 82 },
+  { date: "27 Jul 2026", score: 85 },
+];
 
 export const weakTopics = [
   { name: "Dermatology — pigmented lesions", accuracy: 41, attempts: 28 },

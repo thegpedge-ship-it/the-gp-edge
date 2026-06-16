@@ -7,9 +7,7 @@
 
 /* ─── Platform Animation Tokens ──────────────────────────────────────────────
  * All animations use the same cubic-bezier easing for a coherent, premium feel.
- * Never use linear or ease-in-out for UI transitions — they feel mechanical.
- *
- * --transition-page  : Route-level content fade-in (handled by PageTransition)
+ * --transition-page  : Route-level content fade-in
  * --transition-enter : Component-level entrances (cards, modals, drawers)
  * --transition-fast  : Micro-interactions (hover states, active states)
  * ─────────────────────────────────────────────────────────────────────────── */
@@ -19,6 +17,67 @@
                        transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
   --transition-enter:  all 320ms cubic-bezier(0.22, 1, 0.36, 1);
   --transition-fast:   all 150ms ease;
+
+  /* ── Light Mode Tokens ─────────────────────────────────────── */
+  --bg-page:        #f8fafc;
+  --bg-surface:     #ffffff;
+  --bg-subtle:      #f1f5f9;
+  --text-primary:   #0f172a;
+  --text-secondary: #475569;
+  --text-muted:     #94a3b8;
+  --border:         rgba(0,0,0,0.07);
+  --accent:         #0d9488;
+  --accent-soft:    rgba(13,148,136,0.1);
+  --shadow-sm:      0 1px 3px rgba(0,0,0,0.06);
+  --shadow-md:      0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   REFINED DARK THEME — GP Edge Premium Edition
+   Inspired by: Linear, Notion Dark, Stripe Dashboard, Apple Pro
+   Main bg: #0F1115 · Cards: #1B212C · Sections: #151922 · Accent: #5AC8B0
+   ═══════════════════════════════════════════════════════════════════ */
+.dark {
+  /* Backgrounds — layered depth, not flat black */
+  --bg-page:        #0F1115;
+  --bg-section:     #151922;
+  --bg-surface:     #1B212C;
+  --bg-elevated:    #222A36;
+  --bg-subtle:      #151922;
+
+  /* Text — clear hierarchy, no neon */
+  --text-primary:   #F5F7FA;
+  --text-secondary: #A8B1BD;
+  --text-muted:     #7D8795;
+
+  /* Borders — whisper-thin */
+  --border:         rgba(255,255,255,0.08);
+  --border-subtle:  rgba(255,255,255,0.05);
+
+  /* Brand accent — GP Edge green, used sparingly */
+  --accent:         #5AC8B0;
+  --accent-soft:    rgba(90,200,176,0.12);
+  --accent-muted:   rgba(90,200,176,0.06);
+
+  /* Shadows — soft depth, no glow */
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md:      0 8px 24px rgba(0,0,0,0.28);
+  --shadow-lg:      0 16px 40px rgba(0,0,0,0.32);
+  --shadow-card:    0 10px 30px rgba(0,0,0,0.25);
+}
+
+/* ── Smooth theme transitions (color props only — no layout jank) ── */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+/* Exclude animation-driven elements */
+.animate-spin, .animate-ping, .animate-pulse, .animate-bounce,
+[data-framer-motion], [class*="motion-"] {
+  transition-property: none !important;
 }
 
 @layer base {
@@ -32,24 +91,42 @@
   body {
     @apply font-sans antialiased;
     font-feature-settings: "kern", "liga", "calt", "ss01";
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Promote blur-heavy decorative elements to their own GPU layer */
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl {
+    will-change: transform;
+    transform: translateZ(0);
+    contain: strict;
+  }
+
+  /* Promote sticky/fixed navbars to GPU layer for smooth scroll */
+  header[class*="sticky"],
+  header[class*="fixed"],
+  aside[class*="fixed"] {
+    will-change: transform;
+    transform: translateZ(0);
   }
 }
 
 @layer components {
   .glass {
-    @apply bg-white/80 dark:bg-slate-800/80 backdrop-blur-2xl border border-white/30 dark:border-slate-700/40;
+    @apply bg-white/80 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/30 dark:border-[rgba(255,255,255,0.08)];
   }
 
   .glass-strong {
-    @apply bg-white/95 dark:bg-slate-900/95 backdrop-blur-3xl border border-white/40 dark:border-slate-700/50;
+    @apply bg-white/95 dark:bg-[rgba(21,25,34,0.97)] backdrop-blur-3xl border border-white/40 dark:border-[rgba(255,255,255,0.08)];
   }
 
   .card-dark {
-    @apply bg-slate-900 dark:bg-slate-950 rounded-2xl;
+    @apply bg-slate-900 dark:bg-[#1B212C] rounded-2xl;
   }
 
   .card-mint {
-    @apply bg-emerald-100 dark:bg-emerald-900/40 rounded-2xl;
+    @apply bg-emerald-100 dark:bg-[rgba(90,200,176,0.06)] rounded-2xl;
   }
 
   .card-purple {
@@ -57,7 +134,7 @@
   }
 
   .card-white {
-    @apply bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700;
+    @apply bg-white dark:bg-[#1B212C] rounded-2xl shadow-sm border border-slate-100 dark:border-[rgba(255,255,255,0.06)];
   }
 
   .bento-card {
@@ -69,20 +146,20 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 
-           font-semibold rounded-full transition-all duration-300 hover:bg-slate-800 dark:hover:bg-slate-100 
+    @apply inline-flex items-center justify-center px-6 py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900
+           font-semibold rounded-full transition-all duration-300 hover:bg-slate-800 dark:hover:bg-slate-100
            hover:shadow-xl hover:shadow-slate-900/20 active:scale-[0.97];
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center px-6 py-3 bg-emerald-400 text-slate-900 
-           font-semibold rounded-full transition-all duration-300 hover:bg-emerald-300 
+    @apply inline-flex items-center justify-center px-6 py-3 bg-emerald-400 text-slate-900
+           font-semibold rounded-full transition-all duration-300 hover:bg-emerald-300
            hover:shadow-xl hover:shadow-emerald-400/30 active:scale-[0.97];
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center px-5 py-2.5 text-slate-600 dark:text-slate-300 font-medium 
-           rounded-full transition-all duration-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.97];
+    @apply inline-flex items-center justify-center px-5 py-2.5 text-slate-600 dark:text-[#A8B1BD] font-medium
+           rounded-full transition-all duration-300 hover:bg-slate-100 dark:hover:bg-[rgba(255,255,255,0.05)] active:scale-[0.97];
   }
 
   .stat-number {
@@ -123,6 +200,22 @@
   .animate-pulse-slow {
     animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
+
+  /* ── Used by Header.tsx "Exam Prep" gradient link ── */
+  .animate-gradient-x {
+    background-size: 200% auto;
+    animation: gradient-shift 3s linear infinite;
+  }
+
+  /* ── Generic fade-in for entry animations ── */
+  .animate-fade-in {
+    animation: fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* ── Slide up from below ── */
+  .animate-slide-up {
+    animation: slide-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 @keyframes float {
@@ -134,3 +227,162 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+
+@keyframes gradient-shift {
+  0% { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Premium Scrollbars & Font Overrides for Admin Layout ────────────────── */
+.admin-layout,
+.admin-layout * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(13, 148, 136, 0.3) transparent;
+}
+
+.admin-layout .font-serif,
+.admin-layout .stat-number {
+  font-family: "DM Sans", system-ui, sans-serif !important;
+  font-weight: 700 !important;
+}
+
+.admin-layout::-webkit-scrollbar,
+.admin-layout *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-layout::-webkit-scrollbar-track,
+.admin-layout *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-layout::-webkit-scrollbar-thumb,
+.admin-layout *::-webkit-scrollbar-thumb {
+  background-color: rgba(13, 148, 136, 0.3);
+  border-radius: 99px;
+}
+
+.admin-layout::-webkit-scrollbar-thumb:hover,
+.admin-layout *::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(13, 148, 136, 0.6);
+}
+
+/* Utility to hide scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL DARK MODE OVERRIDES — GP Edge Premium Dark Theme
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Body & page backgrounds ────────────────────────────────────────────── */
+.dark body                { background-color: #0F1115 !important; }
+.dark .admin-layout       { background-color: #0F1115 !important; }
+
+/* ── Tailwind surface overrides ─────────────────────────────────────────── */
+.dark .bg-white           { background-color: #1B212C !important; }
+.dark .bg-gray-50,
+.dark .bg-slate-50        { background-color: #0F1115 !important; }
+.dark .bg-slate-100,
+.dark .bg-gray-100        { background-color: #151922 !important; }
+.dark .bg-slate-200,
+.dark .bg-gray-200        { background-color: #1B212C !important; }
+
+/* Override explicit dark utility classes that clash with the premium theme */
+.dark [class*="dark:bg-slate-950"],
+.dark [class*="dark:bg-gray-950"],
+.dark [class*="dark:bg-slate-900"],
+.dark [class*="dark:bg-gray-900"]  { background-color: #0F1115 !important; }
+
+.dark [class*="dark:bg-slate-800"],
+.dark [class*="dark:bg-gray-800"]  { background-color: #151922 !important; }
+
+.dark [class*="dark:bg-slate-700"],
+.dark [class*="dark:bg-gray-700"]  { background-color: #1B212C !important; }
+
+/* ── Borders — whisper-thin ─────────────────────────────────────────────── */
+.dark .border-slate-200,
+.dark .border-gray-200,
+.dark .border-slate-100,
+.dark .border-gray-100,
+.dark .border-slate-300   { border-color: rgba(255,255,255,0.08) !important; }
+.dark .divide-slate-200,
+.dark .divide-gray-200    { border-color: rgba(255,255,255,0.08) !important; }
+
+/* Override explicit dark border utility classes */
+.dark [class*="dark:border-slate-800"],
+.dark [class*="dark:border-gray-800"],
+.dark [class*="dark:border-slate-700"],
+.dark [class*="dark:border-gray-700"],
+.dark [class*="dark:border-slate-900"],
+.dark [class*="dark:border-gray-900"] { border-color: rgba(255,255,255,0.08) !important; }
+
+/* ── Text hierarchy ─────────────────────────────────────────────────────── */
+.dark .text-slate-900,
+.dark .text-gray-900      { color: #F5F7FA !important; }
+.dark .text-slate-800,
+.dark .text-gray-800      { color: #E8ECF0 !important; }
+.dark .text-slate-700,
+.dark .text-gray-700      { color: #C8D0DA !important; }
+.dark .text-slate-600,
+.dark .text-gray-600      { color: #A8B1BD !important; }
+.dark .text-slate-500,
+.dark .text-gray-500      { color: #7D8795 !important; }
+.dark .text-slate-400,
+.dark .text-gray-400      { color: #6B7280 !important; }
+
+/* ── Form fields — search bars, inputs ─────────────────────────────────── */
+.dark input[type="search"],
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea,
+.dark select {
+  background-color: #151922 !important;
+  border-color: rgba(255,255,255,0.08) !important;
+  color: #F5F7FA !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #7D8795 !important; }
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #5AC8B0 !important;
+  box-shadow: 0 0 0 3px rgba(90,200,176,0.10) !important;
+}
+
+/* ── Chip badges ────────────────────────────────────────────────────────── */
+.dark .bg-slate-100.text-slate-600,
+.dark .bg-gray-100.text-gray-600 {
+  background-color: rgba(255,255,255,0.05) !important;
+  color: #A8B1BD !important;
+}
+
+/* ── Table rows ─────────────────────────────────────────────────────────── */
+.dark tr:hover              { background-color: rgba(255,255,255,0.03) !important; }
+.dark tr.selected,
+.dark tr[aria-selected="true"] { background-color: rgba(90,200,176,0.08) !important; }
+
+/* ── Shadows — soft depth, no glow ─────────────────────────────────────── */
+.dark .shadow-sm   { box-shadow: 0 2px 8px rgba(0,0,0,0.30) !important; }
+.dark .shadow      { box-shadow: 0 4px 12px rgba(0,0,0,0.30) !important; }
+.dark .shadow-md   { box-shadow: 0 8px 24px rgba(0,0,0,0.28) !important; }
+.dark .shadow-lg   { box-shadow: 0 10px 30px rgba(0,0,0,0.30) !important; }
+.dark .shadow-xl   { box-shadow: 0 16px 40px rgba(0,0,0,0.32) !important; }
+.dark .shadow-2xl  { box-shadow: 0 24px 60px rgba(0,0,0,0.36) !important; }

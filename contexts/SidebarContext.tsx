@@ -17,7 +17,7 @@ type SidebarPref = "expanded" | "collapsed" | "auto";
 // Floating card: 72px card + 8px left-gap = 80px aside. Content margin = 80 + 8 buffer = 88.
 export const SIDEBAR_RAIL_PX  = 88;   // content margin-left when collapsed
 export const SIDEBAR_PANEL_PX = 336;  // content margin-left when expanded (320 card + 8 gap + 8 buffer)
-export const SIDEBAR_TOP_PX   = 96;   // fixed top offset — sidebar starts below floating header
+export const SIDEBAR_TOP_PX   = 96;   // offset to clear navbar on expand
 
 export const MARGIN_TRANSITION = "margin-left 320ms cubic-bezier(0.22,1,0.36,1)";
 
