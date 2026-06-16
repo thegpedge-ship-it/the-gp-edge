@@ -134,11 +134,6 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
     router.push(buildInstructionsUrl(id));
   };
 
-  const completed = mockTests.filter((t) => t.status === "completed");
-  const avgScore = completed.length
-    ? Math.round(completed.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completed.length)
-    : 0;
-
   return (
     <AnimatePresence>
       {open && (
@@ -157,7 +152,7 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
             role="dialog"
             aria-modal="true"
             aria-label="Mock Tests"
-            className="relative w-[92vw] lg:w-[60vw] h-[70vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
+            className="relative w-[95vw] lg:w-[66vw] h-[77vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -166,10 +161,7 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
               <div>
-                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Mock Tests</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Full AKT simulations &middot; {mockTests.length} tests &middot; {completed.length} completed &middot; {avgScore}% avg
-                </p>
+                <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100">Mock Tests</h3>
               </div>
               <button
                 onClick={onClose}
@@ -184,7 +176,7 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
 
             {/* Cards — single column, centred and width-capped */}
             <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-6 py-5">
-              <div className="flex flex-col gap-2 max-w-2xl mx-auto">
+              <div className="flex flex-col gap-2 max-w-[986px] mx-auto">
                 {mockTests.map((test) => (
                   <TestCard key={test.id} test={test} onStart={handleStart} />
                 ))}
