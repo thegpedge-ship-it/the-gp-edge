@@ -230,8 +230,9 @@ function BillingContent() {
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div>
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900 rounded-lg mb-2">
-          <span className="font-sans text-xs font-semibold text-teal-700 dark:text-teal-400">MBS Learning System</span>
+        {/* Spacer — badge removed, vertical space preserved */}
+        <div className="invisible inline-flex items-center gap-2 px-2.5 py-1 border border-transparent rounded-lg mb-2" aria-hidden="true">
+          <span className="font-sans text-xs font-semibold">&nbsp;</span>
         </div>
         <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
           MBS Decision & Billing Guide
