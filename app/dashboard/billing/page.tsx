@@ -226,7 +226,7 @@ function BillingContent() {
   const parsedCustomFee = parseFloat(customFee) || 0;
 
   return (
-    <div className="flex flex-col gap-6 pb-6">
+    <div className="flex flex-col gap-6 pb-6" style={{ zoom: 0.95 }}>
 
       {/* ── Page header ──────────────────────────────────────────────────── */}
       <div>
