@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { subjects } from "./data";
-import type { Subject, SubTopic } from "./data";
+import type { Subject, SubTopic, Quiz } from "./data";
 import { buildInstructionsUrl } from "@/lib/testSession";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
@@ -25,6 +25,14 @@ function getMockProgress(id: string) {
   let hash = 0;
   for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) % 100;
   return Math.max(10, Math.min(85, hash));
+}
+
+/* Pick one test per difficulty — Easy, Medium, Hard (in that order) */
+function getDifficultyTests(subtopic: SubTopic) {
+  const order: Quiz["difficulty"][] = ["Easy", "Medium", "Hard"];
+  return order
+    .map((d) => subtopic.quizzes.find((q) => q.difficulty === d))
+    .filter((q): q is Quiz => q != null);
 }
 
 /* ─── Component ───────────────────────────────────────────────────────── */
@@ -222,7 +230,7 @@ export default function SubjectMenu() {
                 transition={{ duration: 0.15 }}
                 className="p-4 flex flex-col gap-3"
               >
-                {selectedSubtopic.quizzes.map((quiz) => (
+                {getDifficultyTests(selectedSubtopic).map((quiz) => (
                   <div
                     key={quiz.id}
                     className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left hover:scale-[1.03] hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer"

@@ -5,7 +5,7 @@ import { SubjectMenu, SidePanel } from "@/components/exam-prep";
 
 export default function ExamPrepPage() {
   return (
-    <div className="relative -mt-2 flex flex-col overflow-hidden" style={{ height: "calc(100vh - 120px)" }}>
+    <div className="relative -mt-2 flex flex-col overflow-hidden" style={{ height: "calc(100vh - 80px)" }}>
 
       {/* ─── Main Content (70-30 split) — fills remaining height ──────── */}
       <motion.div
