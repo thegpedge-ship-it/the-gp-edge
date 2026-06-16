@@ -352,6 +352,7 @@ export interface MockTest {
   bestScore?: number; // % — present when completed
   progress?: number;  // % — present when in-progress
   attempts?: number;
+  unlockHint?: string; // shown in the "!" tooltip when status is locked
   /* Attempt analytics — present once the test has been attempted */
   accuracy?: number;       // your accuracy %
   cohortAccuracy?: number; // cohort average accuracy %
@@ -365,7 +366,7 @@ export const mockTests: MockTest[] = [
   { id: "mock-3", name: "AKT Simulation 3", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "in-progress", progress: 42, attempts: 1 },
   { id: "mock-4", name: "AKT Simulation 4", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "available" },
   { id: "mock-5", name: "AKT Simulation 5", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "available" },
-  { id: "mock-6", name: "AKT Simulation 6", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked" },
-  { id: "mock-7", name: "AKT Simulation 7", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked" },
-  { id: "mock-8", name: "Final Mock Exam", subtitle: "All topics · Exam standard", questionCount: 200, duration: "4 hrs", status: "locked" },
+  { id: "mock-6", name: "AKT Simulation 6", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked", unlockHint: "Unlocks on 1 Jul 2026" },
+  { id: "mock-7", name: "AKT Simulation 7", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked", unlockHint: "Locked — release date to be announced" },
+  { id: "mock-8", name: "Final Mock Exam", subtitle: "All topics · Exam standard", questionCount: 200, duration: "4 hrs", status: "locked", unlockHint: "Unlocks after you complete Simulations 1–5" },
 ];
