@@ -7,6 +7,8 @@ export interface TestConfig {
   name: string;
   questionCount: number;
   durationMinutes: number;
+  /** Whether a countdown timer (with auto-submit) applies. Only mock tests are timed. */
+  timed: boolean;
 }
 
 /** Parse strings like "10 min", "45 min", "3 hrs", "4 hrs" into minutes. */
@@ -43,7 +45,7 @@ export function consumeTestAuthorization(testId: string): boolean {
 const CUSTOM_TEST_KEY = "gpedge_custom_test_config";
 
 /** Persist the config of a user-built custom quiz before navigating to it. */
-export function saveCustomTestConfig(config: Omit<TestConfig, "id">): void {
+export function saveCustomTestConfig(config: Omit<TestConfig, "id" | "timed">): void {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(CUSTOM_TEST_KEY, JSON.stringify(config));
 }
@@ -58,9 +60,10 @@ export function resolveTestConfig(testId: string): TestConfig | null {
     try {
       const raw = sessionStorage.getItem(CUSTOM_TEST_KEY);
       if (!raw) return null;
-      const c = JSON.parse(raw) as Omit<TestConfig, "id">;
+      const c = JSON.parse(raw) as Omit<TestConfig, "id" | "timed">;
       if (!c.name || !c.questionCount || !c.durationMinutes) return null;
-      return { id: "custom", ...c };
+      // Mock drill & user-defined quizzes are untimed.
+      return { id: "custom", ...c, timed: false };
     } catch {
       return null;
     }
@@ -74,6 +77,8 @@ export function resolveTestConfig(testId: string): TestConfig | null {
       name: mock.name,
       questionCount: mock.questionCount,
       durationMinutes: parseDurationToMinutes(mock.duration),
+      // Mock tests are the only timed test type.
+      timed: true,
     };
   }
 
@@ -86,6 +91,8 @@ export function resolveTestConfig(testId: string): TestConfig | null {
           name: `${subtopic.name} — ${quiz.name}`,
           questionCount: quiz.questionCount,
           durationMinutes: parseDurationToMinutes(quiz.duration),
+          // Subject–subtopic tests are untimed.
+          timed: false,
         };
       }
     }

@@ -7,8 +7,11 @@ import { authorizeTestStart, resolveTestConfig } from "@/lib/testSession";
 import type { TestConfig } from "@/lib/testSession";
 import TestNotFound from "@/components/test/TestNotFound";
 
+// Shown only for timed tests (mock tests).
+const TIMER_INSTRUCTION =
+  "The timer starts as soon as you click “Start Test” and counts down in the top bar. The test submits automatically when time runs out.";
+
 const INSTRUCTIONS = [
-  "The timer starts as soon as you click “Start Test” and counts down in the top bar. The test submits automatically when time runs out.",
   "Each question has exactly one correct answer. Click an option to select it; click “Clear Response” to deselect.",
   "Use the “Previous” and “Next” buttons, or click any number in the question palette, to move between questions.",
   "You can change your answer to any question at any time before submitting.",
@@ -37,6 +40,8 @@ export default function InstructionsPage() {
   if (config === undefined) return null;
   if (config === null) return <TestNotFound />;
 
+  const instructions = config.timed ? [TIMER_INSTRUCTION, ...INSTRUCTIONS] : INSTRUCTIONS;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-6">
       <motion.div
@@ -56,10 +61,12 @@ export default function InstructionsPage() {
               <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{config.questionCount}</span>
               <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">Questions</span>
             </div>
-            <div className="flex flex-col items-center">
-              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{config.durationMinutes} min</span>
-              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">Duration</span>
-            </div>
+            {config.timed && (
+              <div className="flex flex-col items-center">
+                <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{config.durationMinutes} min</span>
+                <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">Duration</span>
+              </div>
+            )}
             <div className="flex flex-col items-center">
               <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400 leading-none">{config.questionCount}</span>
               <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1.5">Total Marks</span>
@@ -71,7 +78,7 @@ export default function InstructionsPage() {
         <div className="px-8 py-6">
           <h2 className="text-[13px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-4">Read carefully before you begin</h2>
           <ol className="space-y-3">
-            {INSTRUCTIONS.map((instruction, i) => (
+            {instructions.map((instruction, i) => (
               <li key={i} className="flex gap-3 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300">
                 <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
