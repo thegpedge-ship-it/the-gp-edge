@@ -17,6 +17,16 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 
+function decodeHtml(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'");
+}
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.02, delayChildren: 0.02 } },
@@ -117,7 +127,7 @@ export default function ContentDetailPage() {
       </motion.div>
 
       <AdminPageHeader
-        title={item.name}
+        title={decodeHtml(item.name)}
         highlightedText=""
         subtitle={`${item.system} · ${item.category}`}
         actions={
@@ -185,6 +195,9 @@ export default function ContentDetailPage() {
               margin-top: 1.75rem !important;
               margin-bottom: 0.75rem !important;
               line-height: 1.25 !important;
+            }
+            .print-area p, .print-area li, .print-area ul, .print-area ol {
+              color: #334155 !important;
             }
             .print-area table {
               width: 100% !important;
@@ -275,6 +288,91 @@ export default function ContentDetailPage() {
               border: 1px solid #f8fafc !important;
               border-left: 5px solid #64748b !important;
               color: #334155 !important;
+            }
+
+            /* Dark mode overrides for print-area content */
+            .dark .print-area {
+              background-color: #0f172a !important;
+              color: #f1f5f9 !important;
+              border-color: #334155 !important;
+            }
+            .dark .print-area h1,
+            .dark .print-area h2,
+            .dark .print-area h3,
+            .dark .print-area h4 {
+              color: #2dd4bf !important;
+              border-color: #2dd4bf !important;
+            }
+            .dark .print-area p,
+            .dark .print-area li,
+            .dark .print-area ul,
+            .dark .print-area ol,
+            .dark .print-area span {
+              color: #cbd5e1 !important;
+            }
+            .dark .print-area table {
+              border-color: #334155 !important;
+              background-color: #1e293b !important;
+            }
+            .dark .print-area th {
+              background-color: #115e59 !important;
+              color: #f8fafc !important;
+              border-color: #334155 !important;
+            }
+            .dark .print-area td {
+              border-color: #334155 !important;
+              color: #cbd5e1 !important;
+            }
+            .dark .print-area tr:nth-child(even) td {
+              background-color: #1e293b !important;
+            }
+            .dark .print-area tr:nth-child(odd) td {
+              background-color: #0f172a !important;
+            }
+            .dark .print-area .callout-block {
+              border-color: transparent !important;
+            }
+            .dark .print-area .callout-block[data-variant="info"], 
+            .dark .print-area .callout-block:not([data-variant]) {
+              background-color: rgba(20, 184, 166, 0.1) !important;
+              border-left: 5px solid #2dd4bf !important;
+              color: #a7f3d0 !important;
+            }
+            .dark .print-area .callout-block[data-variant="info"] > div:first-child, 
+            .dark .print-area .callout-block:not([data-variant]) > div:first-child {
+              color: #2dd4bf !important;
+            }
+            .dark .print-area .callout-block[data-variant="pearl"] {
+              background-color: rgba(20, 184, 166, 0.1) !important;
+              border-left: 5px solid #2dd4bf !important;
+              color: #a7f3d0 !important;
+            }
+            .dark .print-area .callout-block[data-variant="pearl"] > div:first-child {
+              color: #2dd4bf !important;
+            }
+            .dark .print-area .callout-block[data-variant="warning"] {
+              background-color: rgba(245, 158, 11, 0.1) !important;
+              border-left: 5px solid #fbbf24 !important;
+              color: #fde68a !important;
+            }
+            .dark .print-area .callout-block[data-variant="warning"] > div:first-child {
+              color: #fbbf24 !important;
+            }
+            .dark .print-area .callout-block[data-variant="danger"] {
+              background-color: rgba(239, 68, 68, 0.1) !important;
+              border-left: 5px solid #f87171 !important;
+              color: #fca5a5 !important;
+            }
+            .dark .print-area .callout-block[data-variant="danger"] > div:first-child {
+              color: #f87171 !important;
+            }
+            .dark .print-area .callout-block[data-variant="billing"] {
+              background-color: rgba(148, 163, 184, 0.1) !important;
+              border-left: 5px solid #94a3b8 !important;
+              color: #cbd5e1 !important;
+            }
+            .dark .print-area .callout-block[data-variant="billing"] > div:first-child {
+              color: #94a3b8 !important;
             }
           ` }} />
           <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm h-full`}>

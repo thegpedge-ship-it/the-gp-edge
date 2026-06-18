@@ -40,13 +40,47 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 type Tab = "settings" | "questions";
 
+function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith("data:image/")) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+}
+
 export default function EditQuizPage() {
+  const { isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const quizId = Number(params.id);
@@ -248,7 +282,16 @@ export default function EditQuizPage() {
           const result = await res.json();
           if (result.success && result.type === "question") {
             const qs = result.questions || [];
-            allExtracted.push(...qs);
+            const compressedQs = await Promise.all(
+              qs.map(async (q: any) => {
+                if (q.image) {
+                  const comp = await compressBase64Image(q.image);
+                  return { ...q, image: comp };
+                }
+                return q;
+              })
+            );
+            allExtracted.push(...compressedQs);
             updateBatchFile(idx, { status: "success", progress: 100 });
           } else {
             updateBatchFile(idx, {
@@ -395,6 +438,7 @@ export default function EditQuizPage() {
   };
 
   const handleSave = (redirect = false) => {
+    if (isReadOnly) return;
     if (!name.trim()) {
       alert("Please enter a quiz name.");
       return;
@@ -431,6 +475,7 @@ export default function EditQuizPage() {
   };
 
   const handlePublish = () => {
+    if (isReadOnly) return;
     if (!name.trim() || questionIds.length === 0) {
       alert("Add a name and at least one question before publishing.");
       return;
@@ -458,6 +503,7 @@ export default function EditQuizPage() {
   };
 
   const handleSuspend = () => {
+    if (isReadOnly) return;
     setStatus("suspended");
     updateQuiz(quizId, {
       name: name.trim(),
@@ -475,6 +521,7 @@ export default function EditQuizPage() {
   };
 
   const handleDuplicate = () => {
+    if (isReadOnly) return;
     const copy = duplicateQuiz(quizId);
     if (copy) {
       router.push(`/admin/quizzes/${copy.id}/edit`);
@@ -482,6 +529,7 @@ export default function EditQuizPage() {
   };
 
   const handleDelete = () => {
+    if (isReadOnly) return;
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     deleteQuiz(quizId);
     router.push("/admin/quizzes");
@@ -517,26 +565,43 @@ export default function EditQuizPage() {
             <Link href="/admin/quizzes" className={themeBtnGhost}>
               ← Back
             </Link>
-            <button type="button" onClick={handleDuplicate} className={themeBtnGhost}>
+            <button type="button" onClick={handleDuplicate} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Duplicate
             </button>
             {status !== "active" && (
-              <button type="button" onClick={handlePublish} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary}`}>
+              <button type="button" onClick={handlePublish} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
                 Publish
               </button>
             )}
             {status === "active" && (
-              <button type="button" onClick={handleSuspend} className={themeBtnGhost}>
+              <button type="button" onClick={handleSuspend} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
                 Suspend
               </button>
             )}
-            <button type="button" onClick={() => handleSave(true)} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary}`}>
+            <button type="button" onClick={() => handleSave(true)} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Save & Close
             </button>
           </div>
         }
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {saveMessage && (
         <motion.div
@@ -1081,8 +1146,9 @@ export default function EditQuizPage() {
                           const file = e.target.files?.[0];
                           if (file) {
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setNewImage(reader.result as string);
+                            reader.onloadend = async () => {
+                              const compressed = await compressBase64Image(reader.result as string);
+                              setNewImage(compressed);
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1629,8 +1695,9 @@ export default function EditQuizPage() {
                                           const file = e.target.files?.[0];
                                           if (file) {
                                             const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              handleUpdateExtractedQuestion(qidx, "image", reader.result as string);
+                                            reader.onloadend = async () => {
+                                              const compressed = await compressBase64Image(reader.result as string);
+                                              handleUpdateExtractedQuestion(qidx, "image", compressed);
                                             };
                                             reader.readAsDataURL(file);
                                           }

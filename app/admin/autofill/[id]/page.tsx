@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
@@ -38,6 +39,7 @@ const modalItemVariants = {
 const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "Date Picker", "Numeric", "Calculated"];
 
 export default function AutofillDetailPage() {
+  const { isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const templateId = Number(params.id);
@@ -75,6 +77,7 @@ export default function AutofillDetailPage() {
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -215,6 +218,7 @@ export default function AutofillDetailPage() {
   };
 
   const handleSaveTemplate = () => {
+    if (isReadOnly) return;
     if (!newName.trim()) {
       alert("Please enter a template name.");
       return;
@@ -270,6 +274,23 @@ export default function AutofillDetailPage() {
         variants={itemVariants}
       />
 
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Metadata & Operations */}
         <div className="space-y-6">
@@ -281,20 +302,25 @@ export default function AutofillDetailPage() {
           >
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Operations</h3>
             <button
-              onClick={() => router.push(`/admin/autofill/${templateId}/editor`)}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-teal-800 hover:bg-teal-900 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-[0.98] border-none outline-none cursor-pointer"
+              onClick={() => { if (isReadOnly) return; router.push(`/admin/autofill/${templateId}/editor`); }}
+              disabled={isReadOnly}
+              className={`w-full flex items-center justify-center gap-2.5 px-4 py-3 bg-teal-800 hover:bg-teal-900 text-sm font-bold text-white rounded-xl shadow-md transition-all active:scale-[0.98] border-none outline-none ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
             >
               <Lucide.FileEdit className="w-4 h-4" />
               Open Editor
             </button>
             <button
-              onClick={handleOpenEdit}
-              className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer"
+              onClick={() => { if (isReadOnly) return; handleOpenEdit(); }}
+              disabled={isReadOnly}
+              className={`w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-655 dark:text-slate-350 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
             >
               <Lucide.Edit className="w-4 h-4" />
               Edit Template Form
             </button>
-            <button className="w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent cursor-pointer">
+            <button 
+              disabled={isReadOnly}
+              className={`w-full flex items-center justify-center gap-2.5 px-4 py-3 border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-655 dark:text-slate-350 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-800 dark:hover:text-slate-100 transition-all bg-transparent ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            >
               <Lucide.Copy className="w-4 h-4" />
               Duplicate Template
             </button>

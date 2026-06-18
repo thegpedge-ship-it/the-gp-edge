@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
@@ -46,6 +47,7 @@ const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "
 
 
 export default function AutofillPage() {
+  const { isReadOnly } = useAdminRole();
   const router = useRouter();
   const [templates, setTemplates] = useState<AutofillTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,6 +90,7 @@ export default function AutofillPage() {
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -215,6 +218,7 @@ export default function AutofillPage() {
   }, []);
 
   const handleDeleteTemplate = (id: number) => {
+    if (isReadOnly) return;
     if (!confirm("Delete this template? This cannot be undone.")) return;
     const updated = templates.filter((t) => t.id !== id);
     setTemplates(updated);
@@ -230,6 +234,7 @@ export default function AutofillPage() {
   };
 
   const handleSaveTemplate = () => {
+    if (isReadOnly) return;
     if (!newName.trim()) {
       alert("Please enter a template name.");
       return;
@@ -314,6 +319,7 @@ export default function AutofillPage() {
         actions={
           <button 
             onClick={() => {
+              if (isReadOnly) return;
               setEditingTemplateId(null);
               setNewName("");
               setNewSystem("Respiratory");
@@ -321,7 +327,8 @@ export default function AutofillPage() {
               setTempFields([]);
               setShowEditor(true);
             }}
-            className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none cursor-pointer"
+            disabled={isReadOnly}
+            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Template
@@ -330,9 +337,26 @@ export default function AutofillPage() {
         variants={itemVariants}
       />
 
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Stats */}
       {templates.length > 0 && (
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <AnalyticsCard
             title="Total Templates"
             percentage=""
@@ -344,12 +368,6 @@ export default function AutofillPage() {
             percentage=""
             data={templates.filter(t => t.status === "active").length.toString()}
             progress={Math.min(100, Math.round((templates.filter(t => t.status === "active").length / templates.length) * 100))}
-          />
-          <AnalyticsCard
-            title="Total Usage Count"
-            percentage=""
-            data={templates.reduce((sum, t) => sum + (t.usageCount || 0), 0).toString()}
-            progress={Math.min(100, Math.round((templates.reduce((sum, t) => sum + (t.usageCount || 0), 0) / 100) * 100))}
           />
         </motion.div>
       )}
@@ -407,23 +425,26 @@ export default function AutofillPage() {
                       <Lucide.Eye className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleOpenEdit(template); }}
-                      className="p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent"
-                      title="Edit Template Info"
+                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleOpenEdit(template); }}
+                      disabled={isReadOnly}
+                      className={`p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                      title={isReadOnly ? "Viewers cannot edit templates" : "Edit Template Info"}
                     >
                       <Lucide.Edit className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); router.push(`/admin/autofill/${template.id}/editor`); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent"
-                      title="Template Editor"
+                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; router.push(`/admin/autofill/${template.id}/editor`); }}
+                      disabled={isReadOnly}
+                      className={`p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                      title={isReadOnly ? "Viewers cannot edit templates" : "Template Editor"}
                     >
                       <Lucide.FileEdit className="w-3.5 h-3.5" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template.id); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent"
-                      title="Delete Template"
+                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleDeleteTemplate(template.id); }}
+                      disabled={isReadOnly}
+                      className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                      title={isReadOnly ? "Viewers cannot delete templates" : "Delete Template"}
                     >
                       <Lucide.Trash2 className="w-3.5 h-3.5" />
                     </button>

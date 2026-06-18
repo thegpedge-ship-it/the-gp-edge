@@ -17,11 +17,11 @@ const nextConfig = {
     ],
   },
 
-  outputFileTracingRoot: path.resolve(__dirname),
-
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
 };
 
 export default nextConfig;
+
+

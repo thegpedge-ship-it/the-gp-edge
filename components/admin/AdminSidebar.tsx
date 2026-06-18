@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 interface NavItem {
   label: string;
@@ -136,6 +137,15 @@ const navGroups: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        label: "Validation",
+        href: "/admin/validation",
+        icon: (
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        ),
+      },
     ],
   },
 ];
@@ -149,6 +159,12 @@ interface AdminSidebarProps {
   onMouseLeave?: () => void;
 }
 
+const ADMIN_PROFILES = [
+  { id: "1", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"] },
+  { id: "2", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"] },
+  { id: "3", role: "Moderator", permissions: ["dashboard", "questions", "content"] },
+];
+
 export default function AdminSidebar({
   collapsed,
   onToggle,
@@ -159,8 +175,33 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const pathname = usePathname();
 
+  const { currentAdmin } = useAdminRole();
+
   return (
-    <aside
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .sidebar-nav::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+        .sidebar-nav::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(15, 118, 110, 0.1);
+          border-radius: 99px;
+        }
+        .sidebar-nav:hover::-webkit-scrollbar-thumb {
+          background: rgba(15, 118, 110, 0.35);
+        }
+        .dark .sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(45, 212, 191, 0.08);
+        }
+        .dark .sidebar-nav:hover::-webkit-scrollbar-thumb {
+          background: rgba(45, 212, 191, 0.25);
+        }
+      `}} />
+      <aside
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={`fixed left-0 top-0 bottom-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
@@ -199,7 +240,7 @@ export default function AdminSidebar({
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 scrollbar-hide">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 sidebar-nav">
         {navGroups.map((group) => (
           <div key={group.title}>
             <AnimatePresence>
@@ -220,6 +261,9 @@ export default function AdminSidebar({
                   pathname === item.href ||
                   (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
 
+                const itemKey = item.href.split("/").filter(Boolean)[1] || "dashboard";
+                const hasItemPermission = currentAdmin.permissions.includes(itemKey);
+
                 return (
                   <Link
                     key={item.href}
@@ -229,7 +273,7 @@ export default function AdminSidebar({
                       isActive
                         ? "bg-teal-50/70 border-teal-100/60 text-teal-600 dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 shadow-sm shadow-teal-500/5"
                         : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50/80 dark:hover:bg-slate-800/80"
-                    } ${collapsed ? "lg:justify-center" : ""}`}
+                    } ${!hasItemPermission ? "opacity-55 hover:opacity-80" : ""} ${collapsed ? "lg:justify-center" : ""}`}
                   >
                     {/* Active indicator */}
                     {isActive && (
@@ -256,10 +300,18 @@ export default function AdminSidebar({
                       )}
                     </AnimatePresence>
 
+                    {!hasItemPermission && !collapsed && (
+                      <span className="ml-auto text-slate-400 dark:text-slate-500 hover:text-slate-500 transition-colors" title="Permissions Locked">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </span>
+                    )}
+
                     {/* Tooltip on collapse */}
                     {collapsed && (
                       <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl">
-                        {item.label}
+                        {item.label} {!hasItemPermission ? "(Locked)" : ""}
                       </div>
                     )}
                   </Link>
@@ -315,5 +367,6 @@ export default function AdminSidebar({
         </button>
       </div>
     </aside>
+    </>
   );
 }

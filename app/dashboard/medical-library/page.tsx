@@ -181,6 +181,7 @@ function MedicalLibraryContent() {
   });
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
+  const [visibleLimit, setVisibleLimit] = useState(9);
   
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -224,7 +225,27 @@ function MedicalLibraryContent() {
   }, []);
 
   const allConditions = useMemo(() => {
-    return [...mockConditions, ...customConditions];
+    const parseDate = (dStr: string) => {
+      if (!dStr) return 0;
+      const parts = dStr.trim().split(/\s+/);
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const monthStr = parts[1].toLowerCase();
+        const year = parseInt(parts[2], 10);
+        const months: Record<string, number> = {
+          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+        };
+        const month = months[monthStr.slice(0, 3)] ?? 0;
+        return new Date(year, month, day).getTime();
+      }
+      const d = Date.parse(dStr);
+      return isNaN(d) ? 0 : d;
+    };
+
+    return [...mockConditions, ...customConditions].sort((a, b) => {
+      return parseDate(b.lastUpdated) - parseDate(a.lastUpdated);
+    });
   }, [customConditions]);
 
   const toggleSection = useCallback((section: string) => {
@@ -309,6 +330,15 @@ function MedicalLibraryContent() {
       return matchesSearch && matchesSystem;
     });
   }, [searchQuery, selectedSystem, allConditions]);
+
+  // Reset visibleLimit when search query or selected system changes
+  useEffect(() => {
+    setVisibleLimit(9);
+  }, [searchQuery, selectedSystem]);
+
+  const displayedConditions = useMemo(() => {
+    return filteredConditions.slice(0, visibleLimit);
+  }, [filteredConditions, visibleLimit]);
 
   const handleOpenCondition = useCallback((condition: MedicalCondition) => {
     const params = new URLSearchParams(window.location.search);
@@ -403,7 +433,7 @@ function MedicalLibraryContent() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200/50">
+              <div className="flex items-center gap-2 overflow-x-auto pb-2 medical-scroll">
                 <button
                   onClick={() => setSelectedSystem("all")}
                   className={`px-4 py-2 text-xs font-bold rounded-full border transition-all ${
@@ -461,72 +491,86 @@ function MedicalLibraryContent() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {filteredConditions.map((condition) => {
-                    const sys = getSystem(condition.system);
-                    return (
-                      <motion.div
-                        key={condition.id}
-                        variants={cardVariants}
-                        initial="hidden"
-                        animate="visible"
-                        whileHover={{ y: -3 }}
-                        whileTap={{ scale: 0.99 }}
-                        className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
-                        onClick={() => handleOpenCondition(condition)}
-                      >
-                        <div>
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="font-sans text-sm font-bold text-green-600 dark:text-green-400">
-                              {condition.id}
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              {condition.isPremium && (
-                                <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
-                                  <Lucide.Lock className="w-3.5 h-3.5" />
-                                </span>
-                              )}
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {displayedConditions.map((condition) => {
+                      const sys = getSystem(condition.system);
+                      return (
+                        <motion.div
+                          key={condition.id}
+                          variants={cardVariants}
+                          initial="hidden"
+                          animate="visible"
+                          whileHover={{ y: -3 }}
+                          whileTap={{ scale: 0.99 }}
+                          className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                          onClick={() => handleOpenCondition(condition)}
+                        >
+                          <div>
+                            <div className="flex justify-between items-center mb-3">
+                              <span className="text-sm font-bold font-mono text-green-600 dark:text-green-400">
+                                {condition.id}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {condition.isPremium && (
+                                  <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
+                                    <Lucide.Lock className="w-3.5 h-3.5" />
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
+                              {condition.name}
+                            </h3>
+
+                            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mb-4">
+                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                              {condition.category}
+                            </p>
+
+                            <div className="space-y-1.5 mb-4">
+                              {condition.symptoms.slice(0, 2).map((sym, i) => (
+                                <p
+                                  key={i}
+                                  className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
+                                >
+                                  <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+                                  <span className="truncate">{sym}</span>
+                                </p>
+                              ))}
                             </div>
                           </div>
 
-                          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
-                            {condition.name}
-                          </h3>
-
-                          <p className="font-sans text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mb-4">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-350 dark:bg-slate-700" />
-                            {condition.category}
-                          </p>
-
-                          <div className="space-y-1.5 mb-4">
-                            {condition.symptoms.slice(0, 2).map((sym, i) => (
-                              <p
-                                key={i}
-                                className="font-sans text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
-                              >
-                                <span className="text-green-600 dark:text-green-500 font-bold">•</span>
-                                <span className="truncate">{sym}</span>
-                              </p>
-                            ))}
+                          <div className="border-t border-slate-150 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
+                            <div
+                              onClick={(e) => handleTagClick(e, "system", condition.system)}
+                              className="flex flex-col cursor-pointer group/footer"
+                            >
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+                              <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Last Updated</span>
+                              <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                            </div>
                           </div>
-                        </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
 
-                        <div className="border-t border-slate-150 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
-                          <div
-                            onClick={(e) => handleTagClick(e, "system", condition.system)}
-                            className="flex flex-col cursor-pointer group/footer"
-                          >
-                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">System</span>
-                            <span className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
-                          </div>
-                          <div className="flex flex-col text-right">
-                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Last Updated</span>
-                            <span className={`font-sans text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {visibleLimit < filteredConditions.length && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={() => setVisibleLimit((prev) => prev + 9)}
+                        className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-green-500/50 dark:hover:border-green-500/30 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-full shadow-md hover:shadow-lg hover:shadow-green-500/5 dark:hover:shadow-green-500/5 active:scale-95 transition-all flex items-center gap-2 group border-dashed"
+                      >
+                        <span>See More Guidelines</span>
+                        <Lucide.ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-green-500 group-hover:translate-y-0.5 transition-all duration-300" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -769,6 +813,9 @@ function MedicalLibraryContent() {
                         margin-bottom: 0.75rem !important;
                         line-height: 1.25 !important;
                       }
+                      .print-area p, .print-area li, .print-area ul, .print-area ol {
+                        color: #334155 !important;
+                      }
                       .print-area table {
                         width: 100% !important;
                         border-collapse: collapse !important;
@@ -859,12 +906,97 @@ function MedicalLibraryContent() {
                         border-left: 5px solid #64748b !important;
                         color: #334155 !important;
                       }
+
+                      /* Dark mode overrides for print-area content */
+                      .dark .print-area {
+                        background-color: #0f172a !important;
+                        color: #f1f5f9 !important;
+                        border-color: #334155 !important;
+                      }
+                      .dark .print-area h1,
+                      .dark .print-area h2,
+                      .dark .print-area h3,
+                      .dark .print-area h4 {
+                        color: #2dd4bf !important;
+                        border-color: #2dd4bf !important;
+                      }
+                      .dark .print-area p,
+                      .dark .print-area li,
+                      .dark .print-area ul,
+                      .dark .print-area ol,
+                      .dark .print-area span {
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area table {
+                        border-color: #334155 !important;
+                        background-color: #1e293b !important;
+                      }
+                      .dark .print-area th {
+                        background-color: #115e59 !important;
+                        color: #f8fafc !important;
+                        border-color: #334155 !important;
+                      }
+                      .dark .print-area td {
+                        border-color: #334155 !important;
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area tr:nth-child(even) td {
+                        background-color: #1e293b !important;
+                      }
+                      .dark .print-area tr:nth-child(odd) td {
+                        background-color: #0f172a !important;
+                      }
+                      .dark .print-area .callout-block {
+                        border-color: transparent !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="info"], 
+                      .dark .print-area .callout-block:not([data-variant]) {
+                        background-color: rgba(20, 184, 166, 0.1) !important;
+                        border-left: 5px solid #2dd4bf !important;
+                        color: #a7f3d0 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="info"] > div:first-child, 
+                      .dark .print-area .callout-block:not([data-variant]) > div:first-child {
+                        color: #2dd4bf !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="pearl"] {
+                        background-color: rgba(20, 184, 166, 0.1) !important;
+                        border-left: 5px solid #2dd4bf !important;
+                        color: #a7f3d0 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="pearl"] > div:first-child {
+                        color: #2dd4bf !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="warning"] {
+                        background-color: rgba(245, 158, 11, 0.1) !important;
+                        border-left: 5px solid #fbbf24 !important;
+                        color: #fde68a !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="warning"] > div:first-child {
+                        color: #fbbf24 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="danger"] {
+                        background-color: rgba(239, 68, 68, 0.1) !important;
+                        border-left: 5px solid #f87171 !important;
+                        color: #fca5a5 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="danger"] > div:first-child {
+                        color: #f87171 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="billing"] {
+                        background-color: rgba(148, 163, 184, 0.1) !important;
+                        border-left: 5px solid #94a3b8 !important;
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="billing"] > div:first-child {
+                        color: #94a3b8 !important;
+                      }
                     ` }} />
 
                     {/* PDF mock viewer */}
                     <div
                       ref={containerRef}
-                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px] w-full"
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px] w-full medical-scroll"
                     >
                       <div
                         style={{

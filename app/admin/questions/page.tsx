@@ -25,12 +25,47 @@ import {
 import { addUserNotification } from "@/utils/notifications";
 import { Question, getQuestions, saveQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 
+import { useAdminRole } from "@/hooks/useAdminRole";
+
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
 type StatusFilter = "all" | "draft" | "review" | "published";
 
+function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith("data:image/")) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+}
+
 export default function QuestionsPage() {
+  const { isReadOnly } = useAdminRole();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");
@@ -134,18 +169,21 @@ export default function QuestionsPage() {
   });
 
   const updateStatus = (id: number, newStatus: Question["status"]) => {
+    if (isReadOnly) return;
     const updated = questions.map((q) => (q.id === id ? { ...q, status: newStatus } : q));
     setQuestions(updated);
     saveQuestions(updated);
   };
 
   const deleteQuestion = (id: number) => {
+    if (isReadOnly) return;
     const updated = questions.filter((q) => q.id !== id);
     setQuestions(updated);
     saveQuestions(updated);
   };
 
   const handleCreateQuestion = () => {
+    if (isReadOnly) return;
     if (!newQuestionText.trim()) {
       alert("Please enter the question text.");
       return;
@@ -213,6 +251,7 @@ export default function QuestionsPage() {
   };
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -277,7 +316,16 @@ export default function QuestionsPage() {
           const result = await res.json();
           if (result.success && result.type === "question") {
             const qs = result.questions || [];
-            allExtracted.push(...qs);
+            const compressedQs = await Promise.all(
+              qs.map(async (q: any) => {
+                if (q.image) {
+                  const comp = await compressBase64Image(q.image);
+                  return { ...q, image: comp };
+                }
+                return q;
+              })
+            );
+            allExtracted.push(...compressedQs);
             updateBatchFile(idx, { status: "success", progress: 100 });
           } else {
             updateBatchFile(idx, {
@@ -398,12 +446,14 @@ export default function QuestionsPage() {
             </a>
             <button
               onClick={() => {
+                if (isReadOnly) return;
                 setShowUploadModal(true);
                 setUploadState("idle");
                 setExtractionState("idle");
                 setExtractedQuestions([]);
               }}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
+              disabled={isReadOnly}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
@@ -412,10 +462,12 @@ export default function QuestionsPage() {
             </button>
             <button
               onClick={() => {
+                if (isReadOnly) return;
                 resetAddForm();
                 setShowAddModal(true);
               }}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnPrimary}`}
+              disabled={isReadOnly}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               Add Question
@@ -424,6 +476,23 @@ export default function QuestionsPage() {
         }
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Filters */}
       <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center relative z-20">
@@ -959,8 +1028,9 @@ export default function QuestionsPage() {
                           const file = e.target.files?.[0];
                           if (file) {
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setNewImage(reader.result as string);
+                            reader.onloadend = async () => {
+                              const compressed = await compressBase64Image(reader.result as string);
+                              setNewImage(compressed);
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1162,16 +1232,7 @@ export default function QuestionsPage() {
                         Simply fill in your question text, options (A to D), correct answer letter, rationales, difficulty level, 
                         and topics, then save and upload the file below. Any embedded images will also be imported!
                       </p>
-                      <a
-                        href="/templates/question_template.docx"
-                        download
-                        className={`inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200/50 rounded-xl hover:bg-teal-100/70 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900/60 transition-all cursor-pointer shadow-sm`}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" />
-                        </svg>
-                        Download Word Template
-                      </a>
+                      {/* Download Template button removed */}
                     </div>
 
                     {/* File Upload Zone */}
@@ -1505,8 +1566,9 @@ export default function QuestionsPage() {
                                           const file = e.target.files?.[0];
                                           if (file) {
                                             const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                              handleUpdateExtractedQuestion(qidx, "image", reader.result as string);
+                                            reader.onloadend = async () => {
+                                              const compressed = await compressBase64Image(reader.result as string);
+                                              handleUpdateExtractedQuestion(qidx, "image", compressed);
                                             };
                                             reader.readAsDataURL(file);
                                           }

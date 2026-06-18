@@ -6,6 +6,7 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { addUserNotification } from "@/utils/notifications";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -42,6 +43,7 @@ interface RefundRequest {
 }
 
 export default function BillingPage() {
+  const { isReadOnly } = useAdminRole();
   const maxRevenue = Math.max(...monthlyRevenue.map((m) => m.revenue));
 
   const [refunds, setRefunds] = useState<RefundRequest[]>([
@@ -54,6 +56,7 @@ export default function BillingPage() {
   const [refundNote, setRefundNote] = useState("");
 
   const handleOpenAction = (refund: RefundRequest, type: "approve" | "deny") => {
+    if (isReadOnly) return;
     setActiveRefund(refund);
     setActionType(type);
     setRefundNote(
@@ -64,6 +67,7 @@ export default function BillingPage() {
   };
 
   const handleConfirmAction = () => {
+    if (isReadOnly) return;
     if (!activeRefund || !actionType) return;
     setRefunds((prev) =>
       prev.map((r) =>
@@ -99,6 +103,23 @@ export default function BillingPage() {
         }
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-455" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but retrying failed transactions or processing refund requests is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Revenue stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -222,8 +243,18 @@ export default function BillingPage() {
                   </div>
                   <p className="text-xs text-slate-400 dark:text-slate-500">{p.reason} · {p.date} · {p.retries} retries</p>
                   <div className="flex gap-2 mt-2">
-                    <button className="px-3 py-1 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-all dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 dark:hover:bg-teal-900/30">Retry</button>
-                    <button className="px-3 py-1 text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-750">Cancel</button>
+                    <button 
+                      disabled={isReadOnly}
+                      className={`px-3 py-1 text-xs font-semibold border rounded-lg transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed text-slate-450 bg-slate-100 border-slate-200 dark:bg-slate-850 dark:border-slate-800" : "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 dark:hover:bg-teal-900/30"}`}
+                    >
+                      Retry
+                    </button>
+                    <button 
+                      disabled={isReadOnly}
+                      className={`px-3 py-1 text-xs font-semibold border rounded-lg transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed text-slate-450 bg-slate-100 border-slate-200 dark:bg-slate-850 dark:border-slate-800" : "text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-750"}`}
+                    >
+                      Cancel
+                    </button>
                   </div>
                 </div>
               ))}
@@ -294,13 +325,15 @@ export default function BillingPage() {
                   <div className="flex gap-2 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "approve"); }}
-                      className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all cursor-pointer dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+                      disabled={isReadOnly}
+                      className={`px-3 py-1.5 text-xs font-semibold border rounded-lg transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed text-emerald-450 dark:text-emerald-600 bg-slate-100 dark:bg-slate-850 border-slate-200 dark:border-slate-850" : "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100 cursor-pointer dark:bg-emerald-950/40 dark:border-emerald-900/50 dark:text-emerald-400 dark:hover:bg-emerald-900/30"}`}
                     >
                       Approve
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleOpenAction(r, "deny"); }}
-                      className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all cursor-pointer dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/30"
+                      disabled={isReadOnly}
+                      className={`px-3 py-1.5 text-xs font-semibold border rounded-lg transition-all ${isReadOnly ? "opacity-50 cursor-not-allowed text-red-450 dark:text-red-650 bg-slate-100 dark:bg-slate-850 border-slate-200 dark:border-slate-850" : "text-red-700 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer dark:bg-red-950/40 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/30"}`}
                     >
                       Deny
                     </button>

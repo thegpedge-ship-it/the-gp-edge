@@ -8,6 +8,8 @@ import { Inter, Lora } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
 
+import Script from "next/script";
+
 const inter = Inter({ 
   subsets: ["latin"], 
   variable: "--font-inter",
@@ -60,7 +62,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
         <head>
-          <script
+          <Script
+            id="theme-initializer"
+            strategy="beforeInteractive"
             dangerouslySetInnerHTML={{
               __html: `
                 try {

@@ -65,8 +65,40 @@ export function getQuestions(): Question[] {
       localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_QUESTIONS));
       return DEFAULT_QUESTIONS;
     }
-    return JSON.parse(raw) as Question[];
-  } catch {
+    const parsed = JSON.parse(raw) as Question[];
+    let updated = false;
+    const migrated = parsed.map((q) => {
+      let image = q.image;
+      let changed = false;
+
+      const defaultQ = DEFAULT_QUESTIONS.find((dq) => dq.id === q.id);
+      if (defaultQ && defaultQ.image && !image) {
+        image = defaultQ.image;
+        changed = true;
+      }
+
+      // Normalize relative static paths to prevent browser 404s relative to admin route
+      if (image && !image.startsWith("data:") && !image.startsWith("/")) {
+        changed = true;
+        if (image.startsWith("assets/")) {
+          image = "/" + image;
+        } else {
+          image = "/assets/" + image;
+        }
+      }
+
+      if (changed) {
+        updated = true;
+        return { ...q, image };
+      }
+      return q;
+    });
+    if (updated) {
+      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
+    }
+    return parsed;
+  } catch (error) {
     return DEFAULT_QUESTIONS;
   }
 }
