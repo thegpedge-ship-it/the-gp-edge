@@ -73,10 +73,10 @@ export default function Footer() {
     <footer className="relative overflow-hidden footer-themed">
       <style>{`
         .footer-themed {
-          background: linear-gradient(180deg, #f8fcfb 0%, #eef9f6 55%, #e3f6f1 100%);
+          background: transparent;
         }
         .dark .footer-themed {
-          background: linear-gradient(180deg, #0F1115 0%, #0D1018 60%, #0B0E12 100%) !important;
+          background: transparent !important;
         }
         .dark .footer-heading {
           color: #8c98a8;
@@ -210,10 +210,10 @@ export default function Footer() {
             <div className="flex items-center gap-3 mb-6">
               <div className="relative h-20 w-20 flex-shrink-0">
                 <Image
-                  src="/assets/logo.jpeg"
+                  src="/assets/logo.png"
                   alt="The GP Edge"
                   fill
-                  sizes="40px"
+                  sizes="80px"
                   className="rounded-2xl object-contain shadow-sm ring-1 ring-black/5"
                 />
               </div>
@@ -320,16 +320,13 @@ export default function Footer() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className="footer-email-input w-full px-4 py-3 text-[13px] bg-white border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-400 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
+                  className="footer-email-input w-full px-4 py-3 text-[13px] bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-400 placeholder:text-slate-400 transition-all duration-200 shadow-sm"
                 />
                 <button
                   type="submit"
-                  className="subscribe-animated-btn relative flex items-center justify-center gap-2.5 w-full px-4 py-3 bg-teal-600 dark:bg-[#58c1ae] text-white dark:text-[#0F1115] text-[14px] font-bold rounded-2xl overflow-hidden transition-all duration-300 shadow-[0_10px_20px_rgba(20,184,166,0.2)] hover:scale-[1.03] active:scale-[0.98] group"
+                  className="subscribe-animated-btn relative flex items-center justify-center gap-2.5 w-full px-4 py-3 bg-teal-600 dark:bg-[#58c1ae] text-white dark:text-[#0F1115] text-[14px] font-bold rounded-xl overflow-hidden transition-all duration-300 shadow-[0_10px_20px_rgba(20,184,166,0.2)] hover:scale-[1.03] active:scale-[0.98] group"
                 >
                   Subscribe
-                  <svg fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1">
-                    <path clipRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm4.28 10.28a.75.75 0 000-1.06l-3-3a.75.75 0 10-1.06 1.06l1.72 1.72H8.25a.75.75 0 000 1.5h5.69l-1.72 1.72a.75.75 0 101.06 1.06l3-3z" fillRule="evenodd" />
-                  </svg>
                 </button>
 
                 <style>{`

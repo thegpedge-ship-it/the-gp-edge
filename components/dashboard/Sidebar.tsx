@@ -427,13 +427,13 @@ export default function Sidebar() {
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
                     Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
                   </p>
-                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30" style={{
+                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
                     marginTop: 10,
                     display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "5px 12px", borderRadius: 999,
+                    padding: "6px 18px", borderRadius: 999,
                   }}>
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
-                    <span className="font-sans text-xs md:text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-400">
+                    <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">
                       Preparing for AKT · Aug 2026
                     </span>
                   </div>

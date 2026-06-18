@@ -362,28 +362,28 @@ export default function SettingsPage() {
       <FadeIn delay={0.12}>
         <PageCard>
           <CardHeader icon={<Lock size={15} />} title="Security & Account" subtitle="Password, sessions & account actions" />
-          <div className="px-5 py-3">
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_1fr] gap-4">
+          <div className="px-5 py-3 space-y-4">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {/* Left: actions */}
-              <div className="space-y-0 divide-y divide-slate-100 border border-slate-100 rounded-lg overflow-hidden">
+              <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800/80 rounded-lg overflow-hidden">
                 {[
                   { id: "sec-pw", icon: <Lock size={14} />, label: "Change Password", desc: "Update your password" },
                   { id: "sec-2fa", icon: <Shield size={14} />, label: "Two-Factor Auth", desc: "Extra security layer" },
                   { id: "sec-logout", icon: <LogOut size={14} />, label: "Logout All Devices", desc: "End all sessions" },
                 ].map((item) => (
                   <button key={item.id} type="button" id={item.id}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 transition-colors group">
-                    <span className="w-7 h-7 rounded-md bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-500">{item.icon}</span>
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                    <span className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center flex-shrink-0 text-slate-500 dark:text-slate-400">{item.icon}</span>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-semibold text-slate-800">{item.label}</p>
-                      <p className="text-[11px] text-slate-400">{item.desc}</p>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-150">{item.label}</p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">{item.desc}</p>
                     </div>
-                    <ChevronRight size={14} className="text-slate-300 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                    <ChevronRight size={14} className="text-slate-300 dark:text-slate-600 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
                   </button>
                 ))}
               </div>
 
-              {/* Right: sessions + danger */}
+              {/* Right: sessions */}
               <div className="space-y-3">
                 <div>
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Active Sessions</p>
@@ -392,29 +392,43 @@ export default function SettingsPage() {
                       { device: "Chrome on Windows", loc: "Sydney, AU", current: true, time: "Now" },
                       { device: "Safari on iPhone", loc: "Sydney, AU", current: false, time: "2h ago" },
                     ].map((s, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-100 bg-slate-50/50">
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30">
                         <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-150">
                             {s.device}
-                            {s.current && <span className="ml-1.5 text-[9px] font-semibold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">Current</span>}
+                            {s.current && <span className="ml-1.5 text-[9px] font-semibold text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-950/30 px-1.5 py-0.5 rounded">Current</span>}
                           </p>
-                          <p className="text-[11px] text-slate-400">{s.loc} · {s.time}</p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500">{s.loc} · {s.time}</p>
                         </div>
-                        {!s.current && <button type="button" className="text-[11px] font-semibold text-red-500 hover:text-red-600 transition-colors">Revoke</button>}
+                        {!s.current && <button type="button" className="text-[11px] font-semibold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors">Revoke</button>}
                       </div>
                     ))}
                   </div>
                 </div>
-                <button type="button" id="delete-account-btn"
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg border border-red-200 hover:bg-red-50 transition-colors group">
-                  <span className="w-7 h-7 rounded-md bg-red-50 border border-red-100 flex items-center justify-center flex-shrink-0 text-red-400"><Trash2 size={14} /></span>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-semibold text-red-600">Delete Account</p>
-                    <p className="text-[11px] text-red-400">Permanently delete account and all data</p>
-                  </div>
-                  <ChevronRight size={14} className="text-red-300 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
-                </button>
               </div>
+            </div>
+
+            {/* Separator line */}
+            <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-2" />
+
+            {/* Danger Zone */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-red-100 dark:border-red-950/40 bg-red-50/10 dark:bg-red-950/10">
+              <div className="flex gap-3 items-start">
+                <span className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30 flex items-center justify-center flex-shrink-0 text-red-500 dark:text-red-400">
+                  <Trash2 size={15} />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-red-650 dark:text-red-400">Delete Account</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Permanently delete account and all data. This action is irreversible.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                id="delete-account-btn"
+                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 rounded-lg transition-all duration-150 shadow-md shadow-red-650/10 active:scale-[0.98] cursor-pointer"
+              >
+                Delete Account
+              </button>
             </div>
           </div>
         </PageCard>

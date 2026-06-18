@@ -39,10 +39,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // On mount: read from localStorage
   useEffect(() => {
-    let saved = localStorage.getItem("gpedge-theme-v2") as string;
+    let saved = localStorage.getItem("gpedge-theme-v3") as string;
     if (saved !== "dark" && saved !== "light") {
       saved = "light";
-      localStorage.setItem("gpedge-theme-v2", "light");
+      localStorage.setItem("gpedge-theme-v3", "light");
     }
     setThemeState(saved as Theme);
     applyTheme(saved as Theme);
@@ -51,7 +51,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setTheme = useCallback(
     (t: Theme) => {
       setThemeState(t);
-      localStorage.setItem("gpedge-theme-v2", t);
+      localStorage.setItem("gpedge-theme-v3", t);
       applyTheme(t);
     },
     [applyTheme]

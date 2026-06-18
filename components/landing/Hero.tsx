@@ -5,35 +5,6 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useAuth } from "@clerk/nextjs";
 
-// Scroll-aware logo — only visible at top of the hero section
-function HeroCornerLogo() {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const onScroll = () => {
-      setVisible(window.scrollY < 80);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  return (
-    <div
-      className={`fixed top-4 left-4 z-40 transition-all duration-500 ${
-        visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-3 pointer-events-none"
-      }`}
-    >
-      <Image
-        src="/assets/logo.png"
-        alt="The GP Edge"
-        width={64}
-        height={64}
-        className="h-16 w-16 object-contain rounded-2xl"
-        priority
-      />
-    </div>
-  );
-}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -137,7 +108,7 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
         </>
       )}
       {isDefault && (
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-teal-50/0 group-hover:from-teal-50/60 group-hover:to-emerald-50/30 transition-all duration-400 pointer-events-none rounded-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-teal-50/0 dark:from-transparent dark:to-transparent group-hover:from-teal-50/60 group-hover:to-emerald-50/30 dark:group-hover:from-[rgba(90,200,176,0.08)] dark:group-hover:to-[rgba(90,200,176,0.02)] transition-all duration-400 pointer-events-none rounded-2xl" />
       )}
 
       <div className="relative z-10">
@@ -145,13 +116,13 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
         {/* Count-up number */}
         <div
           ref={ref}
-          className={`font-sans text-3xl md:text-4xl font-bold tracking-tighter leading-none mb-1 tabular-nums ${isDefault ? "text-slate-900" : "text-white"
+          className={`font-sans text-3xl md:text-4xl font-bold tracking-tighter leading-none mb-1 tabular-nums ${isDefault ? "text-slate-900 dark:text-[#F5F7FA]" : "text-white"
             }`}
         >
           {displayStr}
         </div>
 
-        <div className={`font-sans text-xs sm:text-sm font-semibold uppercase tracking-wide ${isTeal ? "text-teal-100" : isDark ? "text-slate-400" : "text-slate-500"
+        <div className={`font-sans text-xs sm:text-sm font-semibold uppercase tracking-wide ${isTeal ? "text-teal-100" : isDark ? "text-slate-400" : "text-slate-550 dark:text-[#A8B1BD]"
           }`}>
           {stat.label}
         </div>
@@ -174,36 +145,8 @@ export default function Hero() {
   const { isSignedIn } = useAuth();
 
   return (
-    <section className="relative flex items-center overflow-hidden min-h-screen pb-8 lg:pb-10">
-      {/* Logo pinned to top-left, only visible before scroll */}
-      <HeroCornerLogo />
-
-      {/* ── Light mode: soft teal radial glow at top ── */}
-      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(20,184,166,0.12),transparent)]" />
-
-      {/* ── Dark mode: calm radial gradient, no busy patterns ── */}
-      <div
-        className="absolute inset-0 hidden dark:block"
-        style={{
-          background: `radial-gradient(
-            circle at center,
-            rgba(90,200,176,0.08) 0%,
-            rgba(90,200,176,0.03) 35%,
-            transparent 70%
-          ), #0F1115`,
-        }}
-      />
-
-      {/* Light mode: dot grid overlay (hidden in dark) */}
-      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] bg-[size:24px_24px] opacity-60" />
-
-      {/* Light mode: soft gradient orbs (hidden in dark) */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none dark:hidden">
-        <div className="absolute -top-[200px] right-[10%] w-[600px] h-[600px] bg-gradient-to-br from-teal-200/40 via-emerald-100/30 to-transparent rounded-full blur-[100px]" />
-        <div className="absolute bottom-[10%] -left-[100px] w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/60 to-teal-100/40 rounded-full blur-[80px]" />
-      </div>
-
-      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 lg:pb-20 ${
+    <section className="relative flex items-center min-h-[92vh] pb-4">
+      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 lg:pb-10 ${
         isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
       }`}>
         <motion.div
@@ -215,7 +158,7 @@ export default function Hero() {
           {/* Left Column - Content */}
           <div className="text-center lg:text-left">
             {/* Eyebrow Badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50/80 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/50 dark:border-[rgba(90,200,176,0.18)] mb-8 backdrop-blur-sm">
+            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-teal-50/80 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/50 dark:border-[rgba(90,200,176,0.18)] mb-8 backdrop-blur-sm">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
@@ -257,7 +200,7 @@ export default function Hero() {
                   box-shadow: 0px 10px 20px rgba(20, 184, 166, 0.2);
                   padding: 0.9rem 1.75rem;
                   background-color: #0d9488;
-                  border-radius: 9999px;
+                  border-radius: 12px;
                   display: inline-flex;
                   align-items: center;
                   justify-content: center;
@@ -270,6 +213,7 @@ export default function Hero() {
                   overflow: hidden;
                   font-size: 16px;
                   width: 100%;
+                  text-decoration: none;
                 }
                 .dark .btn-start-free-new {
                   box-shadow: 0px 10px 20px rgba(90, 200, 176, 0.15);
@@ -325,7 +269,7 @@ export default function Hero() {
                   align-items: center;
                   background-color: #FFFFFF;
                   border: 1px solid rgba(0, 0, 0, 0.1);
-                  border-radius: 9999px;
+                  border-radius: 12px;
                   box-shadow: rgba(0, 0, 0, 0.02) 0 1px 3px 0;
                   box-sizing: border-box;
                   color: rgba(0, 0, 0, 0.85);
@@ -339,11 +283,21 @@ export default function Hero() {
                   transition: all 250ms;
                   width: 100%;
                 }
+                .dark .btn-explore {
+                  background-color: #1e293b;
+                  border-color: rgba(255, 255, 255, 0.08);
+                  color: #f3f4f6;
+                }
                 @media (min-width: 640px) { .btn-explore { width: auto; } }
                 .btn-explore:hover, .btn-explore:focus {
                   border-color: rgba(0, 0, 0, 0.15);
                   box-shadow: rgba(0, 0, 0, 0.1) 0 4px 12px;
                   color: rgba(0, 0, 0, 0.65);
+                }
+                .dark .btn-explore:hover {
+                  border-color: rgba(255, 255, 255, 0.2);
+                  color: #ffffff;
+                  background-color: #334155;
                 }
                 .btn-explore:hover { transform: translateY(-1px); }
                 .btn-explore:active {

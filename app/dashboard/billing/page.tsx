@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { mbsItems, complexityConfig, MBSItem } from "@/components/mbs-billing/data";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ─── Animation configs ────────────────────────────────────────────────────────
 const gridVariants = {
@@ -140,6 +141,7 @@ export default function BillingPage() {
 
 function BillingContent() {
   const router = useRouter();
+  const { resolvedTheme } = useTheme();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [customFee, setCustomFee] = useState<string>("");
@@ -257,39 +259,293 @@ function BillingContent() {
           >
             {/* Smart Search Bar */}
             <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-2">
-              <div
-                className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
-                  ? "border-teal-500 ring-2 ring-teal-500/20"
-                  : "border-slate-200 hover:border-slate-300"
-                  }`}
-              >
-                <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              {resolvedTheme === "dark" ? (
+                <>
+                  <div className="search w-full">
+                    <div className="search-box w-full !max-w-none relative flex items-center">
+                      <div className="search-field w-full h-full relative flex items-center">
+                        <input
+                          ref={searchRef}
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                          onFocus={() => setShowSuggestions(true)}
+                          placeholder=""
+                          className="input w-full h-full"
+                        />
+                        {!searchQuery && (
+                          <span className="absolute left-[12px] top-1/2 -translate-y-1/2 flex items-center pointer-events-none select-none overflow-hidden">
+                            <SearchCarousel />
+                          </span>
+                        )}
+                        {searchQuery && (
+                          <button
+                            onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+                            className="absolute right-12 p-1.5 rounded-full hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-200 flex-shrink-0 z-10"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                        <div className="search-box-icon">
+                          <button className="btn-icon-content">
+                            <i className="search-icon">
+                              <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 512 512" className="w-5 h-5"><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" fill="#fff" /></svg>
+                            </i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <style>{`
+                    .search {
+                      --input-line: #cccccc;
+                      --input-text-color: #808080;
+                      --input-text-hover-color: transparent;
+                      --input-border-color: rgba(255,255,255,0.08);
+                      --input-border-hover-color: rgba(90,200,176,0.5);
+                      --input-bg-color: #151922;
+                      --border-radius: 12px;
+                      --transition-cubic-bezier: 150ms cubic-bezier(0.4,0,0.2,1);
+                    }
 
-                {!searchQuery && (
-                  <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
-                    <SearchCarousel />
-                  </span>
-                )}
+                    .search-box {
+                      width: 100%;
+                      height: 48px;
+                      border: 1px solid var(--input-border-color);
+                      border-radius: var(--border-radius);
+                      padding: 5px 15px;
+                      background: var(--input-bg-color);
+                      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+                      transition: var(--transition-cubic-bezier);
+                    }
 
-                <input
-                  ref={searchRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  placeholder=""
-                  className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-slate-800 text-base z-10 relative"
-                />
+                    .search-box:hover {
+                      border-color: var(--input-border-hover-color);
+                    }
 
-                {searchQuery && (
-                  <button
-                    onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
-                    className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 z-10"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+                    .search-field {
+                      position: relative;
+                      width: 100%;
+                      height: 100%;
+                      border: 0;
+                    }
+
+                    .input {
+                      width: calc(100% - 50px);
+                      height: 100%;
+                      border: 0 !important;
+                      font-size: 1rem;
+                      padding-right: 0px;
+                      padding-left: 10px;
+                      color: var(--input-line);
+                      background: transparent !important;
+                      outline: none !important;
+                      box-shadow: none !important;
+                    }
+
+                    .input:focus {
+                      outline: none !important;
+                      border: none !important;
+                      box-shadow: none !important;
+                    }
+
+                    .input::-webkit-input-placeholder {
+                      color: var(--input-text-color);
+                    }
+
+                    .input::-moz-input-placeholder {
+                      color: var(--input-text-color);
+                    }
+
+                    .input::-ms-input-placeholder {
+                      color: var(--input-text-color);
+                    }
+
+                    .input:focus::-webkit-input-placeholder {
+                      color: var(--input-text-hover-color);
+                    }
+
+                    .input:focus::-moz-input-placeholder {
+                      color: var(--input-text-hover-color);
+                    }
+
+                    .input:focus::-ms-input-placeholder {
+                      color: var(--input-text-hover-color);
+                    }
+
+                    .search-box-icon {
+                      width: 52px;
+                      height: 46px;
+                      position: absolute;
+                      top: 50%;
+                      transform: translateY(-50%);
+                      right: -15px;
+                      background: transparent;
+                      border-bottom-right-radius: var(--border-radius);
+                      border-top-right-radius: var(--border-radius);
+                      transition: var(--transition-cubic-bezier);
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+
+                    .search-box-icon:hover {
+                      background: var(--input-border-color);
+                    }
+
+                    .btn-icon-content {
+                      width: 52px;
+                      height: 46px;
+                      background: transparent;
+                      border: none;
+                      cursor: pointer;
+                      border-bottom-right-radius: var(--border-radius);
+                      border-top-right-radius: var(--border-radius);
+                      transition: var(--transition-cubic-bezier);
+                      opacity: .4;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+
+                    .btn-icon-content:hover {
+                      opacity: .8;
+                    }
+
+                    .search-icon {
+                      width: 21px;
+                      height: 21px;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                    }
+
+                    /* UI BOOKMARK BUTTON STYLES */
+                    .ui-bookmark {
+                      --icon-size: 24px;
+                      --icon-secondary-color: rgb(203, 213, 225);
+                      --icon-hover-color: #0d9488;
+                      --icon-primary-color: #0d9488;
+                      --icon-circle-border: 1px solid var(--icon-primary-color);
+                      --icon-circle-size: 35px;
+                      --icon-anmt-duration: 0.3s;
+                    }
+                    .dark .ui-bookmark {
+                      --icon-secondary-color: rgb(71, 85, 105);
+                      --icon-hover-color: #5ac8b0;
+                      --icon-primary-color: #5ac8b0;
+                    }
+                    .ui-bookmark input {
+                      -webkit-appearance: none;
+                      -moz-appearance: none;
+                      appearance: none;
+                      display: none !important;
+                    }
+                    .ui-bookmark .bookmark {
+                      width: var(--icon-size);
+                      height: auto;
+                      fill: var(--icon-secondary-color);
+                      cursor: pointer;
+                      transition: 0.2s;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      position: relative;
+                      transform-origin: top;
+                    }
+                    .ui-bookmark .bookmark svg {
+                      fill: inherit;
+                    }
+                    .ui-bookmark .bookmark::after {
+                      content: "";
+                      position: absolute;
+                      width: 10px;
+                      height: 10px;
+                      box-shadow: 0 30px 0 -4px var(--icon-primary-color),
+                        30px 0 0 -4px var(--icon-primary-color),
+                        0 -30px 0 -4px var(--icon-primary-color),
+                        -30px 0 0 -4px var(--icon-primary-color),
+                        -22px 22px 0 -4px var(--icon-primary-color),
+                        -22px -22px 0 -4px var(--icon-primary-color),
+                        22px -22px 0 -4px var(--icon-primary-color),
+                        22px 22px 0 -4px var(--icon-primary-color);
+                      border-radius: 50%;
+                      transform: scale(0);
+                    }
+                    .ui-bookmark .bookmark::before {
+                      content: "";
+                      position: absolute;
+                      border-radius: 50%;
+                      border: var(--icon-circle-border);
+                      opacity: 0;
+                    }
+                    .ui-bookmark:hover .bookmark {
+                      fill: var(--icon-hover-color);
+                    }
+                    .ui-bookmark input:checked + .bookmark::after {
+                      animation: circles var(--icon-anmt-duration) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                      animation-delay: var(--icon-anmt-duration);
+                    }
+                    .ui-bookmark input:checked + .bookmark {
+                      fill: var(--icon-primary-color);
+                      animation: bookmark var(--icon-anmt-duration) forwards;
+                      transition-delay: 0.3s;
+                    }
+                    .ui-bookmark input:checked + .bookmark::before {
+                      animation: circle var(--icon-anmt-duration) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+                      animation-delay: var(--icon-anmt-duration);
+                    }
+                    @keyframes bookmark {
+                      50% { transform: scaleY(0.6); }
+                      100% { transform: scaleY(1); }
+                    }
+                    @keyframes circle {
+                      from { width: 0; height: 0; opacity: 0; }
+                      90% { width: var(--icon-circle-size); height: var(--icon-circle-size); opacity: 1; }
+                      to { opacity: 0; }
+                    }
+                    @keyframes circles {
+                      from { transform: scale(0); }
+                      40% { opacity: 1; }
+                      to { transform: scale(0.8); opacity: 0; }
+                    }
+                  `}</style>
+                </>
+              ) : (
+                <div
+                  className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
+                    ? "border-teal-500 ring-2 ring-teal-500/20"
+                    : "border-slate-200 hover:border-slate-300"
+                    }`}
+                >
+                  <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+
+                  {!searchQuery && (
+                    <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
+                      <SearchCarousel />
+                    </span>
+                  )}
+
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    placeholder=""
+                    className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-slate-800 text-base z-10 relative"
+                  />
+
+                  {searchQuery && (
+                    <button
+                      onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
+                      className="p-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 flex-shrink-0 z-10"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Suggestion dropdown */}
               {showSuggestions && (
@@ -417,18 +673,28 @@ function BillingContent() {
                   whileHover={{ y: -3 }}
                   whileTap={{ scale: 0.99 }}
                   onClick={() => handleSelectCard(item)}
-                  className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group relative"
+                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col justify-between"
                 >
-                  <button
-                    onClick={e => toggleSaved(item.id, e)}
-                    title={isBookmarked ? "Remove bookmark" : "Bookmark item"}
-                    className={`absolute top-4 right-4 z-10 p-1.5 rounded-xl transition-all duration-150 ${isBookmarked
-                      ? "text-teal-600 bg-teal-50 dark:bg-teal-500/10"
-                      : "text-slate-300 dark:text-slate-600 hover:text-teal-600 hover:bg-slate-50 dark:hover:bg-slate-800 opacity-0 group-hover:opacity-100"
-                      }`}
+                  <label
+                    className={`absolute top-4 right-4 z-10 ui-bookmark cursor-pointer transition-opacity duration-150 ${
+                      isBookmarked ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    }`}
+                    onClick={e => e.stopPropagation()}
                   >
-                    {isBookmarked ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
-                  </button>
+                    <input
+                      type="checkbox"
+                      style={{ display: 'none' }}
+                      checked={isBookmarked}
+                      onChange={() => toggleSaved(item.id)}
+                    />
+                    <div className="bookmark">
+                      <svg viewBox="0 0 32 32" className="w-5 h-5" style={{ fill: 'inherit' }}>
+                        <g>
+                          <path d="M27 4v27a1 1 0 0 1-1.625.781L16 24.281l-9.375 7.5A1 1 0 0 1 5 31V4a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4z" />
+                        </g>
+                      </svg>
+                    </div>
+                  </label>
                   <div className="pr-8">
                     <div className="flex justify-between items-center mb-3">
                       <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">

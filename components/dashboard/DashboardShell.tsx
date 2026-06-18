@@ -27,7 +27,7 @@ function SignedIn({ children }: { children: React.ReactNode }) {
 const DashboardInner = memo(function DashboardInner({
   children,
   className = "px-6 sm:px-8 pt-6 sm:pt-8 pb-12",
-  bgClassName = "bg-slate-100 dark:bg-slate-950",
+  bgClassName = "bg-transparent",
   hideSidebar = false,
 }: {
   children: React.ReactNode;
@@ -43,6 +43,7 @@ const DashboardInner = memo(function DashboardInner({
   return (
     <div className={`min-h-screen ${bgClassName}`}>
       <div
+        className="sticky top-0 z-50 pt-4 pb-2 bg-transparent"
         style={{
           marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
           transition: ready ? MARGIN_TRANSITION : "none",

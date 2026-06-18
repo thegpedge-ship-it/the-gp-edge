@@ -19,14 +19,14 @@ export default async function Home() {
 
   if (userId) {
     return (
-      <DashboardShell className="" bgClassName="bg-slate-50 dark:bg-[#0F1115]">
+      <DashboardShell className="" bgClassName="bg-transparent">
         {content}
       </DashboardShell>
     );
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-[#0F1115]">
+    <main className="min-h-screen bg-transparent">
       {content}
     </main>
   );
