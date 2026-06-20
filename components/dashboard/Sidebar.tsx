@@ -36,6 +36,7 @@ import {
   Wrench,
   FileText,
   FileEdit,
+  Tag,
 } from "lucide-react";
 import { user as localUser } from "./data";
 import { useUser } from "@clerk/nextjs";
@@ -59,6 +60,7 @@ const NAV = [
   { href: "/dashboard/billing",          icon: Receipt,    label: "MBS Billing"      },
   { href: "/dashboard/medical-library",  icon: BookOpen,   label: "Medical Library" },
   { href: "/dashboard/clinical-autofills",icon: FileEdit,   label: "Clinical Autofills" },
+  { href: "/dashboard/pricing",          icon: Tag,        label: "Pricing"         },
   { href: "/dashboard/tools",            icon: Wrench,     label: "GP Tools"        },
   { href: "/dashboard/settings",         icon: Settings,   label: "Settings"        },
 ];

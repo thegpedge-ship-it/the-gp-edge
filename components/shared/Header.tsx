@@ -100,6 +100,16 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
            >
              MBS Billing
            </Link>
+           <Link
+             href="/dashboard/pricing"
+             className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
+               pathname === "/dashboard/pricing"
+                 ? "text-teal-600 dark:text-teal-400 font-semibold"
+                 : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
+             }`}
+           >
+             Pricing
+           </Link>
          </nav>
  
          {/* CTA Buttons */}
