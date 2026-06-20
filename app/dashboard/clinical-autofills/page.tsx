@@ -12,6 +12,7 @@ import {
   Check,
   FileText,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 
 // ─── Template Data ───────────────────────────────────────────────────────────
@@ -297,7 +298,7 @@ const DEFAULT_SAVED = [
 ];
 
 // Carousel suggestions for the search bar
-const SEARCH_SUGGESTIONS = [
+const CONDITION_SUGGESTIONS = [
   "Mental Health Care Plan",
   "DIABETES ANNUAL CYCLE OF CARE",
   "Asthma Management Plan",
@@ -305,12 +306,26 @@ const SEARCH_SUGGESTIONS = [
   "Chronic Disease Management Plan",
 ];
 
+const APPROACH_SUGGESTIONS = [
+  "Care Plan",
+  "Management Plan",
+  "Assessment",
+  "Review",
+  "Follow Up",
+];
+
 // ─── Vertical Carousel Component ────────────────────────────────────────────
 
-function SearchCarousel() {
+function SearchCarousel({ mode }: { mode: "condition" | "approach" }) {
   const [idx, setIdx] = useState(0);
   // phase: "idle" | "exit" | "enter"
   const [phase, setPhase] = useState<"idle" | "exit" | "enter">("idle");
+  const suggestions = mode === "condition" ? CONDITION_SUGGESTIONS : APPROACH_SUGGESTIONS;
+  const prefix = mode === "condition" ? "Search by medical condition" : "Search by approach";
+
+  useEffect(() => {
+    setIdx(0);
+  }, [mode]);
 
   useEffect(() => {
     const idleTimer = setTimeout(() => {
@@ -319,7 +334,7 @@ function SearchCarousel() {
 
       const exitTimer = setTimeout(() => {
         // Swap text while invisible
-        setIdx(i => (i + 1) % SEARCH_SUGGESTIONS.length);
+        setIdx(i => (i + 1) % suggestions.length);
         setPhase("enter");
 
         const enterTimer = setTimeout(() => {
@@ -333,7 +348,7 @@ function SearchCarousel() {
     }, 3000); // visible pause
 
     return () => clearTimeout(idleTimer);
-  }, [idx]);
+  }, [idx, suggestions.length]);
 
   const style: React.CSSProperties = {
     display: "inline-block",
@@ -350,10 +365,10 @@ function SearchCarousel() {
 
   return (
     <span className="flex items-center gap-0 text-slate-400 text-base pointer-events-none select-none">
-      <span className="text-slate-400">Search - &nbsp;</span>
+      <span className="text-slate-400">{prefix}... &nbsp;</span>
       {/* overflow-hidden clips the sliding text so it doesn't bleed outside the bar */}
       <span className="overflow-hidden" style={{ height: "1.5em", display: "inline-flex", alignItems: "center" }}>
-        <span style={style}>{SEARCH_SUGGESTIONS[idx]}</span>
+        <span style={style}>{suggestions[idx]}</span>
       </span>
     </span>
   );
@@ -417,12 +432,17 @@ function BookmarkTooltip({ onDismiss, show }: { onDismiss: () => void; show: boo
 export default function ClinicalAutofillsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<typeof TEMPLATES[0] | null>(null);
   const [isCopied, setIsCopied] = useState(false);
   const [modalCopied, setModalCopied] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<string[]>(DEFAULT_SAVED);
   const [visibleCount, setVisibleCount] = useState(6);
   const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const categories = ["All", ...Array.from(new Set(TEMPLATES.map(t => t.category)))];
+  const [selectedCategory, setSelectedCategory] = useState("All");
 
   const { resolvedTheme } = useTheme();
 
@@ -448,11 +468,12 @@ export default function ClinicalAutofillsPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Click-outside closes suggestion dropdown
+  // Click-outside closes suggestion dropdown and mode dropdown
   useEffect(() => {
     function handle(e: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setShowSuggestions(false);
+        setShowModeDropdown(false);
       }
     }
     document.addEventListener("mousedown", handle);
@@ -503,7 +524,8 @@ export default function ClinicalAutofillsPage() {
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.category.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesBookmarks = !showBookmarks || savedTemplates.includes(t.title);
-    return matchesSearch && matchesBookmarks;
+    const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
+    return matchesSearch && matchesBookmarks && matchesCategory;
   });
 
   return (
@@ -537,20 +559,49 @@ export default function ClinicalAutofillsPage() {
                     onFocus={() => setShowSuggestions(true)}
                     placeholder=""
                     className="input w-full h-full"
+                    style={{ paddingRight: "180px" }}
                   />
                   {!searchQuery && (
                     <span className="absolute left-[12px] top-1/2 -translate-y-1/2 flex items-center pointer-events-none select-none overflow-hidden">
-                      <SearchCarousel />
+                      <SearchCarousel mode={searchMode} />
                     </span>
                   )}
                   {searchQuery && (
                     <button
                       onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
-                      className="absolute right-12 p-1.5 rounded-full hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-200 flex-shrink-0 z-10"
+                      className="absolute right-[170px] p-1.5 rounded-full hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-200 flex-shrink-0 z-10"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   )}
+                  
+                  {/* Mode Dropdown (Dark Mode) */}
+                  <div className="absolute right-[40px] top-1/2 -translate-y-1/2 flex-shrink-0 z-20">
+                    <button
+                      onClick={(e) => { e.preventDefault(); setShowModeDropdown(!showModeDropdown); }}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 bg-[#1A202C] border hover:border-teal-600 hover:bg-teal-900/30 rounded-full text-[12px] whitespace-nowrap font-medium transition-colors shadow-sm ${showModeDropdown ? 'border-teal-500 text-teal-400' : 'border-teal-800/80 text-teal-500'}`}
+                    >
+                      {searchMode === "condition" ? "Medical Condition" : "Approach"}
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                    {showModeDropdown && (
+                      <div className="absolute top-[calc(100%+8px)] right-0 w-48 bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-1.5 transform origin-top transition-all duration-200 ease-out z-50">
+                        <button
+                          onClick={(e) => { e.preventDefault(); setSearchMode("condition"); setShowModeDropdown(false); searchRef.current?.focus(); }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "condition" ? 'text-teal-400 bg-teal-900/40' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}
+                        >
+                          Medical Condition
+                        </button>
+                        <button
+                          onClick={(e) => { e.preventDefault(); setSearchMode("approach"); setShowModeDropdown(false); searchRef.current?.focus(); }}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "approach" ? 'text-teal-400 bg-teal-900/40' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}
+                        >
+                          Approach
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="search-box-icon">
                     <button className="btn-icon-content">
                       <i className="search-icon">
@@ -688,7 +739,7 @@ export default function ClinicalAutofillsPage() {
           </>
         ) : (
           <div
-            className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 overflow-hidden ${showSuggestions
+            className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 ${showSuggestions
               ? "border-teal-500 ring-2 ring-teal-500/20"
               : "border-slate-200 hover:border-slate-300"
               }`}
@@ -697,7 +748,7 @@ export default function ClinicalAutofillsPage() {
 
             {!searchQuery && (
               <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
-                <SearchCarousel />
+                <SearchCarousel mode={searchMode} />
               </span>
             )}
 
@@ -719,6 +770,33 @@ export default function ClinicalAutofillsPage() {
                 <X className="w-4 h-4" />
               </button>
             )}
+
+            {/* Mode Dropdown (Light Mode) */}
+            <div className="relative flex-shrink-0 z-20">
+              <button
+                onClick={(e) => { e.preventDefault(); setShowModeDropdown(!showModeDropdown); }}
+                className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border hover:border-teal-400 hover:bg-teal-50 rounded-full text-[12px] whitespace-nowrap font-medium transition-colors shadow-sm ${showModeDropdown ? 'border-teal-500 text-teal-700' : 'border-teal-200/80 text-teal-700'}`}
+              >
+                {searchMode === "condition" ? "Medical Condition" : "Approach"}
+                <ChevronDown className="w-4 h-4" />
+              </button>
+              {showModeDropdown && (
+                <div className="absolute top-[calc(100%+8px)] right-0 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 transform origin-top transition-all duration-200 ease-out z-50">
+                  <button
+                    onClick={(e) => { e.preventDefault(); setSearchMode("condition"); setShowModeDropdown(false); searchRef.current?.focus(); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "condition" ? 'text-teal-800 bg-[#F0F7F5]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  >
+                    Medical Condition
+                  </button>
+                  <button
+                    onClick={(e) => { e.preventDefault(); setSearchMode("approach"); setShowModeDropdown(false); searchRef.current?.focus(); }}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "approach" ? 'text-teal-800 bg-[#F0F7F5]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  >
+                    Approach
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -794,6 +872,28 @@ export default function ClinicalAutofillsPage() {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* ── SORT TEMPLATES BY CATEGORIES ─────────────────────────────────────── */}
+      <div className="mb-8">
+        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+          Sort Templates by Categories
+        </p>
+        <div className="flex overflow-x-auto pb-2 -mb-2 scrollbar-hide lg:flex-wrap gap-2.5">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 border shadow-sm ${
+                selectedCategory === cat
+                  ? "bg-teal-600 text-white border-teal-600"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:bg-teal-900/30"
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
         </div>
       </div>
 

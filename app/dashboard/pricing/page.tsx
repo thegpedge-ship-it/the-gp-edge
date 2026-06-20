@@ -701,32 +701,23 @@ export default function PricingPage() {
         ════════════════════════════════ */}
         <section className="mb-6 flex flex-col items-center text-center max-w-[1040px] mx-auto px-4 w-full">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 border border-[var(--row-core-border)] bg-[var(--row-core-bg)] rounded-lg mb-2">
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--accent)",
-                flexShrink: 0,
-              }}
-            />
-            <span className="font-sans text-xs font-bold tracking-wider uppercase text-[var(--accent)]">
-              Simple, transparent pricing
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-955/30 text-[10px] font-bold text-teal-700 dark:text-teal-400 border border-teal-200/30 dark:border-teal-800/30 uppercase tracking-[0.12em] mb-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
             </span>
+            Simple, transparent pricing
           </div>
 
           {/* Heading */}
-          <h1 className="font-serif text-3xl md:text-4xl lg:text-[42px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-1 max-w-3xl">
-            Invest in your <span className="text-[var(--accent)] italic font-semibold">fellowship success</span>
+          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-1">
+            Invest in your fellowship success
           </h1>
 
           {/* Description */}
-          <div className="max-w-[650px] mb-4">
-            <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-600 dark:text-slate-400">
-              Start free. Upgrade when you're ready to unlock the full exam prep experience.
-            </p>
-          </div>
+          <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl mb-4">
+            Start free. Upgrade when you're ready to unlock the full exam prep experience.
+          </p>
 
           {/* Billing Toggle (Centered) */}
           <div className="flex flex-col items-center select-none">

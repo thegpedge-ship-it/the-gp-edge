@@ -171,6 +171,9 @@ function MedicalLibraryContent() {
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
+  const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
+  const [categoryPage, setCategoryPage] = useState(0);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     symptoms: true,
@@ -391,28 +394,88 @@ function MedicalLibraryContent() {
             exit="exit"
             className="space-y-6"
           >
-            {/* Merged Search & Type Filters Header Card */}
-            <div className="relative p-2.5 rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/80 shadow-md flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Search input (MBS billing style input) */}
-              <div className="relative flex-1 w-full">
-                <div className="relative flex items-center">
-                  <Lucide.Search className="absolute left-4 w-5 h-5 text-slate-400 dark:text-slate-500" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by condition, system, symptoms, or keyword..."
-                    className="w-full pl-12 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                    >
-                      <Lucide.X className="w-4 h-4" />
-                    </button>
+            {/* Search Bar */}
+            <div className="relative w-full max-w-3xl mx-auto mb-8">
+              <div className="w-full h-12 bg-white dark:bg-[#1A202C] border border-slate-200 dark:border-slate-800 transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 dark:focus-within:border-teal-500/50">
+                <Lucide.Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={searchMode === "condition" ? "Search by medical condition..." : "Search by diagnosis, management, treatment..."}
+                  className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-base text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500"
+                />
+
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 mr-1"
+                  >
+                    <Lucide.X className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Mode Dropdown */}
+                <div className="relative flex-shrink-0 z-20">
+                  <button
+                    onClick={(e) => { e.preventDefault(); setShowModeDropdown(!showModeDropdown); }}
+                    className={`flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-[#1A202C] border hover:border-teal-400 hover:bg-teal-50 dark:hover:border-teal-600 dark:hover:bg-teal-900/30 rounded-full text-[12px] whitespace-nowrap font-medium transition-colors shadow-sm ${showModeDropdown ? 'border-teal-500 text-teal-700 dark:text-teal-400' : 'border-teal-200/80 dark:border-teal-800/80 text-teal-700 dark:text-teal-500'}`}
+                  >
+                    {searchMode === "condition" ? "Medical Condition" : "Approach"}
+                  </button>
+                  {showModeDropdown && (
+                    <div className="absolute top-[calc(100%+8px)] right-0 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl p-1.5 transform origin-top transition-all duration-200 ease-out z-50">
+                      <button
+                        onClick={(e) => { e.preventDefault(); setSearchMode("condition"); setShowModeDropdown(false); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "condition" ? 'text-teal-800 bg-[#F0F7F5] dark:text-teal-400 dark:bg-teal-900/40' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white'}`}
+                      >
+                        Medical Condition
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); setSearchMode("approach"); setShowModeDropdown(false); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "approach" ? 'text-teal-800 bg-[#F0F7F5] dark:text-teal-400 dark:bg-teal-900/40' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white'}`}
+                      >
+                        Approach
+                      </button>
+                    </div>
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Access */}
+            <div className="mb-8">
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                Quick Access
+              </p>
+              <div className="flex overflow-x-auto gap-2.5 pb-2 md:grid md:grid-cols-4 md:overflow-visible md:pb-0 medical-scroll">
+                {[
+                  "Acute Coronary Syndrome",
+                  "Atrial Fibrillation",
+                  "Asthma",
+                  "COPD"
+                ].map((term) => (
+                  <button
+                    key={term}
+                    onClick={() => setSearchQuery(term)}
+                    className="
+                      h-[58px] flex items-center gap-2.5 px-3.5 flex-shrink-0 w-[240px] md:w-auto
+                      bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800
+                      border-l-2 border-l-transparent
+                      hover:border-l-teal-500 dark:hover:border-l-teal-400 hover:bg-slate-50/70 dark:hover:bg-slate-800/70
+                      rounded-xl cursor-pointer transition-all duration-150 text-left group
+                    "
+                  >
+                    <Lucide.Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0 group-hover:text-teal-500 transition-colors" />
+                    <div className="min-w-0">
+                      <p className="truncate font-sans text-sm font-semibold text-slate-700 dark:text-slate-300 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors leading-tight">
+                        {term}
+                      </p>
+                      <p className="font-sans text-xs text-slate-500 dark:text-slate-400 mt-0.5">Reference Guideline</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -433,42 +496,49 @@ function MedicalLibraryContent() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 medical-scroll">
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 <button
                   onClick={() => setSelectedSystem("all")}
-                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all ${
+                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all flex-shrink-0 ${
                     selectedSystem === "all"
-                      ? "bg-slate-900 text-white border-slate-955 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
-                      : "bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955"
+                      ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80"
                   }`}
                 >
                   All Systems
                 </button>
-                {bodySystems.map((system) => {
+                {bodySystems.slice(categoryPage * 8, (categoryPage + 1) * 8).map((system) => {
                   const count = systemCounts.get(system.id) ?? 0;
                   const isSelected = selectedSystem === system.id;
-                  const sys = getSystem(system.id);
                   return (
                     <button
                       key={system.id}
                       onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
-                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 ${
+                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
                         isSelected
-                          ? `bg-gradient-to-r ${sys.gradient} text-white border-transparent shadow-sm`
-                          : `bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955 ${sys.border}`
+                          ? "bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-700 shadow-sm"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80"
                       }`}
                     >
                       <span>{system.name}</span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
                         isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-slate-100 dark:bg-slate-800/85 text-slate-500"
+                          ? "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500"
                       }`}>
                         {count}
                       </span>
                     </button>
                   );
                 })}
+                {bodySystems.length > 8 && (
+                  <button
+                    onClick={() => setCategoryPage((prev) => (prev + 1) * 8 >= bodySystems.length ? 0 : prev + 1)}
+                    className="px-4 py-2 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 whitespace-nowrap flex-shrink-0 ml-auto"
+                  >
+                    Next <Lucide.ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -501,31 +571,28 @@ function MedicalLibraryContent() {
                           variants={cardVariants}
                           initial="hidden"
                           animate="visible"
-                          whileHover={{ y: -3 }}
-                          whileTap={{ scale: 0.99 }}
-                          className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                          className="bg-white dark:bg-slate-900 rounded-2xl p-5 md:p-6 text-left border border-slate-200 dark:border-slate-800 hover:border-teal-500/50 dark:hover:border-teal-500/50 hover:shadow-xl hover:shadow-teal-900/5 transition-all duration-300 flex flex-col justify-between group cursor-pointer"
                           onClick={() => handleOpenCondition(condition)}
                         >
                           <div>
                             <div className="flex justify-between items-center mb-3">
-                              <span className="text-sm font-bold font-mono text-green-600 dark:text-green-400">
+                              <span className="text-sm font-bold font-mono text-teal-600 dark:text-teal-400">
                                 {condition.id}
                               </span>
                               <div className="flex items-center gap-1.5">
                                 {condition.isPremium && (
-                                  <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
+                                  <span className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-400 dark:text-slate-500" title="Premium Content">
                                     <Lucide.Lock className="w-3.5 h-3.5" />
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
+                            <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-3">
                               {condition.name}
                             </h3>
 
-                            <p className="text-xs text-slate-400 dark:text-slate-500 font-medium flex items-center gap-1.5 mb-4">
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700" />
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold tracking-wider mb-4 leading-relaxed line-clamp-4">
                               {condition.category}
                             </p>
 
@@ -533,26 +600,26 @@ function MedicalLibraryContent() {
                               {condition.symptoms.slice(0, 2).map((sym, i) => (
                                 <p
                                   key={i}
-                                  className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
+                                  className="text-[13px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
                                 >
-                                  <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+                                  <span className="text-teal-500 dark:text-teal-600 font-bold">•</span>
                                   <span className="truncate">{sym}</span>
                                 </p>
                               ))}
                             </div>
                           </div>
 
-                          <div className="border-t border-slate-150 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
+                          <div className="border-t border-slate-100 dark:border-slate-800 pt-4 mt-auto flex items-center justify-between">
                             <div
                               onClick={(e) => handleTagClick(e, "system", condition.system)}
                               className="flex flex-col cursor-pointer group/footer"
                             >
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-                              <span className="text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-400 transition-colors">{condition.system}</span>
                             </div>
                             <div className="flex flex-col text-right">
                               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Last Updated</span>
-                              <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">{condition.lastUpdated}</span>
                             </div>
                           </div>
                         </motion.div>
@@ -602,8 +669,8 @@ function MedicalLibraryContent() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               {/* Left Column: Clinical Info */}
               <div className="lg:col-span-7">
-                <div className="glass dark:glass-strong rounded-3xl p-6 lg:p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg space-y-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
                   {/* Header info */}
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
@@ -1190,7 +1257,7 @@ function MedicalLibraryContent() {
                     </div>
                   </div>
                 ) : (
-                  <div className="glass dark:glass-strong rounded-3xl p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg text-center text-slate-400 space-y-4">
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-lg text-center text-slate-400 space-y-4">
                     <Lucide.FileWarning className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No PDF Guideline Attached</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">
