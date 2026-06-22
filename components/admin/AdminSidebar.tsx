@@ -211,15 +211,8 @@ export default function AdminSidebar({
       {/* Logo area */}
       <div className="flex items-center h-16 px-4 border-b border-slate-200/50 dark:border-slate-800/50 flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
         <Link href="/admin/dashboard" className="flex items-center gap-2.5 min-w-0" onClick={onMobileClose}>
-          <div className="relative w-9 h-9 flex-shrink-0 shadow-sm rounded-xl overflow-hidden ring-1 ring-black/5">
-            <Image
-              src="/assets/logo.png"
-              alt="The GP Edge"
-              fill
-              sizes="36px"
-              className="rounded-xl object-contain"
-              priority
-            />
+          <div className="relative w-9 h-9 flex-shrink-0 shadow-sm rounded-xl overflow-hidden ring-1 ring-black/5 flex items-center justify-center bg-slate-800 dark:bg-slate-700">
+            <span className="font-bold text-white text-sm">A</span>
           </div>
           <AnimatePresence>
             {!collapsed && (
@@ -230,9 +223,8 @@ export default function AdminSidebar({
                 transition={{ duration: 0.2 }}
                 className="flex items-baseline whitespace-nowrap"
               >
-                <span className="font-light text-slate-400 dark:text-slate-500 text-sm">The</span>
-                <span className="font-extrabold text-slate-900 dark:text-slate-200 tracking-tight ml-1 text-sm">GP</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300 ml-1 text-sm">Edge</span>
+                <span className="font-extrabold text-slate-900 dark:text-slate-200 tracking-tight ml-1 text-sm">Admin</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300 ml-1 text-sm">Panel</span>
               </motion.div>
             )}
           </AnimatePresence>

@@ -66,18 +66,18 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
   const innerClass =
     variant === "static"
-      ? "w-[94%] max-w-6xl mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-5 lg:px-8 py-3.5 flex items-center justify-between gap-4 transition-all duration-300"
-      : "w-[94%] max-w-5xl mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-8 py-4 flex items-center justify-between gap-4 transition-all duration-500 ease-in-out";
+      ? "w-[94%] max-w-[920px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-5 lg:px-8 py-3.5 flex items-center justify-between gap-4 transition-all duration-300"
+      : "w-[94%] max-w-[920px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-8 py-4 flex items-center justify-between gap-4 transition-all duration-500 ease-in-out";
 
   return (
     <header className={outerClass}>
       <div className={innerClass}>
  
          {/* Navigation */}
-         <nav className="hidden md:flex items-center gap-3 lg:gap-6 xl:gap-8 transition-all duration-500 flex-wrap lg:flex-nowrap">
+         <nav className="hidden md:flex items-center gap-6 lg:gap-8 transition-all duration-500 flex-wrap lg:flex-nowrap">
            <Link
              href="/exam-prep"
-             className="text-[13px] xl:text-[15px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
+             className="text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
            >
              Exam Prep
            </Link>
@@ -113,7 +113,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
          </nav>
  
          {/* CTA Buttons */}
-         <div className="flex items-center gap-3 xl:gap-4 flex-shrink-0">
+         <div className="flex items-center gap-4 flex-shrink-0">
            <SignedOut>
              <Link href="/sign-in" className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
                Log in
@@ -124,11 +124,6 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
            </SignedOut>
  
            <SignedIn>
-             <SignOutButton>
-               <button className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
-                 Log out
-               </button>
-             </SignOutButton>
              <Link
                href="/dashboard"
                className={`btn-dashboard-new ${pathname === '/' ? 'interactive' : ''}`}

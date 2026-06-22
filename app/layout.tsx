@@ -8,6 +8,7 @@ import { Inter, Lora } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
 
+import GlobalLogo from "@/components/shared/GlobalLogo";
 import Script from "next/script";
 
 const inter = Inter({ 
@@ -86,19 +87,7 @@ export default function RootLayout({
           <ThemeProvider>
             <PageBackground />
             
-            {/* Global Corner Logo — always visible on all pages and scroll positions */}
-            <div className="fixed top-2 left-2 z-[60] pointer-events-auto hidden lg:block">
-              <Link href="/">
-                <Image
-                  src="/assets/logo.png"
-                  alt="The GP Edge"
-                  width={72}
-                  height={72}
-                  className="h-[72px] w-[72px] object-contain rounded-2xl ring-1 ring-black/5"
-                  priority
-                />
-              </Link>
-            </div>
+            <GlobalLogo />
 
             <Header />
             {children}

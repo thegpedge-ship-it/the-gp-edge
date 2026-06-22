@@ -31,24 +31,25 @@ import PageCard from "@/components/ui/PageCard";
 import CardHeader from "@/components/ui/CardHeader";
 
 // ─── Form primitives ────────────────────────────────────────────────────────────
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+function FieldLabel({ htmlFor, required, children }: { htmlFor: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label htmlFor={htmlFor} className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1">
       {children}
+      {required && <span className="text-red-500 ml-1">*</span>}
     </label>
   );
 }
 
 function TextInput({
-  id, type = "text", defaultValue, placeholder, readOnly, icon,
+  id, type = "text", defaultValue, placeholder, readOnly, icon, required, onClick
 }: {
-  id: string; type?: string; defaultValue?: string; placeholder?: string; readOnly?: boolean; icon?: React.ReactNode;
+  id: string; type?: string; defaultValue?: string; placeholder?: string; readOnly?: boolean; icon?: React.ReactNode; required?: boolean; onClick?: (e: React.MouseEvent<HTMLInputElement>) => void;
 }) {
   return (
     <div className="relative">
       {icon && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">{icon}</span>}
       <input
-        id={id} type={type} defaultValue={defaultValue} placeholder={placeholder} readOnly={readOnly}
+        id={id} type={type} defaultValue={defaultValue} placeholder={placeholder} readOnly={readOnly} required={required} onClick={onClick}
         className={`w-full ${icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2 rounded-lg border border-slate-200 bg-white
                    text-sm text-slate-800 placeholder-slate-400
                    focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500
@@ -137,9 +138,9 @@ function ToggleSwitch({ id, defaultChecked = false }: { id: string; defaultCheck
   );
 }
 
-function SaveButton({ id, label = "Save Changes" }: { id: string; label?: string }) {
+function SaveButton({ id, label = "Save Changes", type = "button" }: { id: string; label?: string; type?: "button" | "submit" }) {
   return (
-    <button type="button" id={id}
+    <button type={type} id={id}
       className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white
                  text-sm font-semibold rounded-lg transition-all duration-150 hover:shadow-md active:scale-[0.98]"
     >
@@ -173,7 +174,7 @@ export default function SettingsPage() {
         <FadeIn delay={0.04}>
           <PageCard className="h-full bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
             <CardHeader icon={<User size={15} />} title="Account Information" subtitle="Login & personal details" />
-            <div className="px-5 pb-5 pt-0 space-y-4">
+            <form className="px-5 pb-5 pt-0 space-y-4" onSubmit={(e) => e.preventDefault()}>
               
               {/* Premium Header Banner */}
               <div className="h-32 w-full relative overflow-hidden rounded-xl flex-shrink-0">
@@ -234,15 +235,15 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div><FieldLabel htmlFor="first-name">First Name</FieldLabel><TextInput id="first-name" defaultValue={user?.firstName || ''} /></div>
-                <div><FieldLabel htmlFor="last-name">Last Name</FieldLabel><TextInput id="last-name" defaultValue={user?.lastName || ''} /></div>
+                <div><FieldLabel htmlFor="first-name" required>First Name</FieldLabel><TextInput id="first-name" required defaultValue={user?.firstName || ''} /></div>
+                <div><FieldLabel htmlFor="last-name" required>Last Name</FieldLabel><TextInput id="last-name" required defaultValue={user?.lastName || ''} /></div>
               </div>
-              <div><FieldLabel htmlFor="email">Email</FieldLabel><TextInput id="email" type="email" defaultValue={user?.primaryEmailAddress?.emailAddress || ''} /></div>
+              <div><FieldLabel htmlFor="email" required>Email</FieldLabel><TextInput id="email" type="email" required defaultValue={user?.primaryEmailAddress?.emailAddress || ''} /></div>
               <div>
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password" required>Password</FieldLabel>
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
-                    <TextInput id="password" type={showPassword ? "text" : "password"} defaultValue="supersecret123" readOnly />
+                    <TextInput id="password" type={showPassword ? "text" : "password"} required defaultValue="supersecret123" readOnly />
                     <button type="button" onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
                       {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -254,8 +255,9 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              <div className="flex justify-end pt-1"><SaveButton id="save-account-btn" /></div>
-            </div>
+              <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue="Royal North Shore Hospital" /></div>
+              <div className="flex justify-end pt-1"><SaveButton id="save-account-btn" type="submit" /></div>
+            </form>
           </PageCard>
         </FadeIn>
 
@@ -264,22 +266,31 @@ export default function SettingsPage() {
           <PageCard className="h-full">
             <CardHeader icon={<Shield size={15} />} title="Medical Credentials" subtitle="Registration & training" />
             <div className="px-5 py-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><FieldLabel htmlFor="racgp-number">RACGP Number</FieldLabel><TextInput id="racgp-number" defaultValue="RACGP-89241" /></div>
-                <div><FieldLabel htmlFor="ahpra-number">AHPRA Number</FieldLabel><TextInput id="ahpra-number" defaultValue="MED0001234567" /></div>
-              </div>
               <div>
                 <FieldLabel htmlFor="training-level">Training Level</FieldLabel>
-                <SelectInput id="training-level" defaultValue="PGY3" options={[
-                  { value: "PGY1", label: "PGY1 — Intern" },
-                  { value: "PGY2", label: "PGY2 — Resident" },
-                  { value: "PGY3", label: "PGY3 — Registrar" },
-                  { value: "PGY4", label: "PGY4 — Senior Registrar" },
-                  { value: "Fellow", label: "Fellow — FRACGP" },
-                  { value: "Consultant", label: "Consultant — GP Principal" },
+                <SelectInput id="training-level" defaultValue="GPY3" options={[
+                  { value: "GPY1", label: "GPY1" },
+                  { value: "GPY2", label: "GPY2" },
+                  { value: "GPY3", label: "GPY3" },
+                  { value: "GPY4", label: "GPY4" },
+                  { value: "GPY5", label: "GPY5" },
+                  { value: "GPY6", label: "GPY6" },
+                  { value: "GPY7", label: "GPY7" },
+                  { value: "GPY8", label: "GPY8" },
+                  { value: "GPY9", label: "GPY9" },
+                  { value: "GPY10", label: "GPY10" },
+                  { value: "GPY11", label: "GPY11" },
+                  { value: "GPY12", label: "GPY12" },
+                  { value: "GPY13", label: "GPY13" },
+                  { value: "GPY14", label: "GPY14" },
+                  { value: "GPY15", label: "GPY15" },
+                  { value: "GPY16", label: "GPY16" },
+                  { value: "GPY17", label: "GPY17" },
+                  { value: "GPY18", label: "GPY18" },
+                  { value: "GPY19", label: "GPY19" },
+                  { value: "GPY20", label: "GPY20" },
                 ]} />
               </div>
-              <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue="Royal North Shore Hospital" /></div>
               <div><FieldLabel htmlFor="supervisor">Training Supervisor</FieldLabel><TextInput id="supervisor" placeholder="e.g. Dr. James Miller" /></div>
               <div className="flex justify-end pt-1"><SaveButton id="save-credentials-btn" label="Save Credentials" /></div>
             </div>
@@ -301,7 +312,7 @@ export default function SettingsPage() {
                     { value: "OSCE", label: "OSCE" },
                   ]} />
                 </div>
-                <div><FieldLabel htmlFor="exam-date">Exam Date</FieldLabel><TextInput id="exam-date" defaultValue="August 2026" icon={<Calendar size={13} />} /></div>
+                <div><FieldLabel htmlFor="exam-date">Exam Date</FieldLabel><TextInput id="exam-date" type="month" defaultValue="2026-08" icon={<Calendar size={13} />} onClick={(e) => { if (e.currentTarget.showPicker) e.currentTarget.showPicker(); }} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -344,6 +355,7 @@ export default function SettingsPage() {
                 { id: "notif-streak", label: "Streak Alerts", desc: "When streak is about to break", on: false },
                 { id: "notif-weekly", label: "Weekly Digest", desc: "Weekly performance email", on: true },
                 { id: "notif-tips", label: "Study Tips", desc: "Curated tips for your exam", on: false },
+                { id: "notif-supervisor", label: "Report to Supervisor", desc: "Send performance reports to supervisor", on: true },
               ].map((item) => (
                 <div key={item.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0">
                   <div>
