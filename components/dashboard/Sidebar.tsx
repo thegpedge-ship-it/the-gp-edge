@@ -37,9 +37,10 @@ import {
   FileText,
   FileEdit,
   Tag,
+  LogOut,
 } from "lucide-react";
 import { user as localUser } from "./data";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -296,6 +297,17 @@ export default function Sidebar() {
             {/* ── Utility icons ── */}
             <RailBtn icon={<BarChart2 size={16} strokeWidth={1.8} />} title="Analytics" />
             <RailBtn icon={<HelpCircle size={16} strokeWidth={1.8} />} title="Help &amp; Support" />
+            <SignOutButton>
+              <button title="Log out" className="sidebar-rail-btn" style={{
+                width: 40, height: 40,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 10, border: "none",
+                cursor: "pointer", flexShrink: 0,
+                transition: "background 150ms, color 150ms",
+              }}>
+                <LogOut size={16} strokeWidth={1.8} />
+              </button>
+            </SignOutButton>
 
             <Sep />
 
@@ -505,6 +517,23 @@ export default function Sidebar() {
                 <span>Help &amp; Support</span>
               </button>
 
+              {/* ── Log out ── */}
+              <SignOutButton>
+                <button className="
+                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                  border border-slate-200 dark:border-slate-800
+                  bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
+                  hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
+                  font-sans text-sm md:text-base font-medium
+                  transition-all duration-150 cursor-pointer w-full text-left shadow-sm
+                ">
+                  <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
+                    <LogOut size={14} strokeWidth={1.8} />
+                  </span>
+                  <span>Log out</span>
+                </button>
+              </SignOutButton>
+
               {/* Footer */}
               <div className="text-center pt-1">
                 <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{localUser.joinedLabel}</p>
@@ -596,6 +625,16 @@ function MobileDrawer({ pathname }: { pathname: string }) {
               </Link>
             );
           })}
+          
+          <div className="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+          <SignOutButton>
+            <button className="
+              flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
+            ">
+              <LogOut size={15} /> Log out
+            </button>
+          </SignOutButton>
         </div>
       </div>
     </div>

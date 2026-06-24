@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HelpCircle, BookOpen, BarChart2, Eye, FileText, GraduationCap, Bot, Calendar, Headphones, CheckCircle2, Star } from "lucide-react";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -71,15 +72,15 @@ const PLANS = [
 ];
 
 const COMPARISON_ROWS = [
-  { feature: "AKT quiz questions", free: "—", core: "Unlimited", premium: "Unlimited" },
-  { feature: "KFP cases", free: "—", core: "Unlimited", premium: "Unlimited" },
-  { feature: "Performance analytics", free: "—", core: "✓", premium: "✓" },
-  { feature: "Blind spot detection", free: "—", core: "✓", premium: "✓" },
-  { feature: "Autofills library", free: "50 templates", core: "Full access", premium: "Full access" },
-  { feature: "Learn-a-Thing access", free: "30 conditions", core: "Full access", premium: "Full access" },
-  { feature: "AI tutor", free: "—", core: "—", premium: "✓" },
-  { feature: "Personalised study schedule", free: "—", core: "—", premium: "✓" },
-  { feature: "Priority support", free: "—", core: "—", premium: "✓" },
+  { icon: HelpCircle, feature: "AKT quiz questions", free: "—", core: "Unlimited", premium: "Unlimited" },
+  { icon: BookOpen, feature: "KFP cases", free: "—", core: "Unlimited", premium: "Unlimited" },
+  { icon: BarChart2, feature: "Performance analytics", free: "—", core: "✓", premium: "✓" },
+  { icon: Eye, feature: "Blind spot detection", free: "—", core: "✓", premium: "✓" },
+  { icon: FileText, feature: "Autofills library", free: "50 templates", core: "Full access", premium: "Full access" },
+  { icon: GraduationCap, feature: "Learn-a-Thing access", free: "30 conditions", core: "Full access", premium: "Full access" },
+  { icon: Bot, feature: "AI tutor", free: "—", core: "—", premium: "✓" },
+  { icon: Calendar, feature: "Personalised study schedule", free: "—", core: "—", premium: "✓" },
+  { icon: Headphones, feature: "Priority support", free: "—", core: "—", premium: "✓" },
 ];
 
 const JOURNEY_STEPS = [
@@ -127,7 +128,7 @@ function PricingCard({
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        minHeight: plan.highlight ? "440px" : "400px",
+        minHeight: plan.highlight ? "480px" : "440px",
         transition: "box-shadow 250ms ease, transform 250ms ease, border-color 250ms ease",
       }}
     >
@@ -253,7 +254,7 @@ function PricingCard({
 
       {/* Features List (Left-aligned text list, centered container block) */}
       <div style={{ display: "flex", justifyContent: "center", width: "100%", flexGrow: 1 }} className="mb-6">
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%", maxWidth: "240px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: "240px" }}>
           {plan.features.map((feature) => {
             const isMuted = feature.toLowerCase().startsWith("no ");
             return (
@@ -262,7 +263,7 @@ function PricingCard({
                 style={{
                   display: "flex",
                   alignItems: "flex-start",
-                  fontSize: 12.5,
+                  fontSize: 13.5,
                   color: isMuted ? "var(--text-muted)" : "var(--text-secondary)",
                   fontFamily: "var(--font-sans)",
                   lineHeight: 1.4,
@@ -354,152 +355,70 @@ function PricingCard({
 }
 
 function ComparisonTable() {
+  const renderCellContent = (value: string) => {
+    if (value === "—") {
+      return <span className="text-slate-300 dark:text-slate-600 font-medium text-[13px]">—</span>;
+    }
+    if (value === "✓") {
+      return <CheckCircle2 className="w-[18px] h-[18px] text-teal-600 dark:text-teal-400 mx-auto" strokeWidth={2.5} />;
+    }
+    if (value === "Unlimited") {
+      return (
+        <div className="flex items-center justify-center gap-1.5 text-teal-600 dark:text-teal-400">
+          <CheckCircle2 className="w-[18px] h-[18px]" strokeWidth={2.5} />
+          <span className="font-medium text-[13px]">Unlimited</span>
+        </div>
+      );
+    }
+    if (value === "Full access") {
+      return <span className="text-teal-600 dark:text-teal-400 font-medium text-[13px]">{value}</span>;
+    }
+    return <span className="text-slate-600 dark:text-slate-400 font-medium text-[13px]">{value}</span>;
+  };
+
   return (
-    <div
-      style={{
-        borderRadius: 16,
-        border: "1.5px solid var(--row-border)",
-        overflow: "hidden",
-        background: "var(--row-bg)",
-      }}
-    >
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          fontSize: 13,
-        }}
-      >
+    <div className="min-w-[700px] w-full rounded-[18px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-visible shadow-sm mt-6">
+      <table className="w-full text-[13px]" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
         <thead>
-          <tr
-            style={{
-              background: "var(--table-header-bg)",
-              borderBottom: "1.5px solid var(--row-border)",
-            }}
-          >
-            <th
-              style={{
-                padding: "10px 20px",
-                textAlign: "left",
-                fontWeight: 600,
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                fontFamily: "var(--font-sans)",
-                width: "38%",
-              }}
-            >
+          <tr>
+            <th className="w-[40%] text-left py-5 px-6 font-semibold text-[10px] tracking-[0.08em] uppercase text-slate-400 dark:text-slate-500 rounded-tl-[18px] border-b border-slate-100 dark:border-slate-800/50">
               Features
             </th>
-            <th
-              style={{
-                padding: "10px 20px",
-                textAlign: "center",
-                fontWeight: 600,
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
+            <th className="w-[20%] text-center py-5 px-4 font-semibold text-[10px] tracking-[0.08em] uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/50">
               Free
             </th>
-            <th
-              style={{
-                padding: "10px 20px",
-                textAlign: "center",
-                fontWeight: 700,
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--accent)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
+            <th className="relative w-[20%] text-center py-5 px-4 font-bold text-[11px] tracking-[0.08em] uppercase text-teal-700 dark:text-teal-400 bg-[#F3FBF7] dark:bg-[rgba(90,200,176,0.06)] border-t-[1.5px] border-x-[1.5px] border-b border-b-slate-100 dark:border-b-slate-800/50 border-t-[#C8E8D8] border-x-[#C8E8D8] dark:border-t-[rgba(90,200,176,0.20)] dark:border-x-[rgba(90,200,176,0.20)] rounded-t-[18px]">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white text-[9px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm whitespace-nowrap">
+                <Star className="w-3 h-3 fill-current" />
+                Most Popular
+              </div>
               Core
             </th>
-            <th
-              style={{
-                padding: "10px 20px",
-                textAlign: "center",
-                fontWeight: 600,
-                fontSize: 10,
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                color: "var(--text-muted)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
+            <th className="w-[20%] text-center py-5 px-4 font-semibold text-[10px] tracking-[0.08em] uppercase text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/50 rounded-tr-[18px]">
               Premium
             </th>
           </tr>
         </thead>
         <tbody>
           {COMPARISON_ROWS.map((row, i) => {
-            const isAlt = i % 2 !== 0;
+            const isLast = i === COMPARISON_ROWS.length - 1;
+            const Icon = row.icon;
             return (
-              <tr
-                key={row.feature}
-                style={{
-                  background: isAlt ? "var(--table-alt-bg)" : "transparent",
-                  borderBottom:
-                    i < COMPARISON_ROWS.length - 1
-                      ? "1px solid var(--row-border)"
-                      : "none",
-                }}
-              >
-                <td
-                  style={{
-                    padding: "11px 20px",
-                    color: "var(--text-secondary)",
-                    fontSize: 13,
-                    fontFamily: "var(--font-sans)",
-                  }}
-                >
+              <tr key={row.feature} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                <td className={`py-4 px-6 flex items-center gap-3 text-slate-800 dark:text-slate-200 font-medium text-[13px] ${!isLast ? 'border-b border-slate-100 dark:border-slate-800/50' : ''}`}>
+                  <div className="w-7 h-7 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-500 dark:text-slate-400 group-hover:bg-white dark:group-hover:bg-slate-700 transition-colors shadow-sm">
+                    <Icon className="w-4 h-4" />
+                  </div>
                   {row.feature}
                 </td>
-                <td
-                  style={{
-                    padding: "11px 20px",
-                    textAlign: "center",
-                    color:
-                      row.free === "—" ? "var(--text-muted)" : "var(--text-secondary)",
-                    fontSize: 13,
-                    fontFamily: "var(--font-sans)",
-                    fontWeight: row.free !== "—" ? 500 : 400,
-                  }}
-                >
-                  {row.free}
+                <td className={`py-4 px-4 text-center ${!isLast ? 'border-b border-slate-100 dark:border-slate-800/50' : ''}`}>
+                  {renderCellContent(row.free)}
                 </td>
-                <td
-                  style={{
-                    padding: "11px 20px",
-                    textAlign: "center",
-                    color:
-                      row.core === "—" ? "var(--text-muted)" : "var(--accent)",
-                    fontSize: 13,
-                    fontFamily: "var(--font-sans)",
-                    fontWeight: row.core !== "—" ? 600 : 400,
-                  }}
-                >
-                  {row.core}
+                <td className={`py-4 px-4 text-center bg-[#F3FBF7] dark:bg-[rgba(90,200,176,0.06)] border-x-[1.5px] border-x-[#C8E8D8] dark:border-x-[rgba(90,200,176,0.20)] group-hover:bg-[#ebf8f1] dark:group-hover:bg-[rgba(90,200,176,0.09)] transition-colors ${!isLast ? 'border-b border-b-slate-100 dark:border-b-slate-800/50' : 'border-b-[1.5px] border-b-[#C8E8D8] dark:border-b-[rgba(90,200,176,0.20)] rounded-b-[18px]'}`}>
+                  {renderCellContent(row.core)}
                 </td>
-                <td
-                  style={{
-                    padding: "11px 20px",
-                    textAlign: "center",
-                    color:
-                      row.premium === "—"
-                        ? "var(--text-muted)"
-                        : "var(--text-secondary)",
-                    fontSize: 13,
-                    fontFamily: "var(--font-sans)",
-                    fontWeight: row.premium !== "—" ? 500 : 400,
-                  }}
-                >
-                  {row.premium}
+                <td className={`py-4 px-4 text-center ${!isLast ? 'border-b border-slate-100 dark:border-slate-800/50' : ''}`}>
+                  {renderCellContent(row.premium)}
                 </td>
               </tr>
             );
@@ -510,82 +429,7 @@ function ComparisonTable() {
   );
 }
 
-function UpgradeJourney() {
-  return (
-    <div className="upgrade-journey">
-      {JOURNEY_STEPS.map((step, i) => (
-        <div key={step.n} className="journey-step-wrapper">
-          <div
-            style={{
-              flex: 1,
-              padding: "20px 22px",
-              borderRadius: 14,
-              border: "1.5px solid var(--row-border)",
-              background: "var(--row-bg)",
-            }}
-          >
-            <div
-              style={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                background: "var(--row-core-bg)",
-                border: "1.5px solid var(--row-core-border)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 13,
-                fontWeight: 700,
-                color: "var(--accent)",
-                fontFamily: "var(--font-sans)",
-                marginBottom: 10,
-                flexShrink: 0,
-              }}
-            >
-              {step.n}
-            </div>
-            <p
-              style={{
-                margin: "0 0 5px",
-                fontSize: 14,
-                fontWeight: 600,
-                color: "var(--text-primary)",
-                fontFamily: "var(--font-sans)",
-              }}
-            >
-              {step.title}
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 12.5,
-                color: "var(--text-secondary)",
-                fontFamily: "var(--font-sans)",
-                lineHeight: 1.55,
-              }}
-            >
-              {step.desc}
-            </p>
-          </div>
 
-          {i < JOURNEY_STEPS.length - 1 && (
-            <div
-              className="journey-arrow"
-              style={{
-                color: "var(--text-muted)",
-                fontSize: 18,
-                flexShrink: 0,
-                userSelect: "none",
-              }}
-            >
-              →
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -630,6 +474,91 @@ export default function PricingPage() {
           --table-alt-bg:     rgba(255,255,255,0.02);
         }
 
+        /* ── Custom Toggle Switch ── */
+        .switch {
+          --_switch-bg-clr: var(--row-bg);
+          --_switch-padding: 4px;
+          --_slider-bg-clr: var(--accent);
+          --_slider-bg-clr-on: var(--accent);
+          --_slider-txt-clr: #ffffff;
+          --_label-padding: 0.6rem 2.5rem;
+          --_switch-easing: cubic-bezier(0.47, 1.64, 0.41, 0.8);
+          color: var(--text-secondary);
+          width: fit-content;
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          position: relative;
+          isolation: isolate;
+          border-radius: 9999px;
+          cursor: pointer;
+          border: 1px solid var(--row-border);
+          font-weight: 600;
+          font-size: 13px;
+          font-family: var(--font-sans);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .switch input[type="checkbox"] {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border-width: 0;
+        }
+        .switch > span {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: opacity 300ms ease-in-out 150ms, color 300ms ease;
+          padding: var(--_label-padding);
+          z-index: 10;
+        }
+        .switch::before,
+        .switch::after {
+          content: "";
+          position: absolute;
+          border-radius: inherit;
+          transition: inset 150ms ease-in-out;
+        }
+        /* switch slider */
+        .switch::before {
+          background-color: var(--_slider-bg-clr);
+          inset: var(--_switch-padding) 50% var(--_switch-padding) var(--_switch-padding);
+          transition:
+            inset 500ms var(--_switch-easing),
+            background-color 500ms ease-in-out;
+          z-index: -1;
+          box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.1), 0 1px rgba(255, 255, 255, 0.3);
+        }
+        /* switch bg color */
+        .switch::after {
+          background-color: var(--_switch-bg-clr);
+          inset: 0;
+          z-index: -2;
+        }
+        /* switch hover */
+        .switch:has(input:checked):hover::before {
+          inset: var(--_switch-padding) var(--_switch-padding) var(--_switch-padding) 45%;
+        }
+        .switch:has(input:not(:checked)):hover::before {
+          inset: var(--_switch-padding) 45% var(--_switch-padding) var(--_switch-padding);
+        }
+        /* checked - move slider to right */
+        .switch:has(input:checked)::before {
+          background-color: var(--_slider-bg-clr-on);
+          inset: var(--_switch-padding) var(--_switch-padding) var(--_switch-padding) 50%;
+        }
+        /* switch text colors based on checked state */
+        .switch:has(input:not(:checked)) > span:first-of-type {
+          color: #ffffff;
+        }
+        .switch:has(input:checked) > span:last-of-type {
+          color: #ffffff;
+        }
         /* ── Pricing card animations & states ── */
         .pricing-card {
           box-shadow: var(--row-shadow);
@@ -644,12 +573,12 @@ export default function PricingPage() {
         /* ── Card arrangement ── */
         @media (min-width: 1024px) {
           .pricing-card-highlight {
-            height: 480px !important;
+            height: 520px !important;
             box-shadow: var(--row-shadow-hover) !important;
             z-index: 10;
           }
           .pricing-card-standard {
-            height: 430px !important;
+            height: 470px !important;
           }
         }
 
@@ -699,9 +628,9 @@ export default function PricingPage() {
         {/* ════════════════════════════════
             Section 1 — Hero (Centered)
         ════════════════════════════════ */}
-        <section className="mb-6 flex flex-col items-center text-center max-w-[1040px] mx-auto px-4 w-full">
+        <section className="mb-6 flex flex-col items-start text-left px-8 w-full">
           {/* Badge */}
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-955/30 text-[10px] font-bold text-teal-700 dark:text-teal-400 border border-teal-200/30 dark:border-teal-800/30 uppercase tracking-[0.12em] mb-2">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-955/30 text-[10px] font-bold text-teal-700 dark:text-teal-400 border border-teal-200/30 dark:border-teal-800/30 uppercase tracking-[0.12em] mb-3">
             <span className="relative flex h-1.5 w-1.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
@@ -710,66 +639,46 @@ export default function PricingPage() {
           </div>
 
           {/* Heading */}
-          <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-1">
+          <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-2 max-w-3xl">
             Invest in your fellowship success
           </h1>
 
           {/* Description */}
-          <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl mb-4">
+          <p className="font-sans text-lg md:text-xl font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-2 max-w-2xl mb-8">
             Start free. Upgrade when you're ready to unlock the full exam prep experience.
           </p>
 
           {/* Billing Toggle (Centered) */}
-          <div className="flex flex-col items-center select-none">
-            <div className="inline-flex p-1 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full relative">
-              <button
-                onClick={() => setBillingCycle("monthly")}
-                className={`w-20 py-1.5 text-xs font-semibold rounded-full relative z-10 transition-colors duration-200 ${billingCycle === "monthly"
-                    ? "text-white"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-100"
-                  }`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setBillingCycle("annual")}
-                className={`w-36 py-1.5 text-xs font-semibold rounded-full relative z-10 transition-colors duration-200 flex items-center justify-center gap-1.5 ${billingCycle === "annual"
-                    ? "text-white"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-100"
-                  }`}
-              >
-                <span>Annual</span>
+          <div className="flex flex-col items-center select-none w-full mt-4">
+            <label htmlFor="billing-toggle" className="switch" aria-label="Toggle Billing">
+              <input 
+                type="checkbox" 
+                id="billing-toggle" 
+                checked={billingCycle === "annual"}
+                onChange={(e) => setBillingCycle(e.target.checked ? "annual" : "monthly")}
+              />
+              <span>Monthly</span>
+              <span>
+                Annual
                 <span
                   style={{
-                    fontSize: 8,
+                    fontSize: 9,
                     fontWeight: 700,
-                    padding: "1px 5px",
+                    padding: "2px 6px",
                     borderRadius: 99,
                     background: billingCycle === "annual" ? "rgba(255, 255, 255, 0.2)" : "var(--row-core-bg-badge)",
                     border: billingCycle === "annual" ? "1px solid rgba(255, 255, 255, 0.25)" : "1px solid var(--accent)",
                     color: billingCycle === "annual" ? "#ffffff" : "var(--accent)",
                     transition: "all 200ms ease",
+                    marginLeft: 2,
                   }}
                 >
                   Save 20%
                 </span>
-              </button>
-              {/* Sliding green background indicator */}
-              <div
-                style={{
-                  position: "absolute",
-                  top: 4,
-                  left: billingCycle === "monthly" ? 4 : 88,
-                  width: billingCycle === "monthly" ? 80 : 144,
-                  height: "calc(100% - 8px)",
-                  background: "var(--accent)",
-                  borderRadius: 9999,
-                  transition: "left 250ms cubic-bezier(0.22, 1, 0.36, 1), width 250ms cubic-bezier(0.22, 1, 0.36, 1)",
-                }}
-              />
-            </div>
+              </span>
+            </label>
             {/* Note under toggle */}
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-2 font-sans">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-3 font-sans">
               Billed monthly. Cancel any time.
             </p>
           </div>
@@ -778,8 +687,8 @@ export default function PricingPage() {
         {/* ════════════════════════════════
             Section 2 — Pricing Cards
         ════════════════════════════════ */}
-        <section className="mb-12 lg:mb-12 max-w-[1040px] mx-auto px-4 w-full">
-          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[1fr_1.15fr_1fr] gap-6 lg:gap-6 lg:items-center">
+        <section className="mb-12 lg:mb-12 max-w-[1140px] mx-auto px-4 w-full">
+          <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[1fr_1.15fr_1fr] gap-8 lg:gap-10 lg:items-center">
             {PLANS.map((plan) => (
               <PricingCard key={plan.id} plan={plan} billingCycle={billingCycle} />
             ))}
@@ -789,22 +698,21 @@ export default function PricingPage() {
         {/* ════════════════════════════════
             Section 3 — Feature Comparison
         ════════════════════════════════ */}
-        <section className="mb-16">
-          <h2 className="text-xl md:text-2xl font-semibold font-serif text-slate-900 dark:text-slate-50 mb-6">
-            Compare features
-          </h2>
-          <ComparisonTable />
+        <section className="mb-16 w-full px-8">
+          <div className="text-left mb-8">
+            <h2 className="text-2xl md:text-3xl font-semibold font-serif text-slate-900 dark:text-slate-50 mb-2">
+              Compare features
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base font-sans">
+              Choose the plan that fits your learning goals
+            </p>
+          </div>
+          <div className="overflow-x-auto pb-4 w-full">
+            <ComparisonTable />
+          </div>
         </section>
 
-        {/* ════════════════════════════════
-            Section 4 — Upgrade Journey
-        ════════════════════════════════ */}
-        <section className="mb-16">
-          <h2 className="text-xl md:text-2xl font-semibold font-serif text-slate-900 dark:text-slate-50 mb-6">
-            Your upgrade journey
-          </h2>
-          <UpgradeJourney />
-        </section>
+
 
       </div>
     </>

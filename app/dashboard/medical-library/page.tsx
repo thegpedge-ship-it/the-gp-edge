@@ -175,6 +175,15 @@ function MedicalLibraryContent() {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [categoryPage, setCategoryPage] = useState(0);
 
+  const [savedBookmarks, setSavedBookmarks] = useState<string[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const toggleSaved = useCallback((id: string) => {
+    setSavedBookmarks(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [id, ...prev]
+    );
+  }, []);
+
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     symptoms: true,
     diagnosis: false,
@@ -185,7 +194,7 @@ function MedicalLibraryContent() {
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
   const [visibleLimit, setVisibleLimit] = useState(9);
-  
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const adminContent = getMedicalContent();
@@ -193,13 +202,13 @@ function MedicalLibraryContent() {
         const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
         let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
         if (referencesRaw) {
-          try { refs = JSON.parse(referencesRaw); } catch {}
+          try { refs = JSON.parse(referencesRaw); } catch { }
         }
-        
-        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+
+        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" =
           item.type === "Condition" ? "Condition" :
-          item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
-          item.type === "Note" ? "Note" : "Document";
+            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
+              item.type === "Note" ? "Note" : "Document";
 
         return {
           id: `CUSTOM-${item.id}`,
@@ -286,7 +295,7 @@ function MedicalLibraryContent() {
       }
     });
     observer.observe(containerRef.current);
-    
+
     const width = containerRef.current.clientWidth;
     const computedStyle = window.getComputedStyle(containerRef.current);
     const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
@@ -330,9 +339,10 @@ function MedicalLibraryContent() {
         c.clinicalNotes.toLowerCase().includes(q) ||
         c.author.toLowerCase().includes(q);
       const matchesSystem = selectedSystem === "all" || c.system === selectedSystem;
-      return matchesSearch && matchesSystem;
+      const matchesBookmarks = !showBookmarks || savedBookmarks.includes(c.id);
+      return matchesSearch && matchesSystem && matchesBookmarks;
     });
-  }, [searchQuery, selectedSystem, allConditions]);
+  }, [searchQuery, selectedSystem, allConditions, showBookmarks, savedBookmarks]);
 
   // Reset visibleLimit when search query or selected system changes
   useEffect(() => {
@@ -398,7 +408,7 @@ function MedicalLibraryContent() {
             <div className="relative w-full max-w-3xl mx-auto mb-8">
               <div className="w-full h-12 bg-white dark:bg-[#1A202C] border border-slate-200 dark:border-slate-800 transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 focus-within:border-teal-500 focus-within:ring-2 focus-within:ring-teal-500/20 dark:focus-within:border-teal-500/50">
                 <Lucide.Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
-                
+
                 <input
                   type="text"
                   value={searchQuery}
@@ -499,11 +509,10 @@ function MedicalLibraryContent() {
               <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 <button
                   onClick={() => setSelectedSystem("all")}
-                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all flex-shrink-0 ${
-                    selectedSystem === "all"
+                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all flex-shrink-0 ${selectedSystem === "all"
                       ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
                       : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80"
-                  }`}
+                    }`}
                 >
                   All Systems
                 </button>
@@ -514,18 +523,16 @@ function MedicalLibraryContent() {
                     <button
                       key={system.id}
                       onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
-                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 flex-shrink-0 ${
-                        isSelected
+                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 flex-shrink-0 ${isSelected
                           ? "bg-teal-50 text-teal-700 border-teal-300 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-700 shadow-sm"
                           : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80"
-                      }`}
+                        }`}
                     >
                       <span>{system.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                        isSelected
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${isSelected
                           ? "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300"
                           : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                      }`}>
+                        }`}>
                         {count}
                       </span>
                     </button>
@@ -544,20 +551,53 @@ function MedicalLibraryContent() {
 
             {/* Condition listing */}
             <div className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                Available Medical Libraries ({filteredConditions.length})
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                  {showBookmarks ? "Saved Bookmarks" : "Available Medical Libraries"} ({filteredConditions.length})
+                </h2>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowBookmarks(v => !v)}
+                    className={`flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-xl border transition-all duration-150 ${showBookmarks
+                      ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600 dark:bg-slate-900 dark:border-slate-800 dark:text-slate-300"
+                      }`}
+                  >
+                    {showBookmarks ? <Lucide.BookmarkCheck className="w-3.5 h-3.5" /> : <Lucide.Bookmark className="w-3.5 h-3.5" />}
+                    Saved Directory
+                    {savedBookmarks.length > 0 && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                        }`}>
+                        {savedBookmarks.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
 
               {filteredConditions.length === 0 ? (
                 <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 p-12 text-center max-w-lg mx-auto">
-                  <Lucide.Search className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">No medical content found</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting your filters, system category, or searching for other symptoms.</p>
+                  {showBookmarks ? (
+                    <Lucide.Bookmark className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  ) : (
+                    <Lucide.Search className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  )}
+                  <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">
+                    {showBookmarks ? "No bookmarks yet" : "No medical content found"}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    {showBookmarks
+                      ? "Bookmark guidelines from the directory to save them here."
+                      : "Try adjusting your filters, system category, or searching for other symptoms."}
+                  </p>
                   <button
-                    onClick={() => { setSearchQuery(""); setSelectedSystem("all"); }}
-                    className="mt-5 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-xs rounded-full hover:shadow-lg hover:shadow-green-500/20 active:scale-95 transition-all"
+                    onClick={() => { setSearchQuery(""); setSelectedSystem("all"); setShowBookmarks(false); }}
+                    className="mt-5 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-teal-500 text-white font-bold text-xs rounded-full hover:shadow-lg hover:shadow-teal-500/20 active:scale-95 transition-all"
                   >
-                    Clear All Filters
+                    {showBookmarks ? "Browse Directory" : "Clear All Filters"}
                   </button>
                 </div>
               ) : (
@@ -579,7 +619,26 @@ function MedicalLibraryContent() {
                               <span className="text-sm font-bold font-mono text-teal-600 dark:text-teal-400">
                                 {condition.id}
                               </span>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-2">
+                                <label
+                                  className={`ui-bookmark cursor-pointer transition-opacity duration-150 relative top-1 ${savedBookmarks.includes(condition.id) ? "opacity-100 text-teal-600 dark:text-teal-400" : "opacity-0 group-hover:opacity-100 text-slate-300 hover:text-teal-500 dark:text-slate-600"
+                                    }`}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    style={{ display: 'none' }}
+                                    checked={savedBookmarks.includes(condition.id)}
+                                    onChange={() => toggleSaved(condition.id)}
+                                  />
+                                  <div className="bookmark">
+                                    <svg viewBox="0 0 32 32" className="w-5 h-5" style={{ fill: 'currentColor' }}>
+                                      <g>
+                                        <path d="M27 4v27a1 1 0 0 1-1.625.781L16 24.281l-9.375 7.5A1 1 0 0 1 5 31V4a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4z" />
+                                      </g>
+                                    </svg>
+                                  </div>
+                                </label>
                                 {condition.isPremium && (
                                   <span className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-400 dark:text-slate-500" title="Premium Content">
                                     <Lucide.Lock className="w-3.5 h-3.5" />
@@ -717,7 +776,7 @@ function MedicalLibraryContent() {
                       <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.lastUpdated}</span>
                     </div>
                   </div>
-                
+
                   {/* Rest of Clinical Details */}
                   {!selectedCondition.id.startsWith("CUSTOM-") ? (
                     <>
@@ -792,7 +851,7 @@ function MedicalLibraryContent() {
                           Guideline Reference Note
                         </h4>
                         <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
-                          This is a custom clinical reference guideline uploaded directly to the library database. 
+                          This is a custom clinical reference guideline uploaded directly to the library database.
                           The full document content is rendered as a standalone page-layout in the preview pane on the right.
                         </p>
                         <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
@@ -868,7 +927,8 @@ function MedicalLibraryContent() {
                     </div>
 
                     {/* CSS Styles for Callouts & Tables */}
-                    <style dangerouslySetInnerHTML={{ __html: `
+                    <style dangerouslySetInnerHTML={{
+                      __html: `
                       .print-area h2 {
                         font-family: Georgia, serif !important;
                         font-size: 1.35rem !important;
@@ -1101,7 +1161,7 @@ function MedicalLibraryContent() {
 
                           {/* Render custom guideline HTML or paginated default content */}
                           {selectedCondition.id.startsWith("CUSTOM-") ? (
-                            <div 
+                            <div
                               className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
                               dangerouslySetInnerHTML={{ __html: customHtml }}
                             />
@@ -1116,7 +1176,7 @@ function MedicalLibraryContent() {
                                     <p className="text-[9px] text-slate-500 mt-0.5 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
                                   </div>
                                   <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">{selectedCondition.document.summary}</p>
-                                  
+
                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-2">
                                     <p className="font-bold text-slate-900">Metadata Profile:</p>
                                     <div className="grid grid-cols-2 gap-2">
@@ -1195,7 +1255,7 @@ function MedicalLibraryContent() {
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
                                     <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
                                   </div>
-                                  
+
                                   <div className="bg-green-50/80 dark:bg-green-950/20 border border-green-200/60 dark:border-green-900/30 p-3 rounded-lg text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-300 italic space-y-1">
                                     <p className="font-bold text-green-700 dark:text-green-400 not-italic mb-0.5 flex items-center gap-1 text-[10px]">
                                       <Lucide.Lightbulb className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />

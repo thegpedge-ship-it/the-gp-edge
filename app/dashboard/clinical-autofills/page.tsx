@@ -545,7 +545,7 @@ export default function ClinicalAutofillsPage() {
       </div>
 
       {/* ── SMART COMMAND BAR ────────────────────────────────────────────────── */}
-      <div ref={wrapperRef} className="relative w-full max-w-3xl mx-auto mb-8">
+      <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto mb-8">
         {resolvedTheme === "dark" ? (
           <>
             <div className="search w-full">
@@ -739,63 +739,109 @@ export default function ClinicalAutofillsPage() {
           </>
         ) : (
           <div
-            className={`w-full h-12 bg-white border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 gap-3 ${showSuggestions
+            className={`w-full bg-white border transition-all duration-200 rounded-2xl shadow-sm flex flex-col md:flex-row items-stretch overflow-hidden focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-500 ${showSuggestions
               ? "border-teal-500 ring-2 ring-teal-500/20"
               : "border-slate-200 hover:border-slate-300"
               }`}
           >
-            <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
+            {/* Medical Condition Section */}
+            <div 
+              className="flex-1 w-full md:w-auto relative flex items-center justify-between px-4 py-2 border-b md:border-b-0 md:border-r border-slate-200 hover:bg-slate-50/50 transition-colors cursor-text group"
+              onClick={() => {
+                setSearchMode("condition");
+                setShowSuggestions(true);
+              }}
+            >
+              <div className="flex-1 flex flex-col justify-center px-2">
+                <label htmlFor="condition-search" className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-0.5 cursor-text select-none">
+                  Medical Condition
+                </label>
+                
+                <input
+                  id="condition-search"
+                  ref={searchMode === "condition" ? searchRef : undefined}
+                  type="text"
+                  value={searchMode === "condition" ? searchQuery : ""}
+                  onChange={e => { setSearchMode("condition"); setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => { setSearchMode("condition"); setShowSuggestions(true); }}
+                  placeholder="Search medical conditions..."
+                  className="w-full bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 text-sm text-slate-800 placeholder-slate-400 z-10 relative"
+                  autoComplete="off"
+                />
+              </div>
 
-            {!searchQuery && (
-              <span className="absolute left-[52px] flex items-center pointer-events-none select-none overflow-hidden">
-                <SearchCarousel mode={searchMode} />
-              </span>
-            )}
-
-            <input
-              ref={searchRef}
-              type="text"
-              value={searchQuery}
-              onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-              onFocus={() => setShowSuggestions(true)}
-              placeholder=""
-              className="flex-1 bg-transparent border-0 outline-none focus:ring-0 text-base text-slate-800 z-10 relative"
-            />
-
-            {searchQuery && (
-              <button
-                onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
-                className="p-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 flex-shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-
-            {/* Mode Dropdown (Light Mode) */}
-            <div className="relative flex-shrink-0 z-20">
-              <button
-                onClick={(e) => { e.preventDefault(); setShowModeDropdown(!showModeDropdown); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1 bg-white border hover:border-teal-400 hover:bg-teal-50 rounded-full text-[12px] whitespace-nowrap font-medium transition-colors shadow-sm ${showModeDropdown ? 'border-teal-500 text-teal-700' : 'border-teal-200/80 text-teal-700'}`}
-              >
-                {searchMode === "condition" ? "Medical Condition" : "Approach"}
-                <ChevronDown className="w-4 h-4" />
-              </button>
-              {showModeDropdown && (
-                <div className="absolute top-[calc(100%+8px)] right-0 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 transform origin-top transition-all duration-200 ease-out z-50">
+              <div className="flex-shrink-0 flex items-center ml-2">
+                {searchMode === "condition" && searchQuery ? (
                   <button
-                    onClick={(e) => { e.preventDefault(); setSearchMode("condition"); setShowModeDropdown(false); searchRef.current?.focus(); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "condition" ? 'text-teal-800 bg-[#F0F7F5]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    onClick={(e) => { e.stopPropagation(); setSearchQuery(""); searchRef.current?.focus(); }}
+                    className="p-1.5 mr-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 focus:outline-none"
                   >
-                    Medical Condition
+                    <X className="w-4 h-4" />
                   </button>
+                ) : null}
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchMode("condition");
+                    setShowSuggestions(true);
+                    searchRef.current?.focus();
+                  }}
+                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center transition-colors shadow-sm focus:outline-none"
+                >
+                  <Search className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Presentation Section */}
+            <div 
+              className="flex-1 w-full md:w-auto relative flex items-center justify-between px-4 py-2 border-b md:border-b-0 border-slate-200 hover:bg-slate-50/50 transition-colors cursor-text group"
+              onClick={() => {
+                setSearchMode("approach");
+                setShowSuggestions(true);
+              }}
+            >
+              <div className="flex-1 flex flex-col justify-center px-2">
+                <label htmlFor="presentation-search" className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-0.5 cursor-text select-none">
+                  Presentation
+                </label>
+                
+                <input
+                  id="presentation-search"
+                  ref={searchMode === "approach" ? searchRef : undefined}
+                  type="text"
+                  value={searchMode === "approach" ? searchQuery : ""}
+                  onChange={e => { setSearchMode("approach"); setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                  onFocus={() => { setSearchMode("approach"); setShowSuggestions(true); }}
+                  placeholder="Search presentations..."
+                  className="w-full bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 text-sm text-slate-800 placeholder-slate-400 z-10 relative"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="flex-shrink-0 flex items-center ml-2">
+                {searchMode === "approach" && searchQuery ? (
                   <button
-                    onClick={(e) => { e.preventDefault(); setSearchMode("approach"); setShowModeDropdown(false); searchRef.current?.focus(); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "approach" ? 'text-teal-800 bg-[#F0F7F5]' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                    onClick={(e) => { e.stopPropagation(); setSearchQuery(""); searchRef.current?.focus(); }}
+                    className="p-1.5 mr-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 focus:outline-none"
                   >
-                    Approach
+                    <X className="w-4 h-4" />
                   </button>
-                </div>
-              )}
+                ) : null}
+                
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSearchMode("approach");
+                    setShowSuggestions(true);
+                    searchRef.current?.focus();
+                  }}
+                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center transition-colors shadow-sm focus:outline-none"
+                >
+                  <Search className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1030,7 +1076,7 @@ export default function ClinicalAutofillsPage() {
 
                   {/* Footer row */}
                   <div className="border-t border-slate-100 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
-                    <p className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Updated {t.updated}</p>
+                    <p className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Updated in 2026</p>
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={e => { e.stopPropagation(); handleQuickCopy(t.id, t.content); }}
@@ -1116,7 +1162,7 @@ export default function ClinicalAutofillsPage() {
                       {selectedTemplate.category}
                     </span>
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-400">
-                      Updated {selectedTemplate.updated}
+                      Updated in 2026
                     </span>
                   </div>
                   <h2 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100">
