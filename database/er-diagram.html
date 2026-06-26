@@ -6,19 +6,19 @@
 <title>GP Edge — Database ER Diagram</title>
 <style>
   :root{
-    --bg:#0b0f14; --bg2:#0f1620; --panel:#121a24; --panel2:#16202c;
-    --line:#1f2c3a; --line2:#27384a;
-    --text:#e6edf3; --muted:#8aa0b4; --faint:#5b7186;
-    --emerald:#10b981; --teal:#14b8a6; --emerald-dim:#0d9488;
-    --pk:#f5b942; --fk:#5aa9ff; --uq:#c084fc;
-    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.45);
+    /* Single accent colour used everywhere; dark theme on a true-black base */
+    --accent:#14b8a6;
+    --bg:#000000; --bg2:#0a0a0a; --panel:#101010; --panel2:#161616;
+    --line:#242424; --line2:#333333;
+    --text:#ededed; --muted:#a3a3a3; --faint:#6b6b6b;
+    --emerald:#14b8a6; --teal:#14b8a6; --emerald-dim:#0d9488;
+    --pk:#14b8a6; --fk:#14b8a6; --uq:#14b8a6;
+    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.55);
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
-    background:radial-gradient(1200px 600px at 15% -10%,#10231f 0%,transparent 55%),
-               radial-gradient(1000px 500px at 100% 0%,#0d1b29 0%,transparent 50%),
-               var(--bg);
+    background:var(--bg);
     color:var(--text);
     font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
     line-height:1.5; -webkit-font-smoothing:antialiased;
@@ -27,13 +27,13 @@
   /* ---- Header ---- */
   header{
     position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
-    background:rgba(11,15,20,.82);border-bottom:1px solid var(--line);
+    background:rgba(0,0,0,.82);border-bottom:1px solid var(--line);
   }
   .head-inner{max-width:1500px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
   .brand{display:flex;align-items:center;gap:12px}
   .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
-    background:linear-gradient(135deg,var(--emerald),var(--teal));color:#022;font-weight:800;font-size:18px;
-    box-shadow:0 4px 16px rgba(16,185,129,.35)}
+    background:var(--accent);color:#04201d;font-weight:800;font-size:18px;
+    box-shadow:0 4px 16px rgba(20,184,166,.30)}
   .brand h1{font-size:17px;margin:0;letter-spacing:.2px}
   .brand p{margin:0;font-size:12px;color:var(--muted)}
   .tools{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -50,15 +50,15 @@
   .legend span{display:inline-flex;align-items:center;gap:7px}
   .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
   .k{font-weight:700;font-size:10px;padding:2px 6px;border-radius:5px;letter-spacing:.4px}
-  .k.pk{background:rgba(245,185,66,.15);color:var(--pk);border:1px solid rgba(245,185,66,.35)}
-  .k.fk{background:rgba(90,169,255,.13);color:var(--fk);border:1px solid rgba(90,169,255,.35)}
-  .k.uq{background:rgba(192,132,252,.13);color:var(--uq);border:1px solid rgba(192,132,252,.35)}
+  .k.pk{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
+  .k.fk{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
+  .k.uq{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
   /* ---- Group nav ---- */
   .groupnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
   .chip{cursor:pointer;font-size:12.5px;padding:7px 13px;border-radius:999px;
     background:var(--panel);border:1px solid var(--line2);color:var(--muted);transition:.15s}
   .chip:hover{color:var(--text);border-color:var(--emerald)}
-  .chip.active{color:#022;background:linear-gradient(135deg,var(--emerald),var(--teal));border-color:transparent;font-weight:700}
+  .chip.active{color:#04201d;background:var(--accent);border-color:transparent;font-weight:700}
   /* ---- Section ---- */
   .section{margin:34px 0}
   .section-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -74,13 +74,13 @@
   .card.dim{opacity:.18;filter:saturate(.4)}
   .card.hl{border-color:var(--accent,var(--emerald));box-shadow:0 0 0 2px var(--accent,var(--emerald)) inset,var(--shadow)}
   .card-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);
-    background:rgba(255,255,255,.015)}
+    background:rgba(255,255,255,.02)}
   .card-head .tdot{width:10px;height:10px;border-radius:3px}
   .card-head h3{margin:0;font-size:14px;font-family:'Consolas',ui-monospace,monospace;letter-spacing:.3px}
   .card-head .grp{margin-left:auto;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px}
   .card-note{padding:8px 14px 0;font-size:11.5px;color:var(--faint)}
   table{width:100%;border-collapse:collapse;font-size:12.3px}
-  td{padding:5px 14px;border-bottom:1px solid rgba(31,44,58,.5);vertical-align:top}
+  td{padding:5px 14px;border-bottom:1px solid rgba(36,36,36,.8);vertical-align:top}
   tr:last-child td{border-bottom:none}
   .col-name{font-family:'Consolas',ui-monospace,monospace;color:var(--text);white-space:nowrap}
   .col-type{color:var(--faint);text-align:right;font-size:11px;white-space:nowrap}
@@ -140,7 +140,7 @@
 </div>
 
 <footer>
-  GP Edge data model · 71 tables across 12 domains · generated for
+  GP Edge data model · 70 tables across 12 domains · generated for
   <span class="pill">PostgreSQL 15+</span><span class="pill">Cloudflare R2</span>
   <span class="pill">Clerk auth</span>. See <code>schema.sql</code> for full DDL and
   <code>DATABASE_DESIGN.md</code> for normalization notes.
@@ -148,19 +148,20 @@
 
 <script>
 /* ───────────────────── Domain groups ───────────────────── */
+const ACCENT = "#0d9488"; // single colour used across the whole diagram
 const GROUPS = {
-  files:    {label:"File Storage (R2)", color:"#22d3ee", desc:"Single registry for all Cloudflare R2 objects"},
-  identity: {label:"Identity & Access", color:"#10b981", desc:"Users, admin RBAC, audit"},
-  taxonomy: {label:"Clinical Taxonomy", color:"#84cc16", desc:"Subjects, subtopics, tags, exam types"},
-  questions:{label:"Question Bank & Quizzes", color:"#14b8a6", desc:"Questions, options, quizzes, mocks"},
-  attempts: {label:"Test Taking & Performance", color:"#f59e0b", desc:"Attempts & answers — source of all analytics"},
-  autofills:{label:"Clinical Autofills", color:"#a78bfa", desc:"SOAP templates, fields, versions"},
-  library:  {label:"Medical Library", color:"#38bdf8", desc:"Conditions, guidelines, PDF documents"},
-  mbs:      {label:"MBS Billing", color:"#fb7185", desc:"Medicare item reference & scenarios"},
-  billing:  {label:"Subscriptions & Payments", color:"#34d399", desc:"Plans, features, subscriptions, payments"},
-  engage:   {label:"Engagement", color:"#e879f9", desc:"Badges, notifications, activity"},
-  settings: {label:"Settings", color:"#94a3b8", desc:"System configuration"},
-  summaries:{label:"Dashboard Summaries", color:"#fbbf24", desc:"Maintained rollups — kept fast at scale"},
+  files:    {label:"File Storage (R2)", color:ACCENT, desc:"Single registry for all Cloudflare R2 objects"},
+  identity: {label:"Identity & Access", color:ACCENT, desc:"Users, admin RBAC, audit"},
+  taxonomy: {label:"Clinical Taxonomy", color:ACCENT, desc:"Subjects, subtopics, tags, exam types"},
+  questions:{label:"Question Bank & Quizzes", color:ACCENT, desc:"Questions, options, quizzes, mocks"},
+  attempts: {label:"Test Taking & Performance", color:ACCENT, desc:"Attempts & answers — source of all analytics"},
+  autofills:{label:"Clinical Autofills", color:ACCENT, desc:"SOAP templates, fields, versions"},
+  library:  {label:"Medical Library", color:ACCENT, desc:"Conditions, guidelines, PDF documents"},
+  mbs:      {label:"MBS Billing", color:ACCENT, desc:"Medicare item reference & scenarios"},
+  billing:  {label:"Subscriptions & Payments", color:ACCENT, desc:"Plans, features, subscriptions, payments"},
+  engage:   {label:"Engagement", color:ACCENT, desc:"Badges, notifications, activity"},
+  settings: {label:"Settings", color:ACCENT, desc:"System configuration"},
+  summaries:{label:"Dashboard Summaries", color:ACCENT, desc:"Maintained rollups — kept fast at scale"},
 };
 
 /* ───────────────────── Entity definitions ─────────────────────
@@ -192,10 +193,6 @@ E("user_preferences","identity",[
   ["default_exam_type_code","text","FK"],["default_question_count","int",""],
   ["language","text",""],["timezone","text",""],["extra","jsonb",""],["updated_at","timestamptz",""],
 ],{user_id:"users",default_exam_type_code:"exam_types"},"Per-user settings (theme, notifications, defaults)"),
-E("user_notes","identity",[
-  ["id","uuid","PK"],["user_id","uuid","FK"],["author_id","uuid","FK"],
-  ["note","text",""],["created_at","timestamptz",""],
-],{user_id:"users",author_id:"admin_users"},"Admin-authored notes about a user"),
 E("roles","identity",[["id","serial","PK"],["code","text","UQ"],["name","text","UQ"],["description","text",""]],{},"Exactly 3: super_admin / admin / user"),
 E("permissions","identity",[["key","text","PK"],["label","text",""],["description","text",""]]),
 E("role_permissions","identity",[
@@ -684,20 +681,20 @@ function drawHero(){
     const ax=A.x+A.w/2, ay=A.y+A.h/2, bx=B.x+B.w/2, by=B.y+B.h/2;
     const mx=(ax+bx)/2;
     return `<path d="M${ax},${ay} C${mx},${ay} ${mx},${by} ${bx},${by}"
-      fill="none" stroke="#2c3f52" stroke-width="1.4"/>
-      <circle cx="${bx}" cy="${by}" r="2.6" fill="#5aa9ff"/>`;
+      fill="none" stroke="#333333" stroke-width="1.4"/>
+      <circle cx="${bx}" cy="${by}" r="2.6" fill="${ACCENT}"/>`;
   };
   const node=n=>`
     <g>
       <rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"
-        fill="#16202c" stroke="${n.c}" stroke-width="1.4"/>
+        fill="#101010" stroke="${n.c}" stroke-width="1.4"/>
       <rect x="${n.x}" y="${n.y}" width="4" height="${n.h}" rx="2" fill="${n.c}"/>
       <text x="${n.x+n.w/2+2}" y="${n.y+n.h/2+4}" text-anchor="middle"
-        fill="#dbe6f0" font-size="12" font-family="Consolas,monospace">${n.id}</text>
+        fill="#ededed" font-size="12" font-family="Consolas,monospace">${n.id}</text>
     </g>`;
   document.getElementById('hero').innerHTML =
     `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-      <text x="20" y="26" fill="#8aa0b4" font-size="13" font-family="Segoe UI">
+      <text x="20" y="26" fill="#a3a3a3" font-size="13" font-family="Segoe UI">
         Core relationship map — the hub tables (full detail in cards below)</text>
       ${HERO_EDGES.map(([a,b])=>edge(a,b)).join('')}
       ${HERO_NODES.map(node).join('')}

@@ -390,22 +390,21 @@ export interface AdminUser {
   lastActive: string;
   status: "active" | "suspended";
   joined: string;
-  notes: string[];
 }
 
 const DEFAULT_USERS: AdminUser[] = [
-  { id: 1001, name: "Account #1001", email: "subscriber@domain.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026", notes: [] },
-  { id: 1002, name: "Account #1002", email: "subscriber@domain.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026", notes: ["Referred via supervisor program"] },
-  { id: 1003, name: "Account #1003", email: "subscriber@domain.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026", notes: [] },
-  { id: 1004, name: "Account #1004", email: "subscriber@domain.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025", notes: [] },
-  { id: 1005, name: "Account #1005", email: "subscriber@domain.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026", notes: [] },
-  { id: 1006, name: "Account #1006", email: "subscriber@domain.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026", notes: ["Flagged — ToS policy review"] },
-  { id: 1007, name: "Account #1007", email: "subscriber@domain.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026", notes: [] },
-  { id: 1008, name: "Account #1008", email: "subscriber@domain.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026", notes: [] },
-  { id: 1009, name: "Account #1009", email: "subscriber@domain.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026", notes: [] },
-  { id: 1010, name: "Account #1010", email: "subscriber@domain.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026", notes: [] },
-  { id: 1011, name: "Account #1011", email: "subscriber@domain.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025", notes: [] },
-  { id: 1012, name: "Account #1012", email: "subscriber@domain.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026", notes: ["Inactive — renewal not completed"] },
+  { id: 1001, name: "Account #1001", email: "subscriber@domain.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026" },
+  { id: 1002, name: "Account #1002", email: "subscriber@domain.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026" },
+  { id: 1003, name: "Account #1003", email: "subscriber@domain.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026" },
+  { id: 1004, name: "Account #1004", email: "subscriber@domain.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025" },
+  { id: 1005, name: "Account #1005", email: "subscriber@domain.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026" },
+  { id: 1006, name: "Account #1006", email: "subscriber@domain.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026" },
+  { id: 1007, name: "Account #1007", email: "subscriber@domain.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026" },
+  { id: 1008, name: "Account #1008", email: "subscriber@domain.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026" },
+  { id: 1009, name: "Account #1009", email: "subscriber@domain.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026" },
+  { id: 1010, name: "Account #1010", email: "subscriber@domain.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026" },
+  { id: 1011, name: "Account #1011", email: "subscriber@domain.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025" },
+  { id: 1012, name: "Account #1012", email: "subscriber@domain.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026" },
 ];
 
 const ADMIN_USERS_STORAGE_KEY = "gpedge_admin_users";

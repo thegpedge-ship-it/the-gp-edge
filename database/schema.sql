@@ -5,7 +5,7 @@
 --
 --  Design principles
 --    * 3NF / BCNF throughout — no repeating groups, no transitive dependencies.
---    * Every multi-valued attribute (options, tags, symptoms, notes ...) is a
+--    * Every multi-valued attribute (options, tags, symptoms ...) is a
 --      child table — NOT a comma string or array — so there is zero redundancy.
 --    * Derived numbers (avg score, mastery, usage, ...) are COMPUTED in views,
 --      EXCEPT a few hot dashboard aggregates that are kept as maintained summary
@@ -160,16 +160,6 @@ CREATE TABLE user_preferences (
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Free-form admin notes about a user (was an array on the mock) -> child table
-CREATE TABLE user_notes (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    author_id   UUID,                                    -- admin author; FK added after admin_users exists
-    note        TEXT NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_user_notes_user ON user_notes(user_id);
-
 -- 2.2 RBAC for the admin console
 -- Brief §1: exactly three roles exist. `code` is the stable machine key the
 -- single-super-admin trigger keys off; the CHECK stops a 4th role being added.
@@ -228,10 +218,6 @@ CREATE INDEX idx_admin_users_created_by ON admin_users(created_by);
 -- files uploaded by an admin (question images, directory PDFs, badge art).
 ALTER TABLE files ADD CONSTRAINT fk_files_uploaded_by_admin
     FOREIGN KEY (uploaded_by_admin) REFERENCES admin_users(id) ON DELETE SET NULL;
-
--- user_notes are written by admins about a user.
-ALTER TABLE user_notes ADD CONSTRAINT fk_user_notes_author
-    FOREIGN KEY (author_id) REFERENCES admin_users(id) ON DELETE SET NULL;
 
 -- Brief §1: the DATABASE (not just the app) blocks a second Super Admin and
 -- blocks anyone — including the Super Admin — from creating another one.

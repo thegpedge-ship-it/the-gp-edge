@@ -223,9 +223,6 @@ export default function UsersPage() {
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
                   Status
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-                  Notes
-                </th>
                 <th className="text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-6 py-3">
                   Actions
                 </th>
@@ -261,13 +258,6 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-4">
                     <StatusBadge variant={user.status} />
-                  </td>
-                  <td className="px-4 py-4">
-                    {user.notes && user.notes.length > 0 ? (
-                      <span className="text-xs text-slate-500 dark:text-slate-400 italic">{user.notes[0]}</span>
-                    ) : (
-                      <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
-                    )}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">

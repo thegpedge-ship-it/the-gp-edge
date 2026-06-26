@@ -95,10 +95,10 @@ nothing but the key (3NF/BCNF). No fact is stored in two places.
 
 ---
 
-## 4. Entity groups (71 tables)
+## 4. Entity groups (70 tables)
 
 1. **File storage** — `files`
-2. **Identity & access** — `users`, `user_preferences`, `user_notes`, `roles`,
+2. **Identity & access** — `users`, `user_preferences`, `roles`,
    `permissions`, `role_permissions`, `admin_users`, `admin_user_permissions`,
    `audit_logs`
 3. **Taxonomy** — `exam_types`, `subjects`, `subtopics`, `tags`

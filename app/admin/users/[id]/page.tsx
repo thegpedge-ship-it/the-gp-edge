@@ -45,7 +45,6 @@ export default function UserDetailPage() {
 
   const [user, setUser] = useState<AdminUser | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
-  const [noteInput, setNoteInput] = useState("");
   const [sessionResetMsg, setSessionResetMsg] = useState(false);
 
   useEffect(() => {
@@ -76,17 +75,6 @@ export default function UserDetailPage() {
     setUser(updatedUser);
     setUsers(updatedUsers);
     saveAdminUsers(updatedUsers);
-  };
-
-  const addNote = () => {
-    if (!noteInput.trim()) return;
-    const updatedUser = { ...user, notes: [...user.notes, noteInput.trim()] };
-    const updatedUsers = users.map((u) => (u.id === user.id ? updatedUser : u));
-
-    setUser(updatedUser);
-    setUsers(updatedUsers);
-    saveAdminUsers(updatedUsers);
-    setNoteInput("");
   };
 
   const handleResetSessions = () => {
@@ -150,7 +138,7 @@ export default function UserDetailPage() {
           </div>
         </motion.div>
 
-        {/* Right Cards: Actions & Notes */}
+        {/* Right Cards: Actions */}
         <div className="md:col-span-2 space-y-6">
           {/* Actions panel */}
           <motion.div
@@ -204,45 +192,6 @@ export default function UserDetailPage() {
                 Sessions reset successfully for this user.
               </motion.div>
             )}
-          </motion.div>
-
-          {/* Notes panel */}
-          <motion.div
-            variants={itemVariants}
-            className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm space-y-4`}
-          >
-            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Admin Notes</h3>
-            {user.notes.length > 0 ? (
-              <div className="space-y-2">
-                {user.notes.map((note, i) => (
-                  <div
-                    key={i}
-                    className="bg-teal-50/50 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/30 rounded-xl px-4 py-3 text-sm text-teal-800 dark:text-teal-300 font-medium leading-relaxed"
-                  >
-                    {note}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400 dark:text-slate-500">No notes recorded yet.</p>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <input
-                type="text"
-                value={noteInput}
-                onChange={(e) => setNoteInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addNote()}
-                placeholder="Add an admin note..."
-                className="flex-1 px-4 py-2.5 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 dark:text-slate-100 transition-all"
-              />
-              <button
-                onClick={addNote}
-                className="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 text-white text-sm font-semibold rounded-xl hover:shadow-md hover:shadow-teal-500/10 transition-all shrink-0"
-              >
-                Add Note
-              </button>
-            </div>
           </motion.div>
         </div>
       </div>

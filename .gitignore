@@ -18,6 +18,9 @@ out/
 build/
 dist/
 tsconfig.tsbuildinfo
+
+# Prisma generated client (regenerated via `prisma generate` / postinstall)
+/lib/generated/
 # ═══════════════════════════════════════════════════════════════
 # LOGS
 # ═══════════════════════════════════════════════════════════════
