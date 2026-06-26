@@ -421,16 +421,6 @@ export default function AdminSidebar({
                   <p className="font-sans text-xs font-medium text-slate-400 dark:text-slate-500" style={{ margin: "2px 0 0" }}>
                     {currentAdmin.email}
                   </p>
-                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
-                    marginTop: 10,
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "4px 14px", borderRadius: 999,
-                  }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0 animate-pulse" />
-                    <span className="font-sans text-[11px] font-bold tracking-wide text-teal-700 dark:text-teal-400 uppercase">
-                      Admin Session Active
-                    </span>
-                  </div>
                 </div>
               </div>
 
