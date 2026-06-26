@@ -92,9 +92,9 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
       {/* Click-outside handled via custom ref logic */}
 
       <header
-        className={`fixed top-0 right-0 left-0 z-40 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 ${
-          collapsed ? "lg:pl-[72px]" : "lg:pl-[260px]"
-        } pl-4`}
+        className={`admin-topbar-header fixed top-0 right-0 left-0 z-40 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 ${
+          collapsed ? "collapsed" : "expanded"
+        }`}
       >
         <div className="h-full flex items-center justify-between px-6">
           {/* Breadcrumb */}

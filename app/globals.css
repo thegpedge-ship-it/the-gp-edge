@@ -431,3 +431,33 @@
   background-color: rgba(90, 200, 176, 0.5);
 }
 
+/* ─── Responsive Layout Spacing for Admin Sidebar & Topbar ────────────────── */
+.admin-main-content {
+  transition: margin-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  margin-left: 0;
+}
+
+@media (min-width: 1024px) {
+  .admin-main-content.collapsed {
+    margin-left: 88px;
+  }
+  .admin-main-content.expanded {
+    margin-left: 336px;
+  }
+}
+
+.admin-topbar-header {
+  transition: padding-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  padding-left: 16px; /* pl-4 */
+}
+
+@media (min-width: 1024px) {
+  .admin-topbar-header.collapsed {
+    padding-left: 88px;
+  }
+  .admin-topbar-header.expanded {
+    padding-left: 336px;
+  }
+}
+
+
