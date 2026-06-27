@@ -17,7 +17,6 @@ import {
   Camera,
   Upload,
   X,
-  Bell,
   ChevronRight,
   CheckCircle2,
   Eye,
@@ -128,17 +127,6 @@ function SelectInput({
   );
 }
 
-function ToggleSwitch({ id, defaultChecked = false }: { id: string; defaultChecked?: boolean }) {
-  const [on, setOn] = useState(defaultChecked);
-  return (
-    <button type="button" id={id} role="switch" aria-checked={on} onClick={() => setOn(!on)}
-      className={`relative w-9 h-5 rounded-full transition-colors duration-200 flex-shrink-0 ${on ? "bg-teal-500" : "bg-slate-200"}`}
-    >
-      <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${on ? "translate-x-4" : ""}`} />
-    </button>
-  );
-}
-
 function SaveButton({ id, label = "Save Changes", type = "button" }: { id: string; label?: string; type?: "button" | "submit" }) {
   return (
     <button type={type} id={id}
@@ -169,12 +157,16 @@ export default function SettingsPage() {
         </div>
       </FadeIn>
 
-      {/* ══ TWO-COLUMN GRID ════════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      {/* ══ TWO-COLUMN GRID — columns stretch to equal height; the left      */}
+      {/* (Account) card stays its natural size, the right column fills ════ */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-stretch">
+
+        {/* ── Left column (natural height — drives the row) ────────────── */}
+        <div className="flex flex-col gap-4 xl:self-start">
 
         {/* ── Account Information ───────────────────────────────────────── */}
         <FadeIn delay={0.04}>
-          <PageCard className="h-full bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+          <PageCard className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
             <CardHeader icon={<User size={15} />} title="Account Information" subtitle="Login & personal details" />
             <form className="px-5 pb-5 pt-0 space-y-4" onSubmit={(e) => e.preventDefault()}>
               
@@ -263,46 +255,15 @@ export default function SettingsPage() {
           </PageCard>
         </FadeIn>
 
-        {/* ── Medical Credentials ───────────────────────────────────────── */}
-        <FadeIn delay={0.06}>
-          <PageCard className="h-full">
-            <CardHeader icon={<Shield size={15} />} title="Medical Credentials" subtitle="Registration & training" />
-            <div className="px-5 py-4 space-y-3">
-              <div>
-                <FieldLabel htmlFor="training-level">Training Level</FieldLabel>
-                <SelectInput id="training-level" defaultValue="GPY3" options={[
-                  { value: "GPY1", label: "GPY1" },
-                  { value: "GPY2", label: "GPY2" },
-                  { value: "GPY3", label: "GPY3" },
-                  { value: "GPY4", label: "GPY4" },
-                  { value: "GPY5", label: "GPY5" },
-                  { value: "GPY6", label: "GPY6" },
-                  { value: "GPY7", label: "GPY7" },
-                  { value: "GPY8", label: "GPY8" },
-                  { value: "GPY9", label: "GPY9" },
-                  { value: "GPY10", label: "GPY10" },
-                  { value: "GPY11", label: "GPY11" },
-                  { value: "GPY12", label: "GPY12" },
-                  { value: "GPY13", label: "GPY13" },
-                  { value: "GPY14", label: "GPY14" },
-                  { value: "GPY15", label: "GPY15" },
-                  { value: "GPY16", label: "GPY16" },
-                  { value: "GPY17", label: "GPY17" },
-                  { value: "GPY18", label: "GPY18" },
-                  { value: "GPY19", label: "GPY19" },
-                  { value: "GPY20", label: "GPY20" },
-                ]} />
-              </div>
-              <div><FieldLabel htmlFor="supervisor">Training Supervisor</FieldLabel><TextInput id="supervisor" placeholder="e.g. Dr. James Miller" /></div>
-              <div className="flex justify-end pt-1"><SaveButton id="save-credentials-btn" label="Save Credentials" /></div>
-            </div>
-          </PageCard>
-        </FadeIn>
+        </div>{/* /Left column */}
+
+        {/* ── Right column (stretches to match the left column's height) ── */}
+        <div className="flex flex-col gap-4 xl:h-full">
 
         {/* ── Exam Preparation ──────────────────────────────────────────── */}
         <FadeIn delay={0.08}>
-          <PageCard className="h-full">
-            <CardHeader icon={<Target size={15} />} title="Exam Preparation" subtitle="Study plan & targets" />
+          <PageCard>
+            <CardHeader icon={<Target size={15} />} title="Exam Preparation" subtitle="Training, study plan & targets" />
             <div className="px-5 py-4 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -336,6 +297,34 @@ export default function SettingsPage() {
                   ]} />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel htmlFor="training-level">Training Level</FieldLabel>
+                  <SelectInput id="training-level" defaultValue="GPY3" options={[
+                    { value: "GPY1", label: "GPY1" },
+                    { value: "GPY2", label: "GPY2" },
+                    { value: "GPY3", label: "GPY3" },
+                    { value: "GPY4", label: "GPY4" },
+                    { value: "GPY5", label: "GPY5" },
+                    { value: "GPY6", label: "GPY6" },
+                    { value: "GPY7", label: "GPY7" },
+                    { value: "GPY8", label: "GPY8" },
+                    { value: "GPY9", label: "GPY9" },
+                    { value: "GPY10", label: "GPY10" },
+                    { value: "GPY11", label: "GPY11" },
+                    { value: "GPY12", label: "GPY12" },
+                    { value: "GPY13", label: "GPY13" },
+                    { value: "GPY14", label: "GPY14" },
+                    { value: "GPY15", label: "GPY15" },
+                    { value: "GPY16", label: "GPY16" },
+                    { value: "GPY17", label: "GPY17" },
+                    { value: "GPY18", label: "GPY18" },
+                    { value: "GPY19", label: "GPY19" },
+                    { value: "GPY20", label: "GPY20" },
+                  ]} />
+                </div>
+                <div><FieldLabel htmlFor="supervisor">Training Supervisor</FieldLabel><TextInput id="supervisor" placeholder="e.g. Dr. James Miller" /></div>
+              </div>
               <div className="flex items-start gap-2.5 bg-teal-50 border border-teal-100 rounded-lg p-3">
                 <Info size={13} className="text-teal-600 flex-shrink-0 mt-0.5" />
                 <p className="text-[11px] text-teal-800 leading-relaxed">These settings personalise your dashboard and study plan.</p>
@@ -345,40 +334,12 @@ export default function SettingsPage() {
           </PageCard>
         </FadeIn>
 
-        {/* ── Notifications ─────────────────────────────────────────────── */}
-        <FadeIn delay={0.10}>
-          <PageCard className="h-full">
-            <CardHeader icon={<Bell size={15} />} title="Notifications" subtitle="Email & push alerts" />
-            <div className="px-5 py-2">
-              {[
-                { id: "notif-study", label: "Daily Study Reminders", desc: "Reminded at your preferred time", on: true },
-                { id: "notif-mock", label: "New Mock Exams", desc: "When new mocks are available", on: true },
-                { id: "notif-score", label: "Score Reports", desc: "Summary after quiz or mock", on: true },
-                { id: "notif-streak", label: "Streak Alerts", desc: "When streak is about to break", on: false },
-                { id: "notif-weekly", label: "Weekly Digest", desc: "Weekly performance email", on: true },
-                { id: "notif-tips", label: "Study Tips", desc: "Curated tips for your exam", on: false },
-                { id: "notif-supervisor", label: "Report to Supervisor", desc: "Send performance reports to supervisor", on: true },
-              ].map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-2.5 border-b border-slate-50 last:border-0">
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{item.label}</p>
-                    <p className="text-[11px] text-slate-400">{item.desc}</p>
-                  </div>
-                  <ToggleSwitch id={item.id} defaultChecked={item.on} />
-                </div>
-              ))}
-            </div>
-          </PageCard>
-        </FadeIn>
-      </div>
-
-      {/* ══ SECURITY — FULL WIDTH ══════════════════════════════════════════ */}
-      <FadeIn delay={0.12}>
-        <PageCard>
-          <CardHeader icon={<Lock size={15} />} title="Security & Account" subtitle="Password, sessions & account actions" />
-          <div className="px-5 py-3 space-y-4">
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {/* Left: actions */}
+        {/* ── Security & Account (grows to fill the column) ─────────────── */}
+        <FadeIn delay={0.10} className="xl:flex xl:flex-1">
+          <PageCard className="xl:h-full xl:flex xl:flex-col">
+            <CardHeader icon={<Lock size={15} />} title="Security & Account" subtitle="Password & account actions" />
+            <div className="px-5 py-4 space-y-4 xl:flex-1 xl:flex xl:flex-col">
+              {/* Actions */}
               <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800/80 rounded-lg overflow-hidden">
                 {[
                   { id: "sec-pw", icon: <Lock size={14} />, label: "Change Password", desc: "Update your password" },
@@ -397,56 +358,31 @@ export default function SettingsPage() {
                 ))}
               </div>
 
-              {/* Right: sessions */}
-              <div className="space-y-3">
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2">Active Sessions</p>
-                  <div className="space-y-1.5">
-                    {[
-                      { device: "Chrome on Windows", loc: "Sydney, AU", current: true, time: "Now" },
-                      { device: "Safari on iPhone", loc: "Sydney, AU", current: false, time: "2h ago" },
-                    ].map((s, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg border border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-150">
-                            {s.device}
-                            {s.current && <span className="ml-1.5 text-[9px] font-semibold text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-950/30 px-1.5 py-0.5 rounded">Current</span>}
-                          </p>
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500">{s.loc} · {s.time}</p>
-                        </div>
-                        {!s.current && <button type="button" className="text-[11px] font-semibold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors">Revoke</button>}
-                      </div>
-                    ))}
+              {/* Danger Zone — pinned to the bottom of the stretched card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-red-100 dark:border-red-950/40 bg-red-50/10 dark:bg-red-950/10 xl:mt-auto">
+                <div className="flex gap-3 items-start">
+                  <span className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30 flex items-center justify-center flex-shrink-0 text-red-500 dark:text-red-400">
+                    <Trash2 size={15} />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-red-650 dark:text-red-400">Delete Account</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Permanently delete account and all data. This action is irreversible.</p>
                   </div>
                 </div>
+                <button
+                  type="button"
+                  id="delete-account-btn"
+                  className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 rounded-lg transition-all duration-150 shadow-md shadow-red-650/10 active:scale-[0.98] cursor-pointer"
+                >
+                  Delete Account
+                </button>
               </div>
             </div>
+          </PageCard>
+        </FadeIn>
 
-            {/* Separator line */}
-            <div className="h-px bg-slate-100 dark:bg-slate-800/60 my-2" />
-
-            {/* Danger Zone */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-red-100 dark:border-red-950/40 bg-red-50/10 dark:bg-red-950/10">
-              <div className="flex gap-3 items-start">
-                <span className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900/30 flex items-center justify-center flex-shrink-0 text-red-500 dark:text-red-400">
-                  <Trash2 size={15} />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-red-650 dark:text-red-400">Delete Account</p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Permanently delete account and all data. This action is irreversible.</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                id="delete-account-btn"
-                className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 rounded-lg transition-all duration-150 shadow-md shadow-red-650/10 active:scale-[0.98] cursor-pointer"
-              >
-                Delete Account
-              </button>
-            </div>
-          </div>
-        </PageCard>
-      </FadeIn>
+        </div>{/* /Right column */}
+      </div>
 
       <p className="text-center text-xs text-slate-400">
         Your data is private, encrypted, and never shared.{" "}
