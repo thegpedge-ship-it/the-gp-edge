@@ -12,6 +12,7 @@ import {
   SIDEBAR_PANEL_PX,
   MARGIN_TRANSITION,
 } from "@/contexts/SidebarContext";
+import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
 
 // Local SignedIn wrapper to avoid Clerk package ESM export issues in this Next.js version
 function SignedIn({ children }: { children: React.ReactNode }) {
@@ -84,17 +85,21 @@ export default function DashboardShell({
   className,
   bgClassName,
   hideSidebar = false,
+  profile = EMPTY_PROFILE,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
   hideSidebar?: boolean;
+  profile?: DbProfile;
 }) {
   return (
-    <SidebarProvider>
-      <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
-        {children}
-      </DashboardInner>
-    </SidebarProvider>
+    <ProfileProvider value={profile}>
+      <SidebarProvider>
+        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
+          {children}
+        </DashboardInner>
+      </SidebarProvider>
+    </ProfileProvider>
   );
 }

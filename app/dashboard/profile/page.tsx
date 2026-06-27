@@ -8,7 +8,9 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
-import { user as localUser, badges, stats, examPaths } from "@/components/dashboard/data";
+import { ensureDbUser } from "@/lib/user";
+import { formatJoined } from "@/lib/format";
+import { badges, stats, examPaths } from "@/components/dashboard/data";
 import Avatar from "@/components/ui/Avatar";
 import FadeIn from "@/components/ui/FadeIn";
 import PageCard from "@/components/ui/PageCard";
@@ -33,6 +35,18 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default async function ProfilePage() {
   const user = await currentUser();
+  const dbUser = await ensureDbUser();
+
+  // Onboarding-collected fields, with neutral fallbacks for anything left blank.
+  const roleTitle = dbUser?.role_title || "GP Registrar";
+  const hospital = dbUser?.hospital || "—";
+  const location = dbUser?.location || "—";
+  const racgpId = dbUser?.racgp_id || "—";
+  const examTarget = dbUser?.exam_target || "Not set";
+  const practiceLocation =
+    dbUser?.hospital && dbUser?.location
+      ? `${dbUser.hospital}, ${dbUser.location}`
+      : dbUser?.hospital || dbUser?.location || "—";
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -90,15 +104,15 @@ export default async function ProfilePage() {
                   <div className="flex flex-col gap-1 mt-2.5 font-sans text-xs text-slate-500 dark:text-slate-400">
                     <span className="text-teal-600 dark:text-teal-400 font-semibold flex items-center justify-center gap-1">
                       <GraduationCap size={12} className="text-teal-600 dark:text-teal-400" />
-                      PGY3 · RACGP Candidate
+                      {roleTitle}
                     </span>
                     <span className="flex items-center justify-center gap-1">
                       <MapPin size={12} className="text-slate-400" />
-                      {localUser.hospital}
+                      {hospital}
                     </span>
                     <span className="flex items-center justify-center gap-1">
                       <BookOpen size={12} className="text-slate-400" />
-                      Preparing for AKT · August 2026
+                      {dbUser?.exam_target ? `Preparing for ${examTarget}` : "Exam target not set"}
                     </span>
                   </div>
                 </div>
@@ -120,16 +134,16 @@ export default async function ProfilePage() {
                 <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/85 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Location:</span>
-                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[150px]">{localUser.hospital}</span>
+                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[150px]">{location}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Target Track:</span>
-                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-300">AKT · Aug 2026</span>
+                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-300">{examTarget}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Member Since:</span>
                     <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      {localUser.joinedLabel.replace("Joined ", "")}
+                      {formatJoined(dbUser?.joined_at ? dbUser.joined_at.toISOString() : null).replace("Joined ", "")}
                     </span>
                   </div>
                 </div>
@@ -165,10 +179,9 @@ export default async function ProfilePage() {
                   </p>
                   
                   <div className="mt-4 space-y-1">
-                    <DetailRow label="RACGP Number" value={localUser.contact.racgpId} />
-                    <DetailRow label="AHPRA Number" value="MED0001234567" />
-                    <DetailRow label="Training Level" value="PGY3 — Registrar" />
-                    <DetailRow label="Practice Location" value={`${localUser.hospital}, Sydney NSW`} />
+                    <DetailRow label="RACGP Number" value={racgpId} />
+                    <DetailRow label="Training Level" value={roleTitle} />
+                    <DetailRow label="Practice Location" value={practiceLocation} />
                   </div>
                 </div>
               </div>
@@ -215,7 +228,7 @@ export default async function ProfilePage() {
                     {/* Active Track Highlight Banner */}
                     <div className="flex items-center gap-2 mt-2 p-2.5 rounded-xl bg-gradient-to-r from-teal-500/10 to-transparent border border-teal-500/20 text-teal-600 dark:text-teal-400">
                       <Calendar size={12} className="text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                      <p className="font-sans text-[11px] font-semibold">{localUser.examTarget}</p>
+                      <p className="font-sans text-[11px] font-semibold">{examTarget}</p>
                     </div>
                   </div>
                 </div>

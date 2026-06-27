@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import { useUser } from "@clerk/nextjs";
+import { useProfile } from "@/contexts/ProfileContext";
 import {
   User,
   Shield,
@@ -155,6 +156,7 @@ function SaveButton({ id, label = "Save Changes", type = "button" }: { id: strin
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function SettingsPage() {
   const { user } = useUser();
+  const profile = useProfile();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarHovered, setAvatarHovered] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -255,7 +257,7 @@ export default function SettingsPage() {
                   </button>
                 </div>
               </div>
-              <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue="Royal North Shore Hospital" /></div>
+              <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue={[profile.hospital, profile.location].filter(Boolean).join(", ")} placeholder="e.g. Royal North Shore Hospital, Sydney NSW" /></div>
               <div className="flex justify-end pt-1"><SaveButton id="save-account-btn" type="submit" /></div>
             </form>
           </PageCard>

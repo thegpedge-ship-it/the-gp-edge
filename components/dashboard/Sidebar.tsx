@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { user as localUser } from "./data";
 import { useUser, SignOutButton } from "@clerk/nextjs";
+import { useProfile } from "@/contexts/ProfileContext";
+import { formatJoined } from "@/lib/format";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -107,6 +109,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { isExpanded, ready, toggle, setHovered } = useSidebar();
   const { user } = useUser();
+  const profile = useProfile();
 
   const leaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEnter = useCallback(() => {
@@ -433,24 +436,28 @@ export default function Sidebar() {
                     {user?.fullName || "User"}
                   </p>
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: 0 }}>
-                    RACGP Candidate · PGY3
+                    {profile.roleTitle || "GP Registrar"}
                   </p>
-                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
-                    {localUser.hospital}
-                  </p>
+                  {profile.hospital && (
+                    <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
+                      {profile.hospital}
+                    </p>
+                  )}
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
                     Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
                   </p>
-                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
-                    marginTop: 10,
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "6px 18px", borderRadius: 999,
-                  }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
-                    <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">
-                      Preparing for AKT · Aug 2026
-                    </span>
-                  </div>
+                  {profile.examTarget && (
+                    <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
+                      marginTop: 10,
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "6px 18px", borderRadius: 999,
+                    }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                      <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">
+                        {profile.examTarget}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -536,7 +543,7 @@ export default function Sidebar() {
 
               {/* Footer */}
               <div className="text-center pt-1">
-                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{localUser.joinedLabel}</p>
+                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{formatJoined(profile.joinedAt)}</p>
                 <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0">Synced {localUser.lastSyncedMin}m ago</p>
               </div>
 
