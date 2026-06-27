@@ -37,7 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setIsLoggedIn(loggedIn);
       setLoading(false);
 
-      if (!loggedIn && pathname !== "/admin/login") {
+      if (!loggedIn && pathname !== "/admin/login" && pathname !== "/admin/reset-password") {
         router.push("/admin/login");
       }
 
@@ -87,7 +87,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setCurrentAdminId(val);
         setIsLoggedIn(log);
         updateProfile(val);
-        if (!log && pathname !== "/admin/login") {
+        if (!log && pathname !== "/admin/login" && pathname !== "/admin/reset-password") {
           router.push("/admin/login");
         }
       };
@@ -99,7 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname, router]);
 
-  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"];
+  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
   const isGatedSection = sectionKeys.includes(currentSection);
   const hasPermission = !isGatedSection || currentAdmin.permissions.includes(currentSection);
 
@@ -145,7 +145,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     audit: "Audit & Security Logs",
     settings: "System Settings",
     search: "Global Admin Search",
-    validation: "Credentials & Validation",
   };
   const sectionName = sectionNames[currentSection] || currentSection;
 
@@ -173,11 +172,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     </div>
   );
 
-  if (pathname === "/admin/login") {
+  if (pathname === "/admin/login" || pathname === "/admin/reset-password") {
     return <div className="min-h-screen bg-slate-100 dark:bg-slate-950 font-sans">{children}</div>;
   }
 
-  if (loading || (!isLoggedIn && pathname !== "/admin/login")) {
+  if (loading || (!isLoggedIn && pathname !== "/admin/login" && pathname !== "/admin/reset-password")) {
     return (
       <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-3">
@@ -223,7 +222,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main content area */}
       <main
-        className={`pt-14 min-h-screen relative transition-all duration-300 ml-0 ${isExpanded ? "lg:ml-[260px]" : "lg:ml-[72px]"}`}
+        className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
       >
         <div className="p-6 lg:p-8">
           {hasPermission ? children : deniedContent}

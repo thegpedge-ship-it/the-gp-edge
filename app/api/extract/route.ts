@@ -4,6 +4,8 @@ import { join } from "path";
 import os from "os";
 import fs from "fs";
 import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
+import { execFileSync } from "child_process";
 
 // Shim canvas globals (DOMMatrix, Image, etc.) for pdfjs-dist in Next.js Node environment using pure JS classes to avoid native binding errors
 class DOMMatrixShim {
@@ -169,14 +171,47 @@ if (typeof globalThis !== "undefined") {
 // ── Lightweight text extraction helpers ────────────────────────────────────────
 
 /**
+ * Check if a string looks like base64-encoded binary data (image streams, etc.).
+ * Returns true for long strings (>=50 chars) that are 90%+ base64 alphabet with no spaces.
+ */
+function looksLikeBase64OrBinary(s: string): boolean {
+  if (s.length < 50) return false;
+  // If it contains spaces it's likely real text
+  if (s.includes(" ")) return false;
+  let b64Count = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    // A-Z(65-90), a-z(97-122), 0-9(48-57), +(43), /(47), =(61)
+    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 43 || c === 47 || c === 61) {
+      b64Count++;
+    }
+  }
+  return b64Count >= s.length * 0.9;
+}
+
+/**
+ * Check if a string looks like a PDF internal operator/command.
+ */
+function looksLikePdfOperator(s: string): boolean {
+  if (s.length > 120) return false;
+  // PDF operators like /Type, /Subtype, /Font, BT, ET, Tf, Td, etc.
+  if (/^\/[A-Z][a-zA-Z0-9]+$/.test(s)) return true;
+  if (/^(BT|ET|Tf|Td|Tj|TJ|cm|re|f|W|n|q|Q|gs|Do)$/.test(s)) return true;
+  // PDF stream dictionaries
+  if (/^<</.test(s) || />>$/.test(s)) return true;
+  // Raw hex strings
+  if (/^[0-9A-Fa-f]{20,}$/.test(s)) return true;
+  return false;
+}
+
+/**
  * Extract plain text from a PDF buffer using a simple byte-scan approach.
- * Pulls readable ASCII strings from the binary, which works well for
- * text-based PDFs without needing any native bindings.
+ * Pulls readable ASCII strings from the binary. Filters out base64 image
+ * data and PDF internal commands to produce cleaner output.
  */
 function extractTextFromPdfBufferFallback(buffer: Buffer): string {
   try {
     const content = buffer.toString("latin1");
-    // Pull runs of printable ASCII characters (length ≥ 4)
     const strings: string[] = [];
     let current = "";
     for (let i = 0; i < content.length; i++) {
@@ -184,11 +219,18 @@ function extractTextFromPdfBufferFallback(buffer: Buffer): string {
       if (code >= 32 && code <= 126) {
         current += content[i];
       } else {
-        if (current.length >= 4) strings.push(current);
+        if (current.length >= 4) {
+          // Filter out base64 image data and PDF operators
+          if (!looksLikeBase64OrBinary(current) && !looksLikePdfOperator(current)) {
+            strings.push(current);
+          }
+        }
         current = "";
       }
     }
-    if (current.length >= 4) strings.push(current);
+    if (current.length >= 4 && !looksLikeBase64OrBinary(current) && !looksLikePdfOperator(current)) {
+      strings.push(current);
+    }
     return strings.join(" ").replace(/\s{3,}/g, "\n").trim();
   } catch {
     return "";
@@ -196,18 +238,78 @@ function extractTextFromPdfBufferFallback(buffer: Buffer): string {
 }
 
 /**
- * Extract plain text from a PDF buffer using pdf-parse.
+ * Run pdf-parse in a subprocess to bypass Next.js Turbopack bundler issues.
+ * Returns parsed result or null if subprocess fails.
+ */
+async function extractPdfViaSubprocess(buffer: Buffer): Promise<{
+  pages: { num: number; text: string }[];
+  images: { pageNumber: number; dataUrl: string }[];
+} | null> {
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const inputPath = join(tempDir, `gpedge_pdf_in_${timestamp}.pdf`);
+  const outputPath = join(tempDir, `gpedge_pdf_out_${timestamp}.json`);
+
+  try {
+    fs.writeFileSync(inputPath, buffer);
+
+    const parts = ["lib", "pdf-extract-worker.js"];
+    const workerScript = join(/*turbopackIgnore: true*/ process.cwd(), ...parts);
+
+    if (!fs.existsSync(workerScript)) {
+      console.error("PDF worker script not found at:", workerScript);
+      return null;
+    }
+
+    execFileSync("node", [workerScript, inputPath, outputPath], {
+      timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
+      cwd: process.cwd(),
+    });
+
+    if (!fs.existsSync(outputPath)) {
+      console.error("PDF worker did not produce output file");
+      return null;
+    }
+
+    const raw = fs.readFileSync(outputPath, "utf8");
+    return JSON.parse(raw);
+  } catch (e: any) {
+    console.error("PDF subprocess extraction failed:", e.message);
+    if (e.stderr) console.error("stderr:", e.stderr.toString());
+    return null;
+  } finally {
+    try { if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); } catch {}
+    try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+  }
+}
+
+/**
+ * Extract plain text from a PDF buffer.
+ * Tries subprocess first, then in-process PDFParse, then byte-scan fallback.
  */
 async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+  // Try subprocess first
   try {
-    const pdfModule = require("pdf-parse");
-    const parser = new pdfModule.PDFParse({ data: buffer, verbosity: 0 });
+    const subResult = await extractPdfViaSubprocess(buffer);
+    if (subResult && subResult.pages.length > 0) {
+      const text = subResult.pages.map((p) => p.text || "").join("\n\n").trim();
+      if (text.length > 20) return text;
+    }
+  } catch {}
+
+  // Try in-process PDFParse
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
     const textResult = await parser.getText();
-    return textResult.text || "";
+    if (textResult.text && textResult.text.trim().length > 20) {
+      return textResult.text;
+    }
   } catch (error) {
     console.error("PDFParse text extraction failed, falling back:", error);
-    return extractTextFromPdfBufferFallback(buffer);
   }
+
+  return extractTextFromPdfBufferFallback(buffer);
 }
 
 /**
@@ -321,22 +423,23 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
 function isMetadataLine(line: string): boolean {
   const clean = line.trim().toLowerCase();
   return (
-    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]/i.test(clean) ||
-    /^(?:topic|category)\s*[:\-]/i.test(clean) ||
-    /^subtopic\s*[:\-]/i.test(clean) ||
-    /^difficulty\s*[:\-]/i.test(clean) ||
-    /^tags\s*[:\-]/i.test(clean) ||
-    /^(?:rationale|high-yield\s*rationale|explanation)\s*[:\-]/i.test(clean)
+    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]?/i.test(clean) ||
+    /^(?:topic|category)\s*[:\-]?/i.test(clean) ||
+    /^subtopic\s*[:\-]?/i.test(clean) ||
+    /^difficulty\s*[:\-]?/i.test(clean) ||
+    /^tags\s*[:\-]?/i.test(clean) ||
+    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation)\s*[:\-]?/i.test(clean)
   );
 }
 
 /**
- * Carves JPEG and PNG images from raw binary buffer.
+ * Carves JPEG, PNG images from raw binary buffer, and also extracts
+ * images from FlateDecode-compressed PDF streams.
  */
 function carveImagesFromBuffer(buffer: Buffer): string[] {
   const imageUrls: string[] = [];
   
-  // Search for JPEGs
+  // ── 1. Search for raw JPEGs (FFD8FF...FFD9) ──
   let i = 0;
   while (i < buffer.length - 2) {
     if (buffer[i] === 0xFF && buffer[i+1] === 0xD8 && buffer[i+2] === 0xFF) {
@@ -352,9 +455,8 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
       }
       if (end !== -1) {
         const imgBuffer = buffer.slice(start, end);
-        if (imgBuffer.length > 2000) { // filter out small metadata images
-          const base64Data = imgBuffer.toString("base64");
-          imageUrls.push(`data:image/jpeg;base64,${base64Data}`);
+        if (imgBuffer.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${imgBuffer.toString("base64")}`);
           i = end;
           continue;
         }
@@ -363,36 +465,21 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
     i++;
   }
   
-  // Search for PNGs
+  // ── 2. Search for raw PNGs (89504E47...IEND) ──
   i = 0;
   while (i < buffer.length - 8) {
     if (
-      buffer[i] === 0x89 &&
-      buffer[i+1] === 0x50 &&
-      buffer[i+2] === 0x4E &&
-      buffer[i+3] === 0x47 &&
-      buffer[i+4] === 0x0D &&
-      buffer[i+5] === 0x0A &&
-      buffer[i+6] === 0x1A &&
-      buffer[i+7] === 0x0A
+      buffer[i] === 0x89 && buffer[i+1] === 0x50 && buffer[i+2] === 0x4E && buffer[i+3] === 0x47 &&
+      buffer[i+4] === 0x0D && buffer[i+5] === 0x0A && buffer[i+6] === 0x1A && buffer[i+7] === 0x0A
     ) {
       const start = i;
       let j = i + 8;
       let end = -1;
       while (j < buffer.length - 12) {
         if (
-          buffer[j] === 0x00 &&
-          buffer[j+1] === 0x00 &&
-          buffer[j+2] === 0x00 &&
-          buffer[j+3] === 0x00 &&
-          buffer[j+4] === 0x49 &&
-          buffer[j+5] === 0x45 &&
-          buffer[j+6] === 0x4E &&
-          buffer[j+7] === 0x44 &&
-          buffer[j+8] === 0xAE &&
-          buffer[j+9] === 0x42 &&
-          buffer[j+10] === 0x60 &&
-          buffer[j+11] === 0x82
+          buffer[j] === 0x00 && buffer[j+1] === 0x00 && buffer[j+2] === 0x00 && buffer[j+3] === 0x00 &&
+          buffer[j+4] === 0x49 && buffer[j+5] === 0x45 && buffer[j+6] === 0x4E && buffer[j+7] === 0x44 &&
+          buffer[j+8] === 0xAE && buffer[j+9] === 0x42 && buffer[j+10] === 0x60 && buffer[j+11] === 0x82
         ) {
           end = j + 12;
           break;
@@ -402,8 +489,7 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
       if (end !== -1) {
         const imgBuffer = buffer.slice(start, end);
         if (imgBuffer.length > 2000) {
-          const base64Data = imgBuffer.toString("base64");
-          imageUrls.push(`data:image/png;base64,${base64Data}`);
+          imageUrls.push(`data:image/png;base64,${imgBuffer.toString("base64")}`);
           i = end;
           continue;
         }
@@ -411,51 +497,194 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
     }
     i++;
   }
+
+  // ── 3. Extract images from FlateDecode-compressed PDF streams ──
+  // PDF images are often in streams like:
+  //   /Subtype /Image ... /Filter /FlateDecode ... stream\r\n<compressed data>\r\nendstream
+  try {
+    const zlib = require("zlib");
+    const text = buffer.toString("latin1");
+    // Find all 'stream' markers and try to decompress
+    const streamRegex = /\/Subtype\s*\/Image[^]*?\/Width\s+(\d+)[^]*?\/Height\s+(\d+)[^]*?\/BitsPerComponent\s+(\d+)[^]*?(?:\/Filter\s*\/(\w+))?[^]*?stream\r?\n/gi;
+    let match;
+    while ((match = streamRegex.exec(text)) !== null) {
+      const width = parseInt(match[1]);
+      const height = parseInt(match[2]);
+      const bpc = parseInt(match[3]);
+      const filter = match[4] || "";
+      const streamStart = match.index + match[0].length;
+      
+      // Find endstream
+      const endIdx = text.indexOf("endstream", streamStart);
+      if (endIdx === -1 || endIdx - streamStart < 100) continue;
+      
+      const streamData = buffer.slice(streamStart, endIdx);
+      
+      // Skip tiny images
+      if (width < 50 || height < 50) continue;
+      
+      let rawPixels: Buffer | null = null;
+      
+      if (filter.toLowerCase() === "flatedecode" || filter === "") {
+        try {
+          rawPixels = zlib.inflateSync(streamData);
+        } catch {
+          // Try raw deflate (no zlib header)
+          try {
+            rawPixels = zlib.inflateRawSync(streamData);
+          } catch {
+            continue;
+          }
+        }
+      } else if (filter.toLowerCase() === "dctdecode") {
+        // DCTDecode = raw JPEG data
+        if (streamData.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${streamData.toString("base64")}`);
+        }
+        continue;
+      } else {
+        continue;
+      }
+      
+      if (!rawPixels || rawPixels.length < width * height) continue;
+      
+      // Check if decompressed data starts with JPEG or PNG magic
+      if (rawPixels[0] === 0xFF && rawPixels[1] === 0xD8) {
+        if (rawPixels.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${rawPixels.toString("base64")}`);
+        }
+      } else if (rawPixels[0] === 0x89 && rawPixels[1] === 0x50 && rawPixels[2] === 0x4E && rawPixels[3] === 0x47) {
+        if (rawPixels.length > 2000) {
+          imageUrls.push(`data:image/png;base64,${rawPixels.toString("base64")}`);
+        }
+      }
+      // Raw pixel data (RGB/grayscale) — would need to be converted to PNG which is complex,
+      // so we skip these for now
+    }
+  } catch (e) {
+    // FlateDecode extraction is best-effort
+    console.error("FlateDecode image extraction error:", e);
+  }
   
   return imageUrls;
 }
 
 /**
  * Extract plain text and inline images from a PDF buffer.
+ * Strategy:
+ *   1. Try subprocess-based extraction (bypasses Turbopack bundler issues)
+ *   2. Fall back to in-process PDFParse
+ *   3. Fall back to text-only extraction
+ *   4. Last resort: byte-scan fallback with base64 filtering + image carving
  */
 async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
+  // Carve images from raw binary once (used as fallback when pdf-parse finds 0 images)
+  let carvedImageUrls: string[] | null = null;
+  function getCarvedImages(): string[] {
+    if (carvedImageUrls === null) {
+      carvedImageUrls = carveImagesFromBuffer(buffer);
+      if (carvedImageUrls.length > 0) {
+        console.log(`Carved ${carvedImageUrls.length} images from PDF binary`);
+      }
+    }
+    return carvedImageUrls;
+  }
+
+  // ── Strategy 1: Subprocess (most reliable in Next.js) ──
   try {
-    const pdfModule = require("pdf-parse");
-    const parser = new pdfModule.PDFParse({ data: buffer, verbosity: 0 });
-    
+    const subResult = await extractPdfViaSubprocess(buffer);
+    if (subResult && subResult.pages.length > 0) {
+      const combinedText = subResult.pages.map((p) => p.text || "").join("\n\n").trim();
+      if (combinedText.length > 20) {
+        // Collect images from subprocess
+        let allImageUrls = subResult.images.map((img) => img.dataUrl);
+
+        // If subprocess found no images, carve from binary
+        if (allImageUrls.length === 0) {
+          allImageUrls = getCarvedImages();
+        }
+
+        console.log(`PDF extracted via subprocess: ${subResult.pages.length} pages, ${allImageUrls.length} images`);
+
+        if (allImageUrls.length > 0) {
+          return associateImagesWithText(combinedText, allImageUrls);
+        }
+        return combinedText;
+      }
+    }
+  } catch (e: any) {
+    console.error("Subprocess PDF extraction failed:", e.message);
+  }
+
+  // ── Strategy 2: In-process PDFParse ──
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
     const textResult = await parser.getText();
     const imageResult = await parser.getImage({ imageThreshold: 0 });
-    
-    const pagesText: string[] = [];
-    const numPages = textResult.pages.length;
-    
-    for (let i = 0; i < numPages; i++) {
-      const pageTextObj = textResult.pages[i];
-      const pageText = pageTextObj.text || "";
-      const pageNum = pageTextObj.num;
-      
-      const pageImages = imageResult.pages.find((p: any) => p.pageNumber === pageNum);
-      const imageUrls: string[] = [];
-      if (pageImages && pageImages.images.length > 0) {
-        for (const img of pageImages.images) {
-          if (img.dataUrl) {
-            // Filter out small logos/decorations (base64 string length < 4000)
-            if (img.dataUrl.length >= 4000) {
-              imageUrls.push(img.dataUrl);
-            }
+
+    const combinedText = textResult.pages.map((p: any) => p.text || "").join("\n\n").trim();
+
+    // Collect images from PDFParse
+    let allImageUrls: string[] = [];
+    for (const page of imageResult.pages) {
+      if (page.images && page.images.length > 0) {
+        for (const img of page.images) {
+          let dataUrl = img.dataUrl;
+          if (!dataUrl && img.data && img.data.length > 0) {
+            const bytes = img.data;
+            let mime = "image/png";
+            if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) mime = "image/png";
+            else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) mime = "image/jpeg";
+            else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) mime = "image/gif";
+            dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+          }
+          if (dataUrl && dataUrl.length >= 4000) {
+            allImageUrls.push(dataUrl);
           }
         }
       }
-      
-      const processedPageText = associateImagesWithText(pageText, imageUrls);
-      pagesText.push(processedPageText);
     }
-    
-    return pagesText.join("\n\n");
+
+    // If PDFParse found no images, carve from binary
+    if (allImageUrls.length === 0) {
+      allImageUrls = getCarvedImages();
+    }
+
+    if (combinedText.length > 20) {
+      console.log(`PDF extracted via in-process PDFParse: ${textResult.pages.length} pages, ${allImageUrls.length} images`);
+      if (allImageUrls.length > 0) {
+        return associateImagesWithText(combinedText, allImageUrls);
+      }
+      return combinedText;
+    }
   } catch (error) {
-    console.error("PDFParse image & text extraction failed, falling back:", error);
-    return await extractTextFromPdfBuffer(buffer);
+    console.error("PDFParse image & text extraction failed:", error);
   }
+
+  // ── Strategy 3: Text-only extraction + image carving ──
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
+    const textResult = await parser.getText();
+    const text = textResult.text || "";
+    if (text.trim().length > 20) {
+      const images = getCarvedImages();
+      if (images.length > 0) {
+        return associateImagesWithText(text, images);
+      }
+      return text;
+    }
+  } catch (error) {
+    console.error("PDFParse text-only extraction failed:", error);
+  }
+
+  // ── Strategy 4: Fallback byte-scan + image carving ──
+  console.warn("All PDF parse strategies failed, using byte-scan fallback");
+  const fallbackText = extractTextFromPdfBufferFallback(buffer);
+  const images = getCarvedImages();
+  if (images.length > 0 && fallbackText.length > 20) {
+    return associateImagesWithText(fallbackText, images);
+  }
+  return fallbackText;
 }
 
 /**
@@ -1099,42 +1328,58 @@ function parseTextToQuestions(text: string): any[] {
   // Normalize line endings
   const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   
+  // Extract and replace all [IMAGE: ...] tags with placeholders to prevent
+  // base64 image data (which frequently contains 'Q' + digits or numeric sequences)
+  // from triggering false split points in the regex.
+  const imageUrls: string[] = [];
+  const textWithPlaceholders = normalizedText.replace(/\[IMAGE:\s*([^\]]+)\]/gi, (match, url) => {
+    imageUrls.push(url.trim());
+    return `[IMAGE_PLACEHOLDER_${imageUrls.length - 1}]`;
+  });
+  
   // Split by Question/Q followed by number
-  let blocks = normalizedText.split(/(?:Question|Q)\s*\d+[:.]?/i);
+  let blocks = textWithPlaceholders.split(/\b(?:Question|Q)\s*\d+[:.]?/i);
   if (blocks.length <= 1) {
     // Fallback: split by numeric lines (e.g. "\n1. " or "\n1) ")
-    blocks = normalizedText.split(/(?:\n|^)\s*\d+[\.\)]\s+/);
+    blocks = textWithPlaceholders.split(/(?:\n|^)\s*\d+[\.\)]\s+/);
   }
   
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i].trim();
     if (!block) continue;
     
-    // Extract and clean image anywhere in the block
+    // Find the placeholder tag if any and map it back to the original image data URL/URL
     let image: string | undefined = undefined;
-    const imageMatch = block.match(/\[IMAGE:\s*([^\]]+)\]/i);
-    if (imageMatch) {
-      const matchedImage = imageMatch[1].trim();
-      // Only keep the image if it is not a tiny decorative icon (e.g. data URL length >= 4000 or filename)
-      let isDecorative = false;
-      if (matchedImage.startsWith("data:") && matchedImage.length < 4000) {
-        isDecorative = true;
-      }
-      if (!isDecorative) {
-        image = matchedImage;
-        // Normalize relative static paths to prevent browser 404s relative to admin route
-        if (!image.startsWith("data:") && !image.startsWith("/")) {
-          if (image.startsWith("assets/")) {
-            image = "/" + image;
-          } else {
-            image = "/assets/" + image;
+    const placeholderMatch = block.match(/\[IMAGE_PLACEHOLDER_(\d+)\]/i);
+    if (placeholderMatch) {
+      const imgIdx = parseInt(placeholderMatch[1]);
+      if (imgIdx >= 0 && imgIdx < imageUrls.length) {
+        const matchedImage = imageUrls[imgIdx];
+        // Only keep the image if it is not a tiny decorative icon (e.g. data URL length >= 4000 or filename)
+        let isDecorative = false;
+        if (matchedImage.startsWith("data:") && matchedImage.length < 4000) {
+          isDecorative = true;
+        }
+        if (!isDecorative) {
+          image = matchedImage;
+          // Normalize relative static paths to prevent browser 404s relative to admin route
+          if (!image.startsWith("data:") && !image.startsWith("/")) {
+            if (image.startsWith("assets/")) {
+              image = "/" + image;
+            } else {
+              image = "/assets/" + image;
+            }
           }
         }
       }
     }
-    const cleanedBlock = block.replace(/\[IMAGE:\s*([^\]]+)\]/gi, "").trim();
+
+    // Remove all [IMAGE_PLACEHOLDER_N] tags from the block text
+    const cleanedBlock = block.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim();
     
     const lines = cleanedBlock.split("\n").map(l => l.trim());
+    // Safety: filter out any lines that are raw base64 data (no spaces, 90%+ base64 chars)
+    const filteredLines = lines.filter(l => !looksLikeBase64OrBinary(l));
     let questionTextLines: string[] = [];
     const options: string[] = [];
     let correctIndex = 0;
@@ -1147,8 +1392,8 @@ function parseTextToQuestions(text: string): any[] {
     let parsingState: "question" | "options" | "metadata" = "question";
     let parsingRationale = false;
     
-    for (let j = 0; j < lines.length; j++) {
-      let line = lines[j];
+    for (let j = 0; j < filteredLines.length; j++) {
+      let line = filteredLines[j];
       if (!line) continue;
       
       const lowerLine = line.toLowerCase();

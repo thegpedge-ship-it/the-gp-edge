@@ -1,154 +1,79 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useCallback, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion, AnimatePresence } from "framer-motion";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  LayoutGrid,
+  FileQuestion,
+  ClipboardList,
+  BookOpen,
+  FileEdit,
+  Users,
+  Bell,
+  CreditCard,
+  ShieldCheck,
+  Search,
+  Settings,
+  ChevronRight,
+  ChevronLeft,
+  LogOut,
+  HelpCircle,
+  Lock,
+} from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ReactNode;
-}
+// ─── Internal layout constants ────────────────────────────────────────────────
+const GAP     = 8;   // gap from viewport left/top edge
+const RAIL_W  = 72;  // visual width of collapsed card
+const PANEL_W = 320; // full expanded panel width
 
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
+// ─── Transition timing ────────────────────────────────────────────────────────
+const EASE   = "cubic-bezier(0.22, 1, 0.36, 1)";
+const DUR    = "320ms";
+const OP_DUR = "160ms";
 
-const navGroups: NavGroup[] = [
+// ─── Nav Groups configuration ────────────────────────────────────────────────
+const navGroups = [
   {
     title: "Overview",
     items: [
-      {
-        label: "Dashboard",
-        href: "/admin/dashboard",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zm0 6a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1h-4a1 1 0 01-1-1v-5zM4 13a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1v-2z" />
-          </svg>
-        ),
-      },
+      { label: "Dashboard", href: "/admin/dashboard", icon: LayoutGrid },
     ],
   },
   {
     title: "Content",
     items: [
-      {
-        label: "Questions",
-        href: "/admin/questions",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Quizzes",
-        href: "/admin/quizzes",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-          </svg>
-        ),
-      },
-      {
-        label: "Medical Content",
-        href: "/admin/content",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Autofill Templates",
-        href: "/admin/autofill",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        ),
-      },
+      { label: "Questions", href: "/admin/questions", icon: FileQuestion },
+      { label: "Quizzes", href: "/admin/quizzes", icon: ClipboardList },
+      { label: "Medical Content", href: "/admin/content", icon: BookOpen },
+      { label: "Autofill Templates", href: "/admin/autofill", icon: FileEdit },
     ],
   },
   {
     title: "Operations",
     items: [
-      {
-        label: "Users",
-        href: "/admin/users",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Notifications",
-        href: "/admin/notifications",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-        ),
-      },
-      {
-        label: "Billing",
-        href: "/admin/billing",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-          </svg>
-        ),
-      },
+      { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Notifications", href: "/admin/notifications", icon: Bell },
+      { label: "Billing", href: "/admin/billing", icon: CreditCard },
     ],
   },
   {
     title: "System",
     items: [
-      {
-        label: "Audit",
-        href: "/admin/audit",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Search",
-        href: "/admin/search",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Settings",
-        href: "/admin/settings",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "Validation",
-        href: "/admin/validation",
-        icon: (
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        ),
-      },
+      { label: "Audit & Security", href: "/admin/audit", icon: ShieldCheck },
+      { label: "Search", href: "/admin/search", icon: Search },
+      { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
 ];
+
+const allNavItems = navGroups.flatMap(g => g.items);
+
+function Sep() {
+  return <div className="sidebar-sep" style={{ width: 28, height: 1, margin: "4px 0" }} />;
+}
 
 interface AdminSidebarProps {
   collapsed: boolean;
@@ -159,12 +84,6 @@ interface AdminSidebarProps {
   onMouseLeave?: () => void;
 }
 
-const ADMIN_PROFILES = [
-  { id: "1", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"] },
-  { id: "2", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"] },
-  { id: "3", role: "Moderator", permissions: ["dashboard", "questions", "content"] },
-];
-
 export default function AdminSidebar({
   collapsed,
   onToggle,
@@ -174,191 +93,532 @@ export default function AdminSidebar({
   onMouseLeave,
 }: AdminSidebarProps) {
   const pathname = usePathname();
-
+  const router = useRouter();
   const { currentAdmin } = useAdminRole();
+
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("gpedge_admin_logged_in");
+    window.dispatchEvent(new Event("gpedge_admin_changed"));
+    router.push("/admin/login");
+    if (onMobileClose) onMobileClose();
+  };
+
+  const initials = currentAdmin.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+
+  const OT = ready ? `opacity ${OP_DUR} ease` : "none";
+  const isExpanded = !collapsed;
+  const asideW = isExpanded ? PANEL_W + GAP : RAIL_W + GAP;
+  const cardBorderRadius = 24;
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: `
-        .sidebar-nav::-webkit-scrollbar {
-          width: 5px;
-          height: 5px;
-        }
-        .sidebar-nav::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .sidebar-nav::-webkit-scrollbar-thumb {
-          background: rgba(15, 118, 110, 0.1);
-          border-radius: 99px;
-        }
-        .sidebar-nav:hover::-webkit-scrollbar-thumb {
-          background: rgba(15, 118, 110, 0.35);
-        }
-        .dark .sidebar-nav::-webkit-scrollbar-thumb {
-          background: rgba(45, 212, 191, 0.08);
-        }
-        .dark .sidebar-nav:hover::-webkit-scrollbar-thumb {
-          background: rgba(45, 212, 191, 0.25);
-        }
-      `}} />
+      {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={`fixed left-0 top-0 bottom-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200/60 dark:border-slate-800/60 flex flex-col overflow-hidden shadow-sm transition-all duration-300 lg:translate-x-0 ${
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
-      } ${collapsed ? "lg:w-[72px]" : "lg:w-[260px]"} w-[280px] lg:flex ${mobileOpen ? "flex" : "hidden"}`}
-    >
-      {/* Logo area */}
-      <div className="flex items-center h-16 px-4 border-b border-slate-200/50 dark:border-slate-800/50 flex-shrink-0 bg-white/40 dark:bg-slate-900/40">
-        <Link href="/admin/dashboard" className="flex items-center gap-2.5 min-w-0" onClick={onMobileClose}>
-          <div className="relative w-9 h-9 flex-shrink-0 shadow-sm rounded-xl overflow-hidden ring-1 ring-black/5 flex items-center justify-center bg-slate-800 dark:bg-slate-700">
-            <span className="font-bold text-white text-sm">A</span>
-          </div>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                className="flex items-baseline whitespace-nowrap"
-              >
-                <span className="font-extrabold text-slate-900 dark:text-slate-200 tracking-tight ml-1 text-sm">Admin</span>
-                <span className="font-medium text-slate-700 dark:text-slate-300 ml-1 text-sm">Panel</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Link>
-      </div>
+        className="hidden lg:block"
+        aria-label="Admin navigation"
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        style={{
+          position:      "fixed",
+          top:           56, // Height of AdminTopbar (h-14)
+          left:          0,
+          height:        "calc(100dvh - 56px)",
+          width:         asideW,
+          zIndex:        40,
+          overflow:      "visible",
+          pointerEvents: "none",
+          willChange:    "width",
+          transition:    ready ? `width ${DUR} ${EASE}` : "none",
+        }}
+      >
+        {/* ── Visual card ─────────────────────────────────────────────── */}
+        <div
+          className="sidebar-card bg-white dark:bg-[#151922] border border-[#e8edf2] dark:border-white/10 shadow-[0_4px_24px_rgba(15,23,42,0.10)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
+          style={{
+            position:      "absolute",
+            top:           GAP,
+            left:          GAP,
+            right:         0,
+            ...(isExpanded ? { bottom: GAP } : {}),
+            borderRadius:  cardBorderRadius,
+            overflow:      "hidden",
+            pointerEvents: "auto",
+          }}
+        >
+          <style>{`
+            .sidebar-sep {
+              background: #e8edf2;
+            }
+            .dark .sidebar-sep {
+              background: rgba(255,255,255,0.07);
+            }
+            .sidebar-nav-link {
+              color: #94a3b8;
+              background: transparent;
+            }
+            .sidebar-nav-link:hover {
+              background: #f0fdfa;
+              color: #0d9488;
+            }
+            .sidebar-nav-link.active {
+              color: #0d9488;
+              background: #f0fdfa;
+            }
+            .dark .sidebar-nav-link {
+              color: #A8B1BD;
+              background: transparent;
+            }
+            .dark .sidebar-nav-link:hover {
+              background: rgba(90,200,176,0.07);
+              color: #5AC8B0;
+            }
+            .dark .sidebar-nav-link.active {
+              color: #5AC8B0;
+              background: rgba(90,200,176,0.12);
+            }
+            .sidebar-active-bar {
+              background: #14b8a6;
+            }
+            .dark .sidebar-active-bar {
+              background: #5AC8B0;
+            }
+            .sidebar-rail-btn {
+              color: #b0bec5;
+              background: transparent;
+            }
+            .sidebar-rail-btn:hover {
+              background: #f0fdfa;
+              color: #0d9488;
+            }
+            .dark .sidebar-rail-btn {
+              color: #7D8795;
+            }
+            .dark .sidebar-rail-btn:hover {
+              background: rgba(90,200,176,0.07);
+              color: #5AC8B0;
+            }
+          `}</style>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6 sidebar-nav">
-        {navGroups.map((group) => (
-          <div key={group.title}>
-            <AnimatePresence>
-              {!collapsed && (
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-3 mb-2"
+          {/* ══ LAYER A — Collapsed Rail ══════════════════════════════════
+              Normal-flow flex column (auto-height support).
+          ══════════════════════════════════════════════════════════════════ */}
+          <div
+            aria-hidden={isExpanded}
+            style={{
+              display:       isExpanded ? "none" : "flex",
+              flexDirection: "column",
+              alignItems:    "center",
+              padding:       "12px 0",
+              gap:           0,
+            }}
+          >
+            {/* ── Avatar / Logo ── */}
+            <div style={{
+              width: 38, height: 38, borderRadius: "50%",
+              overflow: "hidden", flexShrink: 0,
+              boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
+              marginBottom: 8,
+              position: "relative",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "linear-gradient(135deg, #10b981, #06b6d4)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 800,
+            }}>
+              A
+            </div>
+
+            <Sep />
+
+            {/* ── Primary nav ── */}
+            {allNavItems.map(({ href, icon: Icon, label }) => {
+              const isActive = href === "/admin/dashboard"
+                ? pathname === "/admin/dashboard"
+                : pathname.startsWith(href);
+              const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+              const hasPermission = currentAdmin.permissions.includes(itemKey);
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  title={`${label}${!hasPermission ? " (Locked)" : ""}`}
+                  className={`sidebar-nav-link${isActive ? " active" : ""}`}
+                  style={{
+                    position: "relative",
+                    width: 40, height: 40,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    borderRadius: 10,
+                    textDecoration: "none",
+                    transition: "background 150ms, color 150ms",
+                    opacity: hasPermission ? 1 : 0.45,
+                  }}
                 >
-                  {group.title}
-                </motion.p>
-              )}
-            </AnimatePresence>
-            <div className="space-y-0.5">
-              {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
+                  {isActive && (
+                    <span className="sidebar-active-bar" style={{
+                      position: "absolute", left: -6, top: 8, bottom: 8,
+                      width: 3, borderRadius: "0 3px 3px 0",
+                    }} />
+                  )}
+                  {hasPermission ? (
+                    <Icon size={17} strokeWidth={isActive ? 2.2 : 1.8} />
+                  ) : (
+                    <Lock size={15} strokeWidth={2} />
+                  )}
+                </Link>
+              );
+            })}
 
-                const itemKey = item.href.split("/").filter(Boolean)[1] || "dashboard";
-                const hasItemPermission = currentAdmin.permissions.includes(itemKey);
+            <Sep />
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={onMobileClose}
-                    className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 border border-transparent ${
-                      isActive
-                        ? "bg-teal-50/70 border-teal-100/60 text-teal-600 dark:bg-teal-950/40 dark:border-teal-900/50 dark:text-teal-400 shadow-sm shadow-teal-500/5"
-                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50/80 dark:hover:bg-slate-800/80"
-                    } ${!hasItemPermission ? "opacity-55 hover:opacity-80" : ""} ${collapsed ? "lg:justify-center" : ""}`}
-                  >
-                    {/* Active indicator */}
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-teal-500 rounded-r-full" />
-                    )}
+            {/* ── Utility icons ── */}
+            <button
+              onClick={handleLogout}
+              title="Log out session"
+              className="sidebar-rail-btn"
+              style={{
+                width: 40, height: 40,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 10, border: "none",
+                cursor: "pointer", flexShrink: 0,
+                transition: "background 150ms, color 150ms",
+              }}
+            >
+              <LogOut size={16} strokeWidth={1.8} />
+            </button>
 
-                    <span className={`flex-shrink-0 ${isActive ? "text-teal-500" : "text-slate-400 group-hover:text-slate-600"}`}>
-                      {item.icon}
+            <Sep />
+
+            {/* ── Expand handle ── */}
+            <button
+              onClick={onToggle}
+              title="Expand sidebar"
+              style={{
+                width: 40, height: 36,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 10, border: "none",
+                background: "transparent", color: "#cbd5e1",
+                cursor: "pointer", flexShrink: 0,
+                transition: "background 150ms, color 150ms",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#f0fdfa"; e.currentTarget.style.color = "#0d9488"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#cbd5e1"; }}
+            >
+              <ChevronRight size={14} strokeWidth={2} />
+            </button>
+          </div>
+
+          {/* ══ LAYER B — Expanded Panel ══════════════════════════════════
+              position:absolute, fills the card height.
+          ══════════════════════════════════════════════════════════════════ */}
+          <div
+            aria-hidden={!isExpanded}
+            style={{
+              position:       "absolute",
+              inset:          0,
+              width:          PANEL_W,
+              opacity:        isExpanded ? 1 : 0,
+              pointerEvents:  isExpanded ? "auto" : "none",
+              transition:     OT,
+              overflowY:      "auto",
+              overflowX:      "hidden",
+              scrollbarWidth: "thin",
+              scrollbarColor: "#e2e8f0 transparent",
+            } as React.CSSProperties}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "14px 14px 32px" }}>
+              {/* Collapse button */}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button
+                  onClick={onToggle}
+                  className="
+                    inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                    border border-slate-200 dark:border-slate-800
+                    bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400
+                    hover:bg-teal-50 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-900/50
+                    font-sans text-[11px] font-semibold tracking-wide
+                    cursor-pointer transition-all duration-150
+                  "
+                >
+                  <ChevronLeft size={12} strokeWidth={2} /> Collapse
+                </button>
+              </div>
+
+              {/* ── Admin Profile Card ── */}
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
+                borderRadius: 20,
+                overflow: "hidden",
+                boxShadow: "0 2px 12px rgba(15,23,42,0.07)",
+              }}>
+                {/* Banner */}
+                <div style={{
+                  position: "relative",
+                  height: 82,
+                  background: "linear-gradient(135deg, #111827, #0f766e)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  paddingRight: 12,
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 4, opacity: 0.85,
+                    zIndex: 2,
+                  }}>
+                    <div style={{
+                      width: 15, height: 15, borderRadius: 3,
+                      background: "rgba(20,184,166,0.95)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
+                    </div>
+                    <span style={{ color: "#ffffff", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
+                      ADMIN PANEL
                     </span>
+                  </div>
+                </div>
 
-                    <AnimatePresence>
-                      {!collapsed && (
-                        <motion.span
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -8 }}
-                          transition={{ duration: 0.15 }}
-                          className={`text-sm font-semibold whitespace-nowrap ${
-                            isActive ? "text-teal-600 dark:text-teal-400" : "text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100"
-                          }`}
+                {/* Info */}
+                <div style={{
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", textAlign: "center",
+                  padding: "0 18px 18px",
+                }}>
+                  <div style={{
+                    marginTop: -42, width: 84, height: 84,
+                    borderRadius: "50%", overflow: "hidden",
+                    boxShadow: "0 0 0 3px #fff, 0 2px 10px rgba(15,23,42,0.12)",
+                    background: "linear-gradient(135deg, #10b981, #06b6d4)",
+                    color: "#fff",
+                    zIndex: 1,
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 26,
+                    fontWeight: 700,
+                  }}>
+                    {initials}
+                  </div>
+                  <p className="font-sans text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100" style={{ margin: "9px 0 2px" }}>
+                    {currentAdmin.name}
+                  </p>
+                  <p className="font-sans text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider" style={{ margin: 0 }}>
+                    {currentAdmin.role}
+                  </p>
+                  <p className="font-sans text-xs font-medium text-slate-400 dark:text-slate-500" style={{ margin: "2px 0 0" }}>
+                    {currentAdmin.email}
+                  </p>
+                </div>
+              </div>
+
+              {/* ── Navigation Groups ── */}
+              {navGroups.map((group) => (
+                <div key={group.title} className="flex flex-col gap-1.5">
+                  <span className="font-sans text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-2">
+                    {group.title}
+                  </span>
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    boxShadow: "0 1px 4px rgba(15,23,42,0.04)",
+                  }}>
+                    {group.items.map(({ href, icon: Icon, label }) => {
+                      const isActive = href === "/admin/dashboard"
+                        ? pathname === "/admin/dashboard"
+                        : pathname.startsWith(href);
+                      const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+                      const hasPermission = currentAdmin.permissions.includes(itemKey);
+
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          onClick={onMobileClose}
+                          className={`
+                            relative flex items-center gap-2.5 px-3.5 py-2.5
+                            transition-all duration-150 border-b border-slate-100 dark:border-slate-800/80 last:border-b-0
+                            ${!hasPermission ? "opacity-50" : ""}
+                            ${isActive
+                              ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-base font-semibold"
+                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium"
+                            }
+                          `}
+                          style={{ textDecoration: "none" }}
                         >
-                          {item.label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                          {isActive && (
+                            <span style={{
+                              position: "absolute", left: 0, top: 8, bottom: 8,
+                              width: 3, background: "#14b8a6", borderRadius: "0 3px 3px 0",
+                            }} />
+                          )}
+                          <span className={`
+                            w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center transition-all duration-150
+                            ${isActive
+                              ? "bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-400"
+                              : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+                            }
+                          `} style={{ width: 30, height: 30 }}>
+                            {hasPermission ? (
+                              <Icon size={14} strokeWidth={isActive ? 2.2 : 1.8} />
+                            ) : (
+                              <Lock size={13} strokeWidth={2} />
+                            )}
+                          </span>
+                          <span>{label}</span>
+                          {!hasPermission ? (
+                            <span className="ml-auto text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-sans font-bold uppercase tracking-wider">Locked</span>
+                          ) : (
+                            <ChevronRight size={12} strokeWidth={2}
+                              className={`ml-auto transition-colors ${isActive ? "text-teal-400 dark:text-teal-500" : "text-slate-300 dark:text-slate-700"}`} />
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
 
-                    {!hasItemPermission && !collapsed && (
-                      <span className="ml-auto text-slate-400 dark:text-slate-500 hover:text-slate-500 transition-colors" title="Permissions Locked">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                      </span>
-                    )}
+              {/* ── Log out ── */}
+              <button
+                onClick={handleLogout}
+                className="
+                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                  border border-slate-200 dark:border-slate-800
+                  bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
+                  hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
+                  font-sans text-sm md:text-base font-medium
+                  transition-all duration-150 cursor-pointer w-full text-left shadow-sm
+                "
+              >
+                <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
+                  <LogOut size={14} strokeWidth={1.8} />
+                </span>
+                <span>Log out session</span>
+              </button>
 
-                    {/* Tooltip on collapse */}
-                    {collapsed && (
-                      <div className="absolute left-full ml-2 px-2.5 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-xl">
-                        {item.label} {!hasItemPermission ? "(Locked)" : ""}
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+              {/* Footer / Info */}
+              <div className="text-center pt-2">
+                <p className="font-sans text-[10px] font-normal text-slate-400 dark:text-slate-500 m-0">v2.1 · Production Server</p>
+              </div>
+
             </div>
           </div>
-        ))}
-      </nav>
+        </div>
+      </aside>
 
-      {/* Collapse toggle */}
-      <div className="flex-shrink-0 border-t border-slate-200/50 dark:border-slate-800/50 p-3 bg-white/40 dark:bg-slate-900/40">
-        {/* Environment tag */}
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center justify-center gap-1.5 mb-2 px-2"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide">v2.1 · Production</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <button
-          onClick={onToggle}
-          className="w-full lg:flex hidden items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 border border-transparent transition-all duration-200"
+      {/* ── Mobile Sidebar Drawer ───────────────────────────────────────── */}
+      <div className="lg:hidden">
+        {/* Overlay backdrop */}
+        <div
+          onClick={onMobileClose}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 48,
+            background: "rgba(15,23,42,0.3)",
+            backdropFilter: "blur(4px)",
+            opacity: mobileOpen ? 1 : 0,
+            pointerEvents: mobileOpen ? "auto" : "none",
+            transition: `opacity 280ms ${EASE}`,
+          }}
+        />
+
+        {/* Drawer panel */}
+        <div
+          className="bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            zIndex: 49,
+            width: 280,
+            boxShadow: "4px 0 24px rgba(15,23,42,0.14)",
+            transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
+            transition: `transform 280ms ${EASE}`,
+            overflowY: "auto",
+          }}
         >
-          <motion.svg
-            animate={{ rotate: collapsed ? 180 : 0 }}
-            transition={{ duration: 0.3 }}
-            className="w-5 h-5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-          </motion.svg>
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-xs font-semibold"
-              >
-                Collapse
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </button>
+          <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-850">
+            <span className="font-sans text-sm font-bold text-slate-800 dark:text-slate-200">Admin Controls</span>
+            <button
+              onClick={onMobileClose}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="p-3 flex flex-col gap-4">
+            {navGroups.map((group) => (
+              <div key={group.title} className="flex flex-col gap-1">
+                <span className="font-sans text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest pl-2">
+                  {group.title}
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map(({ href, icon: Icon, label }) => {
+                    const isActive = href === "/admin/dashboard"
+                      ? pathname === "/admin/dashboard"
+                      : pathname.startsWith(href);
+                    const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+                    const hasPermission = currentAdmin.permissions.includes(itemKey);
+
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={onMobileClose}
+                        className={`
+                          flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150 border border-transparent
+                          ${!hasPermission ? "opacity-50" : ""}
+                          ${isActive
+                            ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm font-semibold border-teal-100 dark:border-teal-900/40"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm font-medium"
+                          }
+                        `}
+                        style={{ textDecoration: "none" }}
+                      >
+                        {hasPermission ? <Icon size={15} /> : <Lock size={14} />}
+                        <span>{label}</span>
+                        {!hasPermission && (
+                          <span className="ml-auto text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold uppercase">Locked</span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+
+            <div className="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+
+            <button
+              onClick={handleLogout}
+              className="
+                flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+                text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/10 font-sans text-sm font-semibold border border-transparent w-full text-left cursor-pointer
+              "
+            >
+              <LogOut size={15} /> Log out session
+            </button>
+          </div>
+        </div>
       </div>
-    </aside>
     </>
   );
 }
