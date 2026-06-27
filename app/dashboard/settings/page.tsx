@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useProfile } from "@/contexts/ProfileContext";
 import {
   User,
@@ -19,8 +19,8 @@ import {
   X,
   ChevronRight,
   CheckCircle2,
-  Eye,
-  EyeOff,
+  AlertCircle,
+  Loader2,
   Image as ImageIcon,
 } from "lucide-react";
 
@@ -29,6 +29,37 @@ import FadeIn from "@/components/ui/FadeIn";
 import PageHeading from "@/components/ui/PageHeading";
 import PageCard from "@/components/ui/PageCard";
 import CardHeader from "@/components/ui/CardHeader";
+import PasswordManager from "./PasswordManager";
+import DeleteAccountModal from "./DeleteAccountModal";
+import { updateProfileInfo } from "./actions";
+
+// Short label used when composing the stored "exam target" string.
+const EXAM_SHORT: Record<string, string> = {
+  AKT: "AKT",
+  KFP: "KFP",
+  Both: "AKT + KFP",
+  OSCE: "OSCE",
+};
+
+// "2026-08" → "Aug 2026" (for composing the exam target). Empty input → "".
+function monthLabel(value: string): string {
+  if (!value) return "";
+  const d = new Date(`${value}-01T00:00:00`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("en-AU", { month: "short", year: "numeric" });
+}
+
+// Inline save feedback shown next to a card's Save button.
+function SaveStatus({ status }: { status: { type: "ok" | "err"; text: string } | null }) {
+  if (!status) return null;
+  const ok = status.type === "ok";
+  return (
+    <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium ${ok ? "text-teal-600" : "text-red-600"}`}>
+      {ok ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+      {status.text}
+    </span>
+  );
+}
 
 // ─── Form primitives ────────────────────────────────────────────────────────────
 function FieldLabel({ htmlFor, required, children }: { htmlFor: string; required?: boolean; children: React.ReactNode }) {
@@ -49,11 +80,12 @@ function TextInput({
     <div className="relative">
       {icon && <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">{icon}</span>}
       <input
-        id={id} type={type} defaultValue={defaultValue} placeholder={placeholder} readOnly={readOnly} required={required} onClick={onClick}
-        className={`w-full ${icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2 rounded-lg border border-slate-200 bg-white
-                   text-sm text-slate-800 placeholder-slate-400
-                   focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500
-                   hover:border-slate-300 transition-all duration-150`}
+        id={id} name={id} type={type} defaultValue={defaultValue} placeholder={placeholder} readOnly={readOnly} required={required} onClick={onClick}
+        aria-disabled={readOnly || undefined}
+        className={`w-full ${icon ? "pl-10" : "pl-3.5"} pr-3.5 py-2 rounded-lg border text-sm transition-all duration-150
+                   ${readOnly
+                     ? "border-slate-200 bg-slate-100 text-slate-500 cursor-not-allowed select-all focus:outline-none"
+                     : "border-slate-200 bg-white text-slate-800 placeholder-slate-400 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500"}`}
       />
     </div>
   );
@@ -127,13 +159,13 @@ function SelectInput({
   );
 }
 
-function SaveButton({ id, label = "Save Changes", type = "button" }: { id: string; label?: string; type?: "button" | "submit" }) {
+function SaveButton({ id, label = "Save Changes", type = "button", loading = false }: { id: string; label?: string; type?: "button" | "submit"; loading?: boolean }) {
   return (
-    <button type={type} id={id}
-      className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white
+    <button type={type} id={id} disabled={loading}
+      className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white
                  text-sm font-semibold rounded-lg transition-all duration-150 hover:shadow-md active:scale-[0.98]"
     >
-      <CheckCircle2 size={13} />
+      {loading ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
       {label}
     </button>
   );
@@ -142,12 +174,103 @@ function SaveButton({ id, label = "Save Changes", type = "button" }: { id: strin
 // ═══════════════════════════════════════════════════════════════════════════════
 // SETTINGS PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
+type SaveState = { type: "ok" | "err"; text: string } | null;
+
 export default function SettingsPage() {
   const { user } = useUser();
+  const { signOut } = useClerk();
   const profile = useProfile();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [avatarHovered, setAvatarHovered] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // ── Log out of every device: revoke all of this user's sessions, then sign
+  //    out the current one and bounce to the sign-in page ───────────────────
+  async function handleLogoutAll() {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const sessions = (await user?.getSessions()) ?? [];
+      await Promise.all(sessions.map((s) => s.revoke().catch(() => undefined)));
+    } catch {
+      // Revoking remote sessions is best-effort; we still sign out locally below.
+    } finally {
+      await signOut({ redirectUrl: "/sign-in" });
+    }
+  }
+
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountStatus, setAccountStatus] = useState<SaveState>(null);
+  const [savingExam, setSavingExam] = useState(false);
+  const [examStatus, setExamStatus] = useState<SaveState>(null);
+
+  // ── Account Information: name → Clerk, practice location → our DB ─────────
+  async function handleSaveAccount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setAccountStatus(null);
+    setSavingAccount(true);
+    const fd = new FormData(e.currentTarget);
+    const firstName = String(fd.get("first-name") ?? "").trim();
+    const lastName = String(fd.get("last-name") ?? "").trim();
+    const practice = String(fd.get("practice-location") ?? "").trim();
+
+    // Practice location is one field; split "Hospital, City" → hospital + location.
+    let hospital: string | null = null;
+    let location: string | null = null;
+    if (practice) {
+      const i = practice.indexOf(",");
+      if (i === -1) {
+        hospital = practice;
+      } else {
+        hospital = practice.slice(0, i).trim() || null;
+        location = practice.slice(i + 1).trim() || null;
+      }
+    }
+
+    try {
+      if (user && (firstName !== (user.firstName ?? "") || lastName !== (user.lastName ?? ""))) {
+        await user.update({ firstName, lastName });
+      }
+      const res = await updateProfileInfo({ hospital, location });
+      if (!res.ok) throw new Error(res.error);
+      setAccountStatus({ type: "ok", text: "Saved." });
+    } catch (err: unknown) {
+      const e2 = err as { errors?: { message?: string }[]; message?: string };
+      setAccountStatus({ type: "err", text: e2?.errors?.[0]?.message || e2?.message || "Could not save." });
+    } finally {
+      setSavingAccount(false);
+    }
+  }
+
+  // ── Exam Preparation: compose exam target + training level into our DB ────
+  async function handleSaveExam(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setExamStatus(null);
+    setSavingExam(true);
+    const fd = new FormData(e.currentTarget);
+    const targetExam = String(fd.get("target-exam") ?? "");
+    const examDate = String(fd.get("exam-date") ?? "");
+    const trainingLevel = String(fd.get("training-level") ?? "").trim();
+
+    const short = EXAM_SHORT[targetExam] ?? targetExam;
+    const when = monthLabel(examDate);
+    const examTarget = [short, when].filter(Boolean).join(" — ");
+
+    try {
+      const res = await updateProfileInfo({
+        examTarget: examTarget || null,
+        roleTitle: trainingLevel || null,
+      });
+      if (!res.ok) throw new Error(res.error);
+      setExamStatus({ type: "ok", text: "Preferences saved." });
+    } catch (err: unknown) {
+      const e2 = err as { message?: string };
+      setExamStatus({ type: "err", text: e2?.message || "Could not save." });
+    } finally {
+      setSavingExam(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4 pb-6">
@@ -168,7 +291,7 @@ export default function SettingsPage() {
         <FadeIn delay={0.04}>
           <PageCard className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col">
             <CardHeader icon={<User size={15} />} title="Account Information" subtitle="Login & personal details" />
-            <form className="px-5 pb-5 pt-0 space-y-4" onSubmit={(e) => e.preventDefault()}>
+            <form className="px-5 pb-5 pt-0 space-y-4" onSubmit={handleSaveAccount}>
               
               {/* Premium Header Banner */}
               <div className="h-32 w-full relative overflow-hidden rounded-xl flex-shrink-0">
@@ -232,25 +355,20 @@ export default function SettingsPage() {
                 <div><FieldLabel htmlFor="first-name" required>First Name</FieldLabel><TextInput id="first-name" required defaultValue={user?.firstName || ''} /></div>
                 <div><FieldLabel htmlFor="last-name" required>Last Name</FieldLabel><TextInput id="last-name" required defaultValue={user?.lastName || ''} /></div>
               </div>
-              <div><FieldLabel htmlFor="email" required>Email</FieldLabel><TextInput id="email" type="email" required defaultValue={user?.primaryEmailAddress?.emailAddress || ''} /></div>
               <div>
-                <FieldLabel htmlFor="password" required>Password</FieldLabel>
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <TextInput id="password" type={showPassword ? "text" : "password"} required defaultValue="supersecret123" readOnly />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                  <button type="button"
-                    className="flex-shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap">
-                    Change
-                  </button>
-                </div>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <TextInput id="email" type="email" defaultValue={user?.primaryEmailAddress?.emailAddress || ''} readOnly icon={<Lock size={13} />} />
+                <p className="text-[11px] text-slate-400 mt-1">Email is tied to your sign-in and can&apos;t be changed here.</p>
               </div>
+
+              {/* Password — managed through Clerk; optional for Google sign-ins */}
+              <PasswordManager />
+
               <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue={[profile.hospital, profile.location].filter(Boolean).join(", ")} placeholder="e.g. Royal North Shore Hospital, Sydney NSW" /></div>
-              <div className="flex justify-end pt-1"><SaveButton id="save-account-btn" type="submit" /></div>
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <SaveStatus status={accountStatus} />
+                <SaveButton id="save-account-btn" type="submit" loading={savingAccount} />
+              </div>
             </form>
           </PageCard>
         </FadeIn>
@@ -264,7 +382,7 @@ export default function SettingsPage() {
         <FadeIn delay={0.08}>
           <PageCard>
             <CardHeader icon={<Target size={15} />} title="Exam Preparation" subtitle="Training, study plan & targets" />
-            <div className="px-5 py-4 space-y-3">
+            <form className="px-5 py-4 space-y-3" onSubmit={handleSaveExam}>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldLabel htmlFor="target-exam">Target Exam</FieldLabel>
@@ -327,10 +445,13 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-start gap-2.5 bg-teal-50 border border-teal-100 rounded-lg p-3">
                 <Info size={13} className="text-teal-600 flex-shrink-0 mt-0.5" />
-                <p className="text-[11px] text-teal-800 leading-relaxed">These settings personalise your dashboard and study plan.</p>
+                <p className="text-[11px] text-teal-800 leading-relaxed">Target exam and training level are saved to your profile. Study goal, focus areas and supervisor are coming soon.</p>
               </div>
-              <div className="flex justify-end pt-1"><SaveButton id="save-exam-btn" label="Save Preferences" /></div>
-            </div>
+              <div className="flex items-center justify-end gap-3 pt-1">
+                <SaveStatus status={examStatus} />
+                <SaveButton id="save-exam-btn" type="submit" label="Save Preferences" loading={savingExam} />
+              </div>
+            </form>
           </PageCard>
         </FadeIn>
 
@@ -342,12 +463,11 @@ export default function SettingsPage() {
               {/* Actions */}
               <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800/80 rounded-lg overflow-hidden">
                 {[
-                  { id: "sec-pw", icon: <Lock size={14} />, label: "Change Password", desc: "Update your password" },
-                  { id: "sec-2fa", icon: <Shield size={14} />, label: "Two-Factor Auth", desc: "Extra security layer" },
-                  { id: "sec-logout", icon: <LogOut size={14} />, label: "Logout All Devices", desc: "End all sessions" },
+                  { id: "sec-2fa", icon: <Shield size={14} />, label: "Two-Factor Auth", desc: "Extra security layer", onClick: undefined as undefined | (() => void) },
+                  { id: "sec-logout", icon: <LogOut size={14} />, label: "Logout All Devices", desc: loggingOut ? "Signing out…" : "End every active session", onClick: handleLogoutAll },
                 ].map((item) => (
-                  <button key={item.id} type="button" id={item.id}
-                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors group">
+                  <button key={item.id} type="button" id={item.id} onClick={item.onClick} disabled={item.id === "sec-logout" && loggingOut}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 disabled:opacity-60 transition-colors group">
                     <span className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 flex items-center justify-center flex-shrink-0 text-slate-500 dark:text-slate-400">{item.icon}</span>
                     <div className="flex-1 text-left">
                       <p className="text-sm font-semibold text-slate-800 dark:text-slate-150">{item.label}</p>
@@ -372,6 +492,7 @@ export default function SettingsPage() {
                 <button
                   type="button"
                   id="delete-account-btn"
+                  onClick={() => setDeleteOpen(true)}
                   className="px-4 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 rounded-lg transition-all duration-150 shadow-md shadow-red-650/10 active:scale-[0.98] cursor-pointer"
                 >
                   Delete Account
@@ -388,6 +509,8 @@ export default function SettingsPage() {
         Your data is private, encrypted, and never shared.{" "}
         <a href="#" className="text-teal-600 hover:text-teal-700 underline underline-offset-2 transition-colors">Privacy Policy</a>
       </p>
+
+      <DeleteAccountModal open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }

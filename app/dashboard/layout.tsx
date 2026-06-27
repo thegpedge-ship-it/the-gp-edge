@@ -13,7 +13,15 @@ import DashboardShell from "@/components/dashboard/DashboardShell";
  * users, who never see a sign-up form.
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const clerkUser = await currentUser();
+  // currentUser() throws "Not Found" if the session points at a deleted user
+  // (e.g. right after account deletion, before the cookie is cleared). Treat
+  // any failure as "not signed in" instead of crashing the layout.
+  let clerkUser = null;
+  try {
+    clerkUser = await currentUser();
+  } catch {
+    clerkUser = null;
+  }
   if (!clerkUser) redirect("/sign-in");
   if (!isOnboarded(clerkUser)) redirect("/onboarding");
 
