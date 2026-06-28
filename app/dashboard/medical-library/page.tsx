@@ -225,7 +225,7 @@ function MedicalLibraryContent() {
           symptoms: [],
           diagnosisCriteria: [],
           treatmentOptions: [],
-          clinicalNotes: "",
+          clinicalNotes: typeof window !== "undefined" ? (localStorage.getItem(`gpedge_content_body_${item.id}`) || "") : "",
           references: refs,
           document: {
             filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
@@ -286,32 +286,37 @@ function MedicalLibraryContent() {
     return localStorage.getItem(`gpedge_content_body_${cleanId}`) || "";
   }, [selectedCondition]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(720);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      if (!entries || entries.length === 0) return;
-      const entry = entries[0];
-      const width = entry.contentRect.width;
-      if (width > 0) {
-        setContainerWidth(width);
-      }
-    });
-    observer.observe(containerRef.current);
-
-    const width = containerRef.current.clientWidth;
-    const computedStyle = window.getComputedStyle(containerRef.current);
-    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-    const contentWidth = width - paddingLeft - paddingRight;
-    if (contentWidth > 0) {
-      setContainerWidth(contentWidth);
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
     }
 
-    return () => observer.disconnect();
-  }, [selectedCondition]);
+    if (node !== null) {
+      const width = node.clientWidth;
+      const computedStyle = window.getComputedStyle(node);
+      const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+      const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+      const contentWidth = width - paddingLeft - paddingRight;
+      if (contentWidth > 0) {
+        setContainerWidth(contentWidth);
+      }
+
+      const observer = new ResizeObserver((entries) => {
+        if (!entries || entries.length === 0) return;
+        const entry = entries[0];
+        const w = entry.contentRect.width;
+        if (w > 0) {
+          setContainerWidth(w);
+        }
+      });
+      observer.observe(node);
+      observerRef.current = observer;
+    }
+  }, []);
 
   const scaleFactor = useMemo(() => {
     return containerWidth / 720;
@@ -346,19 +351,24 @@ function MedicalLibraryContent() {
         return false;
       }
 
-      // 3. Condition check (symptoms or name)
+      // 3. Condition check (symptoms, name, system, category)
       const matchesCondition =
         !condQuery ||
         c.name.toLowerCase().includes(condQuery) ||
-        c.symptoms.some((s) => s.toLowerCase().includes(condQuery));
+        c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
+        c.system.toLowerCase().includes(condQuery) ||
+        c.category.toLowerCase().includes(condQuery);
 
-      // 4. Approach check (type, category, treatments, pearls)
+      // 4. Approach check (type, category, treatments, pearls, summary, system, name)
       const matchesApproach =
         !appQuery ||
         c.category.toLowerCase().includes(appQuery) ||
         c.type.toLowerCase().includes(appQuery) ||
         c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
-        c.clinicalNotes.toLowerCase().includes(appQuery);
+        c.clinicalNotes.toLowerCase().includes(appQuery) ||
+        (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
+        c.name.toLowerCase().includes(appQuery) ||
+        c.system.toLowerCase().includes(appQuery);
 
       return matchesCondition && matchesApproach;
     });
@@ -373,18 +383,7 @@ function MedicalLibraryContent() {
     return filteredConditions.slice(0, visibleLimit);
   }, [filteredConditions, visibleLimit]);
 
-  // Group conditions by breadcrumb (System > Category)
-  const groupedConditions = useMemo(() => {
-    const groups: Record<string, MedicalCondition[]> = {};
-    for (const c of displayedConditions) {
-      const key = `${c.system} > ${c.category}`;
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(c);
-    }
-    return groups;
-  }, [displayedConditions]);
+
 
   const handleOpenCondition = useCallback((condition: MedicalCondition) => {
     const params = new URLSearchParams(window.location.search);
@@ -503,7 +502,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               <div className="flex flex-col gap-1.5 flex-1">
                 <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">search by medical condition</span>
                 <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
-                  <Lucide.Search className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550" />
+                  <Lucide.Search className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
                   <input
                     type="text"
                     value={searchCondition}
@@ -525,7 +524,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               <div className="flex flex-col gap-1.5 flex-1">
                 <span className="text-[10px] uppercase font-bold text-slate-455 dark:text-slate-500 tracking-wider">search by approach</span>
                 <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
-                  <Lucide.SlidersHorizontal className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550" />
+                  <Lucide.SlidersHorizontal className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
                   <input
                     type="text"
                     value={searchApproach}
@@ -678,100 +677,90 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   </button>
                 </div>
               ) : (
-                <div className="space-y-8">
-                  {Object.entries(groupedConditions).map(([groupKey, list]) => (
-                    <div key={groupKey} className="space-y-4">
-                      {/* Breadcrumb section header */}
-                      <h3 className="text-xs font-bold text-teal-700 dark:text-teal-400 flex items-center gap-1.5 uppercase tracking-wider select-none">
-                        <Lucide.FolderTree className="w-3.5 h-3.5 text-teal-600 dark:text-teal-500" />
-                        {groupKey}
-                      </h3>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                        {list.map((condition) => {
-                          const sys = getSystem(condition.system);
-                          const isStarred = favorites.includes(condition.id);
-                          return (
-                            <motion.div
-                              key={condition.id}
-                              variants={cardVariants}
-                              initial="hidden"
-                              animate="visible"
-                              whileHover={{ y: -3 }}
-                              whileTap={{ scale: 0.99 }}
-                              className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
-                              onClick={() => handleOpenCondition(condition)}
-                            >
-                              <div>
-                                <div className="flex justify-between items-center mb-3">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-950/20 px-2 py-0.5 rounded border border-green-200/30">
-                                      {condition.id}
-                                    </span>
-                                    {condition.isPremium ? (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
-                                        <Lucide.Lock className="w-2.5 h-2.5" />
-                                        Paid Only
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
-                                        <Lucide.Unlock className="w-2.5 h-2.5" />
-                                        Free Access
-                                      </span>
-                                    )}
-                                  </div>
-                                  {/* Star favorite toggle */}
-                                  <button
-                                    onClick={(e) => toggleFavorite(e, condition.id)}
-                                    className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
-                                    title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
-                                  >
-                                    <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500 animate-scale-up" : "text-slate-400"}`} />
-                                  </button>
-                                </div>
-
-                                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
-                                  {condition.name}
-                                </h3>
-
-                                <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-                                  <span>{condition.system}</span>
-                                  <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
-                                  <span>{condition.category}</span>
-                                </div>
-
-                                <div className="space-y-1 mb-4">
-                                  {condition.symptoms.slice(0, 2).map((sym, i) => (
-                                    <p
-                                      key={i}
-                                      className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
-                                    >
-                                      <span className="text-green-600 dark:text-green-500 font-bold">•</span>
-                                      <span className="truncate">{sym}</span>
-                                    </p>
-                                  ))}
-                                </div>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {displayedConditions.map((condition) => {
+                      const sys = getSystem(condition.system);
+                      const isStarred = favorites.includes(condition.id);
+                      return (
+                        <motion.div
+                          key={condition.id}
+                          variants={cardVariants}
+                          initial="hidden"
+                          animate="visible"
+                          whileHover={{ y: -3 }}
+                          whileTap={{ scale: 0.99 }}
+                          className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                          onClick={() => handleOpenCondition(condition)}
+                        >
+                          <div>
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
+                                  {condition.id}
+                                </span>
+                                {condition.isPremium ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
+                                    <Lucide.Lock className="w-2.5 h-2.5" />
+                                    Paid Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
+                                    <Lucide.Unlock className="w-2.5 h-2.5" />
+                                    Free Access
+                                  </span>
+                                )}
                               </div>
+                              {/* Star favorite toggle */}
+                              <button
+                                onClick={(e) => toggleFavorite(e, condition.id)}
+                                className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
+                                title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
+                              >
+                                <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500 animate-scale-up" : "text-slate-400"}`} />
+                              </button>
+                            </div>
 
-                              <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
-                                <div
-                                  onClick={(e) => handleTagClick(e, "system", condition.system)}
-                                  className="flex flex-col cursor-pointer group/footer"
+                            <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
+                              {condition.name}
+                            </h3>
+
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+                              <span>{condition.system}</span>
+                              <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
+                              <span>{condition.category}</span>
+                            </div>
+
+                            <div className="space-y-1 mb-4">
+                              {condition.symptoms.slice(0, 2).map((sym, i) => (
+                                <p
+                                  key={i}
+                                  className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
                                 >
-                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-                                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
-                                </div>
-                                <div className="flex flex-col text-right">
-                                  <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Last Updated</span>
-                                  <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
-                                </div>
-                              </div>
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
+                                  <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+                                  <span className="truncate">{sym}</span>
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
+                            <div
+                              onClick={(e) => handleTagClick(e, "system", condition.system)}
+                              className="flex flex-col cursor-pointer group/footer"
+                            >
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+                              <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
 
                   {visibleLimit < filteredConditions.length && (
                     <div className="flex justify-center pt-4 select-none">
@@ -814,7 +803,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
             {/* Split Screen 12 Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               {/* Left Column: Clinical Info */}
-              <div className="lg:col-span-7">
+              <div className="lg:col-span-7 min-w-0">
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
@@ -1007,7 +996,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </div>
 
               {/* Right Column: PDF Viewer or Placeholder */}
-              <div className="lg:col-span-5 space-y-5">
+              <div className="lg:col-span-5 space-y-5 min-w-0">
                 {selectedCondition.document ? (
                   <div className="flex flex-col space-y-4">
                     {/* PDF Toolbar */}
@@ -1240,7 +1229,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     {/* PDF mock viewer */}
                     <div
                       ref={containerRef}
-                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-center overflow-auto max-h-[600px] w-full medical-scroll"
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-start overflow-auto max-h-[600px] w-full medical-scroll"
                     >
                       <div
                         style={{
