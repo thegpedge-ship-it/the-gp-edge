@@ -11,6 +11,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import type { User } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
+import { Prisma } from "@/lib/generated/prisma";
 import type { DbProfile } from "@/contexts/ProfileContext";
 import { EMPTY_PROFILE } from "@/contexts/ProfileContext";
 
@@ -39,21 +40,56 @@ export async function ensureDbUser() {
   // `email` is NOT NULL + unique in the schema — we can't create a row without it.
   if (!email) return null;
 
-  return prisma.users.upsert({
+  const identity = {
+    first_name: clerkUser.firstName,
+    last_name: clerkUser.lastName,
+  };
+
+  // Both `clerk_user_id` AND `email` are unique. A plain upsert keyed on
+  // `clerk_user_id` would take the `create` branch for a never-seen Clerk id and
+  // then collide on `email` (P2002) whenever a row with that email already
+  // exists under a *different* clerk id — e.g. the user deleted their Clerk
+  // account and signed up again, or has both an email/password and a Google
+  // identity sharing one email. So reconcile on both keys explicitly.
+
+  // 1. Known Clerk identity → just keep email/name fresh.
+  const byClerk = await prisma.users.findUnique({
     where: { clerk_user_id: clerkUser.id },
-    create: {
-      clerk_user_id: clerkUser.id,
-      email,
-      first_name: clerkUser.firstName,
-      last_name: clerkUser.lastName,
-    },
-    // Keep identity fresh on every login, but leave onboarding fields untouched.
-    update: {
-      email,
-      first_name: clerkUser.firstName,
-      last_name: clerkUser.lastName,
-    },
   });
+  if (byClerk) {
+    return prisma.users.update({
+      where: { clerk_user_id: clerkUser.id },
+      data: { email, ...identity },
+    });
+  }
+
+  // 2. No row for this Clerk id, but one already exists for this email under a
+  //    stale clerk id — reclaim it rather than creating a duplicate.
+  const byEmail = await prisma.users.findUnique({ where: { email } });
+  if (byEmail) {
+    return prisma.users.update({
+      where: { id: byEmail.id },
+      data: { clerk_user_id: clerkUser.id, ...identity },
+    });
+  }
+
+  // 3. Brand-new user.
+  try {
+    return await prisma.users.create({
+      data: { clerk_user_id: clerkUser.id, email, ...identity },
+    });
+  } catch (err) {
+    // Lost a race with a concurrent ensureDbUser for the same identity (two
+    // requests both saw no row and both tried to create). The row now exists, so
+    // return it instead of surfacing the unique-constraint error.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const existing =
+        (await prisma.users.findUnique({ where: { clerk_user_id: clerkUser.id } })) ??
+        (await prisma.users.findUnique({ where: { email } }));
+      if (existing) return existing;
+    }
+    throw err;
+  }
 }
 
 /** Whether this Clerk user has finished the onboarding form. */

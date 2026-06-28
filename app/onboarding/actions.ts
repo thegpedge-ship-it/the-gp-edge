@@ -52,7 +52,7 @@ export async function completeOnboarding(
   });
 
   const client = await clerkClient();
-  await client.users.updateUser(userId, {
+  await client.users.updateUserMetadata(userId, {
     publicMetadata: { onboardingComplete: true },
   });
 
