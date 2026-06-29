@@ -15,6 +15,7 @@ import {
   Question
 } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { uploadToR2 } from "@/lib/r2Client";
 
 function decodeHtml(str: string): string {
   if (!str) return "";
@@ -1080,7 +1081,7 @@ function ContentEditorContent() {
     saveToHistory();
   };
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -1089,15 +1090,14 @@ function ContentEditorContent() {
       return;
     }
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Url = event.target?.result as string;
-      if (base64Url) {
-        insertImageDirectly(base64Url);
-        setImageMenuOpen(false);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const fileUrl = await uploadToR2(file, file.name, file.type);
+      insertImageDirectly(fileUrl);
+      setImageMenuOpen(false);
+    } catch (err: any) {
+      console.error("Image upload to R2 failed:", err);
+      alert(`Image upload failed: ${err.message || "Unknown error"}`);
+    }
   };
 
   const insertDivider = () => {

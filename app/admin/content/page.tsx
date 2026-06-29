@@ -11,6 +11,7 @@ import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { uploadToR2 } from "@/lib/r2Client";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -56,6 +57,7 @@ export default function ContentPage() {
     progress: number;
     status: "idle" | "uploading" | "extracting" | "success" | "error";
     error?: string;
+    pdfUrl?: string;
     extractedData?: {
       title?: string;
       system?: string;
@@ -184,6 +186,14 @@ export default function ContentPage() {
       const result = await res.json();
 
       if (result.success) {
+        // Upload the file payload directly to R2 bucket
+        let r2Url = "";
+        try {
+          r2Url = await uploadToR2(file, file.name, file.type);
+        } catch (uploadErr) {
+          console.error("Failed to upload copy to Cloudflare R2:", uploadErr);
+        }
+
         setContentUploadQueue((prev) =>
           prev.map((item) =>
             item.id === id
@@ -191,6 +201,7 @@ export default function ContentPage() {
                   ...item,
                   status: "success",
                   progress: 100,
+                  pdfUrl: r2Url,
                   extractedData: {
                     title: result.title || file.name.replace(/\.[^/.]+$/, ""),
                     system: result.system || "Endocrine",
@@ -269,7 +280,7 @@ export default function ContentPage() {
 
     successItems.forEach((item) => {
       const ext = item.extractedData!;
-      const newItem: MedicalContent = {
+      const newItem: MedicalContent & { pdfUrl?: string; pdfSize?: string } = {
         id: nextId++,
         name: ext.title || "Extracted Document",
         system: ext.system || "Endocrine",
@@ -280,6 +291,8 @@ export default function ContentPage() {
         author: "GP Edge Admin",
         references: ext.references && ext.references.length > 0 ? ext.references.length : 1,
         usedInQuestions: 0,
+        pdfUrl: item.pdfUrl || "",
+        pdfSize: item.size || "1.2 MB",
       };
 
       newContentItems.push(newItem);

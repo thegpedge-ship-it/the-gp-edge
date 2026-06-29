@@ -24,6 +24,7 @@ import {
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
 import { Question, getQuestions, saveQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -1029,8 +1030,14 @@ export default function QuestionsPage() {
                           if (file) {
                             const reader = new FileReader();
                             reader.onloadend = async () => {
-                              const compressed = await compressBase64Image(reader.result as string);
-                              setNewImage(compressed);
+                              try {
+                                const compressed = await compressBase64Image(reader.result as string);
+                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                setNewImage(fileUrl);
+                              } catch (err: any) {
+                                console.error("Upload to R2 failed:", err);
+                                alert("Failed to upload image to Cloudflare R2.");
+                              }
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1567,8 +1574,14 @@ export default function QuestionsPage() {
                                           if (file) {
                                             const reader = new FileReader();
                                             reader.onloadend = async () => {
-                                              const compressed = await compressBase64Image(reader.result as string);
-                                              handleUpdateExtractedQuestion(qidx, "image", compressed);
+                                              try {
+                                                const compressed = await compressBase64Image(reader.result as string);
+                                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                                handleUpdateExtractedQuestion(qidx, "image", fileUrl);
+                                              } catch (err: any) {
+                                                console.error("Upload to R2 failed:", err);
+                                                alert("Failed to upload image to Cloudflare R2.");
+                                              }
                                             };
                                             reader.readAsDataURL(file);
                                           }

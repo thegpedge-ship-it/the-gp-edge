@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import { getMedicalContent } from "@/lib/quizData";
+import { getMedicalContent, MedicalContent } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
@@ -214,6 +214,7 @@ function MedicalLibraryContent() {
             item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
               item.type === "Note" ? "Note" : "Document";
 
+        const customItem = item as MedicalContent & { pdfUrl?: string; pdfSize?: string };
         return {
           id: `CUSTOM-${item.id}`,
           name: item.name,
@@ -229,9 +230,9 @@ function MedicalLibraryContent() {
           references: refs,
           document: {
             filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
-            fileSize: "1.2 MB",
+            fileSize: customItem.pdfSize || "1.2 MB",
             totalPages: 1,
-            downloadUrl: "#",
+            downloadUrl: customItem.pdfUrl || "#",
             summary: item.name
           }
         };
@@ -251,6 +252,7 @@ function MedicalLibraryContent() {
   const allConditions = useMemo(() => {
     const parseDate = (dStr: string) => {
       if (!dStr) return 0;
+      if (dStr.toLowerCase().includes("now")) return Date.now();
       const parts = dStr.trim().split(/\s+/);
       if (parts.length === 3) {
         const day = parseInt(parts[0], 10);
@@ -1231,14 +1233,23 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       ref={containerRef}
                       className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-start overflow-auto max-h-[600px] w-full medical-scroll"
                     >
-                      <div
-                        style={{
-                          width: `${720 * currentZoomScale}px`,
-                          height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : `${940 * currentZoomScale}px`,
-                          position: "relative",
-                          flexShrink: 0,
-                        }}
-                      >
+                      {selectedCondition.document?.downloadUrl && selectedCondition.document.downloadUrl !== "#" ? (
+                        <div className="w-full bg-white dark:bg-slate-900 rounded-xl overflow-hidden shadow-md border border-slate-200 dark:border-slate-800/80 flex flex-col items-stretch self-stretch">
+                          <iframe
+                            src={`${selectedCondition.document.downloadUrl}#toolbar=0&navpanes=0`}
+                            className="w-full h-[850px] border-none"
+                            title={selectedCondition.name}
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            width: `${720 * currentZoomScale}px`,
+                            height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : `${940 * currentZoomScale}px`,
+                            position: "relative",
+                            flexShrink: 0,
+                          }}
+                        >
                         <div
                           className="bg-white text-slate-800 p-8 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area"
                           style={{
@@ -1398,7 +1409,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           </footer>
                         </div>
                       </div>
-                    </div>
+                    )}
+                  </div>
 
                     {/* Action buttons including GP Edge notes download */}
                     <div className="flex flex-col sm:flex-row gap-3 select-none">
