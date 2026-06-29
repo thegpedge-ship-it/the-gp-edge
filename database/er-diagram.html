@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GP Edge — Database ER Diagram</title>
+<style>
+  :root{
+    /* Single accent colour used everywhere; dark theme on a true-black base */
+    --accent:#14b8a6;
+    --bg:#000000; --bg2:#0a0a0a; --panel:#101010; --panel2:#161616;
+    --line:#242424; --line2:#333333;
+    --text:#ededed; --muted:#a3a3a3; --faint:#6b6b6b;
+    --emerald:#14b8a6; --teal:#14b8a6; --emerald-dim:#0d9488;
+    --pk:#14b8a6; --fk:#14b8a6; --uq:#14b8a6;
+    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.55);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--teal)}
+  /* ---- Header ---- */
+  header{
+    position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
+    background:rgba(0,0,0,.82);border-bottom:1px solid var(--line);
+  }
+  .head-inner{max-width:1500px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+    background:var(--accent);color:#04201d;font-weight:800;font-size:18px;
+    box-shadow:0 4px 16px rgba(20,184,166,.30)}
+  .brand h1{font-size:17px;margin:0;letter-spacing:.2px}
+  .brand p{margin:0;font-size:12px;color:var(--muted)}
+  .tools{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .search{background:var(--panel);border:1px solid var(--line2);color:var(--text);
+    padding:9px 13px;border-radius:10px;font-size:13px;width:230px;outline:none}
+  .search:focus{border-color:var(--emerald)}
+  .stat{font-size:12px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    padding:7px 11px;border-radius:9px}
+  .stat b{color:var(--emerald)}
+  /* ---- Layout ---- */
+  .wrap{max-width:1500px;margin:0 auto;padding:26px 24px 80px}
+  .intro{color:var(--muted);font-size:13.5px;max-width:920px;margin-bottom:18px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0 26px;font-size:12.5px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .k{font-weight:700;font-size:10px;padding:2px 6px;border-radius:5px;letter-spacing:.4px}
+  .k.pk{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
+  .k.fk{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
+  .k.uq{background:rgba(20,184,166,.14);color:var(--accent);border:1px solid rgba(20,184,166,.35)}
+  /* ---- Group nav ---- */
+  .groupnav{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:26px}
+  .chip{cursor:pointer;font-size:12.5px;padding:7px 13px;border-radius:999px;
+    background:var(--panel);border:1px solid var(--line2);color:var(--muted);transition:.15s}
+  .chip:hover{color:var(--text);border-color:var(--emerald)}
+  .chip.active{color:#04201d;background:var(--accent);border-color:transparent;font-weight:700}
+  /* ---- Section ---- */
+  .section{margin:34px 0}
+  .section-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .section-bar{width:5px;height:26px;border-radius:3px}
+  .section h2{font-size:18px;margin:0}
+  .section-head .cnt{font-size:12px;color:var(--faint);margin-left:4px}
+  .section-head p{margin:0;font-size:12.5px;color:var(--muted)}
+  /* ---- Grid of entity cards ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;transition:.18s;scroll-margin-top:90px}
+  .card:hover{border-color:var(--accent,var(--emerald));transform:translateY(-2px);box-shadow:var(--shadow)}
+  .card.dim{opacity:.18;filter:saturate(.4)}
+  .card.hl{border-color:var(--accent,var(--emerald));box-shadow:0 0 0 2px var(--accent,var(--emerald)) inset,var(--shadow)}
+  .card-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,.02)}
+  .card-head .tdot{width:10px;height:10px;border-radius:3px}
+  .card-head h3{margin:0;font-size:14px;font-family:'Consolas',ui-monospace,monospace;letter-spacing:.3px}
+  .card-head .grp{margin-left:auto;font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.6px}
+  .card-note{padding:8px 14px 0;font-size:11.5px;color:var(--faint)}
+  table{width:100%;border-collapse:collapse;font-size:12.3px}
+  td{padding:5px 14px;border-bottom:1px solid rgba(36,36,36,.8);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .col-name{font-family:'Consolas',ui-monospace,monospace;color:var(--text);white-space:nowrap}
+  .col-type{color:var(--faint);text-align:right;font-size:11px;white-space:nowrap}
+  .col-keys{white-space:nowrap;width:1px}
+  .fkref{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}
+  .fkref:hover{color:var(--fk)}
+  tr.is-key .col-name{font-weight:600}
+  /* ---- Relationship overview SVG ---- */
+  .hero{background:linear-gradient(180deg,var(--panel),var(--bg2));border:1px solid var(--line);
+    border-radius:18px;padding:8px;margin-bottom:30px;overflow-x:auto}
+  .hero svg{display:block;min-width:980px;width:100%}
+  footer{max-width:1500px;margin:0 auto;padding:30px 24px;color:var(--faint);font-size:12px;border-top:1px solid var(--line)}
+  .pill{display:inline-block;font-size:11px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+    padding:3px 9px;border-radius:7px;margin:2px}
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <div class="brand">
+      <div class="logo">GP</div>
+      <div><h1>GP Edge — Database ER Diagram</h1>
+        <p>PostgreSQL · 3NF/BCNF · Cloudflare R2 file storage</p></div>
+    </div>
+    <div class="tools">
+      <span class="stat"><b id="tcount">0</b> tables</span>
+      <span class="stat"><b id="rcount">0</b> relationships</span>
+      <input id="search" class="search" placeholder="Search tables / columns…" />
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <p class="intro">
+    Production schema for the GP Edge RACGP exam-prep &amp; clinical-tools platform.
+    Every multi-valued attribute is a child table (no arrays/CSV); aggregate numbers are
+    <b>computed via views</b>, with hot dashboard rollups kept as <b>maintained summaries</b>
+    so reads stay fast at scale. Started exams <b>snapshot</b> their whole question set, so
+    editing a question never changes past attempts. Binary files (question images, library PDFs, avatars, invoices)
+    live in <b>Cloudflare R2</b>; only their metadata + object keys sit in the
+    <code style="color:var(--emerald)">files</code> table.
+    <b>Click any <span style="color:var(--fk)">FK</span> column</b> to jump to the table it references; hover a card to spotlight its relationships.
+  </p>
+
+  <div class="legend">
+    <span><i class="k pk">PK</i> Primary key</span>
+    <span><i class="k fk">FK</i> Foreign key (click to follow)</span>
+    <span><i class="k uq">UQ</i> Unique</span>
+    <span><i class="dot" style="background:var(--emerald)"></i> click a chip to filter a domain</span>
+  </div>
+
+  <!-- Hero relationship overview -->
+  <div class="hero" id="hero"></div>
+
+  <div class="groupnav" id="groupnav"></div>
+  <div id="sections"></div>
+</div>
+
+<footer>
+  GP Edge data model · 70 tables across 12 domains · generated for
+  <span class="pill">PostgreSQL 15+</span><span class="pill">Cloudflare R2</span>
+  <span class="pill">Clerk auth</span>. See <code>schema.sql</code> for full DDL and
+  <code>DATABASE_DESIGN.md</code> for normalization notes.
+</footer>
+
+<script>
+/* ───────────────────── Domain groups ───────────────────── */
+const ACCENT = "#0d9488"; // single colour used across the whole diagram
+const GROUPS = {
+  files:    {label:"File Storage (R2)", color:ACCENT, desc:"Single registry for all Cloudflare R2 objects"},
+  identity: {label:"Identity & Access", color:ACCENT, desc:"Users, admin RBAC, audit"},
+  taxonomy: {label:"Clinical Taxonomy", color:ACCENT, desc:"Subjects, subtopics, tags, exam types"},
+  questions:{label:"Question Bank & Quizzes", color:ACCENT, desc:"Questions, options, quizzes, mocks"},
+  attempts: {label:"Test Taking & Performance", color:ACCENT, desc:"Attempts & answers — source of all analytics"},
+  autofills:{label:"Clinical Autofills", color:ACCENT, desc:"SOAP templates, fields, versions"},
+  library:  {label:"Medical Library", color:ACCENT, desc:"Conditions, guidelines, PDF documents"},
+  mbs:      {label:"MBS Billing", color:ACCENT, desc:"Medicare item reference & scenarios"},
+  billing:  {label:"Subscriptions & Payments", color:ACCENT, desc:"Plans, features, subscriptions, payments"},
+  engage:   {label:"Engagement", color:ACCENT, desc:"Badges, notifications, activity"},
+  settings: {label:"Settings", color:ACCENT, desc:"System configuration"},
+  summaries:{label:"Dashboard Summaries", color:ACCENT, desc:"Maintained rollups — kept fast at scale"},
+};
+
+/* ───────────────────── Entity definitions ─────────────────────
+   col format: [name, type, key]  key ∈ "PK","FK","UQ","PF"(pk+fk) or ""
+   FK refs declared via ref: {col: "table"}                        */
+const E = (name,group,cols,ref={},note="")=>({name,group,cols,ref,note});
+
+const ENTITIES = [
+/* FILES */
+E("files","files",[
+  ["id","uuid","PK"],["bucket","text",""],["object_key","text","UQ"],
+  ["original_name","text",""],["mime_type","text",""],["size_bytes","bigint",""],
+  ["checksum_sha256","text",""],["status","file_status",""],
+  ["uploaded_by","uuid","FK"],["uploaded_by_admin","uuid","FK"],["created_at","timestamptz",""],
+],{uploaded_by:"users",uploaded_by_admin:"admin_users"},"All R2 objects — bytes in R2 · uploader is a user OR an admin"),
+
+/* IDENTITY */
+E("users","identity",[
+  ["id","uuid","PK"],["clerk_user_id","text","UQ"],["email","citext","UQ"],
+  ["first_name","text",""],["last_name","text",""],["avatar_file_id","uuid","FK"],
+  ["role_title","text",""],["hospital","text",""],["location","text",""],
+  ["racgp_id","text",""],["exam_target","text",""],["status","account_status",""],
+  ["joined_at","timestamptz",""],["last_active_at","timestamptz",""],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{avatar_file_id:"files"},"End users (synced from Clerk) · soft delete"),
+E("user_preferences","identity",[
+  ["user_id","uuid","PF"],["theme","text",""],["notifications_enabled","bool",""],
+  ["email_notifications","bool",""],["push_notifications","bool",""],
+  ["default_exam_type_code","text","FK"],["default_question_count","int",""],
+  ["language","text",""],["timezone","text",""],["extra","jsonb",""],["updated_at","timestamptz",""],
+],{user_id:"users",default_exam_type_code:"exam_types"},"Per-user settings (theme, notifications, defaults)"),
+E("roles","identity",[["id","serial","PK"],["code","text","UQ"],["name","text","UQ"],["description","text",""]],{},"Exactly 3: super_admin / admin / user"),
+E("permissions","identity",[["key","text","PK"],["label","text",""],["description","text",""]]),
+E("role_permissions","identity",[
+  ["role_id","int","PF"],["permission_key","text","PF"],
+],{role_id:"roles",permission_key:"permissions"}),
+E("admin_users","identity",[
+  ["id","uuid","PK"],["name","text",""],["username","citext","UQ"],["email","citext","UQ"],
+  ["password_hash","text",""],["role_id","int","FK"],["created_by","uuid","FK"],
+  ["mfa_enabled","bool",""],["oauth_enabled","bool",""],["forgot_password_enabled","bool",""],
+  ["status","account_status",""],["last_login_at","timestamptz",""],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{role_id:"roles",created_by:"admin_users"},"Admin operators · single Super Admin enforced by trigger + partial unique index"),
+E("admin_user_permissions","identity",[
+  ["admin_user_id","uuid","PF"],["permission_key","text","PF"],["granted","bool",""],
+],{admin_user_id:"admin_users",permission_key:"permissions"}),
+E("audit_logs","identity",[
+  ["id","bigserial","PK"],["admin_user_id","uuid","FK"],["action","text",""],
+  ["category","text",""],["severity","log_severity",""],["entity_type","text",""],
+  ["entity_id","text",""],["metadata","jsonb",""],["created_at","timestamptz",""],
+],{admin_user_id:"admin_users"}),
+
+/* TAXONOMY */
+E("exam_types","taxonomy",[["code","text","PK"],["name","text",""]],{},"AKT, KFP …"),
+E("subjects","taxonomy",[
+  ["id","uuid","PK"],["slug","text","UQ"],["name","text",""],["icon","text",""],
+  ["color","text",""],["sort_order","int",""],
+]),
+E("subtopics","taxonomy",[
+  ["id","uuid","PK"],["subject_id","uuid","FK"],["slug","text",""],["name","text",""],
+  ["sort_order","int",""],
+],{subject_id:"subjects"}),
+E("tags","taxonomy",[["id","uuid","PK"],["slug","citext","UQ"],["label","text",""]],{},"Reused everywhere"),
+
+/* QUESTIONS */
+E("questions","questions",[
+  ["id","uuid","PK"],["stem","text",""],["rationale","text",""],
+  ["subtopic_id","uuid","FK"],["subject_id","uuid","FK"],["exam_type_code","text","FK"],
+  ["difficulty","difficulty_level",""],["status","question_status",""],
+  ["image_file_id","uuid","FK"],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{subtopic_id:"subtopics",subject_id:"subjects",exam_type_code:"exam_types",image_file_id:"files",created_by:"admin_users"},
+  "primary subject/subtopic kept; many-to-many below · soft delete"),
+E("question_subjects","questions",[
+  ["question_id","uuid","PF"],["subject_id","uuid","PF"],
+],{question_id:"questions",subject_id:"subjects"},"A question can belong to many subjects"),
+E("question_subtopics","questions",[
+  ["question_id","uuid","PF"],["subtopic_id","uuid","PF"],
+],{question_id:"questions",subtopic_id:"subtopics"},"…and many sub-subjects"),
+E("question_options","questions",[
+  ["id","uuid","PK"],["question_id","uuid","FK"],["label","text",""],
+  ["position","smallint",""],["is_correct","bool",""],
+],{question_id:"questions"},"Replaces options[]+correctIndex"),
+E("question_tags","questions",[
+  ["question_id","uuid","PF"],["tag_id","uuid","PF"],
+],{question_id:"questions",tag_id:"tags"}),
+E("quizzes","questions",[
+  ["id","uuid","PK"],["name","text",""],["description","text",""],
+  ["exam_type_code","text","FK"],["time_limit_min","int",""],["passing_score","smallint",""],
+  ["randomize","bool",""],["status","quiz_status",""],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{exam_type_code:"exam_types",created_by:"admin_users"}),
+E("quiz_questions","questions",[
+  ["quiz_id","uuid","PF"],["question_id","uuid","PF"],["position","smallint",""],
+],{quiz_id:"quizzes",question_id:"questions"}),
+E("mock_tests","questions",[
+  ["id","uuid","PK"],["name","text",""],["subtitle","text",""],["exam_type_code","text","FK"],
+  ["question_count","int",""],["duration_min","int",""],["availability","mock_availability",""],
+  ["unlock_at","timestamptz",""],["unlock_hint","text",""],["sort_order","int",""],
+  ["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{exam_type_code:"exam_types",created_by:"admin_users"}),
+E("mock_test_questions","questions",[
+  ["mock_test_id","uuid","PF"],["question_id","uuid","PF"],["position","smallint",""],
+],{mock_test_id:"mock_tests",question_id:"questions"}),
+E("quiz_configs","questions",[
+  ["id","uuid","PK"],["user_id","uuid","FK"],["label","text",""],["difficulty","difficulty_level",""],
+  ["exam_type_code","text","FK"],["question_count","int",""],["time_limit_min","int",""],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],
+],{user_id:"users",exam_type_code:"exam_types"},"Saved Create-Quiz choices (reusable)"),
+E("quiz_config_subjects","questions",[
+  ["config_id","uuid","PF"],["subject_id","uuid","PF"],
+],{config_id:"quiz_configs",subject_id:"subjects"}),
+E("quiz_config_subtopics","questions",[
+  ["config_id","uuid","PF"],["subtopic_id","uuid","PF"],
+],{config_id:"quiz_configs",subtopic_id:"subtopics"}),
+
+/* ATTEMPTS */
+E("test_attempts","attempts",[
+  ["id","uuid","PK"],["user_id","uuid","FK"],["source","attempt_source",""],
+  ["quiz_id","uuid","FK"],["mock_test_id","uuid","FK"],["subtopic_id","uuid","FK"],
+  ["quiz_config_id","uuid","FK"],["title_snapshot","text",""],["status","attempt_status",""],
+  ["total_questions","int",""],["correct_count","int",""],["score_percent","numeric",""],
+  ["duration_seconds","int",""],["started_at","timestamptz",""],["expires_at","timestamptz",""],
+  ["last_seen_at","timestamptz",""],["submitted_at","timestamptz",""],
+],{user_id:"users",quiz_id:"quizzes",mock_test_id:"mock_tests",subtopic_id:"subtopics",quiz_config_id:"quiz_configs"},
+  "Server-side timer (expires_at) · locked once submitted"),
+E("attempt_questions","attempts",[
+  ["id","uuid","PK"],["attempt_id","uuid","FK"],["question_id","uuid","FK"],
+  ["position","smallint",""],["stem_snapshot","text",""],["rationale_snapshot","text",""],
+  ["difficulty_snapshot","difficulty_level",""],["created_at","timestamptz",""],
+],{attempt_id:"test_attempts",question_id:"questions"},
+  "Whole question set frozen at start — old attempts keep original text"),
+E("attempt_question_options","attempts",[
+  ["id","uuid","PK"],["attempt_question_id","uuid","FK"],["option_id","uuid","FK"],
+  ["label_snapshot","text",""],["position","smallint",""],["is_correct","bool",""],
+],{attempt_question_id:"attempt_questions",option_id:"question_options"},"Snapshot of each option"),
+E("attempt_answers","attempts",[
+  ["id","uuid","PK"],["attempt_question_id","uuid","UQ"],
+  ["selected_option_id","uuid","FK"],["is_correct","bool",""],
+  ["time_spent_seconds","int",""],["answered_at","timestamptz",""],
+],{attempt_question_id:"attempt_questions",selected_option_id:"attempt_question_options"},
+  "One row per snapshotted question · NULL is_correct = unanswered"),
+E("user_question_bookmarks","attempts",[
+  ["user_id","uuid","PF"],["question_id","uuid","PF"],["kind","bookmark_kind","PF"],
+  ["note","text",""],["created_at","timestamptz",""],
+],{user_id:"users",question_id:"questions"},"Saved / flagged"),
+
+/* AUTOFILLS */
+E("autofill_templates","autofills",[
+  ["id","uuid","PK"],["slug","text","UQ"],["name","text",""],["description","text",""],
+  ["category","text",""],["subject_id","uuid","FK"],["status","template_status",""],
+  ["current_version_id","uuid","FK"],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{subject_id:"subjects",current_version_id:"autofill_template_versions",created_by:"admin_users"}),
+E("autofill_template_versions","autofills",[
+  ["id","uuid","PK"],["template_id","uuid","FK"],["version_label","text",""],
+  ["change_log","text",""],["content_format","content_format",""],["subjective","text",""],["objective","text",""],
+  ["assessment","text",""],["plan","text",""],["doctor_summary","text",""],
+  ["patient_resources","text",""],["references_text","text",""],["followup_notes","text",""],
+  ["search_vector","tsvector",""],["created_by","uuid","FK"],["created_at","timestamptz",""],
+],{template_id:"autofill_templates",created_by:"admin_users"},"Formatted content · full-text searchable · records author+date"),
+E("autofill_fields","autofills",[
+  ["id","uuid","PK"],["template_id","uuid","FK"],["name","text",""],
+  ["field_type","field_type",""],["required","bool",""],["placeholder","text",""],
+  ["position","smallint",""],
+],{template_id:"autofill_templates"}),
+E("autofill_field_options","autofills",[
+  ["id","uuid","PK"],["field_id","uuid","FK"],["value","text",""],["position","smallint",""],
+],{field_id:"autofill_fields"}),
+E("autofill_template_tags","autofills",[
+  ["template_id","uuid","PF"],["tag_id","uuid","PF"],
+],{template_id:"autofill_templates",tag_id:"tags"}),
+E("user_saved_templates","autofills",[
+  ["user_id","uuid","PF"],["template_id","uuid","PF"],["created_at","timestamptz",""],
+],{user_id:"users",template_id:"autofill_templates"}),
+E("autofill_usages","autofills",[
+  ["id","uuid","PK"],["template_id","uuid","FK"],["user_id","uuid","FK"],["used_at","timestamptz",""],
+],{template_id:"autofill_templates",user_id:"users"},"Drives usage_count / last_used"),
+
+/* LIBRARY */
+E("medical_conditions","library",[
+  ["id","uuid","PK"],["slug","text","UQ"],["name","text",""],["subject_id","uuid","FK"],
+  ["category","text",""],["kind","content_kind",""],["status","content_status",""],
+  ["is_premium","bool",""],["clinical_notes","text",""],["author","text",""],
+  ["search_vector","tsvector",""],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{subject_id:"subjects",created_by:"admin_users"},"kind incl. 'Approach' · full-text + trigram search"),
+E("condition_items","library",[
+  ["id","uuid","PK"],["condition_id","uuid","FK"],["item_kind","condition_item_kind",""],
+  ["content","text",""],["position","smallint",""],
+],{condition_id:"medical_conditions"},"symptoms / criteria / treatments unified"),
+E("condition_references","library",[
+  ["id","uuid","PK"],["condition_id","uuid","FK"],["text","text",""],["url","text",""],
+  ["position","smallint",""],
+],{condition_id:"medical_conditions"}),
+E("condition_documents","library",[
+  ["id","uuid","PK"],["condition_id","uuid","FK"],["file_id","uuid","FK"],
+  ["total_pages","int",""],["summary","text",""],
+],{condition_id:"medical_conditions",file_id:"files"},"PDF/DOCX → R2"),
+E("condition_tags","library",[
+  ["condition_id","uuid","PF"],["tag_id","uuid","PF"],
+],{condition_id:"medical_conditions",tag_id:"tags"}),
+E("condition_questions","library",[
+  ["condition_id","uuid","PF"],["question_id","uuid","PF"],
+],{condition_id:"medical_conditions",question_id:"questions"},"used-in-questions link"),
+
+/* MBS */
+E("mbs_categories","mbs",[["id","serial","PK"],["name","text","UQ"]]),
+E("mbs_sync_runs","mbs",[
+  ["id","uuid","PK"],["source_url","text",""],["source_label","text",""],["status","mbs_sync_status",""],
+  ["items_added","int",""],["items_updated","int",""],["items_removed","int",""],["error_text","text",""],
+  ["started_at","timestamptz",""],["completed_at","timestamptz",""],
+],{},"One pull from the government source · latest = last pulled"),
+E("mbs_items","mbs",[
+  ["id","uuid","PK"],["item_number","text","UQ"],["human_title","text",""],
+  ["official_title","text",""],["category_id","int","FK"],["time_min","smallint",""],
+  ["time_max","smallint",""],["complexity","complexity_level",""],
+  ["schedule_fee","numeric",""],["medicare_rebate","numeric",""],["bulk_billable","bool",""],
+  ["plain_english","text",""],["comparison_item_id","uuid","FK"],["effective_from","date",""],
+  ["source","text",""],["last_synced_at","timestamptz",""],["last_sync_id","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{category_id:"mbs_categories",comparison_item_id:"mbs_items",last_sync_id:"mbs_sync_runs"},
+  "Government data · self-ref comparison · soft delete"),
+E("mbs_item_fee_history","mbs",[
+  ["id","uuid","PK"],["item_id","uuid","FK"],["schedule_fee","numeric",""],["medicare_rebate","numeric",""],
+  ["effective_from","date",""],["effective_to","date",""],["sync_id","uuid","FK"],["recorded_at","timestamptz",""],
+],{item_id:"mbs_items",sync_id:"mbs_sync_runs"},"Fee history — never overwrites old numbers"),
+E("mbs_item_common_uses","mbs",[
+  ["id","uuid","PK"],["item_id","uuid","FK"],["text","text",""],["position","smallint",""],
+],{item_id:"mbs_items"}),
+E("mbs_item_restrictions","mbs",[
+  ["id","uuid","PK"],["item_id","uuid","FK"],["text","text",""],["position","smallint",""],
+],{item_id:"mbs_items"}),
+E("mbs_item_notes","mbs",[
+  ["id","uuid","PK"],["item_id","uuid","FK"],["text","text",""],["position","smallint",""],
+],{item_id:"mbs_items"}),
+E("mbs_item_tags","mbs",[
+  ["item_id","uuid","PF"],["tag_id","uuid","PF"],
+],{item_id:"mbs_items",tag_id:"tags"}),
+E("mbs_scenarios","mbs",[
+  ["id","uuid","PK"],["item_id","uuid","FK"],["presentation","text",""],["time_label","text",""],
+  ["complexity","complexity_level",""],["correct_item_id","uuid","FK"],["reasoning","text",""],
+],{item_id:"mbs_items",correct_item_id:"mbs_items"}),
+E("user_favourite_mbs_items","mbs",[
+  ["user_id","uuid","PF"],["item_id","uuid","PF"],["created_at","timestamptz",""],
+],{user_id:"users",item_id:"mbs_items"}),
+
+/* BILLING */
+E("plans","billing",[
+  ["id","uuid","PK"],["slug","text","UQ"],["name","text",""],["tagline","text",""],
+  ["price_monthly","numeric",""],["price_annual","numeric",""],["currency","char(3)",""],
+  ["trial_days","int",""],["badge","text",""],["is_highlighted","bool",""],["is_active","bool",""],
+  ["sort_order","int",""],["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+]),
+E("features","billing",[
+  ["id","uuid","PK"],["code","text","UQ"],["label","text",""],["is_premium","bool",""],
+],{},"is_premium flag → add premium features with no schema change"),
+E("plan_features","billing",[
+  ["plan_id","uuid","PF"],["feature_id","uuid","PF"],["value","text",""],
+  ["included","bool",""],["position","smallint",""],
+],{plan_id:"plans",feature_id:"features"}),
+E("promo_codes","billing",[
+  ["id","uuid","PK"],["code","citext","UQ"],["description","text",""],["discount_type","discount_type",""],
+  ["discount_value","numeric",""],["currency","char(3)",""],["plan_id","uuid","FK"],
+  ["max_redemptions","int",""],["times_redeemed","int",""],["valid_from","timestamptz",""],
+  ["valid_until","timestamptz",""],["is_active","bool",""],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{plan_id:"plans",created_by:"admin_users"},"Discount / promo codes"),
+E("subscriptions","billing",[
+  ["id","uuid","PK"],["user_id","uuid","FK"],["plan_id","uuid","FK"],["cycle","billing_cycle",""],
+  ["status","subscription_status",""],["provider","text",""],["provider_sub_id","text","UQ"],
+  ["promo_code_id","uuid","FK"],["trial_start","timestamptz",""],["trial_end","timestamptz",""],
+  ["current_period_start","timestamptz",""],["current_period_end","timestamptz",""],
+  ["cancel_at","timestamptz",""],["canceled_at","timestamptz",""],["updated_at","timestamptz",""],
+],{user_id:"users",plan_id:"plans",promo_code_id:"promo_codes"}),
+E("payments","billing",[
+  ["id","uuid","PK"],["subscription_id","uuid","FK"],["user_id","uuid","FK"],
+  ["amount","numeric",""],["currency","char(3)",""],["status","payment_status",""],
+  ["provider_ref","text","UQ"],["invoice_file_id","uuid","FK"],["paid_at","timestamptz",""],
+],{subscription_id:"subscriptions",user_id:"users",invoice_file_id:"files"}),
+E("refunds","billing",[
+  ["id","uuid","PK"],["payment_id","uuid","FK"],["amount","numeric",""],["reason","text",""],
+  ["status","refund_status",""],["provider_ref","text","UQ"],["created_by","uuid","FK"],
+  ["created_at","timestamptz",""],["processed_at","timestamptz",""],
+],{payment_id:"payments",created_by:"admin_users"},"Full or partial refunds"),
+E("promo_redemptions","billing",[
+  ["id","uuid","PK"],["promo_code_id","uuid","FK"],["user_id","uuid","FK"],
+  ["subscription_id","uuid","FK"],["payment_id","uuid","FK"],["redeemed_at","timestamptz",""],
+],{promo_code_id:"promo_codes",user_id:"users",subscription_id:"subscriptions",payment_id:"payments"},"One redemption per user per code"),
+
+/* ENGAGE */
+E("badges","engage",[
+  ["id","uuid","PK"],["code","text","UQ"],["name","text",""],["description","text",""],
+  ["image_file_id","uuid","FK"],["criteria","jsonb",""],["target_value","int",""],["progress_unit","text",""],
+  ["created_at","timestamptz",""],["updated_at","timestamptz",""],["deleted_at","timestamptz",""],
+],{image_file_id:"files"},"target_value/progress_unit drive progress UI"),
+E("user_badges","engage",[
+  ["user_id","uuid","PF"],["badge_id","uuid","PF"],["earned_at","timestamptz",""],
+],{user_id:"users",badge_id:"badges"}),
+E("user_badge_progress","engage",[
+  ["user_id","uuid","PF"],["badge_id","uuid","PF"],["current_value","int",""],
+  ["target_value","int",""],["updated_at","timestamptz",""],
+],{user_id:"users",badge_id:"badges"},"Progress toward a badge (\"4 of 7\")"),
+E("notifications","engage",[
+  ["id","uuid","PK"],["type","text",""],["title","text",""],["message","text",""],
+  ["payload","jsonb",""],["created_by","uuid","FK"],["created_at","timestamptz",""],
+],{created_by:"admin_users"}),
+E("user_notifications","engage",[
+  ["id","uuid","PK"],["user_id","uuid","FK"],["notification_id","uuid","FK"],
+  ["is_read","bool",""],["is_dismissed","bool",""],["delivered_at","timestamptz",""],["read_at","timestamptz",""],
+],{user_id:"users",notification_id:"notifications"},"per-user read/dismiss state"),
+E("user_activity_events","engage",[
+  ["id","bigserial","PK"],["user_id","uuid","FK"],["type","text",""],["title","text",""],
+  ["meta","text",""],["entity_type","text",""],["entity_id","text",""],["created_at","timestamptz",""],
+],{user_id:"users"}),
+
+/* SETTINGS */
+E("app_settings","settings",[
+  ["key","text","PK"],["value","jsonb",""],["updated_by","uuid","FK"],["updated_at","timestamptz",""],
+],{updated_by:"admin_users"}),
+
+/* SUMMARIES (maintained rollups — kept fast at scale) */
+E("user_subject_mastery","summaries",[
+  ["user_id","uuid","PF"],["subject_id","uuid","PF"],["correct_count","int",""],["incorrect_count","int",""],
+  ["total_answered","int",""],["mastery_percent","numeric",""],["strength","subject_strength",""],
+  ["last_attempt_at","timestamptz",""],["updated_at","timestamptz",""],
+],{user_id:"users",subject_id:"subjects"},"Weak/strong scores for Mock Drill + dashboard"),
+E("user_performance_summary","summaries",[
+  ["user_id","uuid","PK"],["total_attempts","int",""],["total_questions","int",""],["total_correct","int",""],
+  ["overall_accuracy","numeric",""],["current_streak_days","int",""],["longest_streak_days","int",""],
+  ["last_active_date","date",""],["updated_at","timestamptz",""],
+],{user_id:"users"},"One-row-per-user dashboard rollup"),
+];
+
+/* ───────────────────── Build indexes ───────────────────── */
+const byName = Object.fromEntries(ENTITIES.map(e=>[e.name,e]));
+// who references me
+const referencedBy = {};
+let relCount=0;
+ENTITIES.forEach(e=>{
+  Object.entries(e.ref).forEach(([col,target])=>{
+    relCount++;
+    (referencedBy[target] ||= []).push(e.name);
+  });
+});
+document.getElementById('tcount').textContent = ENTITIES.length;
+document.getElementById('rcount').textContent = relCount;
+
+/* ───────────────────── Render group nav ───────────────────── */
+const gnav = document.getElementById('groupnav');
+const allChip = document.createElement('div');
+allChip.className='chip active'; allChip.textContent='All domains'; allChip.dataset.g='all';
+gnav.appendChild(allChip);
+Object.entries(GROUPS).forEach(([g,info])=>{
+  const c=document.createElement('div'); c.className='chip'; c.dataset.g=g;
+  c.innerHTML=`<span class="dot" style="background:${info.color};margin-right:6px"></span>${info.label}`;
+  gnav.appendChild(c);
+});
+
+/* ───────────────────── Render sections ───────────────────── */
+const sections = document.getElementById('sections');
+function keyBadge(k){
+  if(k==='PK') return '<i class="k pk">PK</i>';
+  if(k==='FK') return '<i class="k fk">FK</i>';
+  if(k==='UQ') return '<i class="k uq">UQ</i>';
+  if(k==='PF') return '<i class="k pk">PK</i><i class="k fk">FK</i>';
+  return '';
+}
+function cardHTML(e){
+  const color = GROUPS[e.group].color;
+  const rows = e.cols.map(([n,t,k])=>{
+    const isKey = k && k!=='';
+    const ref = e.ref[n];
+    const nameCell = ref
+      ? `<span class="col-name fkref" data-go="${ref}" title="→ ${ref}">${n}</span>`
+      : `<span class="col-name">${n}</span>`;
+    return `<tr class="${isKey?'is-key':''}">
+      <td>${nameCell}</td>
+      <td class="col-type">${t}</td>
+      <td class="col-keys">${keyBadge(k)}</td></tr>`;
+  }).join('');
+  const note = e.note ? `<div class="card-note">${e.note}</div>` : '';
+  return `<div class="card" id="t-${e.name}" data-name="${e.name}" data-group="${e.group}" style="--accent:${color}">
+    <div class="card-head">
+      <span class="tdot" style="background:${color}"></span>
+      <h3>${e.name}</h3><span class="grp">${e.group}</span>
+    </div>${note}
+    <table>${rows}</table>
+  </div>`;
+}
+function render(){
+  sections.innerHTML='';
+  Object.entries(GROUPS).forEach(([g,info])=>{
+    const items = ENTITIES.filter(e=>e.group===g);
+    if(!items.length) return;
+    const sec=document.createElement('div');
+    sec.className='section'; sec.dataset.group=g;
+    sec.innerHTML = `<div class="section-head">
+        <span class="section-bar" style="background:${info.color}"></span>
+        <div><h2>${info.label} <span class="cnt">· ${items.length} tables</span></h2>
+        <p>${info.desc}</p></div>
+      </div>
+      <div class="grid">${items.map(cardHTML).join('')}</div>`;
+    sections.appendChild(sec);
+  });
+  wireCards();
+}
+render();
+
+/* ───────────────────── Interactions ───────────────────── */
+function wireCards(){
+  // follow FK
+  document.querySelectorAll('.fkref').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const t=el.dataset.go; const card=document.getElementById('t-'+t);
+      if(!card) return;
+      card.scrollIntoView({behavior:'smooth',block:'center'});
+      flash(card);
+    });
+  });
+  // hover spotlight related
+  document.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('mouseenter',()=>spotlight(card.dataset.name));
+    card.addEventListener('mouseleave',clearSpot);
+  });
+}
+function related(name){
+  const e=byName[name]; const set=new Set([name]);
+  Object.values(e.ref).forEach(t=>set.add(t));      // tables I point to
+  (referencedBy[name]||[]).forEach(t=>set.add(t));  // tables pointing to me
+  return set;
+}
+function spotlight(name){
+  const set=related(name);
+  document.querySelectorAll('.card').forEach(c=>{
+    if(set.has(c.dataset.name)){c.classList.add('hl');c.classList.remove('dim');}
+    else{c.classList.add('dim');c.classList.remove('hl');}
+  });
+}
+function clearSpot(){
+  document.querySelectorAll('.card').forEach(c=>c.classList.remove('dim','hl'));
+}
+function flash(card){
+  card.classList.add('hl');
+  setTimeout(()=>card.classList.remove('hl'),1400);
+}
+
+/* group filter */
+gnav.addEventListener('click',e=>{
+  const chip=e.target.closest('.chip'); if(!chip) return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  chip.classList.add('active');
+  const g=chip.dataset.g;
+  document.querySelectorAll('.section').forEach(sec=>{
+    sec.style.display = (g==='all'||sec.dataset.group===g)?'':'none';
+  });
+});
+
+/* search */
+document.getElementById('search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  if(!q){document.querySelectorAll('.card').forEach(c=>c.style.display='');
+         document.querySelectorAll('.section').forEach(s=>s.style.display='');return;}
+  document.querySelectorAll('.section').forEach(sec=>{
+    let any=false;
+    sec.querySelectorAll('.card').forEach(card=>{
+      const e2=byName[card.dataset.name];
+      const hit = e2.name.toLowerCase().includes(q) ||
+                  e2.cols.some(c=>c[0].toLowerCase().includes(q));
+      card.style.display = hit?'':'none'; if(hit) any=true;
+    });
+    sec.style.display = any?'':'none';
+  });
+});
+
+/* ───────────────────── Hero overview SVG ───────────────────── */
+/* hand-placed core entities + crow's-foot-ish connectors */
+const HERO_NODES = [
+  // x,y center; w,h
+  {id:"users",        x:470,y:40,  w:150,h:34,c:GROUPS.identity.color},
+  {id:"subjects",     x:80, y:130, w:140,h:34,c:GROUPS.taxonomy.color},
+  {id:"subtopics",    x:80, y:200, w:140,h:34,c:GROUPS.taxonomy.color},
+  {id:"questions",    x:300,y:200, w:150,h:34,c:GROUPS.questions.color},
+  {id:"question_options",x:300,y:270,w:150,h:34,c:GROUPS.questions.color},
+  {id:"quizzes",      x:300,y:130, w:150,h:34,c:GROUPS.questions.color},
+  {id:"mock_tests",   x:520,y:130, w:150,h:34,c:GROUPS.questions.color},
+  {id:"test_attempts",x:520,y:210, w:160,h:34,c:GROUPS.attempts.color},
+  {id:"attempt_questions",x:520,y:285,w:175,h:34,c:GROUPS.attempts.color},
+  {id:"attempt_answers",x:520,y:355,w:160,h:34,c:GROUPS.attempts.color},
+  {id:"autofill_templates",x:760,y:130,w:185,h:34,c:GROUPS.autofills.color},
+  {id:"autofill_template_versions",x:760,y:200,w:210,h:34,c:GROUPS.autofills.color},
+  {id:"medical_conditions",x:760,y:285,w:185,h:34,c:GROUPS.library.color},
+  {id:"condition_documents",x:760,y:355,w:185,h:34,c:GROUPS.library.color},
+  {id:"files",        x:470,y:400, w:150,h:34,c:GROUPS.files.color},
+  {id:"mbs_items",    x:80, y:285, w:150,h:34,c:GROUPS.mbs.color},
+  {id:"subscriptions",x:300,y:400, w:150,h:34,c:GROUPS.billing.color},
+  {id:"plans",        x:300,y:340, w:150,h:34,c:GROUPS.billing.color},
+];
+const HERO_EDGES = [
+  ["subjects","subtopics"],["subtopics","questions"],["questions","question_options"],
+  ["quizzes","questions"],["subtopics","quizzes"],
+  ["users","test_attempts"],["mock_tests","test_attempts"],["quizzes","test_attempts"],
+  ["test_attempts","attempt_questions"],["attempt_questions","attempt_answers"],
+  ["attempt_questions","questions"],
+  ["autofill_templates","autofill_template_versions"],
+  ["medical_conditions","condition_documents"],["condition_documents","files"],
+  ["questions","files"],["users","files"],
+  ["users","subscriptions"],["plans","subscriptions"],
+  ["users","mbs_items"],
+];
+function drawHero(){
+  const W=1000,H=460;
+  const pos=Object.fromEntries(HERO_NODES.map(n=>[n.id,n]));
+  const edge=(a,b)=>{
+    const A=pos[a],B=pos[b];
+    const ax=A.x+A.w/2, ay=A.y+A.h/2, bx=B.x+B.w/2, by=B.y+B.h/2;
+    const mx=(ax+bx)/2;
+    return `<path d="M${ax},${ay} C${mx},${ay} ${mx},${by} ${bx},${by}"
+      fill="none" stroke="#333333" stroke-width="1.4"/>
+      <circle cx="${bx}" cy="${by}" r="2.6" fill="${ACCENT}"/>`;
+  };
+  const node=n=>`
+    <g>
+      <rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" rx="8"
+        fill="#101010" stroke="${n.c}" stroke-width="1.4"/>
+      <rect x="${n.x}" y="${n.y}" width="4" height="${n.h}" rx="2" fill="${n.c}"/>
+      <text x="${n.x+n.w/2+2}" y="${n.y+n.h/2+4}" text-anchor="middle"
+        fill="#ededed" font-size="12" font-family="Consolas,monospace">${n.id}</text>
+    </g>`;
+  document.getElementById('hero').innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <text x="20" y="26" fill="#a3a3a3" font-size="13" font-family="Segoe UI">
+        Core relationship map — the hub tables (full detail in cards below)</text>
+      ${HERO_EDGES.map(([a,b])=>edge(a,b)).join('')}
+      ${HERO_NODES.map(node).join('')}
+    </svg>`;
+  // click hero node -> jump to card
+  document.querySelectorAll('#hero g').forEach((g,i)=>{
+    g.style.cursor='pointer';
+    g.addEventListener('click',()=>{
+      const id=HERO_NODES[i].id, card=document.getElementById('t-'+id);
+      card.scrollIntoView({behavior:'smooth',block:'center'}); flash(card);
+    });
+  });
+}
+drawHero();
+</script>
+</body>
+</html>

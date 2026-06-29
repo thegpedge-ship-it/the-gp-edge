@@ -1259,7 +1259,7 @@ function AdaptiveExamPrepCardInline() {
 
 export default function BentoGrid() {
   return (
-    <section id="tools" className="pt-10 pb-20 lg:pt-12 lg:pb-28 bg-slate-50/50 dark:bg-transparent relative">
+    <section id="tools" className="pt-6 pb-10 lg:pt-8 lg:pb-14 bg-transparent relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div

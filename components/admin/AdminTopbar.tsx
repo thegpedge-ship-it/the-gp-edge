@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import CustomSelect from "@/components/admin/CustomSelect";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 interface AdminTopbarProps {
   collapsed: boolean;
@@ -22,7 +24,14 @@ const sectionLabels: Record<string, string> = {
   audit: "Audit Log",
   search: "Search",
   settings: "System Settings",
+  validation: "Credentials & Validation",
 };
+
+const ADMIN_PROFILES = [
+  { id: "1", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", initials: "SU" },
+  { id: "2", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", initials: "AM" },
+  { id: "3", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", initials: "JP" },
+];
 
 export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps) {
   const pathname = usePathname();
@@ -36,6 +45,13 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
 
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const { currentAdmin } = useAdminRole();
+  const initials = currentAdmin.name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -65,7 +81,9 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
   ];
 
   const handleLogout = () => {
-    alert("Simulation: Logged out successfully!");
+    localStorage.removeItem("gpedge_admin_logged_in");
+    window.dispatchEvent(new Event("gpedge_admin_changed"));
+    router.push("/admin/login");
     setShowProfile(false);
   };
 
@@ -74,9 +92,9 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
       {/* Click-outside handled via custom ref logic */}
 
       <header
-        className={`fixed top-0 right-0 left-0 z-40 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 transition-all duration-300 ${
-          collapsed ? "lg:pl-[72px]" : "lg:pl-[260px]"
-        } pl-4`}
+        className={`admin-topbar-header fixed top-0 right-0 left-0 z-40 h-14 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/60 dark:border-slate-700/60 ${
+          collapsed ? "collapsed" : "expanded"
+        }`}
       >
         <div className="h-full flex items-center justify-between px-6">
           {/* Breadcrumb */}
@@ -176,11 +194,11 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                 }`}
               >
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xs font-bold shadow-sm shadow-emerald-500/25">
-                  SU
+                  {initials}
                 </div>
                 <div className="hidden sm:block text-left">
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-tight">Siddhant U.</p>
-                  <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">Admin</p>
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200 leading-tight">{currentAdmin.name}</p>
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight">{currentAdmin.role}</p>
                 </div>
                 <motion.div
                   animate={{ rotate: showProfile ? 180 : 0 }}
@@ -201,9 +219,9 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                     className="absolute right-0 mt-2.5 w-56 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden py-1.5 z-50 text-slate-800 dark:text-slate-200"
                   >
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Siddhant Udavant</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">admin@gpedge.com</p>
-                      <span className="inline-block text-[9px] font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400 px-2 py-0.5 rounded-md border border-teal-100/30 dark:border-teal-900/20 mt-1.5">Super Admin</span>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{currentAdmin.name}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{currentAdmin.email}</p>
+                      <span className="inline-block text-[9px] font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400 px-2 py-0.5 rounded-md border border-teal-100/30 dark:border-teal-900/20 mt-1.5">{currentAdmin.role}</span>
                     </div>
                     <div className="py-1">
                       <button

@@ -12,6 +12,7 @@ import {
   SIDEBAR_PANEL_PX,
   MARGIN_TRANSITION,
 } from "@/contexts/SidebarContext";
+import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
 
 // Local SignedIn wrapper to avoid Clerk package ESM export issues in this Next.js version
 function SignedIn({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ function SignedIn({ children }: { children: React.ReactNode }) {
 const DashboardInner = memo(function DashboardInner({
   children,
   className = "px-6 sm:px-8 pt-6 sm:pt-8 pb-12",
-  bgClassName = "bg-slate-100 dark:bg-slate-950",
+  bgClassName = "bg-transparent",
   hideSidebar = false,
 }: {
   children: React.ReactNode;
@@ -43,6 +44,7 @@ const DashboardInner = memo(function DashboardInner({
   return (
     <div className={`min-h-screen ${bgClassName}`}>
       <div
+        className="sticky top-0 z-50 pt-4 pb-2 bg-transparent"
         style={{
           marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
           transition: ready ? MARGIN_TRANSITION : "none",
@@ -83,17 +85,21 @@ export default function DashboardShell({
   className,
   bgClassName,
   hideSidebar = false,
+  profile = EMPTY_PROFILE,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
   hideSidebar?: boolean;
+  profile?: DbProfile;
 }) {
   return (
-    <SidebarProvider>
-      <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
-        {children}
-      </DashboardInner>
-    </SidebarProvider>
+    <ProfileProvider value={profile}>
+      <SidebarProvider>
+        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
+          {children}
+        </DashboardInner>
+      </SidebarProvider>
+    </ProfileProvider>
   );
 }

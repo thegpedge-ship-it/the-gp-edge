@@ -6,6 +6,7 @@ import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
 import { getMedicalContent } from "@/lib/quizData";
+import { addUserNotification } from "@/utils/notifications";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
@@ -88,7 +89,7 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
     glow: "from-teal-500/10 dark:from-teal-500/20",
     border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
     text: "text-teal-600 dark:text-teal-450",
-    accent: "bg-teal-500",
+    accent: "bg-teal-505",
     borderLeft: "border-l-teal-500",
     gradient: "from-teal-500 to-teal-600",
   },
@@ -167,21 +168,37 @@ export default function MedicalLibraryPage() {
 function MedicalLibraryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState("");
+
+  // Search box states (side-by-side)
+  const [searchCondition, setSearchCondition] = useState("");
+  const [searchApproach, setSearchApproach] = useState("");
+
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
+  const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
+  const [categoryPage, setCategoryPage] = useState(0);
 
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    symptoms: true,
-    diagnosis: false,
-    treatment: false,
-    pearls: false,
-    references: false,
-  });
+  const [savedBookmarks, setSavedBookmarks] = useState<string[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+
+  const toggleSaved = useCallback((id: string) => {
+    setSavedBookmarks(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [id, ...prev]
+    );
+  }, []);
+
+  // Body Systems Expansion Panel
+  const [showAllSystemsPanel, setShowAllSystemsPanel] = useState(false);
+
+  // Favorites/Saved states
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
-  
+  const [visibleLimit, setVisibleLimit] = useState(9);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const adminContent = getMedicalContent();
@@ -189,13 +206,13 @@ function MedicalLibraryContent() {
         const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
         let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
         if (referencesRaw) {
-          try { refs = JSON.parse(referencesRaw); } catch {}
+          try { refs = JSON.parse(referencesRaw); } catch { }
         }
-        
-        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+
+        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" =
           item.type === "Condition" ? "Condition" :
-          item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
-          item.type === "Note" ? "Note" : "Document";
+            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
+              item.type === "Note" ? "Note" : "Document";
 
         return {
           id: `CUSTOM-${item.id}`,
@@ -208,7 +225,7 @@ function MedicalLibraryContent() {
           symptoms: [],
           diagnosisCriteria: [],
           treatmentOptions: [],
-          clinicalNotes: "",
+          clinicalNotes: typeof window !== "undefined" ? (localStorage.getItem(`gpedge_content_body_${item.id}`) || "") : "",
           references: refs,
           document: {
             filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
@@ -220,19 +237,40 @@ function MedicalLibraryContent() {
         };
       });
       setCustomConditions(mapped);
+
+      // Load Favorites
+      const favs = localStorage.getItem("gpedge_favorite_conditions");
+      if (favs) {
+        try {
+          setFavorites(JSON.parse(favs));
+        } catch (e) {}
+      }
     }
   }, []);
 
   const allConditions = useMemo(() => {
-    return [...mockConditions, ...customConditions];
-  }, [customConditions]);
+    const parseDate = (dStr: string) => {
+      if (!dStr) return 0;
+      const parts = dStr.trim().split(/\s+/);
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const monthStr = parts[1].toLowerCase();
+        const year = parseInt(parts[2], 10);
+        const months: Record<string, number> = {
+          jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+          jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+        };
+        const month = months[monthStr.slice(0, 3)] ?? 0;
+        return new Date(year, month, day).getTime();
+      }
+      const d = Date.parse(dStr);
+      return isNaN(d) ? 0 : d;
+    };
 
-  const toggleSection = useCallback((section: string) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
-  }, []);
+    return [...mockConditions, ...customConditions].sort((a, b) => {
+      return parseDate(b.lastUpdated) - parseDate(a.lastUpdated);
+    });
+  }, [customConditions]);
 
   const selectedConditionId = searchParams.get("id");
   const selectedCondition = useMemo(() => {
@@ -248,32 +286,37 @@ function MedicalLibraryContent() {
     return localStorage.getItem(`gpedge_content_body_${cleanId}`) || "";
   }, [selectedCondition]);
 
-  const containerRef = useRef<HTMLDivElement>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(720);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      if (!entries || entries.length === 0) return;
-      const entry = entries[0];
-      const width = entry.contentRect.width;
-      if (width > 0) {
-        setContainerWidth(width);
-      }
-    });
-    observer.observe(containerRef.current);
-    
-    const width = containerRef.current.clientWidth;
-    const computedStyle = window.getComputedStyle(containerRef.current);
-    const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
-    const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
-    const contentWidth = width - paddingLeft - paddingRight;
-    if (contentWidth > 0) {
-      setContainerWidth(contentWidth);
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
     }
 
-    return () => observer.disconnect();
-  }, [selectedCondition]);
+    if (node !== null) {
+      const width = node.clientWidth;
+      const computedStyle = window.getComputedStyle(node);
+      const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+      const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+      const contentWidth = width - paddingLeft - paddingRight;
+      if (contentWidth > 0) {
+        setContainerWidth(contentWidth);
+      }
+
+      const observer = new ResizeObserver((entries) => {
+        if (!entries || entries.length === 0) return;
+        const entry = entries[0];
+        const w = entry.contentRect.width;
+        if (w > 0) {
+          setContainerWidth(w);
+        }
+      });
+      observer.observe(node);
+      observerRef.current = observer;
+    }
+  }, []);
 
   const scaleFactor = useMemo(() => {
     return containerWidth / 720;
@@ -294,21 +337,53 @@ function MedicalLibraryContent() {
 
   // Memoize filtered conditions
   const filteredConditions = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const condQuery = searchCondition.trim().toLowerCase();
+    const appQuery = searchApproach.trim().toLowerCase();
+
     return allConditions.filter((c) => {
-      const matchesSearch =
-        !q ||
-        c.name.toLowerCase().includes(q) ||
-        c.category.toLowerCase().includes(q) ||
-        c.system.toLowerCase().includes(q) ||
-        c.type.toLowerCase().includes(q) ||
-        c.symptoms.some((s) => s.toLowerCase().includes(q)) ||
-        c.clinicalNotes.toLowerCase().includes(q) ||
-        c.author.toLowerCase().includes(q);
-      const matchesSystem = selectedSystem === "all" || c.system === selectedSystem;
-      return matchesSearch && matchesSystem;
+      // 1. Favorites check
+      if (showFavoritesOnly && !favorites.includes(c.id)) {
+        return false;
+      }
+
+      // 2. System check
+      if (selectedSystem !== "all" && c.system !== selectedSystem) {
+        return false;
+      }
+
+      // 3. Condition check (symptoms, name, system, category)
+      const matchesCondition =
+        !condQuery ||
+        c.name.toLowerCase().includes(condQuery) ||
+        c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
+        c.system.toLowerCase().includes(condQuery) ||
+        c.category.toLowerCase().includes(condQuery);
+
+      // 4. Approach check (type, category, treatments, pearls, summary, system, name)
+      const matchesApproach =
+        !appQuery ||
+        c.category.toLowerCase().includes(appQuery) ||
+        c.type.toLowerCase().includes(appQuery) ||
+        c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
+        c.clinicalNotes.toLowerCase().includes(appQuery) ||
+        (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
+        c.name.toLowerCase().includes(appQuery) ||
+        c.system.toLowerCase().includes(appQuery);
+
+      return matchesCondition && matchesApproach;
     });
-  }, [searchQuery, selectedSystem, allConditions]);
+  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly, favorites, allConditions]);
+
+  // Reset limit when search or system changes
+  useEffect(() => {
+    setVisibleLimit(9);
+  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly]);
+
+  const displayedConditions = useMemo(() => {
+    return filteredConditions.slice(0, visibleLimit);
+  }, [filteredConditions, visibleLimit]);
+
+
 
   const handleOpenCondition = useCallback((condition: MedicalCondition) => {
     const params = new URLSearchParams(window.location.search);
@@ -325,10 +400,70 @@ function MedicalLibraryContent() {
     router.push(`/dashboard/medical-library?${params.toString()}`);
     if (type === "system") {
       setSelectedSystem(value);
-    } else if (type === "category" || type === "symptom") {
-      setSearchQuery(value);
+    } else if (type === "category") {
+      setSearchApproach(value);
+    } else if (type === "symptom") {
+      setSearchCondition(value);
     }
   }, [router]);
+
+  const toggleFavorite = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    let updated;
+    if (favorites.includes(id)) {
+      updated = favorites.filter((f) => f !== id);
+      addUserNotification("Removed from Saved Notes", `Successfully removed note from bookmarks.`, 1, "custom");
+    } else {
+      updated = [...favorites, id];
+      addUserNotification("Added to Saved Notes", `Successfully bookmarked this clinical note.`, 1, "custom");
+    }
+    setFavorites(updated);
+    localStorage.setItem("gpedge_favorite_conditions", JSON.stringify(updated));
+  };
+
+  const handleDownloadNotes = (condition: MedicalCondition) => {
+    const content = `GP EDGE CLINICAL REFERENCE NOTE
+======================================
+Condition: ${condition.name}
+Breadcrumb: ${condition.system} > ${condition.category} > ${condition.name}
+Access Level: ${condition.isPremium ? "Premium / Paid Only" : "Free Access"}
+Last Updated: ${condition.lastUpdated}
+Author: ${condition.author}
+
+GP EDGE SUPER SUMMARY:
+${condition.document?.summary || `High-yield clinical overview for ${condition.name} detailing signs, symptoms, diagnostics, and treatments.`}
+
+CLINICAL SIGNS & SYMPTOMS:
+${condition.symptoms.length > 0 ? condition.symptoms.map((s) => `- ${s}`).join("\n") : "No signs or symptoms documented."}
+
+DIAGNOSIS & ASSESSMENT CRITERIA:
+${condition.diagnosisCriteria.length > 0 ? condition.diagnosisCriteria.map((c, i) => `${i + 1}. ${c}`).join("\n") : "No diagnostics guidelines documented."}
+
+MANAGEMENT & TREATMENT REGIMEN:
+${condition.treatmentOptions.length > 0 ? condition.treatmentOptions.map((o, i) => `${i + 1}. ${o}`).join("\n") : "No treatments options documented."}
+
+CLINICAL NOTES & SUMMARY PEARLS:
+${condition.clinicalNotes || "No notes documented."}
+
+References:
+${condition.references && condition.references.length > 0 ? condition.references.map((r) => `[${r.id}] ${r.text}`).join("\n") : "No references documented."}
+
+--------------------------------------
+GP EDGE Clinical Reference Library - Confidential Reference Guide
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `${condition.name.replace(/\s+/g, "_")}_Notes.txt`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    addUserNotification("Notes Downloaded", `Successfully downloaded notes file for ${condition.name}.`, 1, "custom");
+  };
+
+  const primarySystems = useMemo(() => bodySystems.slice(0, 5), []);
+  const secondarySystems = useMemo(() => bodySystems.slice(5), []);
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -361,33 +496,56 @@ function MedicalLibraryContent() {
             exit="exit"
             className="space-y-6"
           >
-            {/* Merged Search & Type Filters Header Card */}
-            <div className="relative p-2.5 rounded-3xl bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/80 shadow-md flex flex-col lg:flex-row gap-4 items-center justify-between">
-              {/* Search input (MBS billing style input) */}
-              <div className="relative flex-1 w-full">
-                <div className="relative flex items-center">
-                  <Lucide.Search className="absolute left-4 w-5 h-5 text-slate-400 dark:text-slate-500" />
+            {/* Side-by-Side Dual Search boxes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full select-none">
+              {/* Box 1: Condition search */}
+              <div className="flex flex-col gap-1.5 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">search by medical condition</span>
+                <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
+                  <Lucide.Search className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
                   <input
                     type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by condition, system, symptoms, or keyword..."
-                    className="w-full pl-12 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+                    value={searchCondition}
+                    onChange={(e) => setSearchCondition(e.target.value)}
+                    placeholder="Enter symptoms or condition name..."
+                    className="w-full pl-11 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
                   />
-                  {searchQuery && (
+                  {searchCondition && (
                     <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-4 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                      onClick={() => setSearchCondition("")}
+                      className="absolute right-4 p-1 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                     >
-                      <Lucide.X className="w-4 h-4" />
+                      <Lucide.X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Box 2: Approach search */}
+              <div className="flex flex-col gap-1.5 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-455 dark:text-slate-500 tracking-wider">search by approach</span>
+                <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
+                  <Lucide.SlidersHorizontal className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchApproach}
+                    onChange={(e) => setSearchApproach(e.target.value)}
+                    placeholder="Enter management type, guideline, category..."
+                    className="w-full pl-11 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+                  />
+                  {searchApproach && (
+                    <button
+                      onClick={() => setSearchApproach("")}
+                      className="absolute right-4 p-1 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                    >
+                      <Lucide.X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Body system grid */}
-            <div className="space-y-3">
+            {/* Body system navigation & saved notes filters */}
+            <div className="space-y-3 select-none">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                   Browse by Body System
@@ -395,7 +553,7 @@ function MedicalLibraryContent() {
                 {selectedSystem !== "all" && (
                   <button
                     onClick={() => setSelectedSystem("all")}
-                    className="text-xs font-bold text-green-600 dark:text-green-400 hover:text-green-500 transition-colors flex items-center gap-1"
+                    className="text-xs font-bold text-green-600 dark:text-green-400 hover:text-green-500 transition-colors flex items-center gap-1 border-none bg-transparent cursor-pointer"
                   >
                     <Lucide.RotateCcw className="w-3 h-3" />
                     Reset Category
@@ -403,18 +561,18 @@ function MedicalLibraryContent() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200/50">
+              <div className="flex flex-wrap gap-2.5 items-center">
                 <button
                   onClick={() => setSelectedSystem("all")}
-                  className={`px-4 py-2 text-xs font-bold rounded-full border transition-all ${
+                  className={`px-4 py-2.5 text-xs font-bold rounded-full border transition-all cursor-pointer ${
                     selectedSystem === "all"
-                      ? "bg-slate-900 text-white border-slate-955 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
+                      ? "bg-slate-900 text-white border-slate-950 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm"
                       : "bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955"
                   }`}
                 >
                   All Systems
                 </button>
-                {bodySystems.map((system) => {
+                {primarySystems.map((system) => {
                   const count = systemCounts.get(system.id) ?? 0;
                   const isSelected = selectedSystem === system.id;
                   const sys = getSystem(system.id);
@@ -422,111 +580,199 @@ function MedicalLibraryContent() {
                     <button
                       key={system.id}
                       onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
-                      className={`px-4 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 ${
+                      className={`px-4 py-2.5 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 cursor-pointer ${
                         isSelected
                           ? `bg-gradient-to-r ${sys.gradient} text-white border-transparent shadow-sm`
                           : `bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955 ${sys.border}`
                       }`}
                     >
                       <span>{system.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
-                        isSelected
-                          ? "bg-white/20 text-white"
-                          : "bg-slate-100 dark:bg-slate-800/85 text-slate-500"
-                      }`}>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${isSelected
+                          ? "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                        }`}>
                         {count}
                       </span>
                     </button>
                   );
                 })}
+                <button
+                  onClick={() => setShowAllSystemsPanel(!showAllSystemsPanel)}
+                  className={`px-4 py-2.5 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+                    showAllSystemsPanel
+                      ? "bg-teal-700 text-white border-teal-700 shadow-sm"
+                      : "bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955"
+                  }`}
+                >
+                  <span>More Systems</span>
+                  <Lucide.ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showAllSystemsPanel ? "rotate-180" : ""}`} />
+                </button>
+
+                <div className="w-[1px] h-6 bg-slate-250 dark:bg-slate-800 mx-1.5 hidden sm:block" />
+
+                {/* Favorite filter toggle */}
+                <button
+                  onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                  className={`px-4 py-2.5 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+                    showFavoritesOnly
+                      ? "bg-rose-500 text-white border-rose-500 shadow-sm"
+                      : "bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955"
+                  }`}
+                >
+                  <Lucide.Heart className={`w-3.5 h-3.5 ${showFavoritesOnly ? "fill-white text-white" : "text-rose-500"}`} />
+                  <span>Saved Notes ({favorites.length})</span>
+                </button>
               </div>
+
+              {/* collapsible body system drawer */}
+              <AnimatePresence>
+                {showAllSystemsPanel && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="overflow-hidden bg-slate-50/50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-200/40 dark:border-slate-800/80 flex flex-wrap gap-2 mt-2"
+                  >
+                    {secondarySystems.map((system) => {
+                      const count = systemCounts.get(system.id) ?? 0;
+                      const isSelected = selectedSystem === system.id;
+                      const sys = getSystem(system.id);
+                      return (
+                        <button
+                          key={system.id}
+                          onClick={() => setSelectedSystem(isSelected ? "all" : system.id)}
+                          className={`px-3.5 py-2 text-xs font-bold rounded-full border flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 cursor-pointer ${
+                            isSelected
+                              ? `bg-gradient-to-r ${sys.gradient} text-white border-transparent shadow-sm`
+                              : `bg-white/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 border-slate-200/50 dark:border-slate-800/80 hover:bg-white dark:hover:bg-slate-955 ${sys.border}`
+                          }`}
+                        >
+                          <span>{system.name}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold ${isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500"}`}>{count}</span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Condition listing */}
-            <div className="space-y-4">
-              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+            {/* Condition breadcrumb category grouped listing */}
+            <div className="space-y-8">
+              <h2 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest select-none">
                 Available Medical Libraries ({filteredConditions.length})
               </h2>
 
               {filteredConditions.length === 0 ? (
-                <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 p-12 text-center max-w-lg mx-auto">
+                <div className="bg-white/40 dark:bg-slate-900/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 p-12 text-center max-w-lg mx-auto select-none">
                   <Lucide.Search className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-                  <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">No medical content found</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting your filters, system category, or searching for other symptoms.</p>
+                  <h3 className="font-sans text-lg text-slate-900 dark:text-slate-200 mt-3 font-bold tracking-tight">No medical notes found</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Try adjusting your condition filters, system category, or searching for other symptoms.</p>
                   <button
-                    onClick={() => { setSearchQuery(""); setSelectedSystem("all"); }}
-                    className="mt-5 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-xs rounded-full hover:shadow-lg hover:shadow-green-500/20 active:scale-95 transition-all"
+                    onClick={() => { setSearchCondition(""); setSearchApproach(""); setSelectedSystem("all"); setShowFavoritesOnly(false); }}
+                    className="mt-5 px-5 py-2.5 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold text-xs rounded-full hover:shadow-lg border-none cursor-pointer active:scale-95 transition-all"
                   >
                     Clear All Filters
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {filteredConditions.map((condition) => {
-                    const sys = getSystem(condition.system);
-                    return (
-                      <motion.div
-                        key={condition.id}
-                        variants={cardVariants}
-                        initial="hidden"
-                        animate="visible"
-                        whileHover={{ y: -3 }}
-                        whileTap={{ scale: 0.99 }}
-                        className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
-                        onClick={() => handleOpenCondition(condition)}
-                      >
-                        <div>
-                          <div className="flex justify-between items-center mb-3">
-                            <span className="font-sans text-sm font-bold text-green-600 dark:text-green-400">
-                              {condition.id}
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              {condition.isPremium && (
-                                <span className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-lg text-slate-500 dark:text-slate-400" title="Premium Content">
-                                  <Lucide.Lock className="w-3.5 h-3.5" />
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {displayedConditions.map((condition) => {
+                      const sys = getSystem(condition.system);
+                      const isStarred = favorites.includes(condition.id);
+                      return (
+                        <motion.div
+                          key={condition.id}
+                          variants={cardVariants}
+                          initial="hidden"
+                          animate="visible"
+                          whileHover={{ y: -3 }}
+                          whileTap={{ scale: 0.99 }}
+                          className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group"
+                          onClick={() => handleOpenCondition(condition)}
+                        >
+                          <div>
+                            <div className="flex justify-between items-center mb-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
+                                  {condition.id}
                                 </span>
-                              )}
+                                {condition.isPremium ? (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
+                                    <Lucide.Lock className="w-2.5 h-2.5" />
+                                    Paid Only
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
+                                    <Lucide.Unlock className="w-2.5 h-2.5" />
+                                    Free Access
+                                  </span>
+                                )}
+                              </div>
+                              {/* Star favorite toggle */}
+                              <button
+                                onClick={(e) => toggleFavorite(e, condition.id)}
+                                className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
+                                title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
+                              >
+                                <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500 animate-scale-up" : "text-slate-400"}`} />
+                              </button>
+                            </div>
+
+                            <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
+                              {condition.name}
+                            </h3>
+
+                            <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+                              <span>{condition.system}</span>
+                              <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
+                              <span>{condition.category}</span>
+                            </div>
+
+                            <div className="space-y-1 mb-4">
+                              {condition.symptoms.slice(0, 2).map((sym, i) => (
+                                <p
+                                  key={i}
+                                  className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
+                                >
+                                  <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+                                  <span className="truncate">{sym}</span>
+                                </p>
+                              ))}
                             </div>
                           </div>
 
-                          <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-2">
-                            {condition.name}
-                          </h3>
-
-                          <p className="font-sans text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mb-4">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-350 dark:bg-slate-700" />
-                            {condition.category}
-                          </p>
-
-                          <div className="space-y-1.5 mb-4">
-                            {condition.symptoms.slice(0, 2).map((sym, i) => (
-                              <p
-                                key={i}
-                                className="font-sans text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5"
-                              >
-                                <span className="text-green-600 dark:text-green-500 font-bold">•</span>
-                                <span className="truncate">{sym}</span>
-                              </p>
-                            ))}
+                          <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
+                            <div
+                              onClick={(e) => handleTagClick(e, "system", condition.system)}
+                              className="flex flex-col cursor-pointer group/footer"
+                            >
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+                            </div>
+                            <div className="flex flex-col text-right">
+                              <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+                              <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
+                            </div>
                           </div>
-                        </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
 
-                        <div className="border-t border-slate-150 dark:border-slate-800/80 pt-4 mt-auto flex items-center justify-between">
-                          <div
-                            onClick={(e) => handleTagClick(e, "system", condition.system)}
-                            className="flex flex-col cursor-pointer group/footer"
-                          >
-                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">System</span>
-                            <span className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
-                          </div>
-                          <div className="flex flex-col text-right">
-                            <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Last Updated</span>
-                            <span className={`font-sans text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  {visibleLimit < filteredConditions.length && (
+                    <div className="flex justify-center pt-4 select-none">
+                      <button
+                        onClick={() => setVisibleLimit((prev) => prev + 9)}
+                        className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-green-500/50 dark:hover:border-green-500/30 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-full shadow-md hover:shadow-lg hover:shadow-green-500/5 active:scale-95 transition-all flex items-center gap-2 group border-dashed cursor-pointer"
+                      >
+                        <span>See More Guidelines</span>
+                        <Lucide.ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-green-500 group-hover:translate-y-0.5 transition-all duration-300" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -548,7 +794,7 @@ function MedicalLibraryContent() {
                 params.delete("id");
                 router.push(`/dashboard/medical-library?${params.toString()}`);
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900 border border-slate-200/40 dark:border-slate-800/50 text-xs font-semibold transition-all"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-900 border border-slate-200/40 dark:border-slate-800/50 text-xs font-semibold transition-all cursor-pointer border-solid bg-transparent"
             >
               <Lucide.ArrowLeft className="w-4 h-4" />
               Back to Search Grid
@@ -557,24 +803,38 @@ function MedicalLibraryContent() {
             {/* Split Screen 12 Column Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               {/* Left Column: Clinical Info */}
-              <div className="lg:col-span-7">
-                <div className="glass dark:glass-strong rounded-3xl p-6 lg:p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg space-y-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+              <div className="lg:col-span-7 min-w-0">
+                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+                  {/* Category breadcrumbs pathway */}
+                  <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 select-none">
+                    <span>{selectedCondition.system}</span>
+                    <Lucide.ChevronRight className="w-3 h-3 text-slate-350" />
+                    <span>{selectedCondition.category}</span>
+                    <Lucide.ChevronRight className="w-3 h-3 text-slate-350" />
+                    <span className="text-slate-600 dark:text-slate-350">{selectedCondition.name}</span>
+                  </div>
 
                   {/* Header info */}
                   <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800/80">
                     <div>
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap select-none">
                         <span
                           onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
-                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
+                          className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-850 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
                         >
                           {selectedCondition.system}
                         </span>
-                        {selectedCondition.isPremium && (
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 border border-slate-600 flex items-center gap-1">
+                        {selectedCondition.isPremium ? (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-200/30">
                             <Lucide.Lock className="w-2.5 h-2.5" />
-                            Premium Library
+                            Premium Access (Paid)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-2.5 py-0.5 rounded-full border border-emerald-250/30">
+                            <Lucide.Unlock className="w-2.5 h-2.5" />
+                            Free Reference Note
                           </span>
                         )}
                       </div>
@@ -584,42 +844,59 @@ function MedicalLibraryContent() {
                     </div>
                   </div>
 
+                  {/* Dictated Super Summary section */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/5 border border-emerald-250/30 dark:border-emerald-900/30 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+                    <div className="flex items-center justify-between select-none">
+                      <h4 className="font-sans text-xs font-bold tracking-wider uppercase text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Lucide.FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-500" />
+                        GP Edge Super Summary
+                      </h4>
+                      <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 px-2 py-0.5 rounded-full text-[9px] font-bold text-slate-500 font-mono">
+                        <Lucide.Mic className="w-2.5 h-2.5 text-emerald-500 animate-pulse" />
+                        Dictated Note
+                      </div>
+                    </div>
+                    <p className="font-sans text-xs md:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200">
+                      {selectedCondition.document?.summary || `This high-yield clinical overview for ${selectedCondition.name} details major symptoms presentation, diagnostic steps benchmarks, and stepwise management options.`}
+                    </p>
+                  </div>
+
                   {/* Metadata profile chips */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-100/50 dark:bg-slate-900/60 p-3 rounded-2xl border border-slate-200/30 dark:border-slate-800/30">
                     <div>
-                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Author</span>
-                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.author}</span>
+                      <span className="font-sans text-[9px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block select-none">Author</span>
+                      <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.author}</span>
                     </div>
                     <div
                       onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
-                      className="cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/85 p-1.5 rounded-xl transition-colors"
+                      className="cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/85 p-1 rounded-xl transition-colors"
                     >
-                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">System</span>
-                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.system}</span>
+                      <span className="font-sans text-[9px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block select-none">System</span>
+                      <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.system}</span>
                     </div>
-                    <div className="p-1.5 rounded-xl">
-                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Category</span>
-                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.category}</span>
+                    <div className="p-1 rounded-xl">
+                      <span className="font-sans text-[9px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block select-none">Category</span>
+                      <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.category}</span>
                     </div>
                     <div>
-                      <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block">Last Updated</span>
-                      <span className="font-sans text-xs md:text-sm font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.lastUpdated}</span>
+                      <span className="font-sans text-[9px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block select-none">Last Updated</span>
+                      <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.lastUpdated}</span>
                     </div>
                   </div>
-                
+
                   {/* Rest of Clinical Details */}
                   {!selectedCondition.id.startsWith("CUSTOM-") ? (
                     <>
                       {/* Symptoms Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Clinical Signs & Symptoms</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Clinical Signs & Symptoms</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {selectedCondition.symptoms.map((symptom, i) => (
                             <div
                               key={i}
-                              className="flex gap-2.5 font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
+                              className="flex gap-2.5 font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15"
                             >
-                              <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-1" />
+                              <Lucide.Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
                               <span>{symptom}</span>
                             </div>
                           ))}
@@ -628,14 +905,14 @@ function MedicalLibraryContent() {
 
                       {/* Diagnosis Steps Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Diagnosis & Assessment Criteria</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Diagnosis & Assessment Criteria</h4>
                         <div className="space-y-2.5">
                           {selectedCondition.diagnosisCriteria.map((crit, i) => (
                             <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
-                              <span className="text-[10px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm">
+                              <span className="text-[9px] font-mono font-bold text-green-600 dark:text-green-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded shrink-0 mt-0.5 border border-slate-200/40 dark:border-slate-700/40 shadow-sm select-none">
                                 Step {i + 1}
                               </span>
-                              <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">{crit}</p>
+                              <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">{crit}</p>
                             </div>
                           ))}
                         </div>
@@ -643,16 +920,16 @@ function MedicalLibraryContent() {
 
                       {/* Treatment & Management Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Management & Treatment Regimen</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Management & Treatment Regimen</h4>
                         <div className="space-y-2.5">
                           {selectedCondition.treatmentOptions.map((opt, i) => {
                             const sys = getSystem(selectedCondition.system);
                             return (
                               <div key={i} className={`bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl border-l-4 ${sys.borderLeft} flex items-start gap-3`}>
-                                <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-800/30">
+                                <span className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold text-[9px] flex items-center justify-center shrink-0 mt-0.5 border border-slate-200/20 dark:border-slate-850 select-none">
                                   {i + 1}
                                 </span>
-                                <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300 flex-1">{opt}</p>
+                                <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300 flex-1">{opt}</p>
                               </div>
                             );
                           })}
@@ -662,29 +939,28 @@ function MedicalLibraryContent() {
                       {/* Clinical Pearls & Guidelines */}
                       {selectedCondition.clinicalNotes && (
                         <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
-                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none">
                             <Lucide.Lightbulb className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" /> Clinical Pearls & Guidelines
                           </h4>
-                          <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-705 dark:text-slate-300 whitespace-pre-line">
+                          <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300 whitespace-pre-line">
                             {selectedCondition.clinicalNotes}
                           </p>
                         </div>
                       )}
-
                     </>
                   ) : (
                     <>
                       {/* For custom guidelines: show summary and info box */}
                       <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-5 space-y-4">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none">
                           <Lucide.Info className="w-4 h-4 text-teal-600" />
                           Guideline Reference Note
                         </h4>
-                        <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
-                          This is a custom clinical reference guideline uploaded directly to the library database. 
+                        <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
+                          This is a custom clinical reference guideline uploaded directly to the library database.
                           The full document content is rendered as a standalone page-layout in the preview pane on the right.
                         </p>
-                        <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-700 dark:text-slate-300">
+                        <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
                           Use the controls on the top-right of the preview to zoom, search, download, or open the document in a standalone page to print the clinical guidelines.
                         </p>
                       </div>
@@ -694,19 +970,19 @@ function MedicalLibraryContent() {
                   {/* Clinical References */}
                   {selectedCondition.references && selectedCondition.references.length > 0 && (
                     <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
-                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">
+                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">
                         Clinical References ({selectedCondition.references.length})
                       </h4>
                       <div className="grid grid-cols-1 gap-2">
                         {selectedCondition.references.map((ref) => (
                           <div key={ref.id} className="flex gap-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
-                            <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-700/30 flex items-center justify-center shrink-0 font-bold text-[10px] text-slate-500">
+                            <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-750 flex items-center justify-center shrink-0 font-bold text-[9px] text-slate-500 select-none">
                               {ref.id}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-705 dark:text-slate-300">{ref.text}</p>
+                              <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">{ref.text}</p>
                               {ref.url && (
-                                <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[11px] font-bold">
+                                <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[10px] font-bold">
                                   Access Online Source →
                                 </a>
                               )}
@@ -720,7 +996,7 @@ function MedicalLibraryContent() {
               </div>
 
               {/* Right Column: PDF Viewer or Placeholder */}
-              <div className="lg:col-span-5 space-y-5">
+              <div className="lg:col-span-5 space-y-5 min-w-0">
                 {selectedCondition.document ? (
                   <div className="flex flex-col space-y-4">
                     {/* PDF Toolbar */}
@@ -736,28 +1012,29 @@ function MedicalLibraryContent() {
                       </div>
                       {!selectedCondition.id.startsWith("CUSTOM-") && (
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                          <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors border-none bg-transparent cursor-pointer text-white">
                             <Lucide.ChevronLeft className="w-4 h-4" />
                           </button>
                           <span className="font-mono text-xs font-semibold">Page {pdfPage} of {selectedCondition.document.totalPages}</span>
-                          <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors">
+                          <button onClick={() => setPdfPage((p) => Math.min(selectedCondition.document!.totalPages, p + 1))} disabled={pdfPage === selectedCondition.document.totalPages} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors border-none bg-transparent cursor-pointer text-white">
                             <Lucide.ChevronRight className="w-4 h-4" />
                           </button>
                         </div>
                       )}
                       <div className="flex items-center gap-2">
-                        <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800">
+                        <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
                           <Lucide.Minus className="w-3.5 h-3.5" />
                         </button>
                         <span className="font-mono text-[10px] font-bold">{pdfZoom}%</span>
-                        <button onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800">
+                        <button onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
                           <Lucide.Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
                     {/* CSS Styles for Callouts & Tables */}
-                    <style dangerouslySetInnerHTML={{ __html: `
+                    <style dangerouslySetInnerHTML={{
+                      __html: `
                       .print-area h2 {
                         font-family: Georgia, serif !important;
                         font-size: 1.35rem !important;
@@ -768,6 +1045,9 @@ function MedicalLibraryContent() {
                         margin-top: 1.75rem !important;
                         margin-bottom: 0.75rem !important;
                         line-height: 1.25 !important;
+                      }
+                      .print-area p, .print-area li, .print-area ul, .print-area ol {
+                        color: #334155 !important;
                       }
                       .print-area table {
                         width: 100% !important;
@@ -859,12 +1139,97 @@ function MedicalLibraryContent() {
                         border-left: 5px solid #64748b !important;
                         color: #334155 !important;
                       }
+
+                      /* Dark mode overrides for print-area content */
+                      .dark .print-area {
+                        background-color: #0f172a !important;
+                        color: #f1f5f9 !important;
+                        border-color: #334155 !important;
+                      }
+                      .dark .print-area h1,
+                      .dark .print-area h2,
+                      .dark .print-area h3,
+                      .dark .print-area h4 {
+                        color: #2dd4bf !important;
+                        border-color: #2dd4bf !important;
+                      }
+                      .dark .print-area p,
+                      .dark .print-area li,
+                      .dark .print-area ul,
+                      .dark .print-area ol,
+                      .dark .print-area span {
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area table {
+                        border-color: #334155 !important;
+                        background-color: #1e293b !important;
+                      }
+                      .dark .print-area th {
+                        background-color: #115e59 !important;
+                        color: #f8fafc !important;
+                        border-color: #334155 !important;
+                      }
+                      .dark .print-area td {
+                        border-color: #334155 !important;
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area tr:nth-child(even) td {
+                        background-color: #1e293b !important;
+                      }
+                      .dark .print-area tr:nth-child(odd) td {
+                        background-color: #0f172a !important;
+                      }
+                      .dark .print-area .callout-block {
+                        border-color: transparent !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="info"], 
+                      .dark .print-area .callout-block:not([data-variant]) {
+                        background-color: rgba(20, 184, 166, 0.1) !important;
+                        border-left: 5px solid #2dd4bf !important;
+                        color: #a7f3d0 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="info"] > div:first-child, 
+                      .dark .print-area .callout-block:not([data-variant]) > div:first-child {
+                        color: #2dd4bf !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="pearl"] {
+                        background-color: rgba(20, 184, 166, 0.1) !important;
+                        border-left: 5px solid #2dd4bf !important;
+                        color: #a7f3d0 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="pearl"] > div:first-child {
+                        color: #2dd4bf !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="warning"] {
+                        background-color: rgba(245, 158, 11, 0.1) !important;
+                        border-left: 5px solid #fbbf24 !important;
+                        color: #fde68a !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="warning"] > div:first-child {
+                        color: #fbbf24 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="danger"] {
+                        background-color: rgba(239, 68, 68, 0.1) !important;
+                        border-left: 5px solid #f87171 !important;
+                        color: #fca5a5 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="danger"] > div:first-child {
+                        color: #f87171 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="billing"] {
+                        background-color: rgba(148, 163, 184, 0.1) !important;
+                        border-left: 5px solid #94a3b8 !important;
+                        color: #cbd5e1 !important;
+                      }
+                      .dark .print-area .callout-block[data-variant="billing"] > div:first-child {
+                        color: #94a3b8 !important;
+                      }
                     ` }} />
 
                     {/* PDF mock viewer */}
                     <div
                       ref={containerRef}
-                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-950/40 p-4 flex flex-col items-center overflow-auto max-h-[600px] w-full"
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-start overflow-auto max-h-[600px] w-full medical-scroll"
                     >
                       <div
                         style={{
@@ -902,7 +1267,7 @@ function MedicalLibraryContent() {
 
                           {/* Render custom guideline HTML or paginated default content */}
                           {selectedCondition.id.startsWith("CUSTOM-") ? (
-                            <div 
+                            <div
                               className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
                               dangerouslySetInnerHTML={{ __html: customHtml }}
                             />
@@ -914,10 +1279,12 @@ function MedicalLibraryContent() {
                                   <div className="text-center">
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
                                     <h2 className="font-sans text-lg font-extrabold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
-                                    <p className="text-[9px] text-slate-500 mt-0.5 italic">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
+                                    <p className="text-[9px] text-slate-500 mt-0.5 index-index">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
                                   </div>
-                                  <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">{selectedCondition.document.summary}</p>
-                                  
+                                  <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">
+                                    {selectedCondition.document?.summary || `This high-yield clinical overview for ${selectedCondition.name} details major symptoms presentation, diagnostic steps benchmarks, and stepwise management options.`}
+                                  </p>
+
                                   <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-[10px] space-y-2">
                                     <p className="font-bold text-slate-900">Metadata Profile:</p>
                                     <div className="grid grid-cols-2 gap-2">
@@ -942,7 +1309,7 @@ function MedicalLibraryContent() {
 
                                   <div className="space-y-2 pt-2 border-t border-slate-100">
                                     <h3 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider">Clinical Presentation Summary</h3>
-                                    <p className="text-slate-605 leading-relaxed font-medium">
+                                    <p className="text-slate-650 leading-relaxed font-medium">
                                       {selectedCondition.name} is a high-priority diagnostic module requiring precise assessment protocols. This guideline serves as the evidence-backed decision pathway for GP Registrars preparing for clinical exams.
                                     </p>
                                   </div>
@@ -956,12 +1323,12 @@ function MedicalLibraryContent() {
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 2 // CLINICAL DIAGNOSTIC MATRIX</span>
                                     <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Diagnostic Criteria</h2>
                                   </div>
-                                  <p className="font-medium text-slate-500">The following standard laboratory and clinical indicators must be evaluated sequentially for {selectedCondition.name}:</p>
+                                  <p className="font-medium text-slate-500 font-sans">The following standard laboratory and clinical indicators must be evaluated sequentially for {selectedCondition.name}:</p>
                                   <div className="space-y-2">
                                     {selectedCondition.diagnosisCriteria.map((c, i) => (
                                       <div key={i} className="flex gap-3 border border-slate-150 p-3 rounded-lg bg-slate-50/50 shadow-sm">
                                         <span className="font-mono font-bold text-green-600 dark:text-green-500 shrink-0 text-xs">0{i + 1}</span>
-                                        <p className="text-slate-700 font-medium leading-relaxed">{c}</p>
+                                        <p className="text-slate-700 font-semibold leading-relaxed">{c}</p>
                                       </div>
                                     ))}
                                   </div>
@@ -975,7 +1342,7 @@ function MedicalLibraryContent() {
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 3 // THERAPEUTIC REGIMEN MANAGEMENT</span>
                                     <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Recommended Interventions</h2>
                                   </div>
-                                  <p className="font-medium text-slate-500">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
+                                  <p className="font-medium text-slate-500 font-sans">Stepwise pharmacological and non-pharmacological directives for {selectedCondition.name}:</p>
                                   <div className="space-y-2">
                                     {selectedCondition.treatmentOptions.map((opt, i) => (
                                       <div key={i} className="flex gap-3 items-start border border-slate-150 bg-slate-50/40 p-3 rounded-lg shadow-sm">
@@ -996,7 +1363,6 @@ function MedicalLibraryContent() {
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 4 // CLINICAL NOTES & REFERENCES</span>
                                     <h2 className="font-sans text-base font-extrabold text-slate-900 mt-1">Pearls & Bibliography</h2>
                                   </div>
-                                  
                                   <div className="bg-green-50/80 dark:bg-green-950/20 border border-green-200/60 dark:border-green-900/30 p-3 rounded-lg text-[10.5px] leading-relaxed text-slate-700 dark:text-slate-300 italic space-y-1">
                                     <p className="font-bold text-green-700 dark:text-green-400 not-italic mb-0.5 flex items-center gap-1 text-[10px]">
                                       <Lucide.Lightbulb className="w-3.5 h-3.5 text-green-600 dark:text-green-500" />
@@ -1012,7 +1378,7 @@ function MedicalLibraryContent() {
                                         <div key={ref.id} className="py-2 flex items-start gap-2.5 text-[9.5px]">
                                           <span className="font-semibold text-slate-400 shrink-0 font-mono">[{ref.id}]</span>
                                           <div className="flex-1">
-                                            <p className="text-slate-700 font-medium leading-relaxed">
+                                            <p className="text-slate-700 font-semibold leading-relaxed">
                                               {ref.text}
                                             </p>
                                           </div>
@@ -1034,31 +1400,28 @@ function MedicalLibraryContent() {
                       </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    {/* Action buttons including GP Edge notes download */}
+                    <div className="flex flex-col sm:flex-row gap-3 select-none">
                       <button
                         onClick={() => {
                           window.open(`/medical-library/view-pdf?id=${selectedCondition.id}`, "_blank");
                         }}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-green-600 hover:bg-green-500 dark:bg-green-600 dark:hover:bg-green-500 text-white font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm"
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-green-600 hover:bg-green-500 dark:bg-green-600 dark:hover:bg-green-500 text-white font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm border-none cursor-pointer"
                       >
                         <Lucide.ExternalLink className="w-4 h-4 shrink-0" />
                         <span>Open Standalone PDF</span>
                       </button>
-                      {selectedCondition.document.downloadUrl && (
-                        <a
-                          href={selectedCondition.document.downloadUrl}
-                          download
-                          className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm"
-                        >
-                          <Lucide.Download className="w-4 h-4 shrink-0" />
-                          <span>Save PDF Guidelines</span>
-                        </a>
-                      )}
+                      <button
+                        onClick={() => handleDownloadNotes(selectedCondition)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-5 py-4 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-bold rounded-2xl shadow-lg transition-all duration-200 active:scale-[0.98] text-sm border-none cursor-pointer"
+                      >
+                        <Lucide.Download className="w-4 h-4 shrink-0" />
+                        <span>Download GP Edge Notes</span>
+                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="glass dark:glass-strong rounded-3xl p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg text-center text-slate-400 space-y-4">
+                  <div className="glass dark:glass-strong rounded-3xl p-8 border border-slate-200/50 dark:border-slate-800/60 shadow-lg text-center text-slate-400 space-y-4 select-none">
                     <Lucide.FileWarning className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto" />
                     <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">No PDF Guideline Attached</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">

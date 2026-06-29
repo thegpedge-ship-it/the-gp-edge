@@ -8,6 +8,12 @@ const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.resolve(__dirname),
 
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
+
+  experimental: {
+    optimizePackageImports: ["lucide-react", "framer-motion"],
+  },
+
   images: {
     remotePatterns: [
       {
@@ -16,12 +22,8 @@ const nextConfig = {
       },
     ],
   },
-
-  outputFileTracingRoot: path.resolve(__dirname),
-
-  experimental: {
-    optimizePackageImports: ["lucide-react", "framer-motion"],
-  },
 };
 
 export default nextConfig;
+
+

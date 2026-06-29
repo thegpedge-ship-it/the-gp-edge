@@ -6,6 +6,7 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getAdminUsers, saveAdminUsers, AdminUser } from "@/lib/quizData";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -19,6 +20,7 @@ const itemVariants = {
 type FilterType = "all" | "active" | "suspended" | "premium" | "free";
 
 export default function UsersPage() {
+  const { isReadOnly } = useAdminRole();
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -41,6 +43,7 @@ export default function UsersPage() {
   });
 
   const toggleSuspend = (userId: number) => {
+    if (isReadOnly) return;
     const updated = users.map((u) =>
       u.id === userId
         ? { ...u, status: u.status === "active" ? ("suspended" as const) : ("active" as const) }
@@ -72,6 +75,23 @@ export default function UsersPage() {
         subtitle="Account status, plan distribution, and subscription operations"
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-455" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but suspending or reinstating accounts is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* KPI row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -203,9 +223,6 @@ export default function UsersPage() {
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
                   Status
                 </th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-                  Notes
-                </th>
                 <th className="text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-6 py-3">
                   Actions
                 </th>
@@ -242,23 +259,19 @@ export default function UsersPage() {
                   <td className="px-4 py-4">
                     <StatusBadge variant={user.status} />
                   </td>
-                  <td className="px-4 py-4">
-                    {user.notes && user.notes.length > 0 ? (
-                      <span className="text-xs text-slate-500 dark:text-slate-400 italic">{user.notes[0]}</span>
-                    ) : (
-                      <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
-                    )}
-                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <button
-                        onClick={() => toggleSuspend(user.id)}
+                        onClick={() => !isReadOnly && toggleSuspend(user.id)}
+                        disabled={isReadOnly}
                         className={`p-1.5 rounded-lg transition-all ${
-                          user.status === "active"
-                            ? "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                            : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                          isReadOnly
+                            ? "opacity-30 cursor-not-allowed text-slate-300"
+                            : user.status === "active"
+                              ? "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                              : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                         }`}
-                        title={user.status === "active" ? "Suspend account" : "Reinstate account"}
+                        title={isReadOnly ? "View-Only Mode" : user.status === "active" ? "Suspend account" : "Reinstate account"}
                       >
                         {user.status === "active" ? (
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

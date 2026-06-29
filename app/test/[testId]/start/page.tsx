@@ -179,9 +179,11 @@ export default function TestPage() {
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
   const [timeLeft, setTimeLeft] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
   const submittedRef = useRef(false);
 
   /* Resolve the test from its ID — URL params are never trusted.
@@ -228,13 +230,14 @@ export default function TestPage() {
     setSubmitted(true);
   }, []);
 
-  /* Countdown timer — auto-submit at zero */
+  /* Countdown timer — auto-submit at zero. Mock tests only. */
   useEffect(() => {
-    if (loading || submitted) return;
+    if (loading || submitted || !config?.timed) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
+          setTimedOut(true);
           handleSubmit();
           return 0;
         }
@@ -242,7 +245,14 @@ export default function TestPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted, handleSubmit]);
+  }, [loading, submitted, handleSubmit, config]);
+
+  /* Elapsed count-up — tracks time used for the result screen on every test. */
+  useEffect(() => {
+    if (loading || submitted) return;
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(interval);
+  }, [loading, submitted]);
 
   const goTo = (index: number) => {
     if (index < 0 || index >= questions.length) return;
@@ -302,13 +312,29 @@ export default function TestPage() {
           className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden text-center"
         >
           <div className="px-8 pt-8 pb-6">
-            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-4">
-              <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Test Submitted</h1>
-            <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">{config.name}</p>
+            {timedOut ? (
+              <>
+                <div className="w-16 h-16 mx-auto rounded-full bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Time&rsquo;s Up!</h1>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
+                  Your time ran out, so <span className="font-semibold">{config.name}</span> was submitted automatically.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Test Submitted</h1>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">{config.name}</p>
+              </>
+            )}
             <p className="text-5xl font-bold text-emerald-600 dark:text-emerald-400 mt-6">{score}%</p>
             <p className="text-[12px] text-slate-400 dark:text-slate-500 mt-1">Your Score</p>
           </div>
@@ -322,7 +348,7 @@ export default function TestPage() {
               <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Attempted</p>
             </div>
             <div>
-              <p className="text-lg font-bold text-slate-700 dark:text-slate-200 leading-none">{formatTime(config.durationMinutes * 60 - timeLeft)}</p>
+              <p className="text-lg font-bold text-slate-700 dark:text-slate-200 leading-none">{formatTime(elapsed)}</p>
               <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Time Used</p>
             </div>
           </div>
@@ -349,18 +375,20 @@ export default function TestPage() {
       <header className="flex-shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between gap-4">
         <h1 className="text-[15px] font-bold text-slate-900 dark:text-slate-100 truncate">{config.name}</h1>
         <div className="flex items-center gap-4 flex-shrink-0">
-          <div
-            className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border text-[14px] font-bold tabular-nums ${
-              timeLeft <= 60
-                ? "border-red-200 bg-red-50 text-red-500 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400"
-                : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/20 dark:text-emerald-400"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {formatTime(timeLeft)}
-          </div>
+          {config.timed && (
+            <div
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-lg border text-[14px] font-bold tabular-nums ${
+                timeLeft <= 60
+                  ? "border-red-200 bg-red-50 text-red-500 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-400"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-900/20 dark:text-emerald-400"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              {formatTime(timeLeft)}
+            </div>
+          )}
           <button
             onClick={() => setShowConfirm(true)}
             className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
@@ -542,7 +570,10 @@ export default function TestPage() {
               <div className="px-6 pt-6 pb-4 text-center">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Submit Test?</h2>
                 <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
-                  You still have <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> remaining. This action cannot be undone.
+                  {config.timed && (
+                    <>You still have <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> remaining. </>
+                  )}
+                  This action cannot be undone.
                 </p>
               </div>
               <div className="px-6 pb-5 grid grid-cols-3 gap-2 text-center">

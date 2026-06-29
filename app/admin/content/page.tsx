@@ -10,6 +10,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -24,6 +25,7 @@ const typeColors: Record<string, string> = {
 };
 
 export default function ContentPage() {
+  const { isReadOnly } = useAdminRole();
   const router = useRouter();
   const [content, setContent] = useState<MedicalContent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,12 +102,14 @@ export default function ContentPage() {
   }, [sortedContent, visibleCount]);
 
   const updateStatus = (id: number, newStatus: MedicalContent["status"]) => {
+    if (isReadOnly) return;
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
   };
 
   const deleteContent = (id: number) => {
+    if (isReadOnly) return;
     if (confirm("Are you sure you want to delete this content? This action cannot be undone.")) {
       const updated = content.filter((c) => c.id !== id);
       setContent(updated);
@@ -127,6 +131,7 @@ export default function ContentPage() {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -252,6 +257,7 @@ export default function ContentPage() {
   };
 
   const handleSaveAllDocuments = () => {
+    if (isReadOnly) return;
     const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
     if (successItems.length === 0) {
       alert("No successfully extracted documents to import.");
@@ -372,6 +378,7 @@ export default function ContentPage() {
 
   // Submit and save content
   const handleSaveContent = (type: MedicalContent["type"]) => {
+    if (isReadOnly) return;
     if (!newTitle.trim()) {
       alert("Please fill in the title field.");
       return;
@@ -474,8 +481,9 @@ export default function ContentPage() {
         subtitle={`Clinical guidelines, protocols, and care pathways · ${content.length} items`}
         actions={
           <button 
-            onClick={() => { resetForm(); setShowAddModal(true); }}
-            className="px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0"
+            onClick={() => { if (isReadOnly) return; resetForm(); setShowAddModal(true); }}
+            disabled={isReadOnly}
+            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Content
@@ -483,6 +491,23 @@ export default function ContentPage() {
         }
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Stats */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

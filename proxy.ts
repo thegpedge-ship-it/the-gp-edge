@@ -8,6 +8,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isProtectedRoute = createRouteMatcher([
   "/dashboard(.*)", // All dashboard pages and sub-pages
   "/exam-prep(.*)", // Exam-prep section
+  "/onboarding(.*)", // Post-signup profile completion
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

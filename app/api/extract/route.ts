@@ -4,18 +4,214 @@ import { join } from "path";
 import os from "os";
 import fs from "fs";
 import mammoth from "mammoth";
+import { PDFParse } from "pdf-parse";
+import { execFileSync } from "child_process";
+
+// Shim canvas globals (DOMMatrix, Image, etc.) for pdfjs-dist in Next.js Node environment using pure JS classes to avoid native binding errors
+class DOMMatrixShim {
+  a: number = 1;
+  b: number = 0;
+  c: number = 0;
+  d: number = 1;
+  e: number = 0;
+  f: number = 0;
+
+  m11: number = 1; m12: number = 0; m13: number = 0; m14: number = 0;
+  m21: number = 0; m22: number = 1; m23: number = 0; m24: number = 0;
+  m31: number = 0; m32: number = 0; m33: number = 1; m34: number = 0;
+  m41: number = 0; m42: number = 0; m43: number = 0; m44: number = 1;
+
+  constructor(init?: any) {
+    if (Array.isArray(init)) {
+      if (init.length === 6) {
+        this.a = this.m11 = init[0];
+        this.b = this.m12 = init[1];
+        this.c = this.m21 = init[2];
+        this.d = this.m22 = init[3];
+        this.e = this.m41 = init[4];
+        this.f = this.m42 = init[5];
+      } else if (init.length === 16) {
+        this.m11 = this.a = init[0];
+        this.m12 = this.b = init[1];
+        this.m13 = init[2];
+        this.m14 = init[3];
+        this.m21 = this.c = init[4];
+        this.m22 = this.d = init[5];
+        this.m23 = init[6];
+        this.m24 = init[7];
+        this.m31 = init[8];
+        this.m32 = init[9];
+        this.m33 = init[10];
+        this.m34 = init[11];
+        this.m41 = this.e = init[12];
+        this.m42 = this.f = init[13];
+        this.m43 = init[14];
+        this.m44 = init[15];
+      }
+    } else if (init && typeof init === "object") {
+      this.a = this.m11 = init.a !== undefined ? init.a : 1;
+      this.b = this.m12 = init.b !== undefined ? init.b : 0;
+      this.c = this.m21 = init.c !== undefined ? init.c : 0;
+      this.d = this.m22 = init.d !== undefined ? init.d : 1;
+      this.e = this.m41 = init.e !== undefined ? init.e : 0;
+      this.f = this.m42 = init.f !== undefined ? init.f : 0;
+    }
+  }
+
+  get is2D(): boolean {
+    return (
+      this.m31 === 0 && this.m32 === 0 && this.m33 === 1 && this.m34 === 0 &&
+      this.m43 === 0 && this.m44 === 1 && this.m13 === 0 && this.m14 === 0 &&
+      this.m23 === 0 && this.m24 === 0
+    );
+  }
+
+  get isIdentity(): boolean {
+    return (
+      this.m11 === 1 && this.m12 === 0 && this.m13 === 0 && this.m14 === 0 &&
+      this.m21 === 0 && this.m22 === 1 && this.m23 === 0 && this.m24 === 0 &&
+      this.m31 === 0 && this.m32 === 0 && this.m33 === 1 && this.m34 === 0 &&
+      this.m41 === 0 && this.m42 === 0 && this.m43 === 0 && this.m44 === 1
+    );
+  }
+
+  static fromMatrix(init?: any) { return new DOMMatrixShim(init); }
+  static fromFloat32Array(init: Float32Array) { return new DOMMatrixShim(Array.from(init)); }
+  static fromFloat64Array(init: Float64Array) { return new DOMMatrixShim(Array.from(init)); }
+
+  translate(tx: number = 0, ty: number = 0, tz: number = 0): DOMMatrixShim {
+    const copy = new DOMMatrixShim();
+    Object.assign(copy, this);
+    copy.e = copy.m41 = this.e + tx * this.a + ty * this.c;
+    copy.f = copy.m42 = this.f + tx * this.b + ty * this.d;
+    return copy;
+  }
+
+  scale(sx: number = 1, sy: number = sx, sz: number = 1): DOMMatrixShim {
+    const copy = new DOMMatrixShim();
+    Object.assign(copy, this);
+    copy.a = copy.m11 = this.a * sx;
+    copy.b = copy.m12 = this.b * sx;
+    copy.c = copy.m21 = this.c * sy;
+    copy.d = copy.m22 = this.d * sy;
+    return copy;
+  }
+
+  multiply(other: DOMMatrixShim): DOMMatrixShim {
+    const copy = new DOMMatrixShim();
+    copy.a = copy.m11 = this.a * other.a + this.c * other.b;
+    copy.b = copy.m12 = this.b * other.a + this.d * other.b;
+    copy.c = copy.m21 = this.a * other.c + this.c * other.d;
+    copy.d = copy.m22 = this.b * other.c + this.d * other.d;
+    copy.e = copy.m41 = this.a * other.e + this.c * other.f + this.e;
+    copy.f = copy.m42 = this.b * other.e + this.d * other.f + this.f;
+    return copy;
+  }
+
+  inverse(): DOMMatrixShim {
+    const det = this.a * this.d - this.b * this.c;
+    if (det === 0) return new DOMMatrixShim();
+    const inv = new DOMMatrixShim();
+    inv.a = inv.m11 = this.d / det;
+    inv.b = inv.m12 = -this.b / det;
+    inv.c = inv.m21 = -this.c / det;
+    inv.d = inv.m22 = this.a / det;
+    inv.e = inv.m41 = (this.c * this.f - this.d * this.e) / det;
+    inv.f = inv.m42 = (this.b * this.e - this.a * this.f) / det;
+    return inv;
+  }
+
+  transformPoint(point: any) {
+    const x = point.x || 0;
+    const y = point.y || 0;
+    return {
+      x: x * this.a + y * this.c + this.e,
+      y: x * this.b + y * this.d + this.f,
+      z: point.z || 0,
+      w: point.w || 1
+    };
+  }
+}
+
+class ImageDataShim {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+  constructor(width: number, height: number) {
+    this.width = width;
+    this.height = height;
+    this.data = new Uint8ClampedArray(width * height * 4);
+  }
+}
+
+class Path2DShim {
+  constructor() {}
+  addPath() {}
+  closePath() {}
+  moveTo() {}
+  lineTo() {}
+  quadraticCurveTo() {}
+  bezierCurveTo() {}
+  arc() {}
+  arcTo() {}
+  rect() {}
+}
+
+if (typeof global !== "undefined") {
+  (global as any).DOMMatrix = DOMMatrixShim;
+  (global as any).ImageData = ImageDataShim;
+  (global as any).Path2D = Path2DShim;
+}
+if (typeof globalThis !== "undefined") {
+  (globalThis as any).DOMMatrix = DOMMatrixShim;
+  (globalThis as any).ImageData = ImageDataShim;
+  (globalThis as any).Path2D = Path2DShim;
+}
 
 // ── Lightweight text extraction helpers ────────────────────────────────────────
 
 /**
- * Extract plain text from a PDF buffer using a simple byte-scan approach.
- * Pulls readable ASCII strings from the binary, which works well for
- * text-based PDFs without needing any native bindings.
+ * Check if a string looks like base64-encoded binary data (image streams, etc.).
+ * Returns true for long strings (>=50 chars) that are 90%+ base64 alphabet with no spaces.
  */
-function extractTextFromPdfBuffer(buffer: Buffer): string {
+function looksLikeBase64OrBinary(s: string): boolean {
+  if (s.length < 50) return false;
+  // If it contains spaces it's likely real text
+  if (s.includes(" ")) return false;
+  let b64Count = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    // A-Z(65-90), a-z(97-122), 0-9(48-57), +(43), /(47), =(61)
+    if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 43 || c === 47 || c === 61) {
+      b64Count++;
+    }
+  }
+  return b64Count >= s.length * 0.9;
+}
+
+/**
+ * Check if a string looks like a PDF internal operator/command.
+ */
+function looksLikePdfOperator(s: string): boolean {
+  if (s.length > 120) return false;
+  // PDF operators like /Type, /Subtype, /Font, BT, ET, Tf, Td, etc.
+  if (/^\/[A-Z][a-zA-Z0-9]+$/.test(s)) return true;
+  if (/^(BT|ET|Tf|Td|Tj|TJ|cm|re|f|W|n|q|Q|gs|Do)$/.test(s)) return true;
+  // PDF stream dictionaries
+  if (/^<</.test(s) || />>$/.test(s)) return true;
+  // Raw hex strings
+  if (/^[0-9A-Fa-f]{20,}$/.test(s)) return true;
+  return false;
+}
+
+/**
+ * Extract plain text from a PDF buffer using a simple byte-scan approach.
+ * Pulls readable ASCII strings from the binary. Filters out base64 image
+ * data and PDF internal commands to produce cleaner output.
+ */
+function extractTextFromPdfBufferFallback(buffer: Buffer): string {
   try {
     const content = buffer.toString("latin1");
-    // Pull runs of printable ASCII characters (length ≥ 4)
     const strings: string[] = [];
     let current = "";
     for (let i = 0; i < content.length; i++) {
@@ -23,14 +219,491 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
       if (code >= 32 && code <= 126) {
         current += content[i];
       } else {
-        if (current.length >= 4) strings.push(current);
+        if (current.length >= 4) {
+          // Filter out base64 image data and PDF operators
+          if (!looksLikeBase64OrBinary(current) && !looksLikePdfOperator(current)) {
+            strings.push(current);
+          }
+        }
         current = "";
       }
     }
-    if (current.length >= 4) strings.push(current);
+    if (current.length >= 4 && !looksLikeBase64OrBinary(current) && !looksLikePdfOperator(current)) {
+      strings.push(current);
+    }
     return strings.join(" ").replace(/\s{3,}/g, "\n").trim();
   } catch {
     return "";
+  }
+}
+
+/**
+ * Run pdf-parse in a subprocess to bypass Next.js Turbopack bundler issues.
+ * Returns parsed result or null if subprocess fails.
+ */
+async function extractPdfViaSubprocess(buffer: Buffer): Promise<{
+  pages: { num: number; text: string }[];
+  images: { pageNumber: number; dataUrl: string }[];
+} | null> {
+  const tempDir = os.tmpdir();
+  const timestamp = Date.now();
+  const inputPath = join(tempDir, `gpedge_pdf_in_${timestamp}.pdf`);
+  const outputPath = join(tempDir, `gpedge_pdf_out_${timestamp}.json`);
+
+  try {
+    fs.writeFileSync(inputPath, buffer);
+
+    const parts = ["lib", "pdf-extract-worker.js"];
+    const workerScript = join(/*turbopackIgnore: true*/ process.cwd(), ...parts);
+
+    if (!fs.existsSync(workerScript)) {
+      console.error("PDF worker script not found at:", workerScript);
+      return null;
+    }
+
+    execFileSync("node", [workerScript, inputPath, outputPath], {
+      timeout: 60000,
+      maxBuffer: 10 * 1024 * 1024,
+      cwd: process.cwd(),
+    });
+
+    if (!fs.existsSync(outputPath)) {
+      console.error("PDF worker did not produce output file");
+      return null;
+    }
+
+    const raw = fs.readFileSync(outputPath, "utf8");
+    return JSON.parse(raw);
+  } catch (e: any) {
+    console.error("PDF subprocess extraction failed:", e.message);
+    if (e.stderr) console.error("stderr:", e.stderr.toString());
+    return null;
+  } finally {
+    try { if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath); } catch {}
+    try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
+  }
+}
+
+/**
+ * Extract plain text from a PDF buffer.
+ * Tries subprocess first, then in-process PDFParse, then byte-scan fallback.
+ */
+async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+  // Try subprocess first
+  try {
+    const subResult = await extractPdfViaSubprocess(buffer);
+    if (subResult && subResult.pages.length > 0) {
+      const text = subResult.pages.map((p) => p.text || "").join("\n\n").trim();
+      if (text.length > 20) return text;
+    }
+  } catch {}
+
+  // Try in-process PDFParse
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
+    const textResult = await parser.getText();
+    if (textResult.text && textResult.text.trim().length > 20) {
+      return textResult.text;
+    }
+  } catch (error) {
+    console.error("PDFParse text extraction failed, falling back:", error);
+  }
+
+  return extractTextFromPdfBufferFallback(buffer);
+}
+
+/**
+ * Associate extracted images with the corresponding question blocks within the text.
+ */
+function associateImagesWithText(text: string, dataUrls: string[]): string {
+  if (dataUrls.length === 0) return text;
+  
+  // Normalize line endings
+  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  
+  // Try split by Question/Q prefix first
+  let separatorRegex = /((?:Question|Q)\s*\d+[:.]?)/i;
+  let parts = normalizedText.split(separatorRegex);
+  
+  if (parts.length <= 1) {
+    // Fallback to numeric splits
+    separatorRegex = /((?:\n|^)\s*\d+[\.\)]\s+)/;
+    parts = normalizedText.split(separatorRegex);
+  }
+  
+  if (parts.length <= 1) {
+    // Check if the block text actually contains any image keywords
+    const imageKeywords = /ecg|ekg|rash|lesion|dermatology|skin|x-ray|xray|cxr|radiograph|ct\s+scan|mri|ultrasound|photo|picture|image|img|illustration|diagram|chart|graph|figure|fig\b|shown|depict|below|above|visual|see\s+below|clinical|patient|scan|angiogram|histology|biopsy|pathology|microscope|endoscopy|colonoscopy|fundoscopy|otoscopy|view|observe|demonstrate|exhibit|display|reveal/i;
+    if (!imageKeywords.test(normalizedText)) {
+      return normalizedText;
+    }
+    // If it does, find the best position to insert the images at the end of the question text
+    let resultText = normalizedText;
+    for (const url of dataUrls) {
+      const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:)/i;
+      const match = resultText.match(markerRegex);
+      if (match && match.index !== undefined) {
+        const idx = match.index;
+        resultText = resultText.substring(0, idx).trim() + `\n[IMAGE: ${url}]\n` + resultText.substring(idx);
+      } else {
+        resultText = resultText.trim() + `\n[IMAGE: ${url}]\n`;
+      }
+    }
+    return resultText;
+  }
+  
+  // We have multiple parts. The parts at odd indices are separators (e.g. Question 1).
+  // The parts at even indices:
+  // parts[0] is the introduction text before the first question.
+  // parts[2], parts[4], parts[6], etc. are the question blocks.
+  
+  const questionBlocks: { index: number; text: string; hasImage: boolean }[] = [];
+  for (let i = 2; i < parts.length; i += 2) {
+    questionBlocks.push({ index: i, text: parts[i], hasImage: false });
+  }
+  
+  // Image-indicative keywords (comprehensive match list for clinical question banks)
+  const imageKeywords = /ecg|ekg|rash|lesion|dermatology|skin|x-ray|xray|cxr|radiograph|ct\s+scan|mri|ultrasound|photo|picture|image|img|illustration|diagram|chart|graph|figure|fig\b|shown|depict|below|above|visual|see\s+below|clinical|patient|scan|angiogram|histology|biopsy|pathology|microscope|endoscopy|colonoscopy|fundoscopy|otoscopy|view|observe|demonstrate|exhibit|display|reveal/i;
+  
+  // Three-pass image association to ensure images are placed correctly:
+  const remainingUrls = [...dataUrls];
+  
+  // 1st Pass: Assign to blocks containing keywords
+  for (const block of questionBlocks) {
+    if (remainingUrls.length === 0) break;
+    if (imageKeywords.test(block.text)) {
+      const url = remainingUrls.shift()!;
+      block.text = insertImageIntoBlock(block.text, url);
+      block.hasImage = true;
+    }
+  }
+  
+  // 2nd Pass: Assign to blocks that don't have images yet
+  for (const block of questionBlocks) {
+    if (remainingUrls.length === 0) break;
+    if (!block.hasImage) {
+      const url = remainingUrls.shift()!;
+      block.text = insertImageIntoBlock(block.text, url);
+      block.hasImage = true;
+    }
+  }
+  
+  // 3rd Pass: If still remaining (multiple images on same question block), append to first block
+  if (remainingUrls.length > 0 && questionBlocks.length > 0) {
+    const block = questionBlocks[0];
+    for (const url of remainingUrls) {
+      block.text = insertImageIntoBlock(block.text, url);
+    }
+  }
+  
+  // Update parts array
+  for (const block of questionBlocks) {
+    parts[block.index] = block.text;
+  }
+  
+  return parts.join("");
+}
+
+/**
+ * Inserts the image tag right after the question sentence (before options/metadata).
+ */
+function insertImageIntoBlock(blockText: string, dataUrl: string): string {
+  const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:)/i;
+  const match = blockText.match(markerRegex);
+  if (match && match.index !== undefined) {
+    const idx = match.index;
+    return blockText.substring(0, idx).trim() + `\n[IMAGE: ${dataUrl}]\n` + blockText.substring(idx);
+  }
+  return blockText.trim() + `\n[IMAGE: ${dataUrl}]\n`;
+}
+
+/**
+ * Checks if a line is a metadata tag.
+ */
+function isMetadataLine(line: string): boolean {
+  const clean = line.trim().toLowerCase();
+  return (
+    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]?/i.test(clean) ||
+    /^(?:topic|category)\s*[:\-]?/i.test(clean) ||
+    /^subtopic\s*[:\-]?/i.test(clean) ||
+    /^difficulty\s*[:\-]?/i.test(clean) ||
+    /^tags\s*[:\-]?/i.test(clean) ||
+    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation)\s*[:\-]?/i.test(clean)
+  );
+}
+
+/**
+ * Carves JPEG, PNG images from raw binary buffer, and also extracts
+ * images from FlateDecode-compressed PDF streams.
+ */
+function carveImagesFromBuffer(buffer: Buffer): string[] {
+  const imageUrls: string[] = [];
+  
+  // ── 1. Search for raw JPEGs (FFD8FF...FFD9) ──
+  let i = 0;
+  while (i < buffer.length - 2) {
+    if (buffer[i] === 0xFF && buffer[i+1] === 0xD8 && buffer[i+2] === 0xFF) {
+      const start = i;
+      let j = i + 3;
+      let end = -1;
+      while (j < buffer.length - 1) {
+        if (buffer[j] === 0xFF && buffer[j+1] === 0xD9) {
+          end = j + 2;
+          break;
+        }
+        j++;
+      }
+      if (end !== -1) {
+        const imgBuffer = buffer.slice(start, end);
+        if (imgBuffer.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${imgBuffer.toString("base64")}`);
+          i = end;
+          continue;
+        }
+      }
+    }
+    i++;
+  }
+  
+  // ── 2. Search for raw PNGs (89504E47...IEND) ──
+  i = 0;
+  while (i < buffer.length - 8) {
+    if (
+      buffer[i] === 0x89 && buffer[i+1] === 0x50 && buffer[i+2] === 0x4E && buffer[i+3] === 0x47 &&
+      buffer[i+4] === 0x0D && buffer[i+5] === 0x0A && buffer[i+6] === 0x1A && buffer[i+7] === 0x0A
+    ) {
+      const start = i;
+      let j = i + 8;
+      let end = -1;
+      while (j < buffer.length - 12) {
+        if (
+          buffer[j] === 0x00 && buffer[j+1] === 0x00 && buffer[j+2] === 0x00 && buffer[j+3] === 0x00 &&
+          buffer[j+4] === 0x49 && buffer[j+5] === 0x45 && buffer[j+6] === 0x4E && buffer[j+7] === 0x44 &&
+          buffer[j+8] === 0xAE && buffer[j+9] === 0x42 && buffer[j+10] === 0x60 && buffer[j+11] === 0x82
+        ) {
+          end = j + 12;
+          break;
+        }
+        j++;
+      }
+      if (end !== -1) {
+        const imgBuffer = buffer.slice(start, end);
+        if (imgBuffer.length > 2000) {
+          imageUrls.push(`data:image/png;base64,${imgBuffer.toString("base64")}`);
+          i = end;
+          continue;
+        }
+      }
+    }
+    i++;
+  }
+
+  // ── 3. Extract images from FlateDecode-compressed PDF streams ──
+  // PDF images are often in streams like:
+  //   /Subtype /Image ... /Filter /FlateDecode ... stream\r\n<compressed data>\r\nendstream
+  try {
+    const zlib = require("zlib");
+    const text = buffer.toString("latin1");
+    // Find all 'stream' markers and try to decompress
+    const streamRegex = /\/Subtype\s*\/Image[^]*?\/Width\s+(\d+)[^]*?\/Height\s+(\d+)[^]*?\/BitsPerComponent\s+(\d+)[^]*?(?:\/Filter\s*\/(\w+))?[^]*?stream\r?\n/gi;
+    let match;
+    while ((match = streamRegex.exec(text)) !== null) {
+      const width = parseInt(match[1]);
+      const height = parseInt(match[2]);
+      const bpc = parseInt(match[3]);
+      const filter = match[4] || "";
+      const streamStart = match.index + match[0].length;
+      
+      // Find endstream
+      const endIdx = text.indexOf("endstream", streamStart);
+      if (endIdx === -1 || endIdx - streamStart < 100) continue;
+      
+      const streamData = buffer.slice(streamStart, endIdx);
+      
+      // Skip tiny images
+      if (width < 50 || height < 50) continue;
+      
+      let rawPixels: Buffer | null = null;
+      
+      if (filter.toLowerCase() === "flatedecode" || filter === "") {
+        try {
+          rawPixels = zlib.inflateSync(streamData);
+        } catch {
+          // Try raw deflate (no zlib header)
+          try {
+            rawPixels = zlib.inflateRawSync(streamData);
+          } catch {
+            continue;
+          }
+        }
+      } else if (filter.toLowerCase() === "dctdecode") {
+        // DCTDecode = raw JPEG data
+        if (streamData.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${streamData.toString("base64")}`);
+        }
+        continue;
+      } else {
+        continue;
+      }
+      
+      if (!rawPixels || rawPixels.length < width * height) continue;
+      
+      // Check if decompressed data starts with JPEG or PNG magic
+      if (rawPixels[0] === 0xFF && rawPixels[1] === 0xD8) {
+        if (rawPixels.length > 2000) {
+          imageUrls.push(`data:image/jpeg;base64,${rawPixels.toString("base64")}`);
+        }
+      } else if (rawPixels[0] === 0x89 && rawPixels[1] === 0x50 && rawPixels[2] === 0x4E && rawPixels[3] === 0x47) {
+        if (rawPixels.length > 2000) {
+          imageUrls.push(`data:image/png;base64,${rawPixels.toString("base64")}`);
+        }
+      }
+      // Raw pixel data (RGB/grayscale) — would need to be converted to PNG which is complex,
+      // so we skip these for now
+    }
+  } catch (e) {
+    // FlateDecode extraction is best-effort
+    console.error("FlateDecode image extraction error:", e);
+  }
+  
+  return imageUrls;
+}
+
+/**
+ * Extract plain text and inline images from a PDF buffer.
+ * Strategy:
+ *   1. Try subprocess-based extraction (bypasses Turbopack bundler issues)
+ *   2. Fall back to in-process PDFParse
+ *   3. Fall back to text-only extraction
+ *   4. Last resort: byte-scan fallback with base64 filtering + image carving
+ */
+async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
+  // Carve images from raw binary once (used as fallback when pdf-parse finds 0 images)
+  let carvedImageUrls: string[] | null = null;
+  function getCarvedImages(): string[] {
+    if (carvedImageUrls === null) {
+      carvedImageUrls = carveImagesFromBuffer(buffer);
+      if (carvedImageUrls.length > 0) {
+        console.log(`Carved ${carvedImageUrls.length} images from PDF binary`);
+      }
+    }
+    return carvedImageUrls;
+  }
+
+  // ── Strategy 1: Subprocess (most reliable in Next.js) ──
+  try {
+    const subResult = await extractPdfViaSubprocess(buffer);
+    if (subResult && subResult.pages.length > 0) {
+      const combinedText = subResult.pages.map((p) => p.text || "").join("\n\n").trim();
+      if (combinedText.length > 20) {
+        // Collect images from subprocess
+        let allImageUrls = subResult.images.map((img) => img.dataUrl);
+
+        // If subprocess found no images, carve from binary
+        if (allImageUrls.length === 0) {
+          allImageUrls = getCarvedImages();
+        }
+
+        console.log(`PDF extracted via subprocess: ${subResult.pages.length} pages, ${allImageUrls.length} images`);
+
+        if (allImageUrls.length > 0) {
+          return associateImagesWithText(combinedText, allImageUrls);
+        }
+        return combinedText;
+      }
+    }
+  } catch (e: any) {
+    console.error("Subprocess PDF extraction failed:", e.message);
+  }
+
+  // ── Strategy 2: In-process PDFParse ──
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
+    const textResult = await parser.getText();
+    const imageResult = await parser.getImage({ imageThreshold: 0 });
+
+    const combinedText = textResult.pages.map((p: any) => p.text || "").join("\n\n").trim();
+
+    // Collect images from PDFParse
+    let allImageUrls: string[] = [];
+    for (const page of imageResult.pages) {
+      if (page.images && page.images.length > 0) {
+        for (const img of page.images) {
+          let dataUrl = img.dataUrl;
+          if (!dataUrl && img.data && img.data.length > 0) {
+            const bytes = img.data;
+            let mime = "image/png";
+            if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) mime = "image/png";
+            else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) mime = "image/jpeg";
+            else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) mime = "image/gif";
+            dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+          }
+          if (dataUrl && dataUrl.length >= 4000) {
+            allImageUrls.push(dataUrl);
+          }
+        }
+      }
+    }
+
+    // If PDFParse found no images, carve from binary
+    if (allImageUrls.length === 0) {
+      allImageUrls = getCarvedImages();
+    }
+
+    if (combinedText.length > 20) {
+      console.log(`PDF extracted via in-process PDFParse: ${textResult.pages.length} pages, ${allImageUrls.length} images`);
+      if (allImageUrls.length > 0) {
+        return associateImagesWithText(combinedText, allImageUrls);
+      }
+      return combinedText;
+    }
+  } catch (error) {
+    console.error("PDFParse image & text extraction failed:", error);
+  }
+
+  // ── Strategy 3: Text-only extraction + image carving ──
+  try {
+    const parser = new PDFParse({ data: buffer, verbosity: 0 });
+    const textResult = await parser.getText();
+    const text = textResult.text || "";
+    if (text.trim().length > 20) {
+      const images = getCarvedImages();
+      if (images.length > 0) {
+        return associateImagesWithText(text, images);
+      }
+      return text;
+    }
+  } catch (error) {
+    console.error("PDFParse text-only extraction failed:", error);
+  }
+
+  // ── Strategy 4: Fallback byte-scan + image carving ──
+  console.warn("All PDF parse strategies failed, using byte-scan fallback");
+  const fallbackText = extractTextFromPdfBufferFallback(buffer);
+  const images = getCarvedImages();
+  if (images.length > 0 && fallbackText.length > 20) {
+    return associateImagesWithText(fallbackText, images);
+  }
+  return fallbackText;
+}
+
+/**
+ * Extract plain text and inline images from legacy .doc buffer.
+ */
+async function extractTextAndImagesFromDocBuffer(buffer: Buffer): Promise<string> {
+  try {
+    const WordExtractor = require("word-extractor");
+    const extractor = new WordExtractor();
+    const doc = await extractor.extract(buffer);
+    const text = doc.getBody() || "";
+    
+    // Carve PNG and JPEG images from the legacy DOC compound binary format
+    const imageUrls = carveImagesFromBuffer(buffer);
+    
+    return associateImagesWithText(text, imageUrls);
+  } catch (error) {
+    console.error("WordExtractor doc parser failed, falling back:", error);
+    return await extractTextFromPdfBuffer(buffer);
   }
 }
 
@@ -40,10 +713,10 @@ function extractTextFromPdfBuffer(buffer: Buffer): string {
 async function extractTextFromDocxBuffer(buffer: Buffer): Promise<string> {
   try {
     const result = await mammoth.extractRawText({ buffer });
-    return result.value.trim() || extractTextFromPdfBuffer(buffer);
+    return result.value.trim() || await extractTextFromPdfBuffer(buffer);
   } catch (error) {
     console.error("Mammoth text extraction failed:", error);
-    return extractTextFromPdfBuffer(buffer);
+    return await extractTextFromPdfBuffer(buffer);
   }
 }
 
@@ -630,11 +1303,18 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
       })
     });
     
-    // Replace inline images with image tags, clean up other html tags
-    return result.value
-      .replace(/<img[^>]+src=["'](data:[^"']+)["'][^>]*>/g, "\n[IMAGE: $1]\n")
-      .replace(/<[^>]+>/g, "\n")
-      .trim();
+    let html = result.value;
+    
+    // Replace inline formatting tags with empty string to prevent splitting keys from values (e.g. <strong>Difficulty: </strong>Easy)
+    let cleaned = html.replace(/<\/?(strong|b|em|i|u|span|a)\b[^>]*>/gi, "");
+    
+    // Replace inline images with image tags
+    cleaned = cleaned.replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n");
+    
+    // Replace remaining block tags with newlines
+    cleaned = cleaned.replace(/<[^>]+>/g, "\n");
+    
+    return cleaned.trim();
   } catch (error) {
     console.error("Mammoth HTML conversion failed:", error);
     const textResult = await mammoth.extractRawText({ buffer });
@@ -648,14 +1328,58 @@ function parseTextToQuestions(text: string): any[] {
   // Normalize line endings
   const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   
-  // Split by Question followed by number, e.g. "Question 1:", "Question 1.", "Question 1 "
-  const blocks = normalizedText.split(/Question\s+\d+[:.]?/i);
+  // Extract and replace all [IMAGE: ...] tags with placeholders to prevent
+  // base64 image data (which frequently contains 'Q' + digits or numeric sequences)
+  // from triggering false split points in the regex.
+  const imageUrls: string[] = [];
+  const textWithPlaceholders = normalizedText.replace(/\[IMAGE:\s*([^\]]+)\]/gi, (match, url) => {
+    imageUrls.push(url.trim());
+    return `[IMAGE_PLACEHOLDER_${imageUrls.length - 1}]`;
+  });
+  
+  // Split by Question/Q followed by number
+  let blocks = textWithPlaceholders.split(/\b(?:Question|Q)\s*\d+[:.]?/i);
+  if (blocks.length <= 1) {
+    // Fallback: split by numeric lines (e.g. "\n1. " or "\n1) ")
+    blocks = textWithPlaceholders.split(/(?:\n|^)\s*\d+[\.\)]\s+/);
+  }
   
   for (let i = 1; i < blocks.length; i++) {
     const block = blocks[i].trim();
     if (!block) continue;
     
-    const lines = block.split("\n").map(l => l.trim());
+    // Find the placeholder tag if any and map it back to the original image data URL/URL
+    let image: string | undefined = undefined;
+    const placeholderMatch = block.match(/\[IMAGE_PLACEHOLDER_(\d+)\]/i);
+    if (placeholderMatch) {
+      const imgIdx = parseInt(placeholderMatch[1]);
+      if (imgIdx >= 0 && imgIdx < imageUrls.length) {
+        const matchedImage = imageUrls[imgIdx];
+        // Only keep the image if it is not a tiny decorative icon (e.g. data URL length >= 4000 or filename)
+        let isDecorative = false;
+        if (matchedImage.startsWith("data:") && matchedImage.length < 4000) {
+          isDecorative = true;
+        }
+        if (!isDecorative) {
+          image = matchedImage;
+          // Normalize relative static paths to prevent browser 404s relative to admin route
+          if (!image.startsWith("data:") && !image.startsWith("/")) {
+            if (image.startsWith("assets/")) {
+              image = "/" + image;
+            } else {
+              image = "/assets/" + image;
+            }
+          }
+        }
+      }
+    }
+
+    // Remove all [IMAGE_PLACEHOLDER_N] tags from the block text
+    const cleanedBlock = block.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim();
+    
+    const lines = cleanedBlock.split("\n").map(l => l.trim());
+    // Safety: filter out any lines that are raw base64 data (no spaces, 90%+ base64 chars)
+    const filteredLines = lines.filter(l => !looksLikeBase64OrBinary(l));
     let questionTextLines: string[] = [];
     const options: string[] = [];
     let correctIndex = 0;
@@ -664,42 +1388,53 @@ function parseTextToQuestions(text: string): any[] {
     let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
     let subtopic = "";
     let tags: string[] = [];
-    let image: string | undefined = undefined;
     
-    let parsingOptions = false;
+    let parsingState: "question" | "options" | "metadata" = "question";
     let parsingRationale = false;
     
-    for (let j = 0; j < lines.length; j++) {
-      let line = lines[j];
+    for (let j = 0; j < filteredLines.length; j++) {
+      let line = filteredLines[j];
       if (!line) continue;
       
       const lowerLine = line.toLowerCase();
       
-      // Check for image placeholder syntax
-      if (line.startsWith("[IMAGE:") && line.endsWith("]")) {
-        image = line.substring(7, line.length - 1).trim();
-        continue;
+      // State Machine Transitions and parsing:
+      
+      // 1. Question Text state: check for transition to options
+      if (parsingState === "question") {
+        if (lowerLine === "options:" || line.match(/^A[\.\)\-]\s+/i)) {
+          parsingState = "options";
+          if (lowerLine === "options:") {
+            continue;
+          }
+        } else {
+          questionTextLines.push(line);
+          continue;
+        }
       }
       
-      // Check for metadata keys
-      if (lowerLine.startsWith("correct answer:") || lowerLine.startsWith("correct:") || lowerLine.startsWith("answer:")) {
-        let ansVal = line.replace(/^(correct answer|correct|answer)[:\s]+/i, "").trim();
+      // 2. Metadata Matches (only checked once we leave the question text state)
+      // Check for Correct Answer
+      const correctMatch = line.match(/^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]\s*(.*)$/i);
+      if (correctMatch) {
+        parsingState = "metadata";
+        parsingRationale = false;
+        let ansVal = correctMatch[1].trim();
         if (ansVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:") && !nextLower.startsWith("rationale:") && !nextLower.startsWith("explanation:")) {
-              ansVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine)) {
+              ansVal = nextLine;
               j = nextIdx;
             }
           }
         }
         const ansChar = ansVal.toUpperCase();
         if (ansChar.length > 0) {
-          // Find the first alphabetical character in the answer string (e.g. A, B, C, D, E, F, G, H)
           const match = ansChar.match(/[A-H]/);
           if (match) {
             correctIndex = match[0].charCodeAt(0) - 65; // A -> 0, B -> 1, etc.
@@ -708,64 +1443,70 @@ function parseTextToQuestions(text: string): any[] {
             correctIndex = 0;
           }
         }
-        parsingOptions = false;
-        parsingRationale = false;
         continue;
       }
       
-      if (lowerLine.startsWith("topic:") || lowerLine.startsWith("category:")) {
-        let topicVal = line.replace(/^(topic|category)[:\s]+/i, "").trim();
+      // Check for Topic
+      const topicMatch = line.match(/^(?:topic|category)\s*[:\-]\s*(.*)$/i);
+      if (topicMatch) {
+        parsingState = "metadata";
+        parsingRationale = false;
+        let topicVal = topicMatch[1].trim();
         if (topicVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:") && !nextLower.startsWith("rationale:") && !nextLower.startsWith("explanation:")) {
-              topicVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine)) {
+              topicVal = nextLine;
               j = nextIdx;
             }
           }
         }
         topic = topicVal || "General";
-        parsingOptions = false;
-        parsingRationale = false;
         continue;
       }
       
-      if (lowerLine.startsWith("subtopic:")) {
-        let subtopicVal = line.replace(/^subtopic[:\s]+/i, "").trim();
+      // Check for Subtopic
+      const subtopicMatch = line.match(/^subtopic\s*[:\-]\s*(.*)$/i);
+      if (subtopicMatch) {
+        parsingState = "metadata";
+        parsingRationale = false;
+        let subtopicVal = subtopicMatch[1].trim();
         if (subtopicVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:") && !nextLower.startsWith("rationale:") && !nextLower.startsWith("explanation:")) {
-              subtopicVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine)) {
+              subtopicVal = nextLine;
               j = nextIdx;
             }
           }
         }
         subtopic = subtopicVal;
-        parsingOptions = false;
-        parsingRationale = false;
         continue;
       }
       
-      if (lowerLine.startsWith("difficulty:")) {
-        let diffVal = line.replace(/^difficulty[:\s]+/i, "").trim();
+      // Check for Difficulty
+      const difficultyMatch = line.match(/^difficulty\s*[:\-]\s*(.*)$/i);
+      if (difficultyMatch) {
+        parsingState = "metadata";
+        parsingRationale = false;
+        let diffVal = difficultyMatch[1].trim();
         if (diffVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:") && !nextLower.startsWith("rationale:") && !nextLower.startsWith("explanation:")) {
-              diffVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine)) {
+              diffVal = nextLine;
               j = nextIdx;
             }
           }
@@ -774,91 +1515,86 @@ function parseTextToQuestions(text: string): any[] {
         if (diff.includes("easy")) difficulty = "Easy";
         else if (diff.includes("hard")) difficulty = "Hard";
         else difficulty = "Medium";
-        parsingOptions = false;
-        parsingRationale = false;
         continue;
       }
       
-      if (lowerLine.startsWith("tags:")) {
-        let tagsVal = line.replace(/^tags[:\s]+/i, "").trim();
+      // Check for Tags
+      const tagsMatch = line.match(/^tags\s*[:\-]\s*(.*)$/i);
+      if (tagsMatch) {
+        parsingState = "metadata";
+        parsingRationale = false;
+        let tagsVal = tagsMatch[1].trim();
         if (tagsVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:") && !nextLower.startsWith("rationale:") && !nextLower.startsWith("explanation:")) {
-              tagsVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine)) {
+              tagsVal = nextLine;
               j = nextIdx;
             }
           }
         }
         tags = tagsVal.split(",").map(t => t.trim()).filter(Boolean);
-        parsingOptions = false;
-        parsingRationale = false;
         continue;
       }
       
-      if (lowerLine.startsWith("rationale:") || lowerLine.startsWith("high-yield rationale:") || lowerLine.startsWith("explanation:")) {
-        let ratVal = line.replace(/^(rationale|high-yield rationale|explanation)[:\s]+/i, "").trim();
+      // Check for Rationale
+      const rationaleMatch = line.match(/^(?:rationale|high-yield\s*rationale|explanation)\s*[:\-]\s*(.*)$/i);
+      if (rationaleMatch) {
+        parsingState = "metadata";
+        parsingRationale = true;
+        let ratVal = rationaleMatch[1].trim();
         if (ratVal === "" && j + 1 < lines.length) {
           let nextIdx = j + 1;
           while (nextIdx < lines.length && !lines[nextIdx].trim()) {
             nextIdx++;
           }
           if (nextIdx < lines.length) {
-            const nextLower = lines[nextIdx].trim().toLowerCase();
-            if (!nextLower.startsWith("difficulty:") && !nextLower.startsWith("topic:") && !nextLower.startsWith("subtopic:") && !nextLower.startsWith("tags:") && !nextLower.startsWith("correct") && !nextLower.startsWith("answer:")) {
-              ratVal = lines[nextIdx].trim();
+            const nextLine = lines[nextIdx].trim();
+            if (!isMetadataLine(nextLine) && !nextLine.match(/^([A-H])[\.\)\-]/i)) {
+              ratVal = nextLine;
               j = nextIdx;
             }
           }
         }
         rationale = ratVal;
-        parsingOptions = false;
-        parsingRationale = true;
         continue;
       }
       
-      if (lowerLine === "options:") {
-        parsingOptions = true;
-        parsingRationale = false;
+      // 3. Option parsing state
+      if (parsingState === "options") {
+        const optionMatch = line.match(/^([A-H])[\.\)\-]\s*(.*)$/i);
+        if (optionMatch) {
+          const letter = optionMatch[1].toUpperCase();
+          const idx = letter.charCodeAt(0) - 65;
+          options[idx] = optionMatch[2].trim();
+        } else if (options.length > 0) {
+          // Multi-line option text
+          const lastIdx = options.length - 1;
+          options[lastIdx] += " " + line;
+        }
         continue;
       }
       
-      // Check for option line e.g., A) Option text or A. Option text
-      const optionMatch = line.match(/^([A-H])[\.\)\-]\s*(.*)$/i);
-      if (optionMatch) {
-        const letter = optionMatch[1].toUpperCase();
-        const idx = letter.charCodeAt(0) - 65;
-        options[idx] = optionMatch[2].trim();
-        parsingOptions = true;
-        parsingRationale = false;
-        continue;
-      }
-      
-      // Continue parsing rationale if flag is active
-      if (parsingRationale) {
+      // 4. Metadata state (rationale accumulation)
+      if (parsingState === "metadata" && parsingRationale) {
         rationale += "\n" + line;
         continue;
       }
-      
-      // Continue parsing options if flag is active (multi-line option text)
-      if (parsingOptions && options.length > 0) {
-        const lastIdx = options.length - 1;
-        options[lastIdx] += " " + line;
-        continue;
-      }
-      
-      // Otherwise it is part of the question text
-      questionTextLines.push(line);
     }
     
     const finalQuestionText = questionTextLines.join("\n").trim();
     
     // Skip empty placeholder question templates
     if (finalQuestionText.includes("[Enter question text here]") || finalQuestionText === "") {
+      continue;
+    }
+    
+    // Skip false-positive blocks that don't have any parsed options (e.g. lists inside rationales)
+    if (options.length === 0) {
       continue;
     }
     
@@ -924,10 +1660,12 @@ export async function POST(req: NextRequest) {
     if (isAutofillType) {
       let rawText = "";
       if (ext === "pdf") {
-        rawText = extractTextFromPdfBuffer(buffer);
+        rawText = await extractTextFromPdfBuffer(buffer);
+      } else if (ext === "doc") {
+        rawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else {
         const result = await mammoth.extractRawText({ buffer });
-        rawText = result.value.trim() || extractTextFromPdfBuffer(buffer);
+        rawText = result.value.trim() || await extractTextFromPdfBuffer(buffer);
       }
 
       // Cleanup temp file
@@ -966,7 +1704,9 @@ export async function POST(req: NextRequest) {
     if (isQuestionType) {
       let rawText = "";
       if (ext === "pdf") {
-        rawText = extractTextFromPdfBuffer(buffer);
+        rawText = await extractTextAndImagesFromPdfBuffer(buffer);
+      } else if (ext === "doc") {
+        rawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else {
         rawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }
@@ -991,8 +1731,11 @@ export async function POST(req: NextRequest) {
     // ── Extract HTML and Raw Text ─────────────────────────────────────────────
     let catalogHtml = "";
     if (ext === "pdf") {
-      const pdfText = extractTextFromPdfBuffer(buffer);
+      const pdfText = await extractTextFromPdfBuffer(buffer);
       catalogHtml = convertPlainTextToHtml(pdfText);
+    } else if (ext === "doc") {
+      const docText = await extractTextAndImagesFromDocBuffer(buffer);
+      catalogHtml = convertPlainTextToHtml(docText);
     } else {
       catalogHtml = await extractHtmlFromDocxBuffer(buffer);
     }
@@ -1007,7 +1750,9 @@ export async function POST(req: NextRequest) {
     if (hasQuestionPatterns) {
       let qRawText = "";
       if (ext === "pdf") {
-        qRawText = extractTextFromPdfBuffer(buffer);
+        qRawText = await extractTextAndImagesFromPdfBuffer(buffer);
+      } else if (ext === "doc") {
+        qRawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else {
         qRawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }

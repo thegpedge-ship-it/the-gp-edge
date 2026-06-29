@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import CustomSelect from "@/components/admin/CustomSelect";
 import FlowchartBuilder from "@/components/admin/FlowchartBuilder";
 import {
@@ -113,6 +114,7 @@ function RibbonGroup({ label, children }: { label: string; children: React.React
 // Main editor
 // ─────────────────────────────────────────────────────────────
 function TemplateEditorContent() {
+  const { isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const templateId = Number(params.id);
@@ -224,6 +226,7 @@ function TemplateEditorContent() {
 
 
   const handleDocFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReadOnly) return;
     const file = e.target.files?.[0];
     if (!file) return;
     triggerDocImport(file);
@@ -596,11 +599,14 @@ function TemplateEditorContent() {
       wrapper.style.position = "relative";
       wrapper.appendChild(toolbar);
 
-      wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
-      wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      if (!isReadOnly) {
+        wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
+        wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      }
 
       toolbar.querySelector<HTMLElement>("[data-action='edit']")?.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (isReadOnly) return;
         try {
           const raw = wrapper.getAttribute("data-fc") || "";
           const decoded = decodeURIComponent(escape(atob(raw)));
@@ -616,6 +622,7 @@ function TemplateEditorContent() {
       });
       toolbar.querySelector<HTMLElement>("[data-action='delete']")?.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (isReadOnly) return;
         wrapper.remove();
         selectedEl = null;
         saveToHistory();
@@ -625,6 +632,7 @@ function TemplateEditorContent() {
       wrapper.addEventListener("click", (e) => {
         e.stopPropagation();
         deselectAll();
+        if (isReadOnly) return;
         selectedEl = wrapper;
         highlight(wrapper, true);
         toolbar.style.display = "flex";
@@ -634,6 +642,7 @@ function TemplateEditorContent() {
       wrapper.addEventListener("dblclick", (e) => {
         e.stopPropagation();
         e.preventDefault();
+        if (isReadOnly) return;
         try {
           const raw = wrapper.getAttribute("data-fc") || "";
           const decoded = decodeURIComponent(escape(atob(raw)));
@@ -648,7 +657,9 @@ function TemplateEditorContent() {
         }
       });
 
-      cleanups.push(makeDraggable(wrapper));
+      if (!isReadOnly) {
+        cleanups.push(makeDraggable(wrapper));
+      }
     };
 
     // ── Attach to image wrappers ──
@@ -675,11 +686,14 @@ function TemplateEditorContent() {
       wrapper.style.position = "relative";
       wrapper.appendChild(toolbar);
 
-      wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
-      wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      if (!isReadOnly) {
+        wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
+        wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      }
 
       toolbar.querySelector<HTMLElement>("[data-action='delete']")?.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (isReadOnly) return;
         wrapper.remove();
         selectedEl = null;
         saveToHistory();
@@ -688,12 +702,15 @@ function TemplateEditorContent() {
       wrapper.addEventListener("click", (e) => {
         e.stopPropagation();
         deselectAll();
+        if (isReadOnly) return;
         selectedEl = wrapper;
         highlight(wrapper, true);
         toolbar.style.display = "flex";
       });
 
-      cleanups.push(makeDraggable(wrapper));
+      if (!isReadOnly) {
+        cleanups.push(makeDraggable(wrapper));
+      }
     };
 
     // ── Attach to table wrappers ──
@@ -723,12 +740,15 @@ function TemplateEditorContent() {
       wrapper.style.position = "relative";
       wrapper.appendChild(toolbar);
 
-      wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
-      wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      if (!isReadOnly) {
+        wrapper.addEventListener("mouseenter", () => { toolbar.style.display = "flex"; });
+        wrapper.addEventListener("mouseleave", () => { if (selectedEl !== wrapper) toolbar.style.display = "none"; });
+      }
 
       // Delete button
       toolbar.querySelector<HTMLElement>("[data-action='delete']")?.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (isReadOnly) return;
         wrapper.remove();
         selectedEl = null;
         setActiveCell(null); setActiveRow(null); setActiveTable(null);
@@ -739,38 +759,42 @@ function TemplateEditorContent() {
       const dragBtn = toolbar.querySelector<HTMLElement>("[data-action='drag']");
       let isDragging = false, startX = 0, startY = 0, origML = 0, origMT = 0;
 
-      dragBtn?.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        startX = e.clientX; startY = e.clientY;
-        const cs = window.getComputedStyle(wrapper);
-        origML = parseFloat(cs.marginLeft) || 0;
-        origMT = parseFloat(cs.marginTop) || 0;
-        deselectAll(); selectedEl = wrapper; highlight(wrapper, true);
-        toolbar.style.display = "flex";
-        e.preventDefault(); e.stopPropagation();
-      });
+      if (!isReadOnly) {
+        dragBtn?.addEventListener("mousedown", (e) => {
+          isDragging = true;
+          startX = e.clientX; startY = e.clientY;
+          const cs = window.getComputedStyle(wrapper);
+          origML = parseFloat(cs.marginLeft) || 0;
+          origMT = parseFloat(cs.marginTop) || 0;
+          deselectAll(); selectedEl = wrapper; highlight(wrapper, true);
+          toolbar.style.display = "flex";
+          e.preventDefault(); e.stopPropagation();
+        });
 
-      const onMove = (e: MouseEvent) => {
-        if (!isDragging) return;
-        wrapper.style.marginLeft = `${origML + (e.clientX - startX)}px`;
-        wrapper.style.marginTop = `${origMT + (e.clientY - startY)}px`;
-      };
-      const onUp = () => { if (isDragging) { isDragging = false; saveToHistory(); } };
+        const onMove = (e: MouseEvent) => {
+          if (!isDragging) return;
+          wrapper.style.marginLeft = `${origML + (e.clientX - startX)}px`;
+          wrapper.style.marginTop = `${origMT + (e.clientY - startY)}px`;
+        };
+        const onUp = () => { if (isDragging) { isDragging = false; saveToHistory(); } };
+
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+        cleanups.push(() => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+        });
+      }
 
       // Click wrapper (not cell) to select
       wrapper.addEventListener("click", (e) => {
         const t = e.target as HTMLElement;
         if (t.tagName !== "TD" && t.tagName !== "TH") {
-          deselectAll(); selectedEl = wrapper; highlight(wrapper, true);
+          deselectAll();
+          if (isReadOnly) return;
+          selectedEl = wrapper; highlight(wrapper, true);
           toolbar.style.display = "flex";
         }
-      });
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-      cleanups.push(() => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
       });
     };
 
@@ -798,6 +822,7 @@ function TemplateEditorContent() {
 
     // ── Delete key removes selected element ──
     const onKey = (e: KeyboardEvent) => {
+      if (isReadOnly) return;
       if ((e.key === "Delete" || e.key === "Backspace") && selectedEl) {
         const active = document.activeElement;
         if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || (active as HTMLElement).isContentEditable)) return;
@@ -1060,6 +1085,7 @@ function TemplateEditorContent() {
 
   // ── Save ──
   const handleSave = () => {
+    if (isReadOnly) return;
     if (!docTitle.trim()) { alert("Please enter a template name."); return; }
     const html = editorRef.current?.innerHTML || "";
     localStorage.setItem(`gpedge_template_body_${templateId}`, html);
@@ -1076,6 +1102,7 @@ function TemplateEditorContent() {
   };
 
   const handleDuplicate = () => {
+    if (isReadOnly) return;
     const list = getAutofillTemplates();
     const nextId = list.length > 0 ? Math.max(...list.map((t) => t.id)) + 1 : 1;
     const dup: AutofillTemplate = { ...(templateItem || list[0]), id: nextId, name: `Copy of ${docTitle}`, status: "draft", usageCount: 0, lastUsed: "Never", sampleFields: templateItem?.sampleFields || [], versions: [] };
@@ -1086,6 +1113,7 @@ function TemplateEditorContent() {
   };
 
   const handleGenerateQuiz = () => {
+    if (isReadOnly) return;
     const bank = getQuestions();
     const rel = bank.filter(q => q.topic.toLowerCase().includes(selectedSystem.toLowerCase()));
     const qqs = rel.slice(0, 8); if (qqs.length === 0) qqs.push(...bank.slice(0, 5));
@@ -1095,6 +1123,7 @@ function TemplateEditorContent() {
   };
 
   const handleAddRef = () => {
+    if (isReadOnly) return;
     if (!newRefText.trim()) return;
     const nr: Reference = { id: docReferences.length > 0 ? Math.max(...docReferences.map(r => r.id)) + 1 : 1, text: newRefText.trim(), url: newRefUrl.trim() || "#" };
     const up = [...docReferences, nr]; setDocReferences(up); localStorage.setItem(`gpedge_template_refs_${templateId}`, JSON.stringify(up)); setNewRefText(""); setNewRefUrl("");
@@ -1129,6 +1158,7 @@ function TemplateEditorContent() {
   };
 
   const insertLink = () => {
+    if (isReadOnly) return;
     if (!linkUrl.trim()) return;
     editorRef.current?.focus();
     const sel = window.getSelection();
@@ -1178,10 +1208,10 @@ function TemplateEditorContent() {
         className="border-t border-slate-200/40 dark:border-slate-800 px-5 py-2 flex items-center gap-1 flex-wrap bg-slate-50/50 dark:bg-slate-900/50"
       >
         {/* Undo / Redo */}
-        <ToolbarBtn title="Undo (Ctrl+Z)" onClick={handleUndo} disabled={historyIndex <= 0}>
+        <ToolbarBtn title="Undo (Ctrl+Z)" onClick={handleUndo} disabled={isReadOnly || historyIndex <= 0}>
           <Lucide.Undo2 className="w-4 h-4" />
         </ToolbarBtn>
-        <ToolbarBtn title="Redo (Ctrl+Y)" onClick={handleRedo} disabled={historyIndex >= history.length - 1}>
+        <ToolbarBtn title="Redo (Ctrl+Y)" onClick={handleRedo} disabled={isReadOnly || historyIndex >= history.length - 1}>
           <Lucide.Redo2 className="w-4 h-4" />
         </ToolbarBtn>
         <ToolbarSep />
@@ -1191,8 +1221,9 @@ function TemplateEditorContent() {
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { setFontOpen(f => !f); setSizeOpen(false); }}
-            className="h-8 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1.5 shadow-sm"
+            onClick={() => { if (isReadOnly) return; setFontOpen(f => !f); setSizeOpen(false); }}
+            disabled={isReadOnly}
+            className={`h-8 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1.5 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <span style={{ fontFamily: selectedFont.value }} className="truncate max-w-[90px]">{selectedFont.label}</span>
             <Lucide.ChevronDown className="w-3 h-3 opacity-60" />
@@ -1230,8 +1261,9 @@ function TemplateEditorContent() {
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => { setSizeOpen(s => !s); setFontOpen(false); }}
-            className="h-8 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-300 transition-all flex items-center gap-1.5 shadow-sm"
+            onClick={() => { if (isReadOnly) return; setSizeOpen(s => !s); setFontOpen(false); }}
+            disabled={isReadOnly}
+            className={`h-8 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-300 transition-all flex items-center gap-1.5 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <span>{selectedSize.label}</span>
             <Lucide.ChevronDown className="w-3 h-3 opacity-60" />
@@ -1271,16 +1303,17 @@ function TemplateEditorContent() {
           { icon: <Lucide.Underline className="w-4 h-4" />, title: "Underline (Ctrl+U)", cmd: "underline" },
           { icon: <Lucide.Strikethrough className="w-4 h-4" />, title: "Strikethrough", cmd: "strikeThrough" },
         ].map((b) => (
-          <ToolbarBtn key={b.title} title={b.title} onClick={() => fmt(b.cmd)}>{b.icon}</ToolbarBtn>
+          <ToolbarBtn key={b.title} title={b.title} onClick={() => fmt(b.cmd)} disabled={isReadOnly}>{b.icon}</ToolbarBtn>
         ))}
 
         {/* Text color */}
         <div ref={dropdownRefs.textColor} className="relative inline-block text-left">
           <button
             type="button"
-            onClick={() => setTextColorOpen(!textColorOpen)}
+            onClick={() => { if (isReadOnly) return; setTextColorOpen(!textColorOpen); }}
             onMouseDown={(e) => e.preventDefault()}
-            className="h-8 px-2 text-xs font-semibold text-slate-705 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1 shadow-sm"
+            disabled={isReadOnly}
+            className={`h-8 px-2 text-xs font-semibold text-slate-705 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Text Color"
           >
             <Lucide.Type className="w-3.5 h-3.5" />
@@ -1325,9 +1358,10 @@ function TemplateEditorContent() {
         <div ref={dropdownRefs.highlight} className="relative inline-block text-left">
           <button
             type="button"
-            onClick={() => setHighlightOpen(!highlightOpen)}
+            onClick={() => { if (isReadOnly) return; setHighlightOpen(!highlightOpen); }}
             onMouseDown={(e) => e.preventDefault()}
-            className="h-8 px-2 text-xs font-semibold text-slate-705 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1 shadow-sm"
+            disabled={isReadOnly}
+            className={`h-8 px-2 text-xs font-semibold text-slate-705 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-350 transition-all flex items-center gap-1 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
             title="Text Highlight"
           >
             <Lucide.Highlighter className="w-3.5 h-3.5" />
@@ -1374,7 +1408,7 @@ function TemplateEditorContent() {
           { label: "H3", title: "Heading 3", value: "h3", className: "text-xs font-bold" },
           { label: "¶", title: "Normal Paragraph", value: "p", className: "text-xs" },
         ].map((b) => (
-          <ToolbarBtn key={b.label} title={b.title} onClick={() => fmt("formatBlock", b.value)}>
+          <ToolbarBtn key={b.label} title={b.title} onClick={() => fmt("formatBlock", b.value)} disabled={isReadOnly}>
             <span className={b.className}>{b.label}</span>
           </ToolbarBtn>
         ))}
@@ -1391,7 +1425,7 @@ function TemplateEditorContent() {
           { icon: <Lucide.Indent className="w-4 h-4" />, title: "Indent", cmd: "indent" },
           { icon: <Lucide.Outdent className="w-4 h-4" />, title: "Outdent", cmd: "outdent" },
         ].map((b) => (
-          <ToolbarBtn key={b.title} title={b.title} onClick={() => fmt(b.cmd)}>{b.icon}</ToolbarBtn>
+          <ToolbarBtn key={b.title} title={b.title} onClick={() => fmt(b.cmd)} disabled={isReadOnly}>{b.icon}</ToolbarBtn>
         ))}
       </div>
     );
@@ -1401,7 +1435,7 @@ function TemplateEditorContent() {
         {/* Table */}
         <RibbonGroup label="Tables">
           <div ref={dropdownRefs.table}>
-            <RibbonBtn title="Insert Table" onClick={() => {
+            <RibbonBtn title="Insert Table" disabled={isReadOnly} onClick={() => {
               const a = calcAnchor(dropdownRefs.table);
               setTableAnchor(tableMenuOpen ? null : a);
               setTableMenuOpen(o => !o);
@@ -1417,7 +1451,7 @@ function TemplateEditorContent() {
         {/* Callouts */}
         <RibbonGroup label="Callouts">
           <div ref={dropdownRefs.callout}>
-            <RibbonBtn title="Insert Callout" onClick={() => {
+            <RibbonBtn title="Insert Callout" disabled={isReadOnly} onClick={() => {
               const a = calcAnchor(dropdownRefs.callout);
               setCalloutAnchor(calloutOpen ? null : a);
               setCalloutOpen(o => !o);
@@ -1433,7 +1467,7 @@ function TemplateEditorContent() {
         {/* Media */}
         <RibbonGroup label="Media">
           <div ref={dropdownRefs.image}>
-            <RibbonBtn title="Insert Image" onClick={() => {
+            <RibbonBtn title="Insert Image" disabled={isReadOnly} onClick={() => {
               const a = calcAnchor(dropdownRefs.image);
               setImageAnchor(imageMenuOpen ? null : a);
               setImageMenuOpen(o => !o);
@@ -1448,11 +1482,11 @@ function TemplateEditorContent() {
 
         {/* Symbols */}
         <RibbonGroup label="Symbols">
-          <RibbonBtn title="Insert Horizontal Rule" onClick={insertDivider}><Lucide.Minus className="w-5 h-5" /><span>Divider</span></RibbonBtn>
-          <RibbonBtn title="Insert Page Break" onClick={insertPageBreak}><Lucide.FileText className="w-5 h-5" /><span>Page Break</span></RibbonBtn>
+          <RibbonBtn title="Insert Horizontal Rule" disabled={isReadOnly} onClick={insertDivider}><Lucide.Minus className="w-5 h-5" /><span>Divider</span></RibbonBtn>
+          <RibbonBtn title="Insert Page Break" disabled={isReadOnly} onClick={insertPageBreak}><Lucide.FileText className="w-5 h-5" /><span>Page Break</span></RibbonBtn>
           {/* Link with structured dropdown */}
           <div ref={linkBtnRef}>
-            <RibbonBtn title="Insert Link" active={linkOpen} onClick={openLinkDropdown}>
+            <RibbonBtn title="Insert Link" active={linkOpen} disabled={isReadOnly} onClick={openLinkDropdown}>
               <Lucide.Link className="w-5 h-5" /><span>Link</span>
             </RibbonBtn>
           </div>
@@ -1461,7 +1495,7 @@ function TemplateEditorContent() {
 
         {/* Flowchart */}
         <RibbonGroup label="Diagram">
-          <RibbonBtn title="Insert Flowchart" onClick={() => { savedRangeRef.current = saveSelection(); setShowFlowchart(true); }}>
+          <RibbonBtn title="Insert Flowchart" disabled={isReadOnly} onClick={() => { savedRangeRef.current = saveSelection(); setShowFlowchart(true); }}>
             <Lucide.GitBranch className="w-5 h-5" /><span>Flowchart</span>
           </RibbonBtn>
         </RibbonGroup>
@@ -1471,21 +1505,21 @@ function TemplateEditorContent() {
     if (ribbonTab === "layout") return (
       <div className="flex items-end gap-2 px-3 py-1.5 flex-wrap overflow-x-auto">
         <RibbonGroup label="Pages">
-          <RibbonBtn title="Add Page" onClick={addPage}><Lucide.FilePlus className="w-5 h-5" /><span>New Page</span></RibbonBtn>
-          <RibbonBtn title="Delete Current Page" onClick={() => deletePage(activePage)}><Lucide.FileX className="w-5 h-5" /><span>Delete Page</span></RibbonBtn>
+          <RibbonBtn title="Add Page" disabled={isReadOnly} onClick={addPage}><Lucide.FilePlus className="w-5 h-5" /><span>New Page</span></RibbonBtn>
+          <RibbonBtn title="Delete Current Page" disabled={isReadOnly} onClick={() => deletePage(activePage)}><Lucide.FileX className="w-5 h-5" /><span>Delete Page</span></RibbonBtn>
         </RibbonGroup>
         <RibbonSep />
 
         {/* Table tools — only show when inside a table */}
         {activeTable && (
           <RibbonGroup label="Table Tools">
-            <RibbonBtn title="Row Above" onClick={rowAbove}><Lucide.ArrowUp className="w-4 h-4" /><span>Row ↑</span></RibbonBtn>
-            <RibbonBtn title="Row Below" onClick={rowBelow}><Lucide.ArrowDown className="w-4 h-4" /><span>Row ↓</span></RibbonBtn>
-            <RibbonBtn title="Delete Row" onClick={deleteRow}><Lucide.Trash2 className="w-4 h-4 text-red-500" /><span>Del Row</span></RibbonBtn>
-            <RibbonBtn title="Column Left" onClick={colLeft}><Lucide.ArrowLeft className="w-4 h-4" /><span>Col ←</span></RibbonBtn>
-            <RibbonBtn title="Column Right" onClick={colRight}><Lucide.ArrowRight className="w-4 h-4" /><span>Col →</span></RibbonBtn>
-            <RibbonBtn title="Delete Column" onClick={deleteCol}><Lucide.Trash2 className="w-4 h-4 text-red-500" /><span>Del Col</span></RibbonBtn>
-            <RibbonBtn title="Delete Table" onClick={deleteTable}><Lucide.X className="w-4 h-4 text-red-600" /><span>Del Table</span></RibbonBtn>
+            <RibbonBtn title="Row Above" disabled={isReadOnly} onClick={rowAbove}><Lucide.ArrowUp className="w-4 h-4" /><span>Row ↑</span></RibbonBtn>
+            <RibbonBtn title="Row Below" disabled={isReadOnly} onClick={rowBelow}><Lucide.ArrowDown className="w-4 h-4" /><span>Row ↓</span></RibbonBtn>
+            <RibbonBtn title="Delete Row" disabled={isReadOnly} onClick={deleteRow}><Lucide.Trash2 className="w-4 h-4 text-red-500" /><span>Del Row</span></RibbonBtn>
+            <RibbonBtn title="Column Left" disabled={isReadOnly} onClick={colLeft}><Lucide.ArrowLeft className="w-4 h-4" /><span>Col ←</span></RibbonBtn>
+            <RibbonBtn title="Column Right" disabled={isReadOnly} onClick={colRight}><Lucide.ArrowRight className="w-4 h-4" /><span>Col →</span></RibbonBtn>
+            <RibbonBtn title="Delete Column" disabled={isReadOnly} onClick={deleteCol}><Lucide.Trash2 className="w-4 h-4 text-red-500" /><span>Del Col</span></RibbonBtn>
+            <RibbonBtn title="Delete Table" disabled={isReadOnly} onClick={deleteTable}><Lucide.X className="w-4 h-4 text-red-600" /><span>Del Table</span></RibbonBtn>
           </RibbonGroup>
         )}
         <RibbonSep />
@@ -1528,8 +1562,8 @@ function TemplateEditorContent() {
 
         {/* ── Breadcrumb / Action bar (matches content editor style, sticky below topbar) ── */}
         <div className="no-print sticky top-14 z-30">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-teal-200/40 dark:border-teal-900/40 shadow-md shadow-slate-200/30">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none" />
+          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-teal-200/40 dark:border-teal-900/40 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none" />
             <div className="relative z-10 px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
               {/* Breadcrumb */}
               <div className="flex items-center gap-2 text-sm">
@@ -1543,14 +1577,15 @@ function TemplateEditorContent() {
                 <div className="relative inline-block text-left" ref={dropdownRefs.status}>
                   <button
                     type="button"
-                    onClick={() => setStatusOpen(o => !o)}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-750 dark:text-slate-300 hover:border-teal-350 hover:text-teal-650 transition-all flex items-center gap-1.5 shadow-sm"
+                    onClick={() => { if (isReadOnly) return; setStatusOpen(o => !o); }}
+                    disabled={isReadOnly}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-750 dark:text-slate-300 hover:border-teal-350 hover:text-teal-650 transition-all flex items-center gap-1.5 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <span>Status: <span className="capitalize font-bold text-teal-800 dark:text-teal-400">{templateStatus}</span></span>
                     <Lucide.ChevronDown className="w-3 h-3 opacity-70" />
                   </button>
                   <AnimatePresence>
-                    {statusOpen && (
+                    {statusOpen && !isReadOnly && (
                       <motion.div
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 4 }}
@@ -1599,9 +1634,10 @@ function TemplateEditorContent() {
 
                 {/* Import Document */}
                 <button
-                  onClick={() => docFileInputRef.current?.click()}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer"
-                  title="Import DOCX or PDF"
+                  onClick={() => { if (isReadOnly) return; docFileInputRef.current?.click(); }}
+                  disabled={isReadOnly}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={isReadOnly ? "Viewers cannot import documents" : "Import DOCX or PDF"}
                 >
                   <Lucide.Upload className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Import Document</span>
@@ -1609,9 +1645,10 @@ function TemplateEditorContent() {
 
                 {/* Duplicate */}
                 <button
-                  onClick={handleDuplicate}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm"
-                  title="Duplicate"
+                  onClick={() => { if (isReadOnly) return; handleDuplicate(); }}
+                  disabled={isReadOnly}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={isReadOnly ? "Viewers cannot duplicate templates" : "Duplicate"}
                 >
                   <Lucide.Copy className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Duplicate</span>
@@ -1671,20 +1708,37 @@ function TemplateEditorContent() {
 
             {/* ── Canvas area ── */}
             <div className="flex-1 overflow-y-auto bg-slate-200 dark:bg-slate-950 px-8 py-8" style={{ scrollbarWidth: "thin" }}>
-            {/* Page navigator */}
-            {pages.length > 1 && (
-              <div className="no-print flex items-center justify-center gap-2 mb-4">
-                {pages.map((_, i) => (
-                  <button key={i} onClick={() => switchPage(i)}
-                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${activePage === i ? "bg-teal-800 text-white shadow" : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/30"}`}>
-                    Page {i + 1}
+              {isReadOnly && (
+                <div
+                  className="mx-auto mb-4 p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+                  style={{ width: "794px", maxWidth: "100%" }}
+                >
+                  <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-455" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-bold">View-Only Mode Enabled</p>
+                    <p className="mt-0.5 opacity-90">
+                      You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Page navigator */}
+              {pages.length > 1 && (
+                <div className="no-print flex items-center justify-center gap-2 mb-4">
+                  {pages.map((_, i) => (
+                    <button key={i} onClick={() => switchPage(i)}
+                      className={`px-3 py-1 rounded text-xs font-bold transition-all ${activePage === i ? "bg-teal-800 text-white shadow" : "bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-950/30"}`}>
+                      Page {i + 1}
+                    </button>
+                  ))}
+                  <button onClick={addPage} className="p-1 rounded text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-all" title="Add page">
+                    <Lucide.Plus className="w-4 h-4" />
                   </button>
-                ))}
-                <button onClick={addPage} className="p-1 rounded text-slate-400 hover:text-teal-700 hover:bg-teal-50 transition-all" title="Add page">
-                  <Lucide.Plus className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+                </div>
+              )}
 
             {/* A4 paper */}
             <div
@@ -1693,14 +1747,14 @@ function TemplateEditorContent() {
             >
               <div
                 ref={editorRef}
-                contentEditable={true}
+                contentEditable={!isReadOnly}
                 suppressContentEditableWarning
                 className="word-editor print-area"
                 style={{ padding: "96px 96px 80px", minHeight: "1123px", color: "#0f172a" }}
-                onInput={() => { updateCounts(); saveToHistory(); }}
-                onKeyUp={updateCounts}
-                onMouseUp={() => { savedRangeRef.current = saveSelection(); }}
-                onFocus={() => { savedRangeRef.current = saveSelection(); }}
+                onInput={() => { if (isReadOnly) return; updateCounts(); saveToHistory(); }}
+                onKeyUp={() => { if (isReadOnly) return; updateCounts(); }}
+                onMouseUp={() => { if (isReadOnly) return; savedRangeRef.current = saveSelection(); }}
+                onFocus={() => { if (isReadOnly) return; savedRangeRef.current = saveSelection(); }}
               />
             </div>
           </div>
@@ -1718,8 +1772,8 @@ function TemplateEditorContent() {
                 style={{ width: 320, scrollbarWidth: "thin" }}
               >
                 {/* ── Main Sidebar Card ── */}
-                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/20 dark:border-teal-900/30 shadow-md shadow-slate-200/30 relative z-20">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
+                <div className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-teal-900/30 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 relative z-20">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none rounded-2xl" />
                   <div className="relative z-10">
                     <div className="flex border-b border-slate-200/40 dark:border-slate-800 overflow-x-auto">
                       {(["pages", "meta", "refs", "soap"] as const).map((tab) => (
@@ -1735,7 +1789,11 @@ function TemplateEditorContent() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between mb-1">
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{pages.length} {pages.length === 1 ? "Page" : "Pages"}</p>
-                            <button onClick={addPage} className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-400 border border-teal-200/60 dark:border-teal-900/40 rounded-lg hover:bg-teal-100 transition-all cursor-pointer">
+                            <button
+                              onClick={() => { if (isReadOnly) return; addPage(); }}
+                              disabled={isReadOnly}
+                              className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold text-teal-700 bg-teal-50 dark:bg-teal-950/30 dark:text-teal-400 border border-teal-200/60 dark:border-teal-900/40 rounded-lg hover:bg-teal-100 transition-all cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
                               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg> Add Page
                             </button>
                           </div>
@@ -1748,14 +1806,22 @@ function TemplateEditorContent() {
                                   {i === activePage && <p className="text-[9px] text-teal-500 font-medium">Currently editing</p>}
                                 </div>
                                 {pages.length > 1 && (
-                                  <button onClick={(e) => { e.stopPropagation(); deletePage(i); }} className="opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer border-none bg-transparent">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; deletePage(i); }}
+                                    disabled={isReadOnly}
+                                    className={`opacity-0 group-hover:opacity-100 p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "cursor-not-allowed opacity-50" : ""}`}
+                                  >
                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                   </button>
                                 )}
                               </div>
                             ))}
                           </div>
-                          <button onClick={addPage} className="w-full py-2 border-2 border-dashed border-teal-200 dark:border-teal-900/40 rounded-xl text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:bg-teal-50 transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => { if (isReadOnly) return; addPage(); }}
+                            disabled={isReadOnly}
+                            className={`w-full py-2 border-2 border-dashed border-teal-200 dark:border-teal-900/40 rounded-xl text-[11px] font-bold text-teal-600 dark:text-teal-400 hover:bg-teal-50 transition-all cursor-pointer flex items-center justify-center gap-1.5 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg> Add New Page
                           </button>
                         </div>
@@ -1795,7 +1861,7 @@ function TemplateEditorContent() {
                               <div className="mt-2">
                                 <p className="text-[9px] text-slate-400 font-medium mb-1">Suggestions:</p>
                                 <div className="flex flex-wrap gap-1">
-                                  {suggestedTags.slice(0, 5).map(t => (<button key={t} onClick={() => setTags([...tags, t])} className="text-[9px] text-slate-500 hover:text-teal-650 hover:bg-teal-50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800 transition-all cursor-pointer bg-transparent">+ {t}</button>))}
+                                  {suggestedTags.slice(0, 5).map(t => (<button key={t} onClick={() => { if (isReadOnly) return; setTags([...tags, t]); }} className={`text-[9px] text-slate-500 hover:text-teal-650 hover:bg-teal-50 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800 transition-all cursor-pointer bg-transparent ${isReadOnly ? "cursor-not-allowed opacity-50" : ""}`}>+ {t}</button>))}
                                 </div>
                               </div>
                             )}
@@ -1822,20 +1888,52 @@ function TemplateEditorContent() {
                                   <p className="text-[11px] text-slate-600 leading-relaxed font-light break-words">{ref.text}</p>
                                   {ref.url && ref.url !== "#" && <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-teal-650 dark:text-teal-400 hover:underline mt-1 block break-all font-medium">{ref.url}</a>}
                                 </div>
-                                <button onClick={() => setDocReferences(d => d.filter(r => r.id !== ref.id))} className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100 absolute top-1.5 right-1.5 cursor-pointer border-none bg-transparent"><Lucide.Trash2 className="w-3.5 h-3.5" /></button>
+                                <button
+                                  onClick={() => { if (isReadOnly) return; setDocReferences(d => d.filter(r => r.id !== ref.id)); }}
+                                  disabled={isReadOnly}
+                                  className={`text-slate-400 hover:text-red-500 hover:bg-red-50 p-1 rounded transition-colors opacity-0 group-hover:opacity-100 absolute top-1.5 right-1.5 cursor-pointer border-none bg-transparent ${isReadOnly ? "cursor-not-allowed opacity-50" : ""}`}
+                                >
+                                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             ))}
                           </div>
                           <div className="pt-3.5 border-t border-slate-200/50 dark:border-slate-800 space-y-2">
                             <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Add Reference</h5>
-                            <textarea rows={2} placeholder="e.g. RACGP Guidelines 2026..." value={newRefText} onChange={(e) => setNewRefText(e.target.value)} className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100" />
-                            <input type="text" placeholder="URL (optional)" value={newRefUrl} onChange={(e) => setNewRefUrl(e.target.value)} className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100" />
-                            <button onClick={handleAddRef} className="w-full py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer border-none">Add Reference</button>
+                            <textarea
+                              rows={2}
+                              disabled={isReadOnly}
+                              placeholder="e.g. RACGP Guidelines 2026..."
+                              value={newRefText}
+                              onChange={(e) => setNewRefText(e.target.value)}
+                              className={`w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            />
+                            <input
+                              type="text"
+                              disabled={isReadOnly}
+                              placeholder="URL (optional)"
+                              value={newRefUrl}
+                              onChange={(e) => setNewRefUrl(e.target.value)}
+                              className={`w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            />
+                            <button
+                              onClick={() => { if (isReadOnly) return; handleAddRef(); }}
+                              disabled={isReadOnly}
+                              className={`w-full py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-lg text-xs font-bold transition shadow-sm cursor-pointer border-none ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            >
+                              Add Reference
+                            </button>
                           </div>
                           <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800">
                             <div className="flex items-center justify-between mb-2">
                               <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Linked Questions</h5>
-                              <button onClick={() => { setQuestionSearch(""); setShowLinkModal(true); }} className="text-[10px] text-teal-600 font-bold hover:underline cursor-pointer border-none bg-transparent">+ Link Question</button>
+                              <button
+                                onClick={() => { if (isReadOnly) return; setQuestionSearch(""); setShowLinkModal(true); }}
+                                disabled={isReadOnly}
+                                className={`text-[10px] text-teal-600 font-bold hover:underline cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                              >
+                                + Link Question
+                              </button>
                             </div>
                             {linkedQuestionIds.length === 0 ? (
                               <p className="text-[11px] text-slate-400 py-2 text-center font-light">No questions linked yet.</p>
@@ -1847,7 +1945,13 @@ function TemplateEditorContent() {
                                     <div key={qid} className="p-2.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
                                       <div className="flex items-center justify-between text-[9px] text-slate-400 font-bold mb-1">
                                         <span>Question #{qid}</span>
-                                        <button onClick={() => { const nl = linkedQuestionIds.filter(id => id !== qid); setLinkedQuestionIds(nl); localStorage.setItem(`gpedge_template_links_${templateId}`, JSON.stringify(nl)); }} className="text-red-500 hover:text-red-600 hover:underline cursor-pointer border-none bg-transparent p-0">Unlink</button>
+                                        <button
+                                          onClick={() => { if (isReadOnly) return; const nl = linkedQuestionIds.filter(id => id !== qid); setLinkedQuestionIds(nl); localStorage.setItem(`gpedge_template_links_${templateId}`, JSON.stringify(nl)); }}
+                                          disabled={isReadOnly}
+                                          className={`text-red-500 hover:text-red-600 hover:underline cursor-pointer border-none bg-transparent p-0 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        >
+                                          Unlink
+                                        </button>
                                       </div>
                                       <p className="text-[11px] text-slate-700 dark:text-slate-300 font-medium line-clamp-2 leading-relaxed">{q.text}</p>
                                     </div>
@@ -1864,9 +1968,21 @@ function TemplateEditorContent() {
                         <div className="space-y-3">
                           <div>
                             <label className="block text-xs font-semibold text-slate-650 dark:text-slate-400 mb-1.5">Template Content</label>
-                            <textarea rows={16} value={templateContent} onChange={(e) => setTemplateContent(e.target.value)} className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 resize-y font-mono" />
+                            <textarea
+                              rows={16}
+                              disabled={isReadOnly}
+                              value={templateContent}
+                              onChange={(e) => setTemplateContent(e.target.value)}
+                              className={`w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-100 resize-y font-mono ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                            />
                           </div>
-                          <button onClick={() => { if (editorRef.current && templateItem) { const t = { ...templateItem, content: templateContent }; editorRef.current.innerHTML = soapToHtml(t); updateCounts(); saveToHistory(); } }} className="w-full py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none"><Lucide.RefreshCw className="w-3 h-3" /> Regenerate Document</button>
+                          <button
+                            onClick={() => { if (isReadOnly) return; if (editorRef.current && templateItem) { const t = { ...templateItem, content: templateContent }; editorRef.current.innerHTML = soapToHtml(t); updateCounts(); saveToHistory(); } }}
+                            disabled={isReadOnly}
+                            className={`w-full py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer border-none ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            <Lucide.RefreshCw className="w-3 h-3" /> Regenerate Document
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1874,21 +1990,29 @@ function TemplateEditorContent() {
                 </div>
 
                 {/* ── Quick Actions Card ── */}
-                <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/20 dark:border-teal-900/30 p-4 relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/85 via-transparent to-teal-50/5 pointer-events-none rounded-2xl" />
+                <div className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-teal-900/30 p-4 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none rounded-2xl" />
                   <div className="relative z-10 space-y-2">
                     <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Quick Actions</h4>
                     {[
-                      { label: "Export as PDF", icon: <Lucide.FileDown className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleExportPDF },
-                      { label: "Duplicate Template", icon: <Lucide.Copy className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleDuplicate },
-                      { label: "Link to Question", icon: <Lucide.Link2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: () => { setQuestionSearch(""); setShowLinkModal(true); } },
-                      { label: "Generate Quiz", icon: <Lucide.Zap className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleGenerateQuiz },
-                    ].map((action) => (
-                      <button key={action.label} onClick={action.action} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:text-teal-700 dark:hover:text-teal-400 transition-all border border-slate-100 dark:border-slate-800 hover:border-teal-200 text-left cursor-pointer">
-                        <span className="flex items-center justify-center shrink-0">{action.icon}</span>
-                        {action.label}
-                      </button>
-                    ))}
+                      { label: "Export as PDF", icon: <Lucide.FileDown className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleExportPDF, showAlways: true },
+                      { label: "Duplicate Template", icon: <Lucide.Copy className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleDuplicate, showAlways: false },
+                      { label: "Link to Question", icon: <Lucide.Link2 className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: () => { setQuestionSearch(""); setShowLinkModal(true); }, showAlways: false },
+                      { label: "Generate Quiz", icon: <Lucide.Zap className="w-4 h-4 text-teal-600 dark:text-teal-400" />, action: handleGenerateQuiz, showAlways: false },
+                    ].map((action) => {
+                      const isDisabled = isReadOnly && !action.showAlways;
+                      return (
+                        <button
+                          key={action.label}
+                          disabled={isDisabled}
+                          onClick={() => { if (isDisabled) return; action.action(); }}
+                          className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:text-teal-700 dark:hover:text-teal-400 transition-all border border-slate-100 dark:border-slate-800 hover:border-teal-200 text-left cursor-pointer ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                        >
+                          <span className="flex items-center justify-center shrink-0">{action.icon}</span>
+                          {action.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </motion.div>

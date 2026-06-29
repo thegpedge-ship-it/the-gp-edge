@@ -326,21 +326,7 @@ export default function IntelligenceEngine() {
   const [highlightFeatures, setHighlightFeatures] = useState(false);
 
   return (
-    <section className="py-24 lg:py-32 bg-slate-50 dark:bg-transparent relative overflow-hidden transition-colors duration-300">
-      {/* Light: subtle teal radial gradient — hidden in dark */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-gradient-to-b from-teal-100/40 via-teal-50/20 to-transparent rounded-full blur-[120px] pointer-events-none dark:hidden" />
-
-      {/* Light: Dot grid pattern — hidden in dark */}
-      <div className="absolute inset-0 dark:hidden bg-[radial-gradient(circle_at_1px_1px,rgb(226,232,240)_1px,transparent_0)] bg-[size:24px_24px] opacity-60 pointer-events-none" />
-
-      {/* Dark: very subtle radial accent near top (matches hero feel) */}
-      <div
-        className="absolute inset-0 hidden dark:block pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse 60% 40% at 50% 0%, rgba(90,200,176,0.05) 0%, transparent 70%)`,
-        }}
-      />
-
+    <section className="pt-12 pb-20 lg:pt-16 lg:pb-28 bg-transparent relative overflow-hidden transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           {/* Left - Content */}
@@ -350,7 +336,7 @@ export default function IntelligenceEngine() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/60 dark:border-[rgba(90,200,176,0.18)] text-teal-700 dark:text-[#5AC8B0] text-xs font-semibold mb-6">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/60 dark:border-[rgba(90,200,176,0.18)] text-teal-700 dark:text-[#5AC8B0] text-xs font-semibold mb-6">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>

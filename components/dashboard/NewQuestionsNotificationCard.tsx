@@ -14,7 +14,7 @@ export default function NewQuestionsNotificationCard() {
 
   const refreshNotification = () => {
     const list = getUserNotifications();
-    const active = list.find((n) => !n.dismissed);
+    const active = list.find((n) => !n.dismissed && n.type === "new-questions");
     setActiveNotification(active || null);
   };
 

@@ -361,12 +361,12 @@ export interface MockTest {
 }
 
 export const mockTests: MockTest[] = [
-  { id: "mock-1", name: "AKT Simulation 1", subtitle: "All topics · Foundation", questionCount: 150, duration: "3 hrs", status: "completed", bestScore: 78, attempts: 2, accuracy: 78, cohortAccuracy: 65, yourMarks: 117, avgMarks: 98 },
-  { id: "mock-2", name: "AKT Simulation 2", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "completed", bestScore: 71, attempts: 1, accuracy: 71, cohortAccuracy: 64, yourMarks: 107, avgMarks: 96 },
-  { id: "mock-3", name: "AKT Simulation 3", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "in-progress", progress: 42, attempts: 1 },
-  { id: "mock-4", name: "AKT Simulation 4", subtitle: "All topics · Standard", questionCount: 150, duration: "3 hrs", status: "available" },
-  { id: "mock-5", name: "AKT Simulation 5", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "available" },
-  { id: "mock-6", name: "AKT Simulation 6", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked", unlockHint: "Unlocks on 1 Jul 2026" },
-  { id: "mock-7", name: "AKT Simulation 7", subtitle: "All topics · Advanced", questionCount: 150, duration: "3 hrs", status: "locked", unlockHint: "Locked — release date to be announced" },
-  { id: "mock-8", name: "Final Mock Exam", subtitle: "All topics · Exam standard", questionCount: 200, duration: "4 hrs", status: "locked", unlockHint: "Unlocks after you complete Simulations 1–5" },
+  { id: "mock-1", name: "AKT Simulation 1", subtitle: "All topics · Foundation", questionCount: 150, duration: "1 min", status: "completed", bestScore: 78, attempts: 2, accuracy: 78, cohortAccuracy: 65, yourMarks: 117, avgMarks: 98 },
+  { id: "mock-2", name: "AKT Simulation 2", subtitle: "All topics · Standard", questionCount: 150, duration: "1 min", status: "completed", bestScore: 71, attempts: 1, accuracy: 71, cohortAccuracy: 64, yourMarks: 107, avgMarks: 96 },
+  { id: "mock-3", name: "AKT Simulation 3", subtitle: "All topics · Standard", questionCount: 150, duration: "1 min", status: "in-progress", progress: 42, attempts: 1 },
+  { id: "mock-4", name: "AKT Simulation 4", subtitle: "All topics · Standard", questionCount: 150, duration: "1 min", status: "available" },
+  { id: "mock-5", name: "AKT Simulation 5", subtitle: "All topics · Advanced", questionCount: 150, duration: "1 min", status: "available" },
+  { id: "mock-6", name: "AKT Simulation 6", subtitle: "All topics · Advanced", questionCount: 150, duration: "1 min", status: "locked", unlockHint: "Unlocks on 1 Jul 2026" },
+  { id: "mock-7", name: "AKT Simulation 7", subtitle: "All topics · Advanced", questionCount: 150, duration: "1 min", status: "locked", unlockHint: "Locked — release date to be announced" },
+  { id: "mock-8", name: "Final Mock Exam", subtitle: "All topics · Exam standard", questionCount: 200, duration: "1 min", status: "locked", unlockHint: "Unlocks after you complete Simulations 1–5" },
 ];

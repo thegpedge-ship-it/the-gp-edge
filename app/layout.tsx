@@ -2,8 +2,14 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import Header from "@/components/shared/Header";
+import PageBackground from "@/components/shared/PageBackground";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Inter, Lora } from "next/font/google";
+import Link from "next/link";
+import Image from "next/image";
+
+import GlobalLogo from "@/components/shared/GlobalLogo";
+import Script from "next/script";
 
 const inter = Inter({ 
   subsets: ["latin"], 
@@ -56,8 +62,33 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
-        <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen transition-colors duration-300`}>
+        <head>
+          <Script
+            id="theme-initializer"
+            strategy="beforeInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
+                try {
+                  var saved = localStorage.getItem("gpedge-theme-v3");
+                  if (!saved) {
+                    localStorage.setItem("gpedge-theme-v3", "light");
+                    document.documentElement.classList.remove("dark");
+                  } else if (saved === "dark") {
+                    document.documentElement.classList.add("dark");
+                  } else {
+                    document.documentElement.classList.remove("dark");
+                  }
+                } catch (_) {}
+              `,
+            }}
+          />
+        </head>
+        <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`}>
           <ThemeProvider>
+            <PageBackground />
+            
+            <GlobalLogo />
+
             <Header />
             {children}
           </ThemeProvider>

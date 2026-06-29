@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
+import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -30,6 +31,7 @@ const templates = [
 ];
 
 export default function NotificationsPage() {
+  const { isReadOnly } = useAdminRole();
   const [showCompose, setShowCompose] = useState(false);
   const [newNotifType, setNewNotifType] = useState("In-app");
   const [newNotifTarget, setNewNotifTarget] = useState("All Subscribers");
@@ -44,15 +46,35 @@ export default function NotificationsPage() {
         variants={itemVariants}
       />
 
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-455" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but composing new notifications or cancelling scheduled alerts is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {/* Create New Notification button */}
       <motion.div variants={itemVariants} className="flex justify-end">
         <button
-          onClick={() => setShowCompose(!showCompose)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.97]"
+          onClick={() => !isReadOnly && setShowCompose(!showCompose)}
+          disabled={isReadOnly}
+          className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:shadow-md active:scale-[0.97]"}`}
           style={{
-            background: showCompose
-              ? "linear-gradient(135deg, #ef4444, #dc2626)"
-              : "linear-gradient(135deg, #14b8a6, #0d9488)",
+            background: isReadOnly
+              ? "#94a3b8"
+              : showCompose
+                ? "linear-gradient(135deg, #ef4444, #dc2626)"
+                : "linear-gradient(135deg, #14b8a6, #0d9488)",
           }}
         >
           {showCompose ? (
@@ -145,8 +167,9 @@ export default function NotificationsPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={() => setShowCompose(false)}
-                  className="px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-all shadow-sm"
+                  disabled={isReadOnly}
+                  onClick={() => !isReadOnly && setShowCompose(false)}
+                  className={`px-4 py-2.5 text-sm font-semibold text-white bg-teal-500 rounded-xl hover:bg-teal-600 transition-all shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   Send Notification
                 </button>
@@ -180,7 +203,11 @@ export default function NotificationsPage() {
                   <div className="flex items-center gap-2">
                     <StatusBadge variant={n.status} />
                     <div className="opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                      <button className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; }}
+                        disabled={isReadOnly}
+                        className={`p-1.5 rounded-lg text-slate-400 dark:text-slate-505 transition-all ${isReadOnly ? "opacity-30 cursor-not-allowed" : "hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"}`}
+                      >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import {
   themeBadge,
@@ -39,6 +40,7 @@ type ViewMode = "grid" | "table";
 
 
 export default function QuizzesPage() {
+  const { isReadOnly } = useAdminRole();
   const router = useRouter();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -86,6 +88,7 @@ export default function QuizzesPage() {
   }, [showCreateModal, previewQuiz]);
 
   const resetSession = (id: number) => {
+    if (isReadOnly) return;
     setSessions((prev) => prev.filter((s) => s.id !== id));
   };
 
@@ -117,6 +120,7 @@ export default function QuizzesPage() {
             </div>
             <button
               onClick={() => {
+                if (isReadOnly) return;
                 setQuizName("");
                 setQuizDescription("");
                 setQuizLimit(50);
@@ -125,7 +129,8 @@ export default function QuizzesPage() {
                 setQuizRandomize(true);
                 setShowCreateModal(true);
               }}
-              className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all flex items-center gap-2 shrink-0 ${themeBtnPrimary}`}
+              disabled={isReadOnly}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all flex items-center gap-2 shrink-0 ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               Create Mock Exam
@@ -134,6 +139,23 @@ export default function QuizzesPage() {
         }
         variants={itemVariants}
       />
+
+      {isReadOnly && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+        >
+          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="mt-0.5 opacity-90">
+              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+            </p>
+          </div>
+        </motion.div>
+      )}
 
 
 
@@ -216,13 +238,15 @@ export default function QuizzesPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (isReadOnly) return;
                           if (confirm("Are you sure you want to delete this mock exam?")) {
                             const deleted = deleteQuiz(quiz.id);
                             if (deleted) setQuizzes(getQuizzes());
                           }
                         }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all"
-                        title="Delete Quiz"
+                        disabled={isReadOnly}
+                        className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                        title={isReadOnly ? "Viewers cannot delete quizzes" : "Delete Quiz"}
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>

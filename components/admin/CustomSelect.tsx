@@ -20,6 +20,7 @@ interface CustomSelectProps {
   options: Option[];
   className?: string;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export default function CustomSelect({
@@ -28,6 +29,7 @@ export default function CustomSelect({
   options,
   className = "",
   placeholder = "Select option...",
+  disabled = false,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,10 +47,11 @@ export default function CustomSelect({
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
-    <div ref={containerRef} className={`relative select-none ${isOpen ? "z-30" : "z-10"} ${className}`}>
+    <div ref={containerRef} className={`relative select-none ${isOpen ? "z-30" : "z-10"} ${className} ${disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}>
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
         className={themeSelectTrigger}
       >
         <span className="truncate">

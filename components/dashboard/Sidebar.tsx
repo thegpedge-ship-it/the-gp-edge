@@ -36,9 +36,13 @@ import {
   Wrench,
   FileText,
   FileEdit,
+  Tag,
+  LogOut,
 } from "lucide-react";
 import { user as localUser } from "./data";
-import { useUser } from "@clerk/nextjs";
+import { useUser, SignOutButton } from "@clerk/nextjs";
+import { useProfile } from "@/contexts/ProfileContext";
+import { formatJoined } from "@/lib/format";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -59,6 +63,7 @@ const NAV = [
   { href: "/dashboard/billing",          icon: Receipt,    label: "MBS Billing"      },
   { href: "/dashboard/medical-library",  icon: BookOpen,   label: "Medical Library" },
   { href: "/dashboard/clinical-autofills",icon: FileEdit,   label: "Clinical Autofills" },
+  { href: "/dashboard/pricing",          icon: Tag,        label: "Pricing"         },
   { href: "/dashboard/tools",            icon: Wrench,     label: "GP Tools"        },
   { href: "/dashboard/settings",         icon: Settings,   label: "Settings"        },
 ];
@@ -104,6 +109,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { isExpanded, ready, toggle, setHovered } = useSidebar();
   const { user } = useUser();
+  const profile = useProfile();
 
   const leaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onEnter = useCallback(() => {
@@ -294,6 +300,17 @@ export default function Sidebar() {
             {/* ── Utility icons ── */}
             <RailBtn icon={<BarChart2 size={16} strokeWidth={1.8} />} title="Analytics" />
             <RailBtn icon={<HelpCircle size={16} strokeWidth={1.8} />} title="Help &amp; Support" />
+            <SignOutButton>
+              <button title="Log out" className="sidebar-rail-btn" style={{
+                width: 40, height: 40,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: 10, border: "none",
+                cursor: "pointer", flexShrink: 0,
+                transition: "background 150ms, color 150ms",
+              }}>
+                <LogOut size={16} strokeWidth={1.8} />
+              </button>
+            </SignOutButton>
 
             <Sep />
 
@@ -419,24 +436,28 @@ export default function Sidebar() {
                     {user?.fullName || "User"}
                   </p>
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: 0 }}>
-                    RACGP Candidate · PGY3
+                    {profile.roleTitle || "GP Registrar"}
                   </p>
-                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
-                    {localUser.hospital}
-                  </p>
+                  {profile.hospital && (
+                    <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
+                      {profile.hospital}
+                    </p>
+                  )}
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
                     Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
                   </p>
-                  <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30" style={{
-                    marginTop: 10,
-                    display: "inline-flex", alignItems: "center", gap: 6,
-                    padding: "5px 12px", borderRadius: 999,
-                  }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
-                    <span className="font-sans text-xs md:text-sm font-semibold tracking-wide text-teal-700 dark:text-teal-400">
-                      Preparing for AKT · Aug 2026
-                    </span>
-                  </div>
+                  {profile.examTarget && (
+                    <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
+                      marginTop: 10,
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      padding: "6px 18px", borderRadius: 999,
+                    }}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                      <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">
+                        {profile.examTarget}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -503,9 +524,26 @@ export default function Sidebar() {
                 <span>Help &amp; Support</span>
               </button>
 
+              {/* ── Log out ── */}
+              <SignOutButton>
+                <button className="
+                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                  border border-slate-200 dark:border-slate-800
+                  bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
+                  hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
+                  font-sans text-sm md:text-base font-medium
+                  transition-all duration-150 cursor-pointer w-full text-left shadow-sm
+                ">
+                  <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
+                    <LogOut size={14} strokeWidth={1.8} />
+                  </span>
+                  <span>Log out</span>
+                </button>
+              </SignOutButton>
+
               {/* Footer */}
               <div className="text-center pt-1">
-                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{localUser.joinedLabel}</p>
+                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{formatJoined(profile.joinedAt)}</p>
                 <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0">Synced {localUser.lastSyncedMin}m ago</p>
               </div>
 
@@ -594,6 +632,16 @@ function MobileDrawer({ pathname }: { pathname: string }) {
               </Link>
             );
           })}
+          
+          <div className="my-1 border-t border-slate-100 dark:border-slate-800"></div>
+          <SignOutButton>
+            <button className="
+              flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
+            ">
+              <LogOut size={15} /> Log out
+            </button>
+          </SignOutButton>
         </div>
       </div>
     </div>
