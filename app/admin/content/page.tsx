@@ -12,6 +12,7 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
+import { generatePdfAndUploadToR2Action } from "@/actions/pdf.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -38,6 +39,7 @@ export default function ContentPage() {
   // Content Upload Modal Wizard
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalStep, setModalStep] = useState<"select" | "condition" | "document" | "note">("select");
+  const [isSaving, setIsSaving] = useState(false);
   
   // New entry states
   const [newTitle, setNewTitle] = useState("");
@@ -58,6 +60,7 @@ export default function ContentPage() {
     status: "idle" | "uploading" | "extracting" | "success" | "error";
     error?: string;
     pdfUrl?: string;
+    isDocx?: boolean;
     extractedData?: {
       title?: string;
       system?: string;
@@ -144,6 +147,7 @@ export default function ContentPage() {
       size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
       progress: 5,
       status: "uploading",
+      isDocx: file.name.toLowerCase().endsWith(".docx") || file.name.toLowerCase().endsWith(".doc"),
     }));
 
     setContentUploadQueue((prev) => [...prev, ...newItems]);
@@ -267,7 +271,7 @@ export default function ContentPage() {
     setContentUploadQueue((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleSaveAllDocuments = () => {
+  const handleSaveAllDocuments = async () => {
     if (isReadOnly) return;
     const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
     if (successItems.length === 0) {
@@ -275,101 +279,143 @@ export default function ContentPage() {
       return;
     }
 
+    setIsSaving(true);
     let nextId = content.length > 0 ? Math.max(...content.map((c) => c.id)) + 1 : 1;
     const newContentItems: MedicalContent[] = [];
 
-    successItems.forEach((item) => {
-      const ext = item.extractedData!;
-      const newItem: MedicalContent & { pdfUrl?: string; pdfSize?: string } = {
-        id: nextId++,
-        name: ext.title || "Extracted Document",
-        system: ext.system || "Endocrine",
-        category: ext.category || "Clinical Reference",
-        type: "Document",
-        status: "published",
-        lastUpdated: "Just now",
-        author: "GP Edge Admin",
-        references: ext.references && ext.references.length > 0 ? ext.references.length : 1,
-        usedInQuestions: 0,
-        pdfUrl: item.pdfUrl || "",
-        pdfSize: item.size || "1.2 MB",
-      };
+    try {
+      await Promise.all(
+        successItems.map(async (item) => {
+          const ext = item.extractedData!;
+          let r2Url = item.pdfUrl || "";
+          let size = item.size || "1.2 MB";
 
-      newContentItems.push(newItem);
+          // If the original file was DOCX/DOC, convert the extracted text to a real PDF on the fly!
+          if (item.isDocx) {
+            try {
+              const formattedRefs = ext.references?.map((refText, idx) => ({
+                id: idx + 1,
+                text: refText,
+              })) || [];
 
-      // Save HTML body to localStorage
-      let contentHtml = "";
-      if (ext.fullHtml) {
-        contentHtml = ext.fullHtml;
-      } else {
-        contentHtml = `
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
-          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
-          </ul>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis & Investigations Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
-          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.treatment || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
-          </ul>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
-        `;
-      }
+              const pdfResult = await generatePdfAndUploadToR2Action({
+                title: ext.title || item.name.replace(/\.[^/.]+$/, ""),
+                system: ext.system || "Endocrine",
+                category: ext.category || "Clinical Reference",
+                symptoms: ext.symptoms || "",
+                treatment: ext.treatment || "",
+                notes: ext.notes || "",
+                references: formattedRefs,
+              });
 
-      localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
-      localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
-
-      if (ext.references && ext.references.length > 0) {
-        const refObjects = ext.references.map((refText: string, index: number) => ({
-          id: index + 1,
-          text: refText,
-          url: "#"
-        }));
-        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
-      } else {
-        const defaultRefs = [
-          {
-            id: 1,
-            text: `Clinical reference handbook - Resource 1`,
-            url: "#"
+              if (pdfResult.success && pdfResult.pdfUrl) {
+                r2Url = pdfResult.pdfUrl;
+                size = pdfResult.fileSize || size;
+              } else {
+                console.error("PDF generation returned error:", pdfResult.error);
+              }
+            } catch (pdfErr) {
+              console.error("Error generating PDF buffer:", pdfErr);
+            }
           }
-        ];
-        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
-      }
-    });
 
-    const updated = [...newContentItems, ...content];
-    setContent(updated);
-    saveMedicalContent(updated);
-    setShowAddModal(false);
-    resetForm();
-    alert(`Successfully imported ${newContentItems.length} documents!`);
+          const newItem: MedicalContent & { pdfUrl?: string; pdfSize?: string } = {
+            id: nextId++,
+            name: ext.title || "Extracted Document",
+            system: ext.system || "Endocrine",
+            category: ext.category || "Clinical Reference",
+            type: "Document",
+            status: "published",
+            lastUpdated: "Just now",
+            author: "GP Edge Admin",
+            references: ext.references && ext.references.length > 0 ? ext.references.length : 1,
+            usedInQuestions: 0,
+            pdfUrl: r2Url,
+            pdfSize: size,
+          };
+
+          newContentItems.push(newItem);
+
+          // Save HTML body to localStorage
+          let contentHtml = "";
+          if (ext.fullHtml) {
+            contentHtml = ext.fullHtml;
+          } else {
+            contentHtml = `
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
+              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
+              </ul>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis & Investigations Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
+              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                ${(ext.treatment || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
+              </ul>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+              
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
+            `;
+          }
+
+          localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
+          localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
+
+          if (ext.references && ext.references.length > 0) {
+            const refObjects = ext.references.map((refText: string, index: number) => ({
+              id: index + 1,
+              text: refText,
+              url: "#"
+            }));
+            localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
+          } else {
+            const defaultRefs = [
+              {
+                id: 1,
+                text: `Clinical reference handbook - Resource 1`,
+                url: "#"
+              }
+            ];
+            localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
+          }
+        })
+      );
+
+      const updated = [...newContentItems, ...content];
+      setContent(updated);
+      saveMedicalContent(updated);
+      setShowAddModal(false);
+      resetForm();
+      alert(`Successfully imported ${newContentItems.length} documents!`);
+    } catch (err) {
+      console.error("Error saving documents:", err);
+      alert("Failed to save and import documents.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Lock body scroll when modal is open to prevent background scrolling lag
@@ -1001,11 +1047,10 @@ export default function ContentPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button 
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">                       <button 
                         type="button"
                         onClick={() => setModalStep("select")} 
-                        disabled={contentUploadQueue.some(item => item.status === "uploading")}
+                        disabled={isSaving || contentUploadQueue.some(item => item.status === "uploading")}
                         className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
                         Back
@@ -1013,10 +1058,16 @@ export default function ContentPage() {
                       <button 
                         type="button"
                         onClick={handleSaveAllDocuments} 
-                        disabled={!contentUploadQueue.some(item => item.status === "success")}
-                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow border-none cursor-pointer"
+                        disabled={isSaving || !contentUploadQueue.some(item => item.status === "success")}
+                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow border-none cursor-pointer flex items-center gap-1.5"
                       >
-                        Import Documents ({contentUploadQueue.filter(item => item.status === "success").length})
+                        {isSaving ? (
+                          <>
+                            <Lucide.Loader2 className="w-3.5 h-3.5 animate-spin" /> Converting to PDF...
+                          </>
+                        ) : (
+                          `Import Documents (${contentUploadQueue.filter(item => item.status === "success").length})`
+                        )}
                       </button>
                     </div>
                   </div>

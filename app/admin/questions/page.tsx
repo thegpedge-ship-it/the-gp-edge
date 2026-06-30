@@ -25,6 +25,7 @@ import {
 import { addUserNotification } from "@/utils/notifications";
 import { Question, getQuestions, saveQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
+import { importQuestionsAction, deleteQuestionAction } from "@/actions/question.actions";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -169,21 +170,29 @@ export default function QuestionsPage() {
     return matchSearch && matchStatus && matchTopic && matchDifficulty;
   });
 
-  const updateStatus = (id: number, newStatus: Question["status"]) => {
+  const updateStatus = async (id: number, newStatus: Question["status"]) => {
     if (isReadOnly) return;
+    const targetQ = questions.find((q) => q.id === id);
     const updated = questions.map((q) => (q.id === id ? { ...q, status: newStatus } : q));
     setQuestions(updated);
     saveQuestions(updated);
+    if (targetQ) {
+      await importQuestionsAction([{ ...targetQ, status: newStatus }]);
+    }
   };
 
-  const deleteQuestion = (id: number) => {
+  const deleteQuestion = async (id: number) => {
     if (isReadOnly) return;
+    const targetQ = questions.find((q) => q.id === id);
     const updated = questions.filter((q) => q.id !== id);
     setQuestions(updated);
     saveQuestions(updated);
+    if (targetQ) {
+      await deleteQuestionAction(targetQ.text);
+    }
   };
 
-  const handleCreateQuestion = () => {
+  const handleCreateQuestion = async () => {
     if (isReadOnly) return;
     if (!newQuestionText.trim()) {
       alert("Please enter the question text.");
@@ -192,9 +201,10 @@ export default function QuestionsPage() {
     const correctIndex = Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1);
 
     if (editingQuestion) {
+      let updatedQ: any = null;
       const updated = questions.map((q) => {
         if (q.id === editingQuestion.id) {
-          return {
+          updatedQ = {
             ...q,
             text: newQuestionText,
             options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
@@ -206,11 +216,15 @@ export default function QuestionsPage() {
             tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
             image: newImage || undefined,
           };
+          return updatedQ;
         }
         return q;
       });
       setQuestions(updated);
       saveQuestions(updated);
+      if (updatedQ) {
+        await importQuestionsAction([updatedQ]);
+      }
       setShowAddModal(false);
       setEditingQuestion(null);
       resetAddForm();
@@ -234,6 +248,7 @@ export default function QuestionsPage() {
     const updated = [newQuestion, ...questions];
     setQuestions(updated);
     saveQuestions(updated);
+    await importQuestionsAction([newQuestion]);
     setShowAddModal(false);
     resetAddForm();
 
@@ -382,7 +397,7 @@ export default function QuestionsPage() {
     }, 1200);
   };
 
-  const handleSaveImportedQuestions = () => {
+  const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
     let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
@@ -405,6 +420,7 @@ export default function QuestionsPage() {
     const updated = [...newQs, ...questions];
     setQuestions(updated);
     saveQuestions(updated);
+    await importQuestionsAction(newQs);
     
     addUserNotification(
       `${newQs.length} Questions Imported`,

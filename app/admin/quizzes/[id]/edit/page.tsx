@@ -23,6 +23,7 @@ import {
   getCustomTags,
 } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
+import { importQuestionsAction } from "@/actions/question.actions";
 import {
   themeBadge,
   themeBadgeSm,
@@ -348,7 +349,7 @@ export default function EditQuizPage() {
     }, 1200);
   };
 
-  const handleSaveImportedQuestions = () => {
+  const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
     let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
@@ -374,6 +375,7 @@ export default function EditQuizPage() {
     const updated = [...newQs, ...allQuestions];
     setAllQuestions(updated);
     saveQuestions(updated);
+    await importQuestionsAction(newQs);
     
     // Assign imported questions to this quiz
     setQuestionIds((prev) => [...prev, ...newQIds]);
