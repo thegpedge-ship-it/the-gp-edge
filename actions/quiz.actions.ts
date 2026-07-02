@@ -28,7 +28,10 @@ export async function syncQuizToDbAction(quiz: SyncQuizInput, questionStems: str
     const dbStatus = statusMap[quiz.status] || "draft";
     const examTypeCode = quiz.examType || "AKT";
     const qCount = questionStems.length;
-    const creatorId = createdBy || null;
+
+    // Validate that createdBy is a valid UUID format before saving to database
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const creatorId = createdBy && uuidRegex.test(createdBy) ? createdBy : null;
 
     // ────────────────────────────────────────────────────────────────
     // 1. Sync to the `quizzes` / `quiz_questions` tables

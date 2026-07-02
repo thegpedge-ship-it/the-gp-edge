@@ -22,7 +22,20 @@ export function useAdminRole() {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const updateProfile = () => {
-        const storedId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+        let storedId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+        if (storedId === "1") {
+          storedId = "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+          localStorage.setItem("gpedge_active_admin_id", storedId);
+        } else if (storedId === "2") {
+          storedId = "b5a452ef-09c3-4d2b-aa58-bf8827f8a101";
+          localStorage.setItem("gpedge_active_admin_id", storedId);
+        } else if (storedId === "3") {
+          storedId = "d7c92b23-1c32-4f8a-9a99-8cb142646202";
+          localStorage.setItem("gpedge_active_admin_id", storedId);
+        } else if (storedId === "4") {
+          storedId = "fa0c92d5-89db-4848-8df0-7d72dfa64303";
+          localStorage.setItem("gpedge_active_admin_id", storedId);
+        }
         let storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
         let credsList: any[] = [];
         try {
