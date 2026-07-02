@@ -25,6 +25,7 @@ import {
 } from "@/lib/adminTheme";
 import { Quiz, Question, createQuiz, getQuizzes, deleteQuiz, getQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { syncQuizToDbAction, deleteQuizFromDbAction } from "@/actions/quiz.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -40,7 +41,7 @@ type ViewMode = "grid" | "table";
 
 
 export default function QuizzesPage() {
-  const { isReadOnly } = useAdminRole();
+  const { currentAdmin, isReadOnly } = useAdminRole();
   const router = useRouter();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -72,8 +73,24 @@ export default function QuizzesPage() {
   }, [sortedQuizzes, visibleCount]);
 
   useEffect(() => {
-    setQuizzes(getQuizzes());
-  }, []);
+    const list = getQuizzes();
+    setQuizzes(list);
+    
+    // Proactively sync all mock exams to Neon PostgreSQL in the background
+    const allQuestions = getQuestions();
+    list.forEach((quiz) => {
+      const stems = quiz.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      syncQuizToDbAction({
+        name: quiz.name,
+        description: quiz.description,
+        timeLimit: quiz.timeLimit,
+        passingScore: quiz.passingScore,
+        randomize: quiz.randomize,
+        status: quiz.status as any,
+        examType: quiz.examType as any,
+      }, stems, currentAdmin?.id);
+    });
+  }, [currentAdmin]);
 
   // Lock body scroll when modal or preview is open to prevent background scrolling lag
   useEffect(() => {
@@ -241,7 +258,10 @@ export default function QuizzesPage() {
                           if (isReadOnly) return;
                           if (confirm("Are you sure you want to delete this mock exam?")) {
                             const deleted = deleteQuiz(quiz.id);
-                            if (deleted) setQuizzes(getQuizzes());
+                            if (deleted) {
+                              setQuizzes(getQuizzes());
+                              deleteQuizFromDbAction(quiz.name);
+                            }
                           }
                         }}
                         disabled={isReadOnly}
@@ -401,6 +421,17 @@ export default function QuizzesPage() {
                           status: "draft",
                           examType: "AKT",
                         });
+                        
+                        syncQuizToDbAction({
+                          name: newQuiz.name,
+                          description: newQuiz.description,
+                          timeLimit: newQuiz.timeLimit,
+                          passingScore: newQuiz.passingScore,
+                          randomize: newQuiz.randomize,
+                          status: newQuiz.status as any,
+                          examType: newQuiz.examType as any,
+                        }, [], currentAdmin?.id);
+
                         setQuizzes(getQuizzes());
                         setShowCreateModal(false);
                         addUserNotification(

@@ -104,9 +104,13 @@ export default function QuestionsPage() {
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize questions from localStorage
+  // Initialize questions from localStorage and sync to Neon PostgreSQL in the background
   useEffect(() => {
-    setQuestions(getQuestions());
+    const list = getQuestions();
+    setQuestions(list);
+    if (list.length > 0) {
+      importQuestionsAction(list);
+    }
   }, []);
 
   // Handle optional question pre-viewing via query parameter (e.g. from Search page)

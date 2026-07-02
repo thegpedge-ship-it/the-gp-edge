@@ -24,6 +24,7 @@ import {
 } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction } from "@/actions/question.actions";
+import { syncQuizToDbAction, deleteQuizFromDbAction } from "@/actions/quiz.actions";
 import {
   themeBadge,
   themeBadgeSm,
@@ -82,7 +83,7 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 }
 
 export default function EditQuizPage() {
-  const { isReadOnly } = useAdminRole();
+  const { currentAdmin, isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const quizId = Number(params.id);
@@ -469,6 +470,18 @@ export default function EditQuizPage() {
       return;
     }
 
+    // Sync updated quiz configuration and questions mapping to database
+    const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+    syncQuizToDbAction({
+      name: updated.name,
+      description: updated.description,
+      timeLimit: updated.timeLimit,
+      passingScore: updated.passingScore,
+      randomize: updated.randomize,
+      status: updated.status as any,
+      examType: updated.examType as any,
+    }, stems, currentAdmin?.id);
+
     setSaveMessage("Changes saved successfully.");
     setTimeout(() => setSaveMessage(null), 3000);
 
@@ -484,7 +497,7 @@ export default function EditQuizPage() {
       return;
     }
     setStatus("active");
-    updateQuiz(quizId, {
+    const updated = updateQuiz(quizId, {
       name: name.trim(),
       description: description.trim(),
       topics,
@@ -495,6 +508,20 @@ export default function EditQuizPage() {
       examType,
       randomize,
     });
+
+    if (updated) {
+      const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      syncQuizToDbAction({
+        name: updated.name,
+        description: updated.description,
+        timeLimit: updated.timeLimit,
+        passingScore: updated.passingScore,
+        randomize: updated.randomize,
+        status: updated.status as any,
+        examType: updated.examType as any,
+      }, stems, currentAdmin?.id);
+    }
+
     addUserNotification(
       `Quiz Updated: ${name}`,
       `The mock exam "${name}" is now active with ${questionIds.length} questions.`,
@@ -508,7 +535,7 @@ export default function EditQuizPage() {
   const handleSuspend = () => {
     if (isReadOnly) return;
     setStatus("suspended");
-    updateQuiz(quizId, {
+    const updated = updateQuiz(quizId, {
       name: name.trim(),
       description: description.trim(),
       topics,
@@ -519,6 +546,20 @@ export default function EditQuizPage() {
       examType,
       randomize,
     });
+
+    if (updated) {
+      const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      syncQuizToDbAction({
+        name: updated.name,
+        description: updated.description,
+        timeLimit: updated.timeLimit,
+        passingScore: updated.passingScore,
+        randomize: updated.randomize,
+        status: updated.status as any,
+        examType: updated.examType as any,
+      }, stems, currentAdmin?.id);
+    }
+
     setSaveMessage("Quiz suspended.");
     setTimeout(() => setSaveMessage(null), 3000);
   };
@@ -527,6 +568,16 @@ export default function EditQuizPage() {
     if (isReadOnly) return;
     const copy = duplicateQuiz(quizId);
     if (copy) {
+      const stems = copy.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      syncQuizToDbAction({
+        name: copy.name,
+        description: copy.description,
+        timeLimit: copy.timeLimit,
+        passingScore: copy.passingScore,
+        randomize: copy.randomize,
+        status: copy.status as any,
+        examType: copy.examType as any,
+      }, stems, currentAdmin?.id);
       router.push(`/admin/quizzes/${copy.id}/edit`);
     }
   };
@@ -535,6 +586,7 @@ export default function EditQuizPage() {
     if (isReadOnly) return;
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     deleteQuiz(quizId);
+    deleteQuizFromDbAction(name);
     router.push("/admin/quizzes");
   };
 
