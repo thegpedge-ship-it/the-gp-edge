@@ -11,7 +11,7 @@ export interface MedicalCondition {
   name: string;
   system: "Cardiology" | "Respiratory" | "Endocrine" | "Gastrointestinal" | "Psychiatry" | "Dermatology" | "Women's Health" | "Paediatrics" | "Neurology" | "Musculoskeletal" | "MBS";
   category: string;
-  type: "Condition" | "Guideline" | "Document" | "Note";
+  type: "Condition" | "Guideline" | "Document" | "Note" | "Approach";
   isPremium?: boolean;
   lastUpdated: string;
   author: string;
