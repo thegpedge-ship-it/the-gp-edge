@@ -1,13 +1,35 @@
-import { getQuestions } from "./quizData";
-import type { Question } from "./quizData";
-import { mockTests, subjects } from "@/components/exam-prep/data";
+// Client-side bridge for the test-taking flow.
+//
+// The real question data lives in Postgres and is fetched through the server
+// actions in app/exam-prep/actions.ts. When the user clicks "Start" anywhere
+// (a subtopic quiz, a custom quiz, the mock drill, a mock test) we resolve the
+// concrete question-id set up-front and stash a "test plan" in sessionStorage.
+// The instructions page reads it for the summary; the start page reads it to
+// fetch the questions and, on submit, to save the attempt. The `testId` in the
+// URL is just an opaque key that must match the stashed plan.
 
+import type { AttemptSource } from "@/app/exam-prep/actions";
+
+export interface TestPlan {
+  /** URL key — the quiz UUID, a mock UUID, or "custom" / "drill". */
+  testId: string;
+  source: AttemptSource;
+  quizId?: string;
+  subtopicId?: string;
+  mockTestId?: string;
+  name: string;
+  questionIds: string[];
+  durationMinutes: number;
+  /** Whether a countdown timer (with auto-submit) applies. Mock tests only. */
+  timed: boolean;
+}
+
+/** Config the instructions / start pages render. Derived from a TestPlan. */
 export interface TestConfig {
   id: string;
   name: string;
   questionCount: number;
   durationMinutes: number;
-  /** Whether a countdown timer (with auto-submit) applies. Only mock tests are timed. */
   timed: boolean;
 }
 
@@ -23,7 +45,41 @@ export function buildInstructionsUrl(testId: string): string {
   return `/test/${testId}/instructions`;
 }
 
+const PLAN_KEY = "gpedge_active_test_plan";
 const TEST_AUTH_KEY = "gpedge_test_authorized";
+
+/** Persist the resolved plan before navigating into the test flow. */
+export function saveTestPlan(plan: TestPlan): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+}
+
+/** Read the active plan, but only if it matches the requested testId. */
+export function loadTestPlan(testId: string): TestPlan | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(PLAN_KEY);
+    if (!raw) return null;
+    const plan = JSON.parse(raw) as TestPlan;
+    if (plan.testId !== testId || !Array.isArray(plan.questionIds) || plan.questionIds.length === 0) {
+      return null;
+    }
+    return plan;
+  } catch {
+    return null;
+  }
+}
+
+/** Derive the lighter TestConfig the pages render. */
+export function planToConfig(plan: TestPlan): TestConfig {
+  return {
+    id: plan.testId,
+    name: plan.name,
+    questionCount: plan.questionIds.length,
+    durationMinutes: plan.durationMinutes,
+    timed: plan.timed,
+  };
+}
 
 /** Grant a one-time pass to start this test — called by the instructions page only. */
 export function authorizeTestStart(testId: string): void {
@@ -40,89 +96,4 @@ export function consumeTestAuthorization(testId: string): boolean {
   const authorized = sessionStorage.getItem(TEST_AUTH_KEY) === testId;
   sessionStorage.removeItem(TEST_AUTH_KEY);
   return authorized;
-}
-
-const CUSTOM_TEST_KEY = "gpedge_custom_test_config";
-
-/** Persist the config of a user-built custom quiz before navigating to it. */
-export function saveCustomTestConfig(config: Omit<TestConfig, "id" | "timed">): void {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(CUSTOM_TEST_KEY, JSON.stringify(config));
-}
-
-/**
- * Resolve a test's config from its ID against the canonical data sources.
- * URL params are never trusted — an unknown or locked ID returns null.
- */
-export function resolveTestConfig(testId: string): TestConfig | null {
-  if (testId === "custom") {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = sessionStorage.getItem(CUSTOM_TEST_KEY);
-      if (!raw) return null;
-      const c = JSON.parse(raw) as Omit<TestConfig, "id" | "timed">;
-      if (!c.name || !c.questionCount || !c.durationMinutes) return null;
-      // Mock drill & user-defined quizzes are untimed.
-      return { id: "custom", ...c, timed: false };
-    } catch {
-      return null;
-    }
-  }
-
-  const mock = mockTests.find((t) => t.id === testId);
-  if (mock) {
-    if (mock.status === "locked") return null;
-    return {
-      id: mock.id,
-      name: mock.name,
-      questionCount: mock.questionCount,
-      durationMinutes: parseDurationToMinutes(mock.duration),
-      // Mock tests are the only timed test type.
-      timed: true,
-    };
-  }
-
-  for (const subject of subjects) {
-    for (const subtopic of subject.subtopics) {
-      const quiz = subtopic.quizzes.find((q) => q.id === testId);
-      if (quiz) {
-        return {
-          id: quiz.id,
-          name: `${subtopic.name} — ${quiz.name}`,
-          questionCount: quiz.questionCount,
-          durationMinutes: parseDurationToMinutes(quiz.duration),
-          // Subject–subtopic tests are untimed.
-          timed: false,
-        };
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Fetch the questions for a test. Draws a random subset of the published
- * question bank to fill the requested count until a real backend exists.
- * The bank is shuffled so each attempt yields a different random selection
- * (and order); if the bank is smaller than `count`, it cycles the shuffle.
- */
-export async function fetchTestQuestions(count: number): Promise<Question[]> {
-  // Simulate network latency so the loading state is visible
-  await new Promise((resolve) => setTimeout(resolve, 600));
-  const bank = getQuestions().filter((q) => q.status === "published");
-  const source = bank.length > 0 ? bank : getQuestions();
-  if (source.length === 0) return [];
-
-  // Fisher–Yates shuffle on a copy so selection + order are random
-  const shuffled = [...source];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-
-  return Array.from({ length: count }, (_, i) => {
-    const q = shuffled[i % shuffled.length];
-    return { ...q, id: i + 1 };
-  });
 }

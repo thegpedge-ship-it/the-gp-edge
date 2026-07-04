@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { consumeTestAuthorization, fetchTestQuestions, resolveTestConfig } from "@/lib/testSession";
-import type { TestConfig } from "@/lib/testSession";
-import type { Question } from "@/lib/quizData";
+import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
+import type { TestConfig, TestPlan } from "@/lib/testSession";
+import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
+import type { QuizQuestion } from "@/app/exam-prep/actions";
+import { clearMockTestsCache } from "@/lib/examCache";
 import TestNotFound from "@/components/test/TestNotFound";
 
 type QuestionStatus = "answered" | "not-answered" | "not-visited";
@@ -173,7 +175,7 @@ export default function TestPage() {
   // undefined = resolving, null = unknown/locked test
   const [config, setConfig] = useState<TestConfig | null | undefined>(undefined);
 
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -185,6 +187,9 @@ export default function TestPage() {
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const submittedRef = useRef(false);
+  const planRef = useRef<TestPlan | null>(null);
+  const startedAtRef = useRef<string>("");
+  const savedRef = useRef(false);
 
   /* Resolve the test from its ID — URL params are never trusted.
      Opening this page directly (without coming through the instructions
@@ -199,7 +204,13 @@ export default function TestPage() {
       router.replace(`/test/${testId}/instructions`);
       return;
     }
-    setConfig(resolveTestConfig(testId));
+    const plan = loadTestPlan(testId);
+    if (!plan) {
+      setConfig(null);
+      return;
+    }
+    planRef.current = plan;
+    setConfig(planToConfig(plan));
   }, [testId, router]);
 
   /* Close the image lightbox whenever the question changes */
@@ -210,11 +221,14 @@ export default function TestPage() {
   /* Fetch questions once the test is resolved */
   useEffect(() => {
     if (!config) return;
+    const plan = planRef.current;
+    if (!plan) return;
     let cancelled = false;
     setTimeLeft(config.durationMinutes * 60);
-    fetchTestQuestions(config.questionCount).then((qs) => {
+    getQuestionsByIds(plan.questionIds).then((qs) => {
       if (!cancelled) {
         setQuestions(qs);
+        startedAtRef.current = new Date().toISOString();
         setLoading(false);
       }
     });
@@ -222,6 +236,32 @@ export default function TestPage() {
       cancelled = true;
     };
   }, [config]);
+
+  /* Persist the attempt (summary + stats) once, when the test is submitted. */
+  useEffect(() => {
+    if (!submitted || savedRef.current) return;
+    const plan = planRef.current;
+    if (!plan || questions.length === 0) return;
+    savedRef.current = true;
+    void saveQuizAttempt({
+      source: plan.source,
+      quizId: plan.quizId,
+      subtopicId: plan.subtopicId,
+      mockTestId: plan.mockTestId,
+      title: plan.name,
+      questionIds: questions.map((q) => q.id),
+      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndex: answers[i] ?? null })),
+      startedAt: startedAtRef.current || undefined,
+      durationSeconds: elapsed,
+    })
+      .then(() => {
+        // Mock-test cards show per-user attempt stats — refresh them next read.
+        if (plan.source === "mock_test") clearMockTestsCache();
+      })
+      .catch(() => {
+        /* best-effort — the result screen still shows the client-side score */
+      });
+  }, [submitted, questions, answers, elapsed]);
 
   const handleSubmit = useCallback(() => {
     if (submittedRef.current) return;

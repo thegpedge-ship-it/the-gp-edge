@@ -32,6 +32,13 @@ export async function ensureDbUser() {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
+  // Account is mid-deletion. During the delete flow the DB row is removed while
+  // the Clerk session is still briefly valid, and a concurrent server render
+  // (e.g. the dashboard layout revalidating after Clerk's reverification) would
+  // otherwise resurrect a skeleton row here. `deleteOwnAccountData` sets this
+  // flag before deleting the row, so we must not recreate it.
+  if (clerkUser.publicMetadata?.accountDeleted) return null;
+
   const email =
     clerkUser.primaryEmailAddress?.emailAddress ??
     clerkUser.emailAddresses[0]?.emailAddress ??

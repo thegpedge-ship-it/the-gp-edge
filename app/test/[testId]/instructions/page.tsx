@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { authorizeTestStart, resolveTestConfig } from "@/lib/testSession";
+import { authorizeTestStart, loadTestPlan, planToConfig } from "@/lib/testSession";
 import type { TestConfig } from "@/lib/testSession";
 import TestNotFound from "@/components/test/TestNotFound";
 
@@ -34,7 +34,8 @@ export default function InstructionsPage() {
   const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
-    setConfig(resolveTestConfig(testId));
+    const plan = loadTestPlan(testId);
+    setConfig(plan ? planToConfig(plan) : null);
   }, [testId]);
 
   if (config === undefined) return null;

@@ -1,19 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { mockTests } from "./data";
-import type { MockTest, MockTestStatus } from "./data";
-import { buildInstructionsUrl } from "@/lib/testSession";
-
-/* ─── Per-status meta — green / white / gray only ─────────────────────── */
-const STATUS_META: Record<MockTestStatus, { label: string; dot: string; action: string }> = {
-  completed: { label: "Completed", dot: "bg-emerald-500", action: "Retake" },
-  "in-progress": { label: "In progress", dot: "bg-emerald-400", action: "Resume" },
-  available: { label: "Available", dot: "bg-slate-300 dark:bg-slate-600", action: "Start" },
-  locked: { label: "Locked", dot: "bg-slate-300 dark:bg-slate-600", action: "Locked" },
-};
+import { getMockTestQuestionIds } from "@/app/exam-prep/actions";
+import type { UiMockTest } from "@/app/exam-prep/actions";
+import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 
 /* ─── Lock icon ───────────────────────────────────────────────────────── */
 function LockIcon() {
@@ -26,9 +18,19 @@ function LockIcon() {
 }
 
 /* ─── Single test card (slim, uniform row) ────────────────────────────── */
-function TestCard({ test, onStart }: { test: MockTest; onStart: (id: string) => void }) {
-  const meta = STATUS_META[test.status];
-  const isLocked = test.status === "locked";
+function TestCard({
+  test,
+  starting,
+  onStart,
+}: {
+  test: UiMockTest;
+  starting: boolean;
+  onStart: (test: UiMockTest) => void;
+}) {
+  const isLocked = test.availability === "locked";
+  const label = isLocked ? "Locked" : test.completed ? "Completed" : "Available";
+  const dot = test.completed ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600";
+  const action = test.completed ? "Retake" : "Start";
 
   return (
     <div
@@ -43,39 +45,28 @@ function TestCard({ test, onStart }: { test: MockTest; onStart: (id: string) => 
         <div className="flex items-center gap-2">
           <h4 className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{test.name}</h4>
           <span className="flex items-center gap-1.5 flex-shrink-0 text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
-            {meta.label}
+            <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+            {label}
           </span>
         </div>
 
         <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500 mt-1">
           <span>{test.questionCount} Qs</span>
           <span>&middot;</span>
-          <span>{test.duration}</span>
-          {test.attempts != null && (
+          <span>{test.durationMin} min</span>
+          {test.attempts > 0 && (
             <>
               <span>&middot;</span>
               <span>{test.attempts} attempt{test.attempts === 1 ? "" : "s"}</span>
             </>
           )}
-          {/* Attempted → show score */}
-          {test.status === "completed" && test.bestScore != null && (
+          {test.completed && test.bestScore != null && (
             <>
               <span>&middot;</span>
               <span className="font-bold text-emerald-600 dark:text-emerald-400">Best {test.bestScore}%</span>
             </>
           )}
         </div>
-
-        {/* In-progress → show completeness */}
-        {test.status === "in-progress" && test.progress != null && (
-          <div className="flex items-center gap-2 mt-1.5 max-w-[240px]">
-            <div className="flex-1 h-1 rounded-full bg-slate-100 dark:bg-slate-700/60 overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-500" style={{ width: `${test.progress}%` }} />
-            </div>
-            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 w-8 text-right">{test.progress}%</span>
-          </div>
-        )}
       </div>
 
       {/* Right — action */}
@@ -89,8 +80,6 @@ function TestCard({ test, onStart }: { test: MockTest; onStart: (id: string) => 
               <LockIcon />
               Locked
             </button>
-
-            {/* Tiny "!" info dot with hover tooltip */}
             <span className="relative group/lock">
               <button
                 aria-label="Why is this locked?"
@@ -105,10 +94,11 @@ function TestCard({ test, onStart }: { test: MockTest; onStart: (id: string) => 
           </>
         ) : (
           <button
-            onClick={() => onStart(test.id)}
-            className="px-4 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors duration-200"
+            onClick={() => onStart(test)}
+            disabled={starting}
+            className="px-4 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-wait text-white transition-colors duration-200"
           >
-            {meta.action}
+            {starting ? "Loading…" : action}
           </button>
         )}
       </div>
@@ -117,8 +107,17 @@ function TestCard({ test, onStart }: { test: MockTest; onStart: (id: string) => 
 }
 
 /* ─── Modal ───────────────────────────────────────────────────────────── */
-export default function MockTestsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function MockTestsModal({
+  open,
+  onClose,
+  tests,
+}: {
+  open: boolean;
+  onClose: () => void;
+  tests: UiMockTest[];
+}) {
   const router = useRouter();
+  const [startingId, setStartingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -129,9 +128,23 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const handleStart = (id: string) => {
+  const handleStart = async (test: UiMockTest) => {
+    if (startingId) return;
+    setStartingId(test.id);
+    const detail = await getMockTestQuestionIds(test.id);
+    setStartingId(null);
+    if (!detail || detail.questionIds.length === 0) return;
+    saveTestPlan({
+      testId: test.id,
+      source: "mock_test",
+      mockTestId: test.id,
+      name: test.name,
+      questionIds: detail.questionIds,
+      durationMinutes: detail.timeLimitMin ?? test.durationMin,
+      timed: true, // mock tests are the timed test type
+    });
     onClose();
-    router.push(buildInstructionsUrl(id));
+    router.push(buildInstructionsUrl(test.id));
   };
 
   return (
@@ -176,11 +189,25 @@ export default function MockTestsModal({ open, onClose }: { open: boolean; onClo
 
             {/* Cards — single column, centred and width-capped */}
             <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide px-6 py-5">
-              <div className="flex flex-col gap-2 max-w-[986px] mx-auto">
-                {mockTests.map((test) => (
-                  <TestCard key={test.id} test={test} onStart={handleStart} />
-                ))}
-              </div>
+              {tests.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center gap-2">
+                  <p className="text-[14px] font-bold text-slate-600 dark:text-slate-300">No mock tests yet</p>
+                  <p className="text-[12px] text-slate-400 dark:text-slate-500 max-w-[320px]">
+                    Full AKT simulations will appear here once they&rsquo;re published.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2 max-w-[986px] mx-auto">
+                  {tests.map((test) => (
+                    <TestCard
+                      key={test.id}
+                      test={test}
+                      starting={startingId === test.id}
+                      onStart={handleStart}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>

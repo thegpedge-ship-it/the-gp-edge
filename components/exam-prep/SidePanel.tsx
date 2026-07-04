@@ -1,15 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { mockDrill, mockTests } from "./data";
+import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
+import type { UiMockTest } from "@/app/exam-prep/actions";
+import { cachedMockTests } from "@/lib/examCache";
 import {
   buildInstructionsUrl,
   parseDurationToMinutes,
-  saveCustomTestConfig,
+  saveTestPlan,
 } from "@/lib/testSession";
 import MockTestsModal from "./MockTestsModal";
 import CreateQuizModal from "./CreateQuizModal";
+
+/* Mock Drill is a fixed configuration (not seeded content): a randomised
+   full-spectrum quiz drawn live from the published question bank. */
+const MOCK_DRILL = {
+  title: "Mock Drill",
+  description:
+    "Jump into a randomised full-spectrum quiz. No topic selection — we cover everything so you can identify blind spots.",
+  questionCount: 50,
+  duration: "60 min",
+  difficulty: "Mixed",
+};
 
 /* ─── Summary Stat ────────────────────────────────────────────────────── */
 function Stat({ value, label, onDark = false }: { value: string; label: string; onDark?: boolean }) {
@@ -26,17 +39,41 @@ export default function SidePanel() {
   const router = useRouter();
   const [mockTestsOpen, setMockTestsOpen] = useState(false);
   const [createQuizOpen, setCreateQuizOpen] = useState(false);
+  const [mockTests, setMockTests] = useState<UiMockTest[]>([]);
+  const [startingDrill, setStartingDrill] = useState(false);
 
-  const startMockDrill = () => {
-    saveCustomTestConfig({
-      name: mockDrill.title,
-      questionCount: mockDrill.questionCount,
-      durationMinutes: parseDurationToMinutes(mockDrill.duration),
+  useEffect(() => {
+    let cancelled = false;
+    cachedMockTests().then((m) => {
+      if (!cancelled) setMockTests(m);
     });
-    router.push(buildInstructionsUrl("custom"));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const startMockDrill = async () => {
+    if (startingDrill) return;
+    setStartingDrill(true);
+    const set = await buildCustomQuestionSet({
+      subtopicIds: [], // empty = whole bank
+      count: MOCK_DRILL.questionCount,
+      title: MOCK_DRILL.title,
+    });
+    setStartingDrill(false);
+    if (set.questionIds.length === 0) return;
+    saveTestPlan({
+      testId: "drill",
+      source: "mock_drill",
+      name: MOCK_DRILL.title,
+      questionIds: set.questionIds,
+      durationMinutes: parseDurationToMinutes(MOCK_DRILL.duration),
+      timed: false,
+    });
+    router.push(buildInstructionsUrl("drill"));
   };
 
-  const completedMocks = mockTests.filter((t) => t.status === "completed");
+  const completedMocks = mockTests.filter((t) => t.completed);
   const avgScore = completedMocks.length
     ? Math.round(completedMocks.reduce((s, t) => s + (t.bestScore ?? 0), 0) / completedMocks.length)
     : 0;
@@ -82,30 +119,31 @@ export default function SidePanel() {
 
       {/* ─── 3. Mock Drill ─────────────────────────────────────── */}
       <div className="glass dark:glass-strong rounded-3xl p-5 border border-slate-200/50 dark:border-slate-700/40 shadow-md group hover:shadow-lg hover:border-emerald-400/40 dark:hover:border-emerald-500/30 transition-all duration-300 flex flex-col">
-        <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-2">{mockDrill.title}</h3>
+        <h3 className="text-[14px] font-bold text-slate-800 dark:text-slate-100 mb-2">{MOCK_DRILL.title}</h3>
 
         <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
-          {mockDrill.description}
+          {MOCK_DRILL.description}
         </p>
 
         <div className="flex items-center gap-4 text-[11px] font-semibold text-slate-400 dark:text-slate-500 mb-4 pb-3 border-b border-slate-100 dark:border-slate-700/50">
-          <span>{mockDrill.duration}</span>
+          <span>{MOCK_DRILL.duration}</span>
           <span>&middot;</span>
-          <span>{mockDrill.questionCount} Qs</span>
+          <span>{MOCK_DRILL.questionCount} Qs</span>
           <span>&middot;</span>
-          <span>{mockDrill.difficulty}</span>
+          <span>{MOCK_DRILL.difficulty}</span>
         </div>
 
         <button
           onClick={startMockDrill}
-          className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
+          disabled={startingDrill}
+          className="w-full py-2.5 rounded-xl bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[13px] font-bold shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-transform duration-300"
         >
-          Start Mock Drill &rarr;
+          {startingDrill ? "Preparing…" : "Start Mock Drill →"}
         </button>
       </div>
 
       {/* ─── Mock Tests modal ──────────────────────────────────── */}
-      <MockTestsModal open={mockTestsOpen} onClose={() => setMockTestsOpen(false)} />
+      <MockTestsModal open={mockTestsOpen} onClose={() => setMockTestsOpen(false)} tests={mockTests} />
 
       {/* ─── Create Your Own Quiz modal ────────────────────────── */}
       <CreateQuizModal open={createQuizOpen} onClose={() => setCreateQuizOpen(false)} />
