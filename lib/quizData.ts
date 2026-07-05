@@ -433,7 +433,7 @@ export interface MedicalContent {
   name: string;
   category: string;
   system: string;
-  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note";
+  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note" | "Approach";
   status: "published" | "draft" | "review";
   lastUpdated: string;
   author: string;
@@ -474,6 +474,169 @@ export function getMedicalContent(): MedicalContent[] {
 export function saveMedicalContent(content: MedicalContent[]): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(MEDICAL_CONTENT_STORAGE_KEY, JSON.stringify(content));
+}
+
+// ─── Clinical Approach Cards ──────────────────────────────────────────────────
+
+export interface ApproachStep {
+  id: string;
+  title: string;
+  description: string;
+  type: "action" | "decision" | "info" | "warning" | "checklist";
+  checklistItems?: string[];
+}
+
+export interface ApproachCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  system: string;
+  category: string;
+  status: "draft" | "review" | "published";
+  lastUpdated: string;
+  author: string;
+  isPremium: boolean;
+  tags: string[];
+  overview: string;
+  steps: ApproachStep[];
+  keyPoints: string[];
+  redFlags: string[];
+  references: { id: number; text: string; url?: string }[];
+}
+
+const APPROACH_CARDS_KEY = "gpedge_admin_approach_cards";
+
+const DEFAULT_APPROACH_CARDS: ApproachCard[] = [
+  {
+    id: "APPROACH-001",
+    title: "Approach to Chest Pain",
+    subtitle: "Systematic assessment of acute and non-acute chest pain in general practice",
+    system: "Cardiology",
+    category: "Acute Assessment",
+    status: "published",
+    lastUpdated: "28 Jun 2026",
+    author: "GP Edge Content Team",
+    isPremium: false,
+    tags: ["Chest Pain", "ACS", "Cardiac", "Emergency"],
+    overview: "A structured approach to evaluating chest pain, prioritising life-threatening causes before considering benign aetiologies.",
+    steps: [
+      {
+        id: "s1",
+        title: "Immediate Risk Stratification",
+        description: "Assess for life-threatening causes (ACS, PE, Aortic Dissection, Tension Pneumothorax)",
+        type: "decision",
+        checklistItems: ["ECG within 10 minutes", "Oxygen saturation", "BP both arms", "HR and RR", "IV access if high risk"]
+      },
+      {
+        id: "s2",
+        title: "History Taking",
+        description: "SOCRATES mnemonic: Site, Onset, Character, Radiation, Associated symptoms, Time, Exacerbating/relieving, Severity",
+        type: "checklist",
+        checklistItems: ["Crushing/pressure — ACS", "Tearing/ripping — Aortic dissection", "Pleuritic — PE or pericarditis", "Positional — Musculoskeletal or GORD", "Risk factors: smoking, DM, HTN, FHx"]
+      },
+      {
+        id: "s3",
+        title: "Investigations",
+        description: "Order based on clinical probability",
+        type: "action",
+        checklistItems: ["ECG (mandatory)", "Troponin I/T (0h, 3h if NSTEMI suspected)", "FBC, UEC, LFTs, CRP", "CXR", "Echo or CT-PA if PE suspected"]
+      },
+      {
+        id: "s4",
+        title: "Management Decision",
+        description: "Pathway based on confirmed diagnosis",
+        type: "decision",
+        checklistItems: ["STEMI → Activate cath lab (DIDO < 30 min)", "NSTEMI → Heparin, dual antiplatelet, cardiology review", "PE → LMWH or DOAC, consider thrombolysis", "Low risk → Discharge with safety net and follow-up"]
+      }
+    ],
+    keyPoints: [
+      "Never delay ECG in any patient with chest pain",
+      "A normal initial troponin does not exclude NSTEMI — repeat at 3 hours",
+      "Consider aortic dissection if BP differential > 20 mmHg between arms",
+      "Document risk stratification score (TIMI, GRACE, or HEART score)"
+    ],
+    redFlags: [
+      "Diaphoresis with chest pain",
+      "Syncope or presyncope",
+      "Haemodynamic instability",
+      "New onset murmur",
+      "Pulse deficit"
+    ],
+    references: [
+      { id: 1, text: "RACGP. Chest pain guidelines for general practice. 2023.", url: "https://www.racgp.org.au" },
+      { id: 2, text: "ESC Guidelines for management of ACS. 2023." }
+    ]
+  },
+  {
+    id: "APPROACH-002",
+    title: "Approach to Shortness of Breath",
+    subtitle: "Differential diagnosis framework for dyspnoea in the GP setting",
+    system: "Respiratory",
+    category: "Acute Assessment",
+    status: "published",
+    lastUpdated: "24 Jun 2026",
+    author: "GP Edge Content Team",
+    isPremium: false,
+    tags: ["Dyspnoea", "Respiratory", "Cardiac", "Asthma", "COPD"],
+    overview: "Dyspnoea has a broad differential spanning cardiac, respiratory, and systemic causes. This approach ensures systematic evaluation.",
+    steps: [
+      {
+        id: "s1",
+        title: "Immediate Assessment",
+        description: "Assess airway, breathing, circulation — is this an emergency?",
+        type: "decision",
+        checklistItems: ["SpO2 < 92% → Oxygen immediately", "RR > 25 → High priority", "Use of accessory muscles → Emergency", "Cyanosis → Emergency call"]
+      },
+      {
+        id: "s2",
+        title: "History",
+        description: "Characterise the dyspnoea and associated features",
+        type: "checklist",
+        checklistItems: ["Onset: acute vs. chronic", "Exertional vs. rest", "Orthopnoea/PND → Cardiac", "Wheeze → Asthma/COPD", "Fever → Pneumonia", "Pleuritic pain → PE/pneumothorax"]
+      },
+      {
+        id: "s3",
+        title: "Investigations",
+        description: "Tier investigations based on presentation",
+        type: "action",
+        checklistItems: ["SpO2, peak flow", "ECG (cardiac causes)", "CXR", "Spirometry (chronic)", "BNP if heart failure suspected", "D-dimer if PE low-moderate probability"]
+      }
+    ],
+    keyPoints: [
+      "Asthma and COPD are common but always rule out PE in acute presentations",
+      "BNP > 100 pg/mL strongly suggests heart failure",
+      "Consider anxiety/hyperventilation as diagnosis of exclusion"
+    ],
+    redFlags: [
+      "SpO2 < 90% on room air",
+      "RR > 30/min",
+      "Stridor",
+      "Haemoptysis with dyspnoea",
+      "Rapidly progressive dyspnoea"
+    ],
+    references: [
+      { id: 1, text: "Therapeutic Guidelines: Respiratory. 2024." }
+    ]
+  }
+];
+
+export function getApproachCards(): ApproachCard[] {
+  if (typeof window === "undefined") return DEFAULT_APPROACH_CARDS;
+  try {
+    const raw = localStorage.getItem(APPROACH_CARDS_KEY);
+    if (!raw) {
+      localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(DEFAULT_APPROACH_CARDS));
+      return DEFAULT_APPROACH_CARDS;
+    }
+    return JSON.parse(raw) as ApproachCard[];
+  } catch {
+    return DEFAULT_APPROACH_CARDS;
+  }
+}
+
+export function saveApproachCards(cards: ApproachCard[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(cards));
 }
 
 export interface AutofillTemplate {

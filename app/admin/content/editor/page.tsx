@@ -87,35 +87,35 @@ function blocksToHtml(blocks: ContentBlock[]): string {
         let color = "#1a5c51";
         let titleColor = "#2bb09c";
         let label = "Guideline";
-        let icon = "ℹ️";
+        let icon = "";
         if (variant === "billing") {
           bg = "#f8fafc";
           border = "#f8fafc";
           color = "#334155";
           titleColor = "#475569";
           label = "Billing";
-          icon = "📋";
+          icon = "";
         } else if (variant === "pearl") {
           bg = "#e6f7f4";
           border = "#e6f7f4";
           color = "#1a5c51";
           titleColor = "#2bb09c";
           label = "Key Points";
-          icon = "☑";
+          icon = "";
         } else if (variant === "warning") {
           bg = "#fff9e6";
           border = "#fff9e6";
           color = "#7b341e";
           titleColor = "#dd6b20";
           label = "Important";
-          icon = "⚡";
+          icon = "";
         } else if (variant === "danger") {
           bg = "#fff5f5";
           border = "#fff5f5";
           color = "#9b2c2c";
           titleColor = "#c53030";
           label = "Red Flags";
-          icon = "⚠️";
+          icon = "";
         }
         return `
           <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${border}; border-left: 5px solid ${titleColor}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
@@ -219,6 +219,7 @@ function ContentEditorContent() {
   const [imageMenuOpen, setImageMenuOpen] = useState(false);
   const [textColorOpen, setTextColorOpen] = useState(false);
   const [highlightColorOpen, setHighlightColorOpen] = useState(false);
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false);
 
   // Popover inputs
   const [tableRows, setTableRows] = useState("3");
@@ -260,6 +261,7 @@ function ContentEditorContent() {
   const calloutMenuRef = useRef<HTMLDivElement>(null);
   const tableMenuRef = useRef<HTMLDivElement>(null);
   const imageMenuRef = useRef<HTMLDivElement>(null);
+  const templateMenuRef = useRef<HTMLDivElement>(null);
   const textColorRef = useRef<HTMLDivElement>(null);
   const highlightColorRef = useRef<HTMLDivElement>(null);
 
@@ -320,6 +322,9 @@ function ContentEditorContent() {
       }
       if (imageMenuRef.current && !imageMenuRef.current.contains(e.target as Node)) {
         setImageMenuOpen(false);
+      }
+      if (templateMenuRef.current && !templateMenuRef.current.contains(e.target as Node)) {
+        setTemplateMenuOpen(false);
       }
       if (textColorRef.current && !textColorRef.current.contains(e.target as Node)) {
         setTextColorOpen(false);
@@ -926,35 +931,35 @@ function ContentEditorContent() {
     let color = "#1a5c51";
     let titleColor = "#2bb09c";
     let label = "Guideline";
-    let icon = "ℹ️";
+    let icon = "";
     if (variant === "billing") {
       bg = "#f8fafc";
       border = "#f8fafc";
       color = "#334155";
       titleColor = "#475569";
       label = "Billing";
-      icon = "📋";
+      icon = "";
     } else if (variant === "pearl") {
       bg = "#e6f7f4";
       border = "#e6f7f4";
       color = "#1a5c51";
       titleColor = "#2bb09c";
       label = "Key Points";
-      icon = "☑";
+      icon = "";
     } else if (variant === "warning") {
       bg = "#fff9e6";
       border = "#fff9e6";
       color = "#7b341e";
       titleColor = "#dd6b20";
       label = "Important";
-      icon = "⚡";
+      icon = "";
     } else if (variant === "danger") {
       bg = "#fff5f5";
       border = "#fff5f5";
       color = "#9b2c2c";
       titleColor = "#c53030";
       label = "Red Flags";
-      icon = "⚠️";
+      icon = "";
     }
     
     const calloutHtml = `
@@ -1108,6 +1113,119 @@ function ContentEditorContent() {
     updateCounts();
     saveToHistory();
   };
+
+  const insertClinicalProtocolTemplate = (variant: "approach" | "guideline" | "protocol") => {
+    const templates: Record<string, string> = {
+      approach: `
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Clinical Overview</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7;">Provide a brief clinical overview of this approach, including when it should be used and the key clinical context.</p>
+
+<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 1: Initial Assessment</p>
+<p style="font-size: 0.875rem; color: #134e4a;">Describe the first clinical step. What must the clinician assess, check, or perform immediately?</p>
+</div>
+
+<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 2: History &amp; Examination</p>
+<p style="font-size: 0.875rem; color: #134e4a;">Describe key history-taking points and examination findings relevant to this approach.</p>
+</div>
+
+<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 3: Investigations</p>
+<p style="font-size: 0.875rem; color: #134e4a;">List the key investigations ordered based on clinical probability and urgency.</p>
+</div>
+
+<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 4: Management Decision</p>
+<p style="font-size: 0.875rem; color: #134e4a;">Describe the management pathway based on diagnosis or clinical probability.</p>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Key Clinical Points</h2>
+<ul style="padding-left: 1.25rem; margin-bottom: 1rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 1: Add important clinical pearl here</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 2: Add important clinical pearl here</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 3: Add important clinical pearl here</li>
+</ul>
+
+<div class="callout-block" style="background: #fff1f2; border-left: 4px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #991b1b; margin-bottom: 0.5rem;">Red Flags — Refer or Escalate Urgently If:</p>
+<ul style="padding-left: 1.25rem; margin: 0;">
+  <li style="font-size: 0.875rem; color: #7f1d1d; margin-bottom: 0.25rem;">Red flag finding 1</li>
+  <li style="font-size: 0.875rem; color: #7f1d1d; margin-bottom: 0.25rem;">Red flag finding 2</li>
+  <li style="font-size: 0.875rem; color: #7f1d1d;">Red flag finding 3</li>
+</ul>
+</div>`,
+
+      guideline: `
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Background &amp; Rationale</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7;">Provide the clinical background, why this guideline exists, and the population it targets.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Screening &amp; Diagnosis Criteria</h2>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; overflow: hidden;">
+  <thead><tr><th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #0d9488; color: #ffffff; border: 1px solid #cbd5e1;">Criteria</th><th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #0d9488; color: #ffffff; border: 1px solid #cbd5e1;">Threshold / Value</th><th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #0d9488; color: #ffffff; border: 1px solid #cbd5e1;">Notes</th></tr></thead>
+  <tbody>
+    <tr><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Criteria 1</td><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Value</td><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Clinical note</td></tr>
+    <tr><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Criteria 2</td><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Value</td><td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; color: #475569;">Clinical note</td></tr>
+  </tbody>
+</table>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Management Algorithm</h2>
+<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.5rem;">First-line treatment</p>
+<ul style="padding-left: 1.25rem; margin: 0;"><li style="font-size: 0.875rem; color: #134e4a; margin-bottom: 0.25rem;">Treatment option 1</li><li style="font-size: 0.875rem; color: #134e4a;">Treatment option 2</li></ul>
+</div>`,
+
+      protocol: `
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Protocol Overview</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7;">This clinical protocol outlines the standardised process for managing [condition/situation]. It is applicable in [setting] and should be followed by [clinician type].</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Indications &amp; Eligibility</h2>
+<ul style="padding-left: 1.25rem; margin-bottom: 1rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Patient meets criteria: [specify]</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">No exclusion criteria apply</li>
+  <li style="font-size: 0.875rem; color: #334155;">Informed consent obtained</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Step-by-Step Protocol</h2>
+<ol style="padding-left: 1.25rem; margin-bottom: 1rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.75rem; line-height: 1.6;"><strong>Step 1:</strong> Describe first clinical action here</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.75rem; line-height: 1.6;"><strong>Step 2:</strong> Describe second clinical action here</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.75rem; line-height: 1.6;"><strong>Step 3:</strong> Describe third clinical action here</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.75rem; line-height: 1.6;"><strong>Step 4:</strong> Describe fourth clinical action here</li>
+</ol>
+
+<div class="callout-block" style="background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
+<p style="font-size: 0.875rem; font-weight: 600; color: #92400e; margin-bottom: 0.5rem;">Important Safety Note</p>
+<p style="font-size: 0.875rem; color: #78350f;">Insert any safety warnings, contraindications, or monitoring requirements relevant to this protocol.</p>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Documentation &amp; Follow-up</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7;">Document in patient record: [what to record]. Schedule follow-up: [timeframe and criteria].</p>`
+    };
+
+    const html = templates[variant];
+    if (!editorRef.current || !html) return;
+
+    editorRef.current.focus();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      range.deleteContents();
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      const frag = document.createDocumentFragment();
+      while (div.firstChild) frag.appendChild(div.firstChild);
+      range.insertNode(frag);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      editorRef.current.innerHTML += html;
+    }
+    updateCounts();
+    saveToHistory();
+  };
+
 
   const handleSave = () => {
     if (!docTitle.trim()) {
@@ -2115,6 +2233,58 @@ function ContentEditorContent() {
             >
               <Lucide.Minus className="w-3.5 h-3.5" /> Divider
             </button>
+
+            {/* Clinical Template */}
+            <div className="relative inline-block text-left" ref={templateMenuRef}>
+              <button
+                title="Insert Clinical Template"
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setTemplateMenuOpen(!templateMenuOpen)}
+                className="px-2 h-8 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-400 dark:bg-teal-950/30 rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer border border-teal-200 dark:border-teal-900/50"
+              >
+                <Lucide.ClipboardList className="w-3.5 h-3.5" /> Template
+              </button>
+              <AnimatePresence>
+                {templateMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 4 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="absolute left-0 mt-1 w-52 rounded-xl bg-white dark:bg-slate-900 border border-teal-200/50 dark:border-teal-900/40 shadow-xl z-50 overflow-hidden"
+                  >
+                    <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
+                      <p className="text-[9px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-widest">Clinical Templates</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Insert a pre-formatted clinical template</p>
+                    </div>
+                    <div className="p-1 space-y-0.5">
+                      {[
+                        { value: "approach", label: "Clinical Approach", desc: "Step-by-step assessment guide", icon: "" },
+                        { value: "guideline", label: "Guideline Summary", desc: "Evidence-based guideline format", icon: "" },
+                        { value: "protocol", label: "Treatment Protocol", desc: "Step-by-step protocol checklist", icon: "" },
+                      ].map(t => (
+                        <button
+                          key={t.value}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            insertClinicalProtocolTemplate(t.value as any);
+                            setTemplateMenuOpen(false);
+                          }}
+                          className="w-full text-left px-2.5 py-2 text-xs rounded-lg transition-colors hover:bg-teal-50 dark:hover:bg-teal-950/20 flex items-start gap-2 cursor-pointer border-none bg-transparent"
+                        >
+                          <span className="text-sm mt-0.5 shrink-0">{t.icon}</span>
+                          <div>
+                            <p className="font-semibold text-slate-700 dark:text-slate-300">{t.label}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{t.desc}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {/* Dynamic Table Tools Sub-Toolbar (MS Word Style) */}
             <AnimatePresence>

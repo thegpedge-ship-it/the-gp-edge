@@ -21,6 +21,7 @@ import {
   LogOut,
   HelpCircle,
   Lock,
+  Layers,
 } from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -48,6 +49,7 @@ const navGroups = [
       { label: "Questions", href: "/admin/questions", icon: FileQuestion },
       { label: "Quizzes", href: "/admin/quizzes", icon: ClipboardList },
       { label: "Medical Content", href: "/admin/content", icon: BookOpen },
+      { label: "Clinical Approaches", href: "/admin/approaches", icon: Layers },
       { label: "Autofill Templates", href: "/admin/autofill", icon: FileEdit },
     ],
   },
