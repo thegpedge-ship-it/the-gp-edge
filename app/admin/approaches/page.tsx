@@ -8,11 +8,14 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { getApproachCards, saveApproachCards, ApproachCard, ApproachStep } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { useAdminRole } from "@/hooks/useAdminRole";
 import {
   getApproachCardsFromDbAction,
   saveApproachCardToDbAction,
   deleteApproachCardFromDbAction,
-  syncApproachCardsToDbAction
+  syncApproachCardsToDbAction,
+  getTagsFromDbAction,
+  addTagToDbAction
 } from "@/actions/approach.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.04 } } };
@@ -69,6 +72,7 @@ function emptyStep(): ApproachStep {
 }
 
 export default function ApproachesPage() {
+  const { isReadOnly } = useAdminRole();
   const [cards, setCards] = useState<ApproachCard[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
@@ -86,6 +90,7 @@ export default function ApproachesPage() {
   const [refInput, setRefInput] = useState({ text: "", url: "" });
   const [activeStep, setActiveStep] = useState<string | null>(null);
   const [stepItemInput, setStepItemInput] = useState<Record<string, string>>({});
+  const [dbTags, setDbTags] = useState<string[]>([]);
 
   // Preview mode
   const [previewCard, setPreviewCard] = useState<ApproachCard | null>(null);
@@ -107,6 +112,10 @@ export default function ApproachesPage() {
         syncApproachCardsToDbAction(localCards);
       }
     });
+
+    getTagsFromDbAction().then(tags => {
+      setDbTags(tags);
+    });
   }, []);
 
   const filtered = useMemo(() => {
@@ -119,9 +128,35 @@ export default function ApproachesPage() {
     });
   }, [cards, searchQuery, systemFilter, statusFilter]);
 
-  const published = cards.filter(c => c.status === "published").length;
-  const drafts = cards.filter(c => c.status === "draft").length;
-  const reviews = cards.filter(c => c.status === "review").length;
+  const { published, drafts, reviews } = useMemo(() => {
+    let p = 0, d = 0, r = 0;
+    for (const c of cards) {
+      if (c.status === "published") p++;
+      else if (c.status === "draft") d++;
+      else if (c.status === "review") r++;
+    }
+    return { published: p, drafts: d, reviews: r };
+  }, [cards]);
+
+  const handleAddTag = async (val: string) => {
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    
+    // Add to the local card form state
+    if (!form.tags.includes(trimmed)) {
+      setForm(f => ({ ...f, tags: [...f.tags, trimmed] }));
+    }
+    setTagInput("");
+    
+    // Store in DB tags table if not already there
+    try {
+      await addTagToDbAction(trimmed);
+      const freshTags = await getTagsFromDbAction();
+      setDbTags(freshTags);
+    } catch (err) {
+      console.error("Failed to add tag to DB:", err);
+    }
+  };
 
   function openCreate() {
     setEditingCard(null);
@@ -140,6 +175,7 @@ export default function ApproachesPage() {
   }
 
   async function saveForm() {
+    if (isReadOnly) return;
     if (!form.title.trim()) { alert("Please enter a title."); return; }
     const now = new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
     let updated: ApproachCard[];
@@ -165,6 +201,7 @@ export default function ApproachesPage() {
   }
 
   async function deleteCard(id: string) {
+    if (isReadOnly) return;
     if (!confirm("Delete this approach card?")) return;
     const updated = cards.filter(c => c.id !== id);
     setCards(updated);
@@ -176,6 +213,7 @@ export default function ApproachesPage() {
   }
 
   async function updateStatus(id: string, status: "draft" | "review" | "published") {
+    if (isReadOnly) return;
     const now = new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" });
     const target = cards.find(c => c.id === id);
     if (!target) return;
@@ -225,13 +263,15 @@ export default function ApproachesPage() {
         title="Clinical Approaches"
         subtitle="Create and manage structured clinical approach cards displayed in the medical library."
         actions={
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow transition-all cursor-pointer border-none"
-          >
-            <Lucide.Plus className="w-4 h-4" />
-            New Approach Card
-          </button>
+          !isReadOnly && (
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold rounded-xl shadow transition-all cursor-pointer border-none"
+            >
+              <Lucide.Plus className="w-4 h-4" />
+              New Approach Card
+            </button>
+          )
         }
       />
 
@@ -313,27 +353,31 @@ export default function ApproachesPage() {
                 <button onClick={() => setPreviewCard(card)} title="Preview" className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/20 transition-all cursor-pointer border-none bg-transparent">
                   <Lucide.Eye className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => openEdit(card)} title="Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent">
-                  <Lucide.Edit className="w-3.5 h-3.5" />
-                </button>
-                {card.status === "draft" && (
-                  <button onClick={() => updateStatus(card.id, "review")} title="Send to Review" className="p-1.5 rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer border-none bg-transparent">
-                    <Lucide.ChevronRight className="w-3.5 h-3.5" />
-                  </button>
+                {!isReadOnly && (
+                  <>
+                    <button onClick={() => openEdit(card)} title="Edit" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent">
+                      <Lucide.Edit className="w-3.5 h-3.5" />
+                    </button>
+                    {card.status === "draft" && (
+                      <button onClick={() => updateStatus(card.id, "review")} title="Send to Review" className="p-1.5 rounded-lg text-amber-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer border-none bg-transparent">
+                        <Lucide.ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {card.status === "review" && (
+                      <button onClick={() => updateStatus(card.id, "published")} title="Publish" className="p-1.5 rounded-lg text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent">
+                        <Lucide.Check className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {card.status === "published" && (
+                      <button onClick={() => updateStatus(card.id, "draft")} title="Revert to Draft" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent">
+                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button onClick={() => deleteCard(card.id)} title="Delete" className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent">
+                      <Lucide.Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </>
                 )}
-                {card.status === "review" && (
-                  <button onClick={() => updateStatus(card.id, "published")} title="Publish" className="p-1.5 rounded-lg text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent">
-                    <Lucide.Check className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                {card.status === "published" && (
-                  <button onClick={() => updateStatus(card.id, "draft")} title="Revert to Draft" className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent">
-                    <Lucide.RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button onClick={() => deleteCard(card.id)} title="Delete" className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent">
-                  <Lucide.Trash2 className="w-3.5 h-3.5" />
-                </button>
               </div>
             </div>
           </motion.div>
@@ -343,7 +387,9 @@ export default function ApproachesPage() {
           <motion.div variants={itemVariants} className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
             <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
             <p className="text-sm font-medium">No approach cards found.</p>
-            <button onClick={openCreate} className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent">Create your first approach card →</button>
+            {!isReadOnly && (
+              <button onClick={openCreate} className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent">Create your first approach card →</button>
+            )}
           </motion.div>
         )}
       </motion.div>
@@ -446,25 +492,102 @@ export default function ApproachesPage() {
                   <div>
                     <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1.5">Tags</label>
                     <div className="flex flex-wrap gap-1.5 mb-2">
-                      {form.tags.map(tag => (
-                        <span key={tag} className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
-                          {tag}
-                          <button onClick={() => setForm(f => ({ ...f, tags: f.tags.filter(t => t !== tag) }))} className="text-teal-400 hover:text-teal-600 cursor-pointer border-none bg-transparent">×</button>
-                        </span>
-                      ))}
+                      {form.tags.length === 0 ? (
+                        <span className="text-xs text-slate-400 italic">No tags selected yet.</span>
+                      ) : (
+                        form.tags.map(tag => (
+                          <span key={tag} className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-teal-800 bg-teal-50 border border-teal-200 dark:bg-teal-950/20 dark:text-teal-350 dark:border-teal-900/50 px-2.5 py-0.5 rounded-full shadow-sm">
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => setForm(f => ({ ...f, tags: f.tags.filter(t => t !== tag) }))}
+                              className="text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200 cursor-pointer border-none bg-transparent font-bold text-xs"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      )}
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mb-2.5">
                       <input
                         value={tagInput}
                         onChange={e => setTagInput(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") { if (tagInput.trim()) { setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] })); setTagInput(""); } }}}
-                        placeholder="Add tag... (press Enter)"
+                        onKeyDown={e => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (tagInput.trim()) {
+                              handleAddTag(tagInput);
+                            }
+                          }
+                        }}
+                        placeholder="Type to search or add new tag..."
                         className="flex-1 px-3 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 dark:text-slate-200"
                       />
                       <button
-                        onClick={() => { if (tagInput.trim()) { setForm(f => ({ ...f, tags: [...f.tags, tagInput.trim()] })); setTagInput(""); }}}
-                        className="px-3 py-1.5 bg-teal-700 text-white text-xs font-semibold rounded-lg hover:bg-teal-800 transition cursor-pointer border-none"
+                        type="button"
+                        onClick={() => {
+                          if (tagInput.trim()) {
+                            handleAddTag(tagInput);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-teal-700 text-white text-xs font-semibold rounded-lg hover:bg-teal-800 transition cursor-pointer border-none shadow-sm"
                       >Add</button>
+                    </div>
+                    
+                    {/* Available tags list */}
+                    <div className="mt-2">
+                      <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1.5">
+                        {tagInput.trim() ? "Matching Database Tags" : "Database Tags (click to add)"}
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 medical-scroll">
+                        {dbTags.length === 0 ? (
+                          <span className="text-[11px] text-slate-400 italic">No tags in database. Type above to add!</span>
+                        ) : (
+                          (() => {
+                            const query = tagInput.trim().toLowerCase();
+                            const filteredTags = query 
+                              ? dbTags.filter(tag => tag.toLowerCase().includes(query))
+                              : dbTags;
+                              
+                            if (filteredTags.length === 0) {
+                              return (
+                                <div className="w-full flex items-center justify-between py-0.5">
+                                  <span className="text-[11px] text-slate-400 italic">No matching tags found.</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddTag(tagInput)}
+                                    className="px-2 py-0.5 text-[10px] font-bold bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/30 dark:hover:bg-teal-900/40 text-teal-700 dark:text-teal-300 rounded border border-teal-200 dark:border-teal-800/60 transition cursor-pointer"
+                                  >
+                                    Create tag "{tagInput.trim()}"
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
+                            return filteredTags.map(tag => {
+                              const isAdded = form.tags.includes(tag);
+                              return (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  disabled={isAdded}
+                                  onClick={() => {
+                                    setForm(f => ({ ...f, tags: [...f.tags, tag] }));
+                                  }}
+                                  className={`px-2 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer select-none ${
+                                    isAdded
+                                      ? "bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/50 cursor-not-allowed"
+                                      : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-950/10 shadow-sm"
+                                  }`}
+                                >
+                                  {tag}
+                                </button>
+                              );
+                            });
+                          })()
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -472,9 +595,9 @@ export default function ApproachesPage() {
                   <label className="flex items-center gap-2.5 cursor-pointer group">
                     <div
                       onClick={() => setForm(f => ({ ...f, isPremium: !f.isPremium }))}
-                      className={`relative w-10 h-5.5 rounded-full transition-colors duration-200 ${form.isPremium ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-600"}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${form.isPremium ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-600"}`}
                     >
-                      <div className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 bg-white rounded-full shadow transition-transform duration-200 ${form.isPremium ? "translate-x-4.5" : ""}`} />
+                      <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${form.isPremium ? "translate-x-5" : ""}`} />
                     </div>
                     <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Premium / Paid Only</span>
                   </label>
