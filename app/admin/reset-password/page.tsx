@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import * as Lucide from "lucide-react";
+import { resetAdminPasswordAction } from "@/actions/admin.actions";
 
 import {
   themeBorder,
@@ -66,7 +67,7 @@ export default function AdminResetPasswordPage() {
     }
   }, [router]);
 
-  const handleReset = (e: React.FormEvent) => {
+  const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -82,39 +83,37 @@ export default function AdminResetPasswordPage() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      if (typeof window !== "undefined" && userId) {
+    if (typeof window !== "undefined" && userId) {
+      try {
+        await resetAdminPasswordAction(userId, newPassword);
+
         const stored = localStorage.getItem("gpedge_admin_credentials_list");
         if (stored) {
-          try {
-            const list: CredentialUser[] = JSON.parse(stored);
-            const updatedList = list.map((u) => {
-              if (u.id === userId) {
-                return {
-                  ...u,
-                  password: newPassword,
-                  mustResetPassword: false,
-                };
-              }
-              return u;
-            });
-            localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedList));
-            localStorage.removeItem("gpedge_temp_reset_admin_id");
-
-            // Sync layout changes
-            window.dispatchEvent(new Event("gpedge_admin_changed"));
-
-            router.push("/admin/login?resetSuccess=true");
-          } catch (e) {
-            setError("An error occurred while saving the password. Please try again.");
-            setLoading(false);
-          }
-        } else {
-          setError("Failed to retrieve credentials list. Please contact Super Admin.");
-          setLoading(false);
+          const list: CredentialUser[] = JSON.parse(stored);
+          const updatedList = list.map((u) => {
+            if (u.id === userId) {
+              return {
+                ...u,
+                password: newPassword,
+                mustResetPassword: false,
+              };
+            }
+            return u;
+          });
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedList));
         }
+
+        localStorage.removeItem("gpedge_temp_reset_admin_id");
+
+        // Sync layout changes
+        window.dispatchEvent(new Event("gpedge_admin_changed"));
+
+        router.push("/admin/login?resetSuccess=true");
+      } catch (err) {
+        setError("An error occurred while saving the password. Please try again.");
+        setLoading(false);
       }
-    }, 800);
+    }
   };
 
   return (
