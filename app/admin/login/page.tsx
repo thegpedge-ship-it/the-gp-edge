@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import { getAdminsFromDbAction, syncLocalAdminsWithDbAction } from "@/actions/admin.actions";
 
 import {
   themeBorder,
@@ -27,7 +28,7 @@ interface CredentialUser {
 
 const FALLBACK_USERS: CredentialUser[] = [
   {
-    id: "1",
+    id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
     name: "Siddhant Udavant",
     username: "siddhant_super",
     role: "Super Admin",
@@ -36,7 +37,7 @@ const FALLBACK_USERS: CredentialUser[] = [
     password: "super123",
   },
   {
-    id: "2",
+    id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101",
     name: "Arun Mehta",
     username: "arun_admin",
     role: "Admin",
@@ -45,7 +46,7 @@ const FALLBACK_USERS: CredentialUser[] = [
     password: "admin123",
   },
   {
-    id: "3",
+    id: "d7c92b23-1c32-4f8a-9a99-8cb142646202",
     name: "Jessica Park",
     username: "jessica_mod",
     role: "Moderator",
@@ -54,7 +55,7 @@ const FALLBACK_USERS: CredentialUser[] = [
     password: "moderator123",
   },
   {
-    id: "4",
+    id: "fa0c92d5-89db-4848-8df0-7d72dfa64303",
     name: "Sarah Connor",
     username: "sarah_view",
     role: "Viewer",
@@ -96,6 +97,14 @@ export default function AdminLoginPage() {
       }
     }
   }, [router]);
+
+  useEffect(() => {
+    syncLocalAdminsWithDbAction(FALLBACK_USERS).then(dbAdmins => {
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
+    });
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
