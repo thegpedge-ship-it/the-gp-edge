@@ -16,7 +16,7 @@ export function useAdminRole() {
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"]
+    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"]
   });
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export function useAdminRole() {
         if (foundUser) {
           let permissions: string[] = [];
           if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
           } else if (foundUser.role === "Admin") {
             permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
           } else if (foundUser.role === "Moderator") {
