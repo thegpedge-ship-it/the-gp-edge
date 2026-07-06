@@ -8,6 +8,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { addUserNotification } from "@/utils/notifications";
+import { saveAdminToDbAction, deleteAdminFromDbAction, getAdminsFromDbAction } from "@/actions/admin.actions";
 import {
   themeBorder,
   themeBtnGhost,
@@ -33,12 +34,14 @@ const ALL_FEATURES = [
   { key: "questions", label: "Questions", desc: "Create, edit & delete questions" },
   { key: "quizzes", label: "Quizzes", desc: "Manage quiz templates" },
   { key: "content", label: "Medical Content", desc: "Manage medical library articles" },
+  { key: "approaches", label: "Clinical Approaches", desc: "Manage clinical approach guidelines" },
   { key: "autofill", label: "Autofill Templates", desc: "Create & edit autofill templates" },
   { key: "users", label: "Users", desc: "View & manage user accounts" },
   { key: "notifications", label: "Notifications", desc: "Send system notifications" },
   { key: "billing", label: "Billing", desc: "View revenue & manage subscriptions" },
   { key: "audit", label: "Audit & Security", desc: "View audit logs & manage roles" },
   { key: "settings", label: "Settings", desc: "System-level configuration" },
+  { key: "search", label: "Search", desc: "Global admin search tool" },
 ];
 
 const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
@@ -46,8 +49,8 @@ const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 /* ── Role presets ── */
 const ROLE_PRESETS: Record<string, string[]> = {
   "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"],
-  Moderator: ["dashboard", "questions", "content"],
+  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"],
+  Moderator: ["dashboard", "questions", "content", "approaches"],
   Viewer: ["dashboard"],
 };
 
@@ -70,8 +73,10 @@ const auditLogs = [
   { timestamp: "28 May 2026, 11:45 PM", admin: "Siddhant Udavant", action: "Published Question #2850 to live bank", category: "Questions", severity: "info" },
   { timestamp: "28 May 2026, 11:30 PM", admin: "Siddhant Udavant", action: "Suspended account — policy violation", category: "Users", severity: "warning" },
   { timestamp: "28 May 2026, 10:15 PM", admin: "Arun Mehta", action: "Bulk imported 142 Cardiology questions", category: "Questions", severity: "info" },
+  { timestamp: "28 May 2026, 9:25 PM", admin: "Jessica Park", action: "Published new Cardiology approach — Hypertension Management", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review queue", category: "Questions", severity: "info" },
   { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Published new Respiratory autofill template", category: "Content", severity: "info" },
+  { timestamp: "28 May 2026, 5:10 PM", admin: "Arun Mehta", action: "Created draft approach card 'Approach to Dyspnoea'", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 4:00 PM", admin: "Arun Mehta", action: "Deleted Question #2839 — duplicate entry", category: "Questions", severity: "warning" },
   { timestamp: "27 May 2026, 11:00 PM", admin: "Siddhant Udavant", action: "Enabled maintenance mode for 30 minutes", category: "System", severity: "warning" },
   { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 — policy criteria met", category: "Billing", severity: "info" },
@@ -79,6 +84,7 @@ const auditLogs = [
 
 const softDeleted = [
   { item: "Question #2839", type: "Question", deletedBy: "Arun Mehta", date: "28 May 2026", reason: "Duplicate" },
+  { item: "Approach to Syncope v1", type: "Clinical Approach", deletedBy: "Arun Mehta", date: "26 May 2026", reason: "Replaced by updated guidelines" },
   { item: "GORD Template v1", type: "Autofill", deletedBy: "Jessica Park", date: "25 May 2026", reason: "Outdated" },
   { item: "Test Account #9999", type: "User", deletedBy: "Siddhant Udavant", date: "20 May 2026", reason: "Test data cleanup" },
 ];
@@ -86,7 +92,7 @@ const softDeleted = [
 export default function AuditPage() {
   const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin } = useAdminRole();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [currentAdminId, setCurrentAdminId] = useState("1");
+  const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
 
   const [activeTab, setActiveTab] = useState<"accounts" | "logs" | "deleted" | "policies">("accounts");
   const [searchQuery, setSearchQuery] = useState("");
@@ -138,11 +144,11 @@ export default function AuditPage() {
             let permissions = u.permissions || [];
             if (permissions.length === 0) {
               if (u.role === "Super Admin" || u.role === "Viewer") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
               } else if (u.role === "Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
               } else if (u.role === "Moderator") {
-                permissions = ["dashboard", "questions", "content"];
+                permissions = ["dashboard", "questions", "content", "approaches"];
               }
             }
             return {
@@ -151,7 +157,7 @@ export default function AuditPage() {
               email: u.email,
               role: u.role,
               permissions,
-              lastLogin: u.id === "1" ? "Just now" : u.id === "2" ? "2 hours ago" : u.id === "3" ? "1 day ago" : "Never",
+              lastLogin: u.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00" ? "Just now" : u.id === "b5a452ef-09c3-4d2b-aa58-bf8827f8a101" ? "2 hours ago" : u.id === "d7c92b23-1c32-4f8a-9a99-8cb142646202" ? "1 day ago" : "Never",
               status: u.status || "active",
               username: u.username || "",
               forgotPasswordEnabled: u.forgotPasswordEnabled ?? true,
@@ -172,7 +178,7 @@ export default function AuditPage() {
     syncAdminsFromStorage();
 
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("gpedge_active_admin_id") || "1";
+      const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
       setCurrentAdminId(stored);
 
       // Load Security Policies
@@ -243,7 +249,7 @@ export default function AuditPage() {
     setEditMfa(admin.mfaEnabled);
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editingAdmin) return;
     if (isReadOnly) return;
     if (!editName.trim() || !editEmail.trim() || !editUsername.trim()) {
@@ -251,34 +257,36 @@ export default function AuditPage() {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const updatedCreds = credsList.map((u: any) => {
-        if (u.id === editingAdmin.id) {
-          const isTargetSuperAdmin = editRole === "Super Admin";
-          return {
-            ...u,
-            name: editName.trim(),
-            email: editEmail.trim(),
-            username: editUsername.trim(),
-            role: editRole,
-            permissions: [...editPermissions],
-            lastChanged: "Just now",
-            ...(editPassword.trim() ? { password: editPassword } : {}),
-            forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
-            oauthEnabled: isTargetSuperAdmin ? editOauth : false,
-            mfaEnabled: isTargetSuperAdmin ? editMfa : false,
-          };
-        }
-        return u;
-      });
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedCreds));
-      window.dispatchEvent(new Event("gpedge_admin_changed"));
-      addUserNotification("Admin Updated", `Successfully updated details for "${editName}".`, 1, "custom");
-    }
+    const isTargetSuperAdmin = editRole === "Super Admin";
+    const updatedUser = {
+      id: editingAdmin.id,
+      name: editName.trim(),
+      email: editEmail.trim(),
+      username: editUsername.trim(),
+      role: editRole,
+      permissions: [...editPermissions],
+      lastChanged: "Just now",
+      ...(editPassword.trim() ? { password: editPassword } : {}),
+      forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
+      oauthEnabled: isTargetSuperAdmin ? editOauth : false,
+      mfaEnabled: isTargetSuperAdmin ? editMfa : false,
+      mustResetPassword: editingAdmin.mustResetPassword,
+      status: editingAdmin.status,
+    };
 
     setEditingAdmin(null);
+
+    try {
+      await saveAdminToDbAction(updatedUser);
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
+      window.dispatchEvent(new Event("gpedge_admin_changed"));
+      addUserNotification("Admin Updated", `Successfully updated details for "${editName}".`, 1, "custom");
+    } catch (err) {
+      console.error("Failed to save admin to DB:", err);
+    }
     syncAdminsFromStorage();
   }
 
@@ -288,7 +296,7 @@ export default function AuditPage() {
     setAddUsername("");
     setAddPassword("");
     setAddRole("Admin");
-    setAddPermissions(["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"]);
+    setAddPermissions(["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);
@@ -296,56 +304,62 @@ export default function AuditPage() {
     setShowAddModal(true);
   }
 
-  function saveAdd() {
+  async function saveAdd() {
     if (isReadOnly) return;
     if (!addName.trim() || !addEmail.trim() || !addUsername.trim() || !addPassword.trim()) {
       alert("Please fill in all required fields.");
       return;
     }
     
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const isTargetSuperAdmin = addRole === "Super Admin";
-      const newCred = {
-        id: String(Date.now()),
-        name: addName.trim(),
-        email: addEmail.trim(),
-        username: addUsername.trim(),
-        password: addPassword,
-        role: addRole,
-        permissions: [...addPermissions],
-        lastChanged: "Just now",
-        forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
-        oauthEnabled: isTargetSuperAdmin ? addOauth : false,
-        mfaEnabled: isTargetSuperAdmin ? addMfa : false,
-        mustResetPassword: true, // Force password reset on first login
-        status: "active",
-      };
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify([...credsList, newCred]));
-      window.dispatchEvent(new Event("gpedge_admin_changed"));
-      addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
-    }
+    const isTargetSuperAdmin = addRole === "Super Admin";
+    const newCred = {
+      id: String(Date.now()),
+      name: addName.trim(),
+      email: addEmail.trim(),
+      username: addUsername.trim(),
+      password: addPassword,
+      role: addRole,
+      permissions: [...addPermissions],
+      lastChanged: "Just now",
+      forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
+      oauthEnabled: isTargetSuperAdmin ? addOauth : false,
+      mfaEnabled: isTargetSuperAdmin ? addMfa : false,
+      mustResetPassword: true, // Force password reset on first login
+      status: "active",
+    };
 
     setShowAddModal(false);
+
+    try {
+      await saveAdminToDbAction(newCred);
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
+      window.dispatchEvent(new Event("gpedge_admin_changed"));
+      addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
+    } catch (err) {
+      console.error("Failed to add admin to DB:", err);
+    }
     syncAdminsFromStorage();
   }
 
-  function removeAdmin(id: string, name: string) {
+  async function removeAdmin(id: string, name: string) {
     if (isReadOnly) return;
-    if (id === "1") {
+    if (id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00") {
       alert("Cannot delete primary Super Admin account.");
       return;
     }
     if (!confirm(`Are you sure you want to delete administrator "${name}"?`)) return;
 
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const updatedCreds = credsList.filter((u: any) => u.id !== id);
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedCreds));
+    try {
+      await deleteAdminFromDbAction(id);
+      const dbAdmins = await getAdminsFromDbAction();
+      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin Deleted", `Successfully removed credentials for "${name}".`, 1, "custom");
+    } catch (err) {
+      console.error("Failed to delete admin from DB:", err);
     }
     syncAdminsFromStorage();
   }
@@ -636,9 +650,9 @@ export default function AuditPage() {
             <div className="px-6 py-4 border-b border-slate-200/40 flex items-center justify-between flex-wrap gap-3">
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">Audit Logs Trail</h3>
               <div className="flex gap-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg p-1">
-                {["all", "users", "questions", "billing", "system"].map((f) => (
+                {["all", "users", "questions", "billing", "system", "approaches"].map((f) => (
                   <button key={f} onClick={() => setLogFilter(f)} className={`px-3 py-1 text-xs font-semibold rounded-md transition-all border-none bg-transparent cursor-pointer ${logFilter === f ? "bg-white dark:bg-slate-850 text-teal-700 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-450 hover:text-slate-700 dark:hover:text-slate-350"}`}>
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f === "approaches" ? "Clinical Approaches" : f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 ))}
               </div>
