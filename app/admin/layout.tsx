@@ -5,11 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
+import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
 
 const ADMIN_PROFILES = [
-  { id: "1", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"] },
-  { id: "2", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"] },
-  { id: "3", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content"] },
+  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"] },
+  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"] },
+  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches"] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -19,19 +20,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const currentSection = segments[1] || "dashboard";
 
   const [currentAdmin, setCurrentAdmin] = useState({
-    id: "1",
+    id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    permissions: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"]
+    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"]
   });
-  const [currentAdminId, setCurrentAdminId] = useState("1");
+  const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("gpedge_active_admin_id") || "1";
+      const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
       const loggedIn = localStorage.getItem("gpedge_admin_logged_in") === "true";
       setCurrentAdminId(stored);
       setIsLoggedIn(loggedIn);
@@ -51,10 +52,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
         if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
           const defaultCreds = [
-            { id: "1", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
-            { id: "2", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
-            { id: "3", name: "Jessica Park", username: "jessica_mod", role: "Moderator", email: "moderator@gpedge.com", lastChanged: "Yesterday", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "moderator123" },
-            { id: "4", name: "Sarah Connor", username: "sarah_view", role: "Viewer", email: "viewer@gpedge.com", lastChanged: "Never", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "viewer123" }
+            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
+            { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", username: "jessica_mod", role: "Moderator", email: "moderator@gpedge.com", lastChanged: "Yesterday", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "moderator123" },
+            { id: "fa0c92d5-89db-4848-8df0-7d72dfa64303", name: "Sarah Connor", username: "sarah_view", role: "Viewer", email: "viewer@gpedge.com", lastChanged: "Never", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "viewer123" }
           ];
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(defaultCreds));
           credsList = defaultCreds;
@@ -63,11 +64,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (foundUser) {
           let permissions: string[] = [];
           if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search", "validation"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
           } else if (foundUser.role === "Admin") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
           } else if (foundUser.role === "Moderator") {
-            permissions = ["dashboard", "questions", "content"];
+            permissions = ["dashboard", "questions", "content", "approaches"];
           }
           setCurrentAdmin({
             id: foundUser.id,
@@ -81,8 +82,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       updateProfile(stored);
 
+      const defaultCreds: CredentialUser[] = [
+        { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+        { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
+        { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", username: "jessica_mod", role: "Moderator", email: "moderator@gpedge.com", lastChanged: "Yesterday", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "moderator123" },
+        { id: "fa0c92d5-89db-4848-8df0-7d72dfa64303", name: "Sarah Connor", username: "sarah_view", role: "Viewer", email: "viewer@gpedge.com", lastChanged: "Never", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "viewer123" }
+      ];
+
+      syncLocalAdminsWithDbAction(defaultCreds).then((dbAdmins) => {
+        if (dbAdmins && dbAdmins.length > 0) {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+          const found = dbAdmins.find((u) => u.id === stored);
+          if (found) {
+            setCurrentAdmin({
+              id: found.id,
+              name: found.name,
+              email: found.email,
+              role: found.role,
+              permissions: found.permissions || [],
+            });
+          }
+        }
+      });
+
       const handleAdminChanged = () => {
-        const val = localStorage.getItem("gpedge_active_admin_id") || "1";
+        const val = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
         const log = localStorage.getItem("gpedge_admin_logged_in") === "true";
         setCurrentAdminId(val);
         setIsLoggedIn(log);
@@ -99,7 +123,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname, router]);
 
-  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
   const isGatedSection = sectionKeys.includes(currentSection);
   const hasPermission = !isGatedSection || currentAdmin.permissions.includes(currentSection);
 
@@ -138,6 +162,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     questions: "Question Bank",
     quizzes: "Quiz Management",
     content: "Medical Content Directory",
+    approaches: "Clinical Approaches",
     autofill: "Clinical Autofills",
     users: "Subscriber Management",
     notifications: "System Notifications",
@@ -186,6 +211,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </svg>
           <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading Admin Dashboard...</span>
         </div>
+        <div style={{ display: "none" }}>{children}</div>
       </div>
     );
   }
@@ -225,7 +251,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
       >
         <div className="p-6 lg:p-8">
-          {hasPermission ? children : deniedContent}
+          {hasPermission ? children : (
+            <>
+              {deniedContent}
+              <div style={{ display: "none" }}>{children}</div>
+            </>
+          )}
         </div>
       </main>
     </div>
