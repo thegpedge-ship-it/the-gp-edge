@@ -159,3 +159,51 @@ export async function syncApproachCardsToDbAction(cards: ApproachCard[]): Promis
     return false;
   }
 }
+
+/**
+ * Fetch all available tags from the database.
+ */
+export async function getTagsFromDbAction(): Promise<string[]> {
+  try {
+    const dbTags = await prisma.tags.findMany({
+      orderBy: {
+        label: "asc",
+      },
+    });
+    return dbTags.map(t => t.label);
+  } catch (error) {
+    console.error("Error fetching tags from Neon:", error);
+    return [];
+  }
+}
+
+/**
+ * Create a new tag in the database if it does not already exist.
+ */
+export async function addTagToDbAction(label: string): Promise<boolean> {
+  try {
+    const trimmed = label.trim();
+    if (!trimmed) return false;
+    const slugged = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    
+    const existing = await prisma.tags.findUnique({
+      where: { slug: slugged },
+    });
+    
+    if (!existing) {
+      await prisma.tags.create({
+        data: {
+          slug: slugged,
+          label: trimmed,
+        },
+      });
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error("Error creating tag in database:", error);
+    return false;
+  }
+}
+
+
