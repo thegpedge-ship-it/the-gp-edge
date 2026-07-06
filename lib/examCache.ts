@@ -12,6 +12,7 @@ import {
   getQuizzesForSubtopic,
   getExamTree,
   getMockTests,
+  getMockTestQuestionIds,
 } from "@/app/exam-prep/actions";
 import type {
   ExamSubject,
@@ -19,6 +20,7 @@ import type {
   ExamQuiz,
   ExamTreeSubject,
   UiMockTest,
+  QuizDetail,
 } from "@/app/exam-prep/actions";
 
 const PREFIX = "gpedge_exam_cache:";
@@ -30,9 +32,19 @@ const DEFAULT_TTL_MS = 10 * 60 * 1000; // 10 minutes
 type Entry<T> = { t: number; v: T };
 
 /**
+ * Promises for reads currently in flight, keyed by storage key. A second caller
+ * that asks for the same key while a fetch is pending re-uses that promise
+ * instead of firing its own round-trip. This lets us prefetch a key at page
+ * mount and have the owning component's own `cached*()` call ride the same
+ * request rather than duplicating it.
+ */
+const inflight = new Map<string, Promise<unknown>>();
+
+/**
  * Read-through cache with a TTL: return the stored value if it's still fresh,
  * otherwise fetch, store (stamped with `Date.now()`), and return. Expired or
- * malformed entries are discarded and re-fetched.
+ * malformed entries are discarded and re-fetched. Concurrent reads of the same
+ * key are de-duplicated so only one request goes to the server.
  */
 async function cached<T>(
   key: string,
@@ -55,16 +67,28 @@ async function cached<T>(
     }
   }
 
-  const data = await fetcher();
+  // Coalesce concurrent misses onto a single in-flight request.
+  const pending = inflight.get(storageKey) as Promise<T> | undefined;
+  if (pending) return pending;
 
-  if (typeof window !== "undefined") {
-    try {
-      sessionStorage.setItem(storageKey, JSON.stringify({ t: Date.now(), v: data }));
-    } catch {
-      /* quota / private mode — caching is best-effort, ignore */
+  const request = (async () => {
+    const data = await fetcher();
+    if (typeof window !== "undefined") {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify({ t: Date.now(), v: data }));
+      } catch {
+        /* quota / private mode — caching is best-effort, ignore */
+      }
     }
+    return data;
+  })();
+
+  inflight.set(storageKey, request);
+  try {
+    return await request;
+  } finally {
+    inflight.delete(storageKey);
   }
-  return data;
 }
 
 /* ─── Cached reads (same signatures as the underlying server actions) ───── */
@@ -87,6 +111,15 @@ export function cachedExamTree(): Promise<ExamTreeSubject[]> {
 
 export function cachedMockTests(): Promise<UiMockTest[]> {
   return cached("mock_tests", getMockTests);
+}
+
+/**
+ * A mock test's ordered question IDs (drives the "Start" flow). The question set
+ * is admin-authored and static for a session, so we cache it: re-starting the
+ * same mock is then instant and never re-hits the server.
+ */
+export function cachedMockTestQuestionIds(mockTestId: string): Promise<QuizDetail | null> {
+  return cached(`mock_test_qids:${mockTestId}`, () => getMockTestQuestionIds(mockTestId));
 }
 
 /**

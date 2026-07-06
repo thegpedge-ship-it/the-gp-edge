@@ -1,7 +1,16 @@
 "use client";
 
 import { memo, useState, useEffect } from "react";
-import { upcomingExam } from "./data";
+import { upcomingExam as fallbackExam } from "./data";
+
+type UpcomingExam = {
+  name: string;
+  dateLabel: string;
+  timeLabel: string;
+  daysAway: number;
+  totalQuestions: number;
+  durationMin: number;
+};
 
 function useCountdown(daysAway: number) {
   const [target] = useState(() => {
@@ -30,8 +39,12 @@ function useCountdown(daysAway: number) {
   return time;
 }
 
-const CountdownCard = memo(function CountdownCard() {
-  const e = upcomingExam;
+const CountdownCard = memo(function CountdownCard({
+  exam = fallbackExam,
+}: {
+  exam?: UpcomingExam;
+}) {
+  const e = exam;
   const hrs = Math.floor(e.durationMin / 60);
   const mins = e.durationMin % 60;
   const duration = mins ? `${hrs}h ${mins}m` : `${hrs}h`;

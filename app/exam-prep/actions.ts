@@ -15,6 +15,7 @@
 // ============================================================================
 
 import { auth } from "@clerk/nextjs/server";
+import { updateTag } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ensureDbUser } from "@/lib/user";
 import type { difficulty_level } from "@/lib/generated/prisma";
@@ -427,22 +428,23 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
 
   const answerByQ = new Map(input.answers.map((a) => [a.questionId, a]));
 
-  // Grade against the DB, and aggregate per-subject for mastery.
+  // Grade against the DB, and aggregate per-subject. Unanswered questions are
+  // tracked too (for the per-attempt subject breakdown) but never feed mastery,
+  // which is correct / answered.
   let correctCount = 0;
-  const bySubject = new Map<string, { correct: number; incorrect: number; total: number }>();
+  const bySubject = new Map<string, { correct: number; incorrect: number; unanswered: number }>();
 
   for (const qid of questionIds) {
     const selected = answerByQ.get(qid)?.selectedIndex ?? null;
-    if (selected === null || selected === undefined) continue; // unanswered
-
-    const isCorrect = correctIsByQ.get(qid)?.get(selected) === true;
+    const answered = selected !== null && selected !== undefined;
+    const isCorrect = answered && correctIsByQ.get(qid)?.get(selected) === true;
     if (isCorrect) correctCount++;
 
     const subjectId = subjectByQ.get(qid);
     if (subjectId) {
-      const agg = bySubject.get(subjectId) ?? { correct: 0, incorrect: 0, total: 0 };
-      agg.total++;
-      if (isCorrect) agg.correct++;
+      const agg = bySubject.get(subjectId) ?? { correct: 0, incorrect: 0, unanswered: 0 };
+      if (!answered) agg.unanswered++;
+      else if (isCorrect) agg.correct++;
       else agg.incorrect++;
       bySubject.set(subjectId, agg);
     }
@@ -476,6 +478,21 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
         },
         select: { id: true },
       });
+
+      // 1b. Per-subject correct/incorrect/unanswered snapshot for this attempt.
+      //     One row per subject → powers the dashboard "Subject → Test Breakdown"
+      //     chart without ever recomputing from raw answers.
+      if (bySubject.size > 0) {
+        await tx.attempt_subject_stats.createMany({
+          data: [...bySubject].map(([subjectId, agg]) => ({
+            attempt_id: attempt.id,
+            subject_id: subjectId,
+            correct: agg.correct,
+            incorrect: agg.incorrect,
+            unanswered: agg.unanswered,
+          })),
+        });
+      }
 
       // 2. Performance summary rollup (+ daily streak).
       const summary = await tx.user_performance_summary.findUnique({
@@ -525,11 +542,18 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
       });
 
       // 3. Per-subject mastery rollup (weak / developing / strong).
+      //    Prefetch every affected row in ONE query rather than a findUnique
+      //    per subject — on a slow/remote DB the 6+ sequential round-trips here
+      //    were overrunning the 5s interactive-transaction timeout, rolling the
+      //    whole save back (attempt + score never persisted).
+      const subjectIds = [...bySubject.keys()];
+      const existingMastery = await tx.user_subject_mastery.findMany({
+        where: { user_id: dbUser.id, subject_id: { in: subjectIds } },
+      });
+      const masteryBySubject = new Map(existingMastery.map((r) => [r.subject_id, r]));
       for (const [subjectId, agg] of bySubject) {
-        const existing = await tx.user_subject_mastery.findUnique({
-          where: { user_id_subject_id: { user_id: dbUser.id, subject_id: subjectId } },
-        });
-        const total = (existing?.total_answered ?? 0) + agg.total;
+        const existing = masteryBySubject.get(subjectId);
+        const total = (existing?.total_answered ?? 0) + agg.correct + agg.incorrect;
         const correct = (existing?.correct_count ?? 0) + agg.correct;
         const incorrect = (existing?.incorrect_count ?? 0) + agg.incorrect;
         const masteryPercent = total > 0 ? (correct / total) * 100 : 0;
@@ -543,7 +567,7 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
             subject_id: subjectId,
             correct_count: agg.correct,
             incorrect_count: agg.incorrect,
-            total_answered: agg.total,
+            total_answered: agg.correct + agg.incorrect,
             mastery_percent: masteryPercent.toFixed(2),
             strength,
             last_attempt_at: now,
@@ -560,7 +584,25 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
       }
 
       return attempt.id;
+    }, {
+      // The rollup does several sequential writes; give it headroom beyond the
+      // 5s default so a slow/remote DB doesn't expire the transaction mid-save.
+      timeout: 20_000,
+      maxWait: 10_000,
     });
+
+    // The profile page caches its per-user stats/readiness (unstable_cache,
+    // tag `profile:{userId}`); a new attempt changes those, so expire that entry
+    // so the next profile visit reflects the just-saved result. updateTag is the
+    // Server-Action invalidator (immediate, read-your-own-writes) in Next 16.
+    // Best-effort: the transaction is already committed, so a cache-invalidation
+    // hiccup must never turn a successful save into a reported failure (the 5-min
+    // TTL would refresh it anyway).
+    try {
+      updateTag(`profile:${dbUser.id}`);
+    } catch {
+      /* invalidation is best-effort — ignore */
+    }
 
     return {
       ok: true,

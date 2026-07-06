@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { getQuizQuestionIds } from "@/app/exam-prep/actions";
 import type { ExamSubject, ExamSubtopic, ExamQuiz } from "@/app/exam-prep/actions";
-import { cachedExamSubjects, cachedSubtopics, cachedQuizzes } from "@/lib/examCache";
+import { cachedExamSubjects, cachedSubtopics, cachedQuizzes, cachedMockTests } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
@@ -39,9 +39,14 @@ export default function SubjectMenu() {
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
 
-  // Step 1 — load the user's subjects once.
+  // Step 1 — load the user's subjects once. Before that, kick off the side
+  // panel's mock-tests request so its "Tests" count is the first thing to land:
+  // this menu's mount effect runs before SidePanel's, so firing it here gets the
+  // mock round-trip out ahead of the subjects one. The cache de-dupes it, so
+  // SidePanel's own fetch rides this request instead of racing it.
   useEffect(() => {
     let cancelled = false;
+    void cachedMockTests();
     cachedExamSubjects().then((s) => {
       if (!cancelled) setSubjects(s);
     });

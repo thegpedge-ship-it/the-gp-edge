@@ -538,6 +538,21 @@ CREATE TABLE attempt_answers (
 );
 CREATE INDEX idx_answers_attempt_question ON attempt_answers(attempt_question_id);
 
+-- Per-attempt, per-subject correct / incorrect / unanswered tallies. Powers the
+-- dashboard "Subject → Test Breakdown" chart: test_attempts holds only overall
+-- totals and user_subject_mastery is a lifetime rollup, so neither can be sliced
+-- per test. One row per (attempt, subject) makes that a single group-by. Written
+-- for every completed attempt in saveQuizAttempt; the dashboard filters to mocks.
+CREATE TABLE attempt_subject_stats (
+    attempt_id  UUID NOT NULL REFERENCES test_attempts(id) ON DELETE CASCADE,
+    subject_id  UUID NOT NULL REFERENCES subjects(id)      ON DELETE CASCADE,
+    correct     INT  NOT NULL DEFAULT 0,
+    incorrect   INT  NOT NULL DEFAULT 0,
+    unanswered  INT  NOT NULL DEFAULT 0,
+    PRIMARY KEY (attempt_id, subject_id)
+);
+CREATE INDEX idx_attempt_subject_stats_subject ON attempt_subject_stats(subject_id);
+
 -- Brief §2: once submitted/expired, an attempt is LOCKED — no edits, no reopen.
 CREATE OR REPLACE FUNCTION lock_submitted_attempt() RETURNS TRIGGER AS $$
 BEGIN

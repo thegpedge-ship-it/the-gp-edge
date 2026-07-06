@@ -3,7 +3,9 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { studyActivity } from "./data";
+import { studyActivity as fallbackActivity } from "./data";
+
+type ActivityDay = { date: string; count: number };
 
 const MONTHS = 12;
 const ROWS = 7;
@@ -56,12 +58,11 @@ interface MonthBlock {
   days: Day[];
 }
 
-function buildMonths(): MonthBlock[] {
+function buildMonths(studyActivity: ActivityDay[]): MonthBlock[] {
   const counts = new Map(studyActivity.map((a) => [a.date, a.count]));
-  const anchorKey = studyActivity.reduce(
-    (max, a) => (a.date > max ? a.date : max),
-    studyActivity[0]?.date ?? fmtKey(new Date())
-  );
+  // Anchor the trailing-12-month grid on today so an inactive user still sees
+  // the current month on the right edge (not a grid frozen at their last visit).
+  const anchorKey = fmtKey(new Date());
   const anchor = parseDate(anchorKey);
   const start = new Date(anchor.getFullYear(), anchor.getMonth() - (MONTHS - 1), 1);
 
@@ -121,12 +122,16 @@ function useCellSize(ref: React.RefObject<HTMLDivElement>, totalCols: number, bl
  * - Wrapped in React.memo.
  * - No entry animation — handled by PageTransition.
  */
-const ActivityHeatmapCard = memo(function ActivityHeatmapCard() {
+const ActivityHeatmapCard = memo(function ActivityHeatmapCard({
+  studyActivity = fallbackActivity,
+}: {
+  studyActivity?: ActivityDay[];
+}) {
   const cardRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Memoize month data — pure computation, only runs once
-  const months = useMemo(() => buildMonths(), []);
+  // Memoize month data — recompute only when the activity list changes.
+  const months = useMemo(() => buildMonths(studyActivity), [studyActivity]);
   const totalCols = useMemo(() => months.reduce((s, b) => s + b.columns.length, 0), [months]);
   const cell = useCellSize(gridRef, totalCols, months.length);
 

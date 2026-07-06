@@ -10,7 +10,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser } from "@/lib/user";
 import { formatJoined } from "@/lib/format";
-import { badges, stats, examPaths } from "@/components/dashboard/data";
+import { getProfileData } from "./actions";
 import Avatar from "@/components/ui/Avatar";
 import FadeIn from "@/components/ui/FadeIn";
 import PageCard from "@/components/ui/PageCard";
@@ -36,6 +36,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default async function ProfilePage() {
   const user = await currentUser();
   const dbUser = await ensureDbUser();
+  const { stats, examPaths, badges } = await getProfileData();
 
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";
@@ -201,6 +202,11 @@ export default async function ProfilePage() {
                   </p>
                   
                   <div className="mt-5 space-y-4">
+                    {examPaths.length === 0 && (
+                      <p className="font-sans text-xs text-slate-500 dark:text-slate-400 py-2">
+                        No exam tracks available yet. Take a mock test to start tracking your readiness.
+                      </p>
+                    )}
                     {examPaths.map((exam) => {
                       const pct = exam.readiness;
                       return (
@@ -256,6 +262,11 @@ export default async function ProfilePage() {
                   </div>
                   
                   <div className="mt-6">
+                    {badges.length === 0 && (
+                      <p className="font-sans text-xs text-slate-500 dark:text-slate-400">
+                        No badges earned yet. Keep practising to unlock your first milestone.
+                      </p>
+                    )}
                     <div className="flex gap-4 flex-wrap">
                       {badges.map((b) => (
                         <div

@@ -1,5 +1,7 @@
 import Image from "next/image";
-import { greeting } from "./data";
+import { greeting as fallbackGreeting } from "./data";
+
+type Greeting = { salutation: string; title: string; highlight: string; subtext: string };
 
 /**
  * Topbar — dashboard welcome banner.
@@ -8,7 +10,7 @@ import { greeting } from "./data";
  * page-level fade-in. Animating the Topbar independently would cause it to
  * re-animate on every dashboard navigation.
  */
-export default function Topbar() {
+export default function Topbar({ greeting = fallbackGreeting }: { greeting?: Greeting }) {
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50/40 dark:from-emerald-900/20 dark:via-slate-800/40 dark:to-teal-900/20 border border-emerald-100/60 dark:border-emerald-800/40 p-8 lg:p-10 mb-6">
       {/* Decorative blobs */}

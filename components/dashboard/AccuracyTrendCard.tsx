@@ -2,17 +2,31 @@
 
 import { memo, useMemo, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { mockExamScores, subjectTestBreakdown, performance } from "./data";
+import {
+  mockExamScores as fallbackScores,
+  subjectTestBreakdown as fallbackBreakdown,
+  performance as fallbackPerformance,
+} from "./data";
+
+type MockScore = { date: string; score: number };
+type SubjectPerf = { subject: string; mastery: number; change: number };
+type TestBreakdown = Record<string, { test: string; correct: number; incorrect: number; unattempted: number }[]>;
 
 const AccuracyTrendCard = memo(function AccuracyTrendCard({
   selectedSubject,
+  exams = fallbackScores,
+  performance = fallbackPerformance,
+  subjectBreakdown = fallbackBreakdown,
 }: {
   selectedSubject: string | null;
+  exams?: MockScore[];
+  performance?: SubjectPerf[];
+  subjectBreakdown?: TestBreakdown;
 }) {
-  const exams = mockExamScores;
-  const latest = exams[exams.length - 1];
+  const hasExams = exams.length > 0;
+  const latest = hasExams ? exams[exams.length - 1] : null;
   const prev = exams.length >= 2 ? exams[exams.length - 2] : null;
-  const delta = prev ? latest.score - prev.score : 0;
+  const delta = prev && latest ? latest.score - prev.score : 0;
 
   const W = 300;
   const H = 90;
@@ -23,11 +37,13 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
 
   const { linePath, areaPath, coords } = useMemo(() => {
     const scores = exams.map((e) => e.score);
+    if (scores.length === 0) return { linePath: "", areaPath: "", coords: [] as { x: number; y: number }[] };
     const min = Math.min(...scores) - 4;
     const max = Math.max(...scores) + 4;
+    // With a single mock, span/(n-1) is 0/0; pin it to the mid-x instead.
     const toX = (i: number) =>
-      PAD_X + (i / (scores.length - 1)) * INNER_W;
-    const toY = (v: number) => H - ((v - min) / (max - min)) * H;
+      scores.length === 1 ? PAD_X + INNER_W / 2 : PAD_X + (i / (scores.length - 1)) * INNER_W;
+    const toY = (v: number) => (max === min ? H / 2 : H - ((v - min) / (max - min)) * H);
 
     const coords = scores.map((s, i) => ({ x: toX(i), y: toY(s) }));
 
@@ -59,13 +75,28 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
 
   const handleMouseLeave = useCallback(() => setHovered(null), []);
 
-  const subjectData = selectedSubject ? subjectTestBreakdown[selectedSubject] : null;
+  const subjectData = selectedSubject ? subjectBreakdown[selectedSubject] : null;
   const subjectRow = selectedSubject ? performance.find((r) => r.subject === selectedSubject) : null;
 
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6 h-full">
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-6 w-full h-full">
       <AnimatePresence mode="wait">
-        {!selectedSubject ? (
+        {!selectedSubject && !hasExams ? (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+              Mock Exam Scores
+            </h3>
+            <div className="flex items-center justify-center h-[220px] text-sm text-slate-400 dark:text-slate-500 text-center px-6">
+              Complete a mock exam to start tracking your score trend.
+            </div>
+          </motion.div>
+        ) : !selectedSubject && latest ? (
           <motion.div
             key="line"
             initial={{ opacity: 0 }}
@@ -178,8 +209,8 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
                   if (exams.length <= 6) return true;
                   return i === 0 || i === exams.length - 1 || i % Math.ceil(exams.length / 5) === 0;
                 })
-                .map((e) => (
-                  <span key={e.date}>{e.date.split(" ").slice(0, 2).join(" ")}</span>
+                .map((e, i) => (
+                  <span key={`${e.date}-${i}`}>{e.date.split(" ").slice(0, 2).join(" ")}</span>
                 ))}
             </div>
           </motion.div>
@@ -237,7 +268,7 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
                   ...subjectData.flatMap((t) => [t.correct, t.incorrect, t.unattempted])
                 );
                 return (
-                  <div key={test.test} className="flex-1 flex flex-col items-center gap-1">
+                  <div key={`${test.test}-${ti}`} className="flex-1 flex flex-col items-center gap-1">
                     <div className="flex items-end gap-[3px] w-full h-[170px]">
                       <BarWithTooltip
                         value={test.correct}
@@ -269,7 +300,22 @@ const AccuracyTrendCard = memo(function AccuracyTrendCard({
               })}
             </div>
           </motion.div>
-        ) : null}
+        ) : (
+          <motion.div
+            key={`subject-empty-${selectedSubject}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+              {selectedSubject} — Test Breakdown
+            </h3>
+            <div className="flex items-center justify-center h-[220px] text-sm text-slate-400 dark:text-slate-500 text-center px-6">
+              Per-test breakdown isn&apos;t available yet.
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
