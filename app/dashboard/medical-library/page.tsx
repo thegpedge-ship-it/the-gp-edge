@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import { getMedicalContent, MedicalContent, getApproachCards } from "@/lib/quizData";
+import { getMedicalContent, MedicalContent, getApproachCards, ApproachCard, saveApproachCards } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 
@@ -329,35 +329,49 @@ function MedicalLibraryContent() {
   const [showApproachFilters, setShowApproachFilters] = useState(false);
 
   const handleDragStart = (e: React.PointerEvent) => {
+    e.preventDefault();
     setIsDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  const handleDrag = useCallback((e: React.PointerEvent) => {
-    if (!isDragging || !splitPaneRef.current) return;
-    const rect = splitPaneRef.current.getBoundingClientRect();
-    const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
-    const pct = (x / rect.width) * 100;
-    
-    if (pct < 15) {
-      setLeftWidthPercent(0);
-    } else if (pct > 85) {
-      setLeftWidthPercent(100);
-    } else {
-      setLeftWidthPercent(pct);
-    }
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!splitPaneRef.current) return;
+      const rect = splitPaneRef.current.getBoundingClientRect();
+      const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
+      const pct = (x / rect.width) * 100;
+      
+      if (pct < 15) {
+        setLeftWidthPercent(0);
+      } else if (pct > 85) {
+        setLeftWidthPercent(100);
+      } else {
+        setLeftWidthPercent(pct);
+      }
+    };
+
+    const handlePointerUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    window.addEventListener("pointercancel", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+    };
   }, [isDragging]);
-
-  const handleDragEnd = (e: React.PointerEvent) => {
-    setIsDragging(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  };
 
   // Search box states (side-by-side)
   const [searchCondition, setSearchCondition] = useState("");
   const [searchApproach, setSearchApproach] = useState("");
 
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
+  const [selectedApproachSystem, setSelectedApproachSystem] = useState<string>("all");
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
   const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
@@ -381,6 +395,7 @@ function MedicalLibraryContent() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
+  const [rawApproachCards, setRawApproachCards] = useState<ApproachCard[]>([]);
   const [visibleConditionsLimit, setVisibleConditionsLimit] = useState(6);
   const [visibleApproachesLimit, setVisibleApproachesLimit] = useState(6);
   const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({});
@@ -434,6 +449,7 @@ function MedicalLibraryContent() {
 
       // Load admin-created approach cards and map to MedicalCondition
       const localApproaches = getApproachCards();
+      setRawApproachCards(localApproaches);
       const mapCardToCondition = (card: any) => ({
         id: card.id,
         name: card.title,
@@ -466,6 +482,8 @@ function MedicalLibraryContent() {
       // Fetch fresh approach cards from Neon Database in background
       getApproachCardsFromDbAction().then(dbCards => {
         if (dbCards && dbCards.length > 0) {
+          saveApproachCards(dbCards);
+          setRawApproachCards(dbCards);
           const dbApproachMapped = dbCards
             .filter(card => card.status === "published")
             .map(mapCardToCondition);
@@ -514,15 +532,11 @@ function MedicalLibraryContent() {
     return allConditions.find((c) => c.id === selectedConditionId) ?? null;
   }, [selectedConditionId, allConditions]);
 
-  // For APPROACH- type conditions, load the full structured card data
+  // For Approach type conditions, load the full structured card data
   const selectedApproachCard = useMemo(() => {
-    if (!selectedCondition || !selectedCondition.id.startsWith("APPROACH-")) return null;
-    if (typeof window === "undefined") return null;
-    try {
-      const cards = getApproachCards();
-      return cards.find(c => c.id === selectedCondition.id) ?? null;
-    } catch { return null; }
-  }, [selectedCondition]);
+    if (!selectedCondition || selectedCondition.type !== "Approach") return null;
+    return rawApproachCards.find(c => c.id === selectedCondition.id) ?? null;
+  }, [selectedCondition, rawApproachCards]);
 
   useEffect(() => {
     setCheckedSteps({});
@@ -585,66 +599,86 @@ function MedicalLibraryContent() {
     return map;
   }, [allConditions]);
 
-  // Memoize filtered conditions
-  const filteredConditions = useMemo(() => {
+  // Memoize filtered medical conditions (left pane)
+  const filteredMC = useMemo(() => {
     const condQuery = searchCondition.trim().toLowerCase();
+
+    return allConditions
+      .filter((c) => c.type !== "Approach")
+      .filter((c) => {
+        // 1. Favorites check
+        if (showFavoritesOnly && !favorites.includes(c.id)) {
+          return false;
+        }
+
+        // 2. System check
+        if (selectedSystem !== "all" && c.system !== selectedSystem) {
+          return false;
+        }
+
+        // 3. Condition check (symptoms, name, system, category)
+        return (
+          !condQuery ||
+          c.name.toLowerCase().includes(condQuery) ||
+          c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
+          c.system.toLowerCase().includes(condQuery) ||
+          c.category.toLowerCase().includes(condQuery)
+        );
+      });
+  }, [searchCondition, selectedSystem, showFavoritesOnly, favorites, allConditions]);
+
+  // Memoize filtered clinical approaches (right pane)
+  const filteredApproaches = useMemo(() => {
     const appQuery = searchApproach.trim().toLowerCase();
 
-    return allConditions.filter((c) => {
-      // 1. Favorites check
-      if (showFavoritesOnly && !favorites.includes(c.id)) {
-        return false;
-      }
+    return allConditions
+      .filter((c) => c.type === "Approach")
+      .filter((c) => {
+        // 1. Favorites check
+        if (showFavoritesOnly && !favorites.includes(c.id)) {
+          return false;
+        }
 
-      // 2. System check
-      if (selectedSystem !== "all" && c.system !== selectedSystem) {
-        return false;
-      }
+        // 2. System check
+        if (selectedApproachSystem !== "all" && c.system !== selectedApproachSystem) {
+          return false;
+        }
 
-      // 3. Condition check (symptoms, name, system, category)
-      const matchesCondition =
-        !condQuery ||
-        c.name.toLowerCase().includes(condQuery) ||
-        c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
-        c.system.toLowerCase().includes(condQuery) ||
-        c.category.toLowerCase().includes(condQuery);
-
-      // 4. Approach check (type, category, treatments, pearls, summary, system, name)
-      const matchesApproach =
-        !appQuery ||
-        c.category.toLowerCase().includes(appQuery) ||
-        c.type.toLowerCase().includes(appQuery) ||
-        c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
-        c.clinicalNotes.toLowerCase().includes(appQuery) ||
-        (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
-        c.name.toLowerCase().includes(appQuery) ||
-        c.system.toLowerCase().includes(appQuery);
-
-      return matchesCondition && matchesApproach;
-    });
-  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly, favorites, allConditions]);
+        // 3. Approach check (type, category, treatments, pearls, summary, system, name)
+        return (
+          !appQuery ||
+          c.category.toLowerCase().includes(appQuery) ||
+          c.type.toLowerCase().includes(appQuery) ||
+          c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
+          c.clinicalNotes.toLowerCase().includes(appQuery) ||
+          (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
+          c.name.toLowerCase().includes(appQuery) ||
+          c.system.toLowerCase().includes(appQuery)
+        );
+      });
+  }, [searchApproach, selectedApproachSystem, showFavoritesOnly, favorites, allConditions]);
 
   // Reset limits when search or system changes
   useEffect(() => {
     setVisibleConditionsLimit(6);
     setVisibleApproachesLimit(6);
-  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly]);
+  }, [searchCondition, searchApproach, selectedSystem, selectedApproachSystem, showFavoritesOnly]);
 
   const mcConditions = useMemo(() => {
-    return filteredConditions.filter(c => c.type !== "Approach").slice(0, visibleConditionsLimit);
-  }, [filteredConditions, visibleConditionsLimit]);
+    return filteredMC.slice(0, visibleConditionsLimit);
+  }, [filteredMC, visibleConditionsLimit]);
 
   const approachConditions = useMemo(() => {
-    return filteredConditions.filter(c => c.type === "Approach").slice(0, visibleApproachesLimit);
-  }, [filteredConditions, visibleApproachesLimit]);
+    return filteredApproaches.slice(0, visibleApproachesLimit);
+  }, [filteredApproaches, visibleApproachesLimit]);
 
   const totalMCFilteredCount = useMemo(() => {
-    return filteredConditions.filter(c => c.type !== "Approach").length;
-  }, [filteredConditions]);
+    return filteredMC.length;
+  }, [filteredMC]);
 
   const totalApproachFilteredCount = useMemo(() => {
-    return filteredConditions.filter(c => c.type === "Approach").length;
-  }, [filteredConditions]);
+    return filteredApproaches.length;
+  }, [filteredApproaches]);
 
 
 
@@ -663,6 +697,7 @@ function MedicalLibraryContent() {
     router.push(`/dashboard/medical-library?${params.toString()}`);
     if (type === "system") {
       setSelectedSystem(value);
+      setSelectedApproachSystem(value);
     } else if (type === "category") {
       setSearchApproach(value);
     } else if (type === "symptom") {
@@ -901,9 +936,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                    className="overflow-hidden"
                                  >
                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                      <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                      <button onClick={() => setSelectedApproachSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedApproachSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                       {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                        <button key={sys.id} onClick={() => setSelectedApproachSystem(selectedApproachSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedApproachSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                       ))}
                                    </div>
                                  </motion.div>
@@ -941,9 +976,6 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-col-resize flex items-center justify-center group"
                         style={{ left: `${leftWidthPercent}%` }}
                         onPointerDown={handleDragStart}
-                        onPointerMove={handleDrag}
-                        onPointerUp={handleDragEnd}
-                        onPointerCancel={handleDragEnd}
                       >
                         <div className={`h-full w-0.5 bg-slate-355 dark:bg-slate-700 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors ${isDragging ? "bg-teal-500 dark:bg-teal-400 w-1" : ""}`} />
                         {/* Handle Grip */}
@@ -1239,48 +1271,25 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                           {/* Steps */}
                           <div className="space-y-3">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clinical Steps</h4>
-                            {selectedApproachCard.steps.map((step, idx) => {
-                              const stepTypeConfig: Record<string, { icon: string; color: string }> = {
-                                action: { icon: "", color: "text-teal-700 bg-teal-50 border-teal-200 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900" },
-                                decision: { icon: "", color: "text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900" },
-                                checklist: { icon: "", color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900" },
-                                info: { icon: "", color: "text-slate-700 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700" },
-                                warning: { icon: "", color: "text-red-700 bg-red-50 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900" },
-                              };
-                              const sc = stepTypeConfig[step.type] || stepTypeConfig.action;
+                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest select-none">Clinical Steps</h4>
+                            {selectedApproachCard.steps.map((step) => {
+                              const ck = `${selectedCondition.id}-${step.id}`;
+                              const isChecked = !!checkedSteps[ck];
                               return (
-                                <div key={step.id} className="border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden">
-                                  <div className="flex items-center gap-3 p-4 bg-white dark:bg-slate-900">
-                                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-teal-600 text-white text-sm font-bold shrink-0">{idx + 1}</div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                        <h5 className="text-sm font-bold text-slate-800 dark:text-slate-100">{step.title}</h5>
-                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${sc.color}`}>{sc.icon} {step.type}</span>
-                                      </div>
-                                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{step.description}</p>
-                                    </div>
+                                <div
+                                  key={step.id}
+                                  onClick={() => setCheckedSteps(prev => ({ ...prev, [ck]: !prev[ck] }))}
+                                  className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm rounded-2xl cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition group"
+                                >
+                                  {/* Circular checkbox */}
+                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? "bg-teal-600 border-teal-600" : "border-slate-300 dark:border-slate-650 group-hover:border-teal-500"}`}>
+                                    {isChecked && <Lucide.Check className="w-3.5 h-3.5 text-white stroke-[3px]" />}
                                   </div>
-                                  {(step.checklistItems || []).length > 0 && (
-                                    <div className="px-4 pb-4 pt-1 space-y-2 bg-slate-50/50 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800">
-                                      {(step.checklistItems || []).map((item, i) => {
-                                        const ck = `${selectedCondition.id}-${step.id}-${i}`;
-                                        const isChecked = !!checkedSteps[ck];
-                                        return (
-                                          <div
-                                            key={i}
-                                            onClick={() => setCheckedSteps(prev => ({ ...prev, [ck]: !prev[ck] }))}
-                                            className="flex items-start gap-2.5 cursor-pointer group"
-                                          >
-                                            <div className={`mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? "bg-teal-500 border-teal-500" : "border-slate-300 dark:border-slate-600 hover:border-teal-400"}`}>
-                                              {isChecked && <Lucide.Check className="w-2.5 h-2.5 text-white" />}
-                                            </div>
-                                            <span className={`text-xs leading-relaxed transition-colors ${isChecked ? "line-through text-slate-400" : "text-slate-700 dark:text-slate-300"}`}>{item}</span>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
+                                  
+                                  {/* Step Title */}
+                                  <span className={`text-sm font-semibold transition-colors ${isChecked ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}`}>
+                                    {step.title}
+                                  </span>
                                 </div>
                               );
                             })}
