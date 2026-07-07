@@ -175,7 +175,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       animate="visible"
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.99 }}
-      className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-[350px] min-w-[350px] shrink-0"
+      className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-full"
       onClick={() => handleOpenCondition(condition)}
     >
       <div>
@@ -248,7 +248,7 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       animate="visible"
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.99 }}
-      className="bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-[350px] min-w-[350px] shrink-0"
+      className="bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-full"
       onClick={() => handleOpenCondition(condition)}
     >
       <div>
@@ -761,7 +761,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                )}
                              </AnimatePresence>
                            </div>
-                           <div className="p-6 flex flex-wrap justify-center gap-5">
+                           <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "3-0" ? "grid-cols-3" : paneConfig === "2-1" ? "grid-cols-2" : "grid-cols-1"}`}>
                              {mcConditions.map(condition => (
                                <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
                              ))}
@@ -805,7 +805,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                )}
                              </AnimatePresence>
                            </div>
-                           <div className="p-6 flex flex-wrap justify-center gap-5">
+                           <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "0-3" ? "grid-cols-3" : paneConfig === "1-2" ? "grid-cols-2" : "grid-cols-1"}`}>
                              {approachConditions.map(condition => (
                                <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
                              ))}
