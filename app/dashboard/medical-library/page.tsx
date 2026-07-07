@@ -5,9 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import { getMedicalContent, MedicalContent, getApproachCards, ApproachCard, saveApproachCards } from "@/lib/quizData";
+import { getMedicalContent, MedicalContent } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
-import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
@@ -174,68 +173,66 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ y: -2, boxShadow: "0 8px 30px rgba(0,0,0,0.10)" }}
-      whileTap={{ scale: 0.985 }}
-      className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 shadow-sm cursor-pointer flex flex-col group overflow-hidden transition-all duration-200"
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.99 }}
+      className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-[350px] min-w-[350px] shrink-0"
       onClick={() => handleOpenCondition(condition)}
     >
-      {/* Accent bar */}
-      <div className="h-[3px] w-full bg-gradient-to-r from-green-400 to-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="p-5 flex flex-col flex-1">
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] font-bold font-mono text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 px-2 py-0.5 rounded-md border border-green-200/50 dark:border-green-800/40 tracking-wide">
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
               {condition.id}
             </span>
             {condition.isPremium ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded-md border border-amber-200/50 dark:border-amber-800/40">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
-                Premium
+                Paid Only
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-1.5 py-0.5 rounded-md border border-emerald-200/50 dark:border-emerald-800/40">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
                 <Lucide.Unlock className="w-2.5 h-2.5" />
-                Free
+                Free Access
               </span>
             )}
           </div>
           <button
             onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0 cursor-pointer text-slate-300 hover:text-rose-500"
+            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-3.5 h-3.5 transition-colors ${isStarred ? "fill-rose-500 text-rose-500" : ""}`} />
+            <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
           </button>
         </div>
 
-        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-snug group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors mb-1.5 line-clamp-2">
+        <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
           {condition.name}
         </h3>
 
-        <div className="flex items-center gap-1 text-[9px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
           <span>{condition.system}</span>
-          <Lucide.ChevronRight className="w-2.5 h-2.5" />
+          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
           <span>{condition.category}</span>
         </div>
 
-        <div className="space-y-1 flex-1">
+        <div className="space-y-1 mb-4">
           {condition.symptoms.slice(0, 2).map((sym, i) => (
-            <p key={i} className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1.5">
-              <span className="text-green-500 font-bold shrink-0 mt-px">•</span>
-              <span className="line-clamp-1">{sym}</span>
+            <p key={i} className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
+              <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+              <span className="truncate">{sym}</span>
             </p>
           ))}
         </div>
+      </div>
 
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-3 flex items-center justify-between">
-          <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors">{condition.system}</span>
-          </div>
-          <div className="flex flex-col text-right">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Updated</span>
-            <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
-          </div>
+      <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
+        <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer group/footer">
+          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+        </div>
+        <div className="flex flex-col text-right">
+          <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+          <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
         </div>
       </div>
     </motion.div>
@@ -249,55 +246,43 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ y: -2, boxShadow: "0 8px 30px rgba(20,184,166,0.12)" }}
-      whileTap={{ scale: 0.985 }}
-      className="relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/70 dark:border-slate-800/70 shadow-sm cursor-pointer flex flex-col group overflow-hidden transition-all duration-200"
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.99 }}
+      className="bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-[350px] min-w-[350px] shrink-0"
       onClick={() => handleOpenCondition(condition)}
     >
-      {/* Accent bar */}
-      <div className="h-[3px] w-full bg-gradient-to-r from-teal-400 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <div className="p-5 flex flex-col flex-1">
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] font-bold font-mono text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded-md border border-teal-200/50 dark:border-teal-800/40 tracking-wide max-w-[120px] truncate">
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-955/20 px-2 py-0.5 rounded border border-teal-200/30">
               {condition.id}
             </span>
-            <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 px-1.5 py-0.5 rounded-md border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-wider">
+            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
               Approach
             </span>
           </div>
           <button
             onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0 cursor-pointer text-slate-300 hover:text-rose-500"
+            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-3.5 h-3.5 transition-colors ${isStarred ? "fill-rose-500 text-rose-500" : ""}`} />
+            <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
           </button>
         </div>
 
-        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors mb-2 line-clamp-2">
+        <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5">
           {condition.name}
         </h4>
 
-        <div className="space-y-1.5 flex-1 mb-3">
-          <p className="text-[9px] font-bold text-teal-600 dark:text-teal-500 uppercase tracking-widest">Treatment Steps</p>
-          {condition.treatmentOptions && condition.treatmentOptions.length > 0 ? (
-            condition.treatmentOptions.slice(0, 3).map((opt, i) => (
-              <p key={i} className="text-xs text-slate-500 dark:text-slate-400 flex items-start gap-1.5 leading-relaxed">
-                <span className="text-teal-500 dark:text-teal-400 font-bold shrink-0 w-3 text-[10px]">{i + 1}.</span>
-                <span className="line-clamp-1">{opt}</span>
-              </p>
-            ))
-          ) : (
-            <p className="text-xs text-slate-400 italic">No steps specified.</p>
-          )}
-        </div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 line-clamp-3">
+          {condition.clinicalNotes || condition.document?.summary || "Diagnostic and management framework."}
+        </p>
+      </div>
 
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-3 mt-auto flex items-center justify-between">
-          <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer">
-            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{condition.system}</span>
-          </div>
+      <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
+        <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer group/footer">
+          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors">{condition.system}</span>
         </div>
       </div>
     </motion.div>
@@ -320,7 +305,7 @@ function MedicalLibraryContent() {
   const searchParams = useSearchParams();
 
   // Split Workspace Layout States
-  const [leftWidthPercent, setLeftWidthPercent] = useState<number>(50);
+  const [paneConfig, setPaneConfig] = useState<"3-0" | "2-1" | "1-2" | "0-3">("2-1");
   const [isDragging, setIsDragging] = useState(false);
   const splitPaneRef = useRef<HTMLDivElement>(null);
 
@@ -329,49 +314,33 @@ function MedicalLibraryContent() {
   const [showApproachFilters, setShowApproachFilters] = useState(false);
 
   const handleDragStart = (e: React.PointerEvent) => {
-    e.preventDefault();
     setIsDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
   };
 
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!splitPaneRef.current) return;
-      const rect = splitPaneRef.current.getBoundingClientRect();
-      const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
-      const pct = (x / rect.width) * 100;
-      
-      if (pct < 15) {
-        setLeftWidthPercent(0);
-      } else if (pct > 85) {
-        setLeftWidthPercent(100);
-      } else {
-        setLeftWidthPercent(pct);
-      }
-    };
-
-    const handlePointerUp = () => {
-      setIsDragging(false);
-    };
-
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-    window.addEventListener("pointercancel", handlePointerUp);
-
-    return () => {
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-    };
+  const handleDrag = useCallback((e: React.PointerEvent) => {
+    if (!isDragging || !splitPaneRef.current) return;
+    const rect = splitPaneRef.current.getBoundingClientRect();
+    const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width);
+    const percentage = x / rect.width;
+    
+    // Grid snapping logic for 3 columns:
+    if (percentage < 0.16) setPaneConfig("0-3");
+    else if (percentage < 0.5) setPaneConfig("1-2");
+    else if (percentage < 0.84) setPaneConfig("2-1");
+    else setPaneConfig("3-0");
   }, [isDragging]);
+
+  const handleDragEnd = (e: React.PointerEvent) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
 
   // Search box states (side-by-side)
   const [searchCondition, setSearchCondition] = useState("");
   const [searchApproach, setSearchApproach] = useState("");
 
   const [selectedSystem, setSelectedSystem] = useState<string>("all");
-  const [selectedApproachSystem, setSelectedApproachSystem] = useState<string>("all");
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
   const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
@@ -395,18 +364,7 @@ function MedicalLibraryContent() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
-  const [rawApproachCards, setRawApproachCards] = useState<ApproachCard[]>([]);
-  const [visibleConditionsLimit, setVisibleConditionsLimit] = useState(6);
-  const [visibleApproachesLimit, setVisibleApproachesLimit] = useState(6);
-  const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({});
-
-  const toggleStep = (conditionId: string, index: number) => {
-    const key = `${conditionId}-${index}`;
-    setCheckedSteps(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
+  const [visibleLimit, setVisibleLimit] = useState(9);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -446,50 +404,7 @@ function MedicalLibraryContent() {
           }
         };
       });
-
-      // Load admin-created approach cards and map to MedicalCondition
-      const localApproaches = getApproachCards();
-      setRawApproachCards(localApproaches);
-      const mapCardToCondition = (card: any) => ({
-        id: card.id,
-        name: card.title,
-        system: normalizeSystemName(card.system) as any,
-        category: card.category,
-        type: "Approach" as any,
-        isPremium: card.isPremium,
-        lastUpdated: card.lastUpdated,
-        author: card.author,
-        symptoms: card.tags,
-        diagnosisCriteria: card.keyPoints,
-        treatmentOptions: card.redFlags,
-        clinicalNotes: card.overview,
-        references: card.references,
-        document: {
-          filename: `${card.title.replace(/\s+/g, "_")}_approach.pdf`,
-          fileSize: "N/A",
-          totalPages: 1,
-          downloadUrl: "#",
-          summary: card.subtitle || card.overview
-        }
-      } as MedicalCondition);
-
-      const localApproachMapped = localApproaches
-        .filter(card => card.status === "published")
-        .map(mapCardToCondition);
-
-      setCustomConditions([...mapped, ...localApproachMapped]);
-
-      // Fetch fresh approach cards from Neon Database in background
-      getApproachCardsFromDbAction().then(dbCards => {
-        if (dbCards && dbCards.length > 0) {
-          saveApproachCards(dbCards);
-          setRawApproachCards(dbCards);
-          const dbApproachMapped = dbCards
-            .filter(card => card.status === "published")
-            .map(mapCardToCondition);
-          setCustomConditions([...mapped, ...dbApproachMapped]);
-        }
-      });
+      setCustomConditions(mapped);
 
       // Load Favorites
       const favs = localStorage.getItem("gpedge_favorite_conditions");
@@ -531,16 +446,6 @@ function MedicalLibraryContent() {
     if (!selectedConditionId) return null;
     return allConditions.find((c) => c.id === selectedConditionId) ?? null;
   }, [selectedConditionId, allConditions]);
-
-  // For Approach type conditions, load the full structured card data
-  const selectedApproachCard = useMemo(() => {
-    if (!selectedCondition || selectedCondition.type !== "Approach") return null;
-    return rawApproachCards.find(c => c.id === selectedCondition.id) ?? null;
-  }, [selectedCondition, rawApproachCards]);
-
-  useEffect(() => {
-    setCheckedSteps({});
-  }, [selectedConditionId]);
 
   const customHtml = useMemo(() => {
     if (typeof window === "undefined" || !selectedCondition || !selectedCondition.id.startsWith("CUSTOM-")) {
@@ -599,86 +504,57 @@ function MedicalLibraryContent() {
     return map;
   }, [allConditions]);
 
-  // Memoize filtered medical conditions (left pane)
-  const filteredMC = useMemo(() => {
+  // Memoize filtered conditions
+  const filteredConditions = useMemo(() => {
     const condQuery = searchCondition.trim().toLowerCase();
-
-    return allConditions
-      .filter((c) => c.type !== "Approach")
-      .filter((c) => {
-        // 1. Favorites check
-        if (showFavoritesOnly && !favorites.includes(c.id)) {
-          return false;
-        }
-
-        // 2. System check
-        if (selectedSystem !== "all" && c.system !== selectedSystem) {
-          return false;
-        }
-
-        // 3. Condition check (symptoms, name, system, category)
-        return (
-          !condQuery ||
-          c.name.toLowerCase().includes(condQuery) ||
-          c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
-          c.system.toLowerCase().includes(condQuery) ||
-          c.category.toLowerCase().includes(condQuery)
-        );
-      });
-  }, [searchCondition, selectedSystem, showFavoritesOnly, favorites, allConditions]);
-
-  // Memoize filtered clinical approaches (right pane)
-  const filteredApproaches = useMemo(() => {
     const appQuery = searchApproach.trim().toLowerCase();
 
-    return allConditions
-      .filter((c) => c.type === "Approach")
-      .filter((c) => {
-        // 1. Favorites check
-        if (showFavoritesOnly && !favorites.includes(c.id)) {
-          return false;
-        }
+    return allConditions.filter((c) => {
+      // 1. Favorites check
+      if (showFavoritesOnly && !favorites.includes(c.id)) {
+        return false;
+      }
 
-        // 2. System check
-        if (selectedApproachSystem !== "all" && c.system !== selectedApproachSystem) {
-          return false;
-        }
+      // 2. System check
+      if (selectedSystem !== "all" && c.system !== selectedSystem) {
+        return false;
+      }
 
-        // 3. Approach check (type, category, treatments, pearls, summary, system, name)
-        return (
-          !appQuery ||
-          c.category.toLowerCase().includes(appQuery) ||
-          c.type.toLowerCase().includes(appQuery) ||
-          c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
-          c.clinicalNotes.toLowerCase().includes(appQuery) ||
-          (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
-          c.name.toLowerCase().includes(appQuery) ||
-          c.system.toLowerCase().includes(appQuery)
-        );
-      });
-  }, [searchApproach, selectedApproachSystem, showFavoritesOnly, favorites, allConditions]);
+      // 3. Condition check (symptoms, name, system, category)
+      const matchesCondition =
+        !condQuery ||
+        c.name.toLowerCase().includes(condQuery) ||
+        c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
+        c.system.toLowerCase().includes(condQuery) ||
+        c.category.toLowerCase().includes(condQuery);
 
-  // Reset limits when search or system changes
+      // 4. Approach check (type, category, treatments, pearls, summary, system, name)
+      const matchesApproach =
+        !appQuery ||
+        c.category.toLowerCase().includes(appQuery) ||
+        c.type.toLowerCase().includes(appQuery) ||
+        c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
+        c.clinicalNotes.toLowerCase().includes(appQuery) ||
+        (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
+        c.name.toLowerCase().includes(appQuery) ||
+        c.system.toLowerCase().includes(appQuery);
+
+      return matchesCondition && matchesApproach;
+    });
+  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly, favorites, allConditions]);
+
+  // Reset limit when search or system changes
   useEffect(() => {
-    setVisibleConditionsLimit(6);
-    setVisibleApproachesLimit(6);
-  }, [searchCondition, searchApproach, selectedSystem, selectedApproachSystem, showFavoritesOnly]);
+    setVisibleLimit(9);
+  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly]);
 
   const mcConditions = useMemo(() => {
-    return filteredMC.slice(0, visibleConditionsLimit);
-  }, [filteredMC, visibleConditionsLimit]);
+    return filteredConditions.filter(c => c.type !== "Approach").slice(0, visibleLimit);
+  }, [filteredConditions, visibleLimit]);
 
   const approachConditions = useMemo(() => {
-    return filteredApproaches.slice(0, visibleApproachesLimit);
-  }, [filteredApproaches, visibleApproachesLimit]);
-
-  const totalMCFilteredCount = useMemo(() => {
-    return filteredMC.length;
-  }, [filteredMC]);
-
-  const totalApproachFilteredCount = useMemo(() => {
-    return filteredApproaches.length;
-  }, [filteredApproaches]);
+    return filteredConditions.filter(c => c.type === "Approach").slice(0, visibleLimit);
+  }, [filteredConditions, visibleLimit]);
 
 
 
@@ -697,7 +573,6 @@ function MedicalLibraryContent() {
     router.push(`/dashboard/medical-library?${params.toString()}`);
     if (type === "system") {
       setSelectedSystem(value);
-      setSelectedApproachSystem(value);
     } else if (type === "category") {
       setSearchApproach(value);
     } else if (type === "symptom") {
@@ -842,19 +717,20 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </div>
             </div>
 
+                  {/* Split Workspace Container */}
                   <div 
                     ref={splitPaneRef}
                     className="relative w-full rounded-3xl border border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/20 overflow-hidden flex select-none"
                     style={{ height: "calc(100vh - 300px)", minHeight: "650px" }}
+                    onPointerMove={isDragging ? handleDrag : undefined}
+                    onPointerUp={isDragging ? handleDragEnd : undefined}
+                    onPointerLeave={isDragging ? handleDragEnd : undefined}
                   >
                     {/* Grid Layout definition based on paneConfig */}
-                    <div className="w-full h-full flex items-stretch relative">
+                    <div className="w-full h-full grid grid-cols-3">
                       {/* Left Pane (Medical Conditions) */}
-                      {leftWidthPercent > 0 && (
-                        <div 
-                          className={`h-full bg-slate-50/80 dark:bg-slate-955/40 overflow-y-auto medical-scroll relative shrink-0 ${isDragging ? "" : "transition-[width] duration-300 ease-out"}`}
-                          style={{ width: `${leftWidthPercent}%` }}
-                        >
+                      {paneConfig !== "0-3" && (
+                        <div className={`h-full bg-slate-50/80 dark:bg-slate-950/40 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative ${paneConfig === "3-0" ? "col-span-3" : paneConfig === "2-1" ? "col-span-2" : "col-span-1"}`}>
                            <div className="p-6 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-4">
                              <div className="flex items-center justify-between">
                                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({mcConditions.length})</h3>
@@ -885,36 +761,20 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                )}
                              </AnimatePresence>
                            </div>
-                              <div className="p-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-                               {mcConditions.map(condition => (
+                           <div className="p-6 flex flex-wrap justify-center gap-5">
+                             {mcConditions.map(condition => (
                                <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
                              ))}
                              {mcConditions.length === 0 && (
-                                <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
-                              )}
-                              
-                              {visibleConditionsLimit < totalMCFilteredCount && (
-                                <div className="w-full flex justify-center py-4 select-none">
-                                  <button
-                                    onClick={() => setVisibleConditionsLimit(prev => prev + 6)}
-                                    className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500/50 dark:hover:border-teal-500/30 text-slate-655 dark:text-slate-200 font-bold text-xs rounded-full shadow-sm hover:shadow transition-all flex items-center gap-1.5 border-dashed cursor-pointer"
-                                  >
-                                    <span>See More Conditions</span>
-                                    <span className="text-[10px] text-slate-400 font-normal">({totalMCFilteredCount - mcConditions.length} remaining)</span>
-                                    <svg className="w-3.5 h-3.5 text-slate-455 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                  </button>
-                                </div>
-                              )}
+                               <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
+                             )}
                            </div>
                         </div>
                       )}
 
                       {/* Right Pane (Approaches) */}
-                      {leftWidthPercent < 100 && (
-                        <div 
-                          className={`h-full bg-slate-100/50 dark:bg-slate-900/30 overflow-y-auto medical-scroll relative shrink-0 ${isDragging ? "" : "transition-[width] duration-300 ease-out"}`}
-                          style={{ width: `${100 - leftWidthPercent}%` }}
-                        >
+                      {paneConfig !== "3-0" && (
+                        <div className={`h-full bg-slate-100/50 dark:bg-slate-900/30 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative ${paneConfig === "0-3" ? "col-span-3" : paneConfig === "1-2" ? "col-span-2" : "col-span-1"}`}>
                            <div className="p-6 sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-4">
                              <div className="flex items-center justify-between">
                                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({approachConditions.length})</h3>
@@ -936,48 +796,35 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                    className="overflow-hidden"
                                  >
                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                      <button onClick={() => setSelectedApproachSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedApproachSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                      <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                       {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedApproachSystem(selectedApproachSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedApproachSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                       ))}
                                    </div>
                                  </motion.div>
                                )}
                              </AnimatePresence>
                            </div>
-                              <div className="p-4 grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-                               {approachConditions.map(condition => (
+                           <div className="p-6 flex flex-wrap justify-center gap-5">
+                             {approachConditions.map(condition => (
                                <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
                              ))}
                              {approachConditions.length === 0 && (
-                                <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
-                              )}
-                              
-                              {visibleApproachesLimit < totalApproachFilteredCount && (
-                                <div className="w-full flex justify-center py-4 select-none">
-                                  <button
-                                    onClick={() => setVisibleApproachesLimit(prev => prev + 6)}
-                                    className="px-5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-500/50 dark:hover:border-teal-500/30 text-slate-655 dark:text-slate-200 font-bold text-xs rounded-full shadow-sm hover:shadow transition-all flex items-center gap-1.5 border-dashed cursor-pointer"
-                                  >
-                                    <span>See More Approaches</span>
-                                    <span className="text-[10px] text-slate-400 font-normal">({totalApproachFilteredCount - approachConditions.length} remaining)</span>
-                                    <svg className="w-3.5 h-3.5 text-slate-455 group-hover:translate-y-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                  </button>
-                                </div>
-                              )}
+                               <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
+                             )}
                            </div>
                         </div>
                       )}
                     </div>
 
                     {/* Draggable Divider */}
-                    {leftWidthPercent > 0 && leftWidthPercent < 100 && (
+                    {paneConfig !== "3-0" && paneConfig !== "0-3" && (
                       <div
                         className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-col-resize flex items-center justify-center group"
-                        style={{ left: `${leftWidthPercent}%` }}
+                        style={{ left: paneConfig === "2-1" ? "66.666%" : "33.333%" }}
                         onPointerDown={handleDragStart}
                       >
-                        <div className={`h-full w-0.5 bg-slate-355 dark:bg-slate-700 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors ${isDragging ? "bg-teal-500 dark:bg-teal-400 w-1" : ""}`} />
+                        <div className={`h-full w-0.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors ${isDragging ? "bg-teal-500 dark:bg-teal-400 w-1" : ""}`} />
                         {/* Handle Grip */}
                         <div className={`absolute w-1.5 h-8 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors shadow-sm ${isDragging ? "bg-teal-500 dark:bg-teal-400 scale-y-125" : ""}`} />
                       </div>
@@ -985,13 +832,13 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                     {/* Pop Arrow (Left Edge) */}
                     <AnimatePresence>
-                      {leftWidthPercent === 0 && (
+                      {paneConfig === "0-3" && (
                         <motion.button
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -10 }}
-                          onClick={() => setLeftWidthPercent(33.333)}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-955/30 transition-all cursor-pointer group"
+                          onClick={() => setPaneConfig("1-2")}
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
                         >
                           <Lucide.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                         </motion.button>
@@ -1000,13 +847,13 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                     {/* Pop Arrow (Right Edge) */}
                     <AnimatePresence>
-                      {leftWidthPercent === 100 && (
+                      {paneConfig === "3-0" && (
                         <motion.button
                           initial={{ opacity: 0, x: 10 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 10 }}
-                          onClick={() => setLeftWidthPercent(66.666)}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-955/30 transition-all cursor-pointer group"
+                          onClick={() => setPaneConfig("2-1")}
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
                         >
                           <Lucide.ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                         </motion.button>
@@ -1014,7 +861,17 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     </AnimatePresence>
                   </div>
 
-                  
+                  {visibleLimit < filteredConditions.length && (
+                    <div className="flex justify-center pt-4 select-none">
+                      <button
+                        onClick={() => setVisibleLimit((prev) => prev + 9)}
+                        className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-green-500/50 dark:hover:border-green-500/30 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-full shadow-md hover:shadow-lg hover:shadow-green-500/5 active:scale-95 transition-all flex items-center gap-2 group border-dashed cursor-pointer"
+                      >
+                        <span>See More Notes</span>
+                        <Lucide.ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-green-500 group-hover:translate-y-0.5 transition-all duration-300" />
+                      </button>
+                    </div>
+                  )}
           </motion.div>
         ) : (
           /* ─── DETAIL VIEW ────────────────────────────────────────────────── */
@@ -1158,8 +1015,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       </div>
 
                       {/* Treatment & Management Section */}
-                      {selectedCondition.type !== "Approach" && (
-                        <div className="space-y-3">
+                      <div className="space-y-3">
                         <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Management & Treatment Regimen</h4>
                         <div className="space-y-2.5">
                           {selectedCondition.treatmentOptions.map((opt, i) => {
@@ -1175,7 +1031,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           })}
                         </div>
                       </div>
-                      )}{/* Clinical Pearls & Guidelines */}
+
+                      {/* Clinical Pearls & Guidelines */}
                       {selectedCondition.clinicalNotes && (
                         <div className="bg-green-50/5 dark:bg-green-500/10 border border-green-200/20 dark:border-green-900/30 rounded-2xl p-4 space-y-2">
                           <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none">
@@ -1236,149 +1093,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
               {/* Right Column: PDF Viewer or Placeholder */}
               <div className="lg:col-span-5 space-y-5 min-w-0">
-                {selectedCondition.type === "Approach" ? (
-                  /* Render the rich Clinical Approach card from admin */
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-lg flex flex-col overflow-hidden">
-                    {/* Header */}
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 bg-gradient-to-r from-slate-900 to-slate-800 text-white select-none">
-                      <div className="flex items-center gap-2.5 mb-2">
-                        <div className="w-8 h-8 rounded-xl bg-teal-500/20 flex items-center justify-center text-teal-400 border border-teal-500/30">
-                          <Lucide.ClipboardCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h3 className="font-sans text-sm font-bold text-white leading-snug">Clinical Approach Protocol</h3>
-                          <span className="font-mono text-[9px] font-bold text-slate-400 uppercase tracking-wider block mt-0.5">Structured Step-by-Step Guide</span>
-                        </div>
-                      </div>
-                      {selectedApproachCard && (
-                        <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
-                          <span>{selectedApproachCard.steps.length} steps</span>
-                          <span>·</span>
-                          <span>{selectedApproachCard.keyPoints.length} key points</span>
-                          <span>·</span>
-                          <span>{selectedApproachCard.redFlags.length} red flags</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-5 space-y-5 overflow-y-auto medical-scroll max-h-[620px] flex-1">
-                      {selectedApproachCard ? (
-                        <>
-                          {/* Overview */}
-                          <div className="p-4 bg-teal-50 dark:bg-teal-950/20 rounded-2xl border border-teal-100 dark:border-teal-900/30">
-                            <p className="text-sm text-teal-800 dark:text-teal-300 leading-relaxed">{selectedApproachCard.overview}</p>
-                          </div>
-
-                          {/* Steps */}
-                          <div className="space-y-3">
-                            <h4 className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest select-none">Clinical Steps</h4>
-                            {selectedApproachCard.steps.map((step) => {
-                              const ck = `${selectedCondition.id}-${step.id}`;
-                              const isChecked = !!checkedSteps[ck];
-                              return (
-                                <div
-                                  key={step.id}
-                                  onClick={() => setCheckedSteps(prev => ({ ...prev, [ck]: !prev[ck] }))}
-                                  className="flex items-center gap-3.5 p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm rounded-2xl cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition group"
-                                >
-                                  {/* Circular checkbox */}
-                                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${isChecked ? "bg-teal-600 border-teal-600" : "border-slate-300 dark:border-slate-650 group-hover:border-teal-500"}`}>
-                                    {isChecked && <Lucide.Check className="w-3.5 h-3.5 text-white stroke-[3px]" />}
-                                  </div>
-                                  
-                                  {/* Step Title */}
-                                  <span className={`text-sm font-semibold transition-colors ${isChecked ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-800 dark:text-slate-200"}`}>
-                                    {step.title}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-
-                          {/* Key Points */}
-                          {selectedApproachCard.keyPoints.length > 0 && (
-                            <div className="p-4 bg-teal-50 dark:bg-teal-950/20 rounded-2xl border border-teal-100 dark:border-teal-900/30">
-                              <h4 className="text-[10px] font-bold text-teal-800 dark:text-teal-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                <Lucide.CheckSquare className="w-3.5 h-3.5" /> Key Clinical Points
-                              </h4>
-                              <ul className="space-y-1.5">
-                                {selectedApproachCard.keyPoints.map((kp, i) => (
-                                  <li key={i} className="flex items-start gap-2 text-xs text-teal-800 dark:text-teal-300">
-                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 shrink-0" />
-                                    {kp}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Red Flags */}
-                          {selectedApproachCard.redFlags.length > 0 && (
-                            <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-2xl border border-red-100 dark:border-red-900/30">
-                              <h4 className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                                <Lucide.AlertTriangle className="w-3.5 h-3.5" /> Red Flags
-                              </h4>
-                              <ul className="space-y-1.5">
-                                {selectedApproachCard.redFlags.map((rf, i) => (
-                                  <li key={i} className="flex items-start gap-2 text-xs text-red-700 dark:text-red-300">
-                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
-                                    {rf}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Tags */}
-                          {selectedApproachCard.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                              {selectedApproachCard.tags.map(tag => (
-                                <span key={tag} className="text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-900">{tag}</span>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        /* Fallback for legacy Approach conditions without full card data */
-                        <div className="space-y-3">
-                          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Clinical Steps</h4>
-                          {(selectedCondition.treatmentOptions || []).map((opt, idx) => {
-                            const isChecked = !!checkedSteps[`${selectedCondition.id}-${idx}`];
-                            return (
-                              <div
-                                key={idx}
-                                onClick={() => toggleStep(selectedCondition.id, idx)}
-                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-4 select-none ${isChecked ? "bg-teal-50/20 dark:bg-teal-955/10 border-teal-500/30 dark:border-teal-500/20 shadow-sm" : "bg-white/40 dark:bg-slate-900/40 border-slate-200/10 dark:border-slate-800/15 hover:border-slate-350 dark:hover:border-slate-700"}`}
-                              >
-                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${isChecked ? "bg-teal-600 border-teal-650 text-white" : "border-slate-300 dark:border-slate-650 bg-white dark:bg-slate-850 hover:border-teal-500"}`}>
-                                  {isChecked && <Lucide.Check className="w-3 h-3" />}
-                                </div>
-                                <p className={`font-sans text-xs md:text-sm font-semibold leading-relaxed transition-all flex-1 ${isChecked ? "text-slate-400 dark:text-slate-500 line-through font-normal" : "text-slate-800 dark:text-slate-200"}`}>{opt}</p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Reset progress button */}
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
-                      <span className="text-[10px] text-slate-400">{selectedApproachCard?.author} · {selectedCondition.lastUpdated}</span>
-                      <button
-                        onClick={() => {
-                          const nextChecked = { ...checkedSteps };
-                          Object.keys(nextChecked).forEach(k => { if (k.startsWith(selectedCondition.id)) delete nextChecked[k]; });
-                          setCheckedSteps(nextChecked);
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-teal-500/50 text-xs font-semibold text-slate-600 dark:text-slate-400 transition-all cursor-pointer bg-transparent hover:text-teal-650"
-                      >
-                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
-                        Reset Checklist
-                      </button>
-                    </div>
-                  </div>
-
-                ) : selectedCondition.document ? (
+                {selectedCondition.document ? (
                   <div className="flex flex-col space-y-4">
                     {/* PDF Toolbar */}
                     <div className="bg-slate-900 dark:bg-slate-955 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none">
