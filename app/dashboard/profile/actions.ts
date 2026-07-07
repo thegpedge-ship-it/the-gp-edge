@@ -46,9 +46,18 @@ export interface ProfileBadge {
   img: string;
 }
 
+/** Quiz completion progress across every admin-created quiz (mock-test progress
+ *  is carried per-exam on ProfileExamPath instead). */
+export interface ProfileCompleteness {
+  quizzesCompleted: number; // distinct quizzes this user has finished
+  quizzesTotal: number; // all admin-created quizzes (live)
+  quizzesPercent: number; // 0-100
+}
+
 export interface ProfileData {
   stats: ProfileStat[];
   examPaths: ProfileExamPath[];
+  completeness: ProfileCompleteness;
   badges: ProfileBadge[];
 }
 
@@ -92,22 +101,42 @@ function badgeImage(code: string, objectKey: string | null | undefined): string 
 export async function getProfileData(): Promise<ProfileData> {
   const dbUser = await ensureDbUser();
   if (!dbUser) return emptyProfile();
-  return loadCachedProfileData(dbUser.id);
+  return loadCachedProfileData(dbUser.id, dbUser.exam_target ?? "");
 }
 
-function loadCachedProfileData(userId: string): Promise<ProfileData> {
+// Bump when the ProfileData shape changes so pre-existing cache entries (which
+// may lack newer fields like `completeness`) can never be served.
+const PROFILE_CACHE_VERSION = "v3";
+
+function loadCachedProfileData(userId: string, examTarget: string): Promise<ProfileData> {
   return unstable_cache(
-    () => computeProfileData(userId),
-    ["profile-data", userId],
+    () => computeProfileData(userId, examTarget),
+    ["profile-data", PROFILE_CACHE_VERSION, userId, examTarget],
     { revalidate: 300, tags: [`profile:${userId}`] },
   )();
+}
+
+/** Resolve the user's registered exam code (AKT/KFP) from their exam_target.
+ *  exam_target may hold a bare code ("AKT") or a decorated label ("AKT — Aug
+ *  2026"), so we match any known code contained in the string. */
+function registeredExamCode(examTarget: string, codes: string[]): string | null {
+  const t = examTarget.toUpperCase();
+  return codes.find((c) => t.includes(c.toUpperCase())) ?? null;
 }
 
 /* ============================================================================
  * The actual DB reads + assembly (pure, cacheable — no auth / header access).
  * ========================================================================== */
-async function computeProfileData(userId: string): Promise<ProfileData> {
-  const [summary, examTypes, mocksByType, userMockAttempts, earnedBadges] = await Promise.all([
+async function computeProfileData(userId: string, examTarget: string): Promise<ProfileData> {
+  const [
+    summary,
+    examTypes,
+    mocksByType,
+    userMockAttempts,
+    earnedBadges,
+    totalQuizCount,
+    completedQuizGroups,
+  ] = await Promise.all([
     // Running rollup: streak / overall accuracy / lifetime attempt count.
     prisma.user_performance_summary.findUnique({
       where: { user_id: userId },
@@ -150,6 +179,15 @@ async function computeProfileData(userId: string): Promise<ProfileData> {
         },
       },
     }),
+
+    // Quiz completeness denominator: every admin-created quiz (live).
+    prisma.quizzes.count({ where: { deleted_at: null } }),
+
+    // Quiz completeness numerator: distinct quizzes this user has finished.
+    prisma.test_attempts.groupBy({
+      by: ["quiz_id"],
+      where: { user_id: userId, source: "quiz", status: "completed", quiz_id: { not: null } },
+    }),
   ]);
 
   /* ── STATS (telemetry grid) ─────────────────────────────────────────────── */
@@ -173,7 +211,15 @@ async function computeProfileData(userId: string): Promise<ProfileData> {
     doneByType.set(code, agg);
   }
 
+  // Only show the exam the user actually registered for (AKT or KFP). Falls
+  // back to every track if their exam_target can't be matched to a known code.
+  const regCode = registeredExamCode(
+    examTarget,
+    examTypes.map((et) => et.code),
+  );
+
   const examPaths: ProfileExamPath[] = examTypes
+    .filter((et) => (regCode ? et.code === regCode : true))
     // Only surface tracks that actually have mock tests to sit behind them.
     .filter((et) => (availByType.get(et.code) ?? 0) > 0)
     .map((et, i) => {
@@ -198,6 +244,14 @@ async function computeProfileData(userId: string): Promise<ProfileData> {
       };
     });
 
+  /* ── QUIZ COMPLETENESS (distinct quizzes finished vs. all admin quizzes) ── */
+  const quizzesCompleted = completedQuizGroups.length;
+  const completeness: ProfileCompleteness = {
+    quizzesCompleted,
+    quizzesTotal: totalQuizCount,
+    quizzesPercent: totalQuizCount > 0 ? Math.round((quizzesCompleted / totalQuizCount) * 100) : 0,
+  };
+
   /* ── BADGES (earned achievements) ───────────────────────────────────────── */
   const badges: ProfileBadge[] = earnedBadges
     .filter((ub) => ub.badges)
@@ -208,7 +262,7 @@ async function computeProfileData(userId: string): Promise<ProfileData> {
       img: badgeImage(ub.badges!.code, ub.badges!.files?.object_key),
     }));
 
-  return { stats, examPaths, badges };
+  return { stats, examPaths, completeness, badges };
 }
 
 /* ─── Zero-state for signed-out / not-yet-provisioned users ──────────────── */
@@ -221,6 +275,7 @@ function emptyProfile(): ProfileData {
       { key: "mocks", label: "Mock Exams", value: "0" },
     ],
     examPaths: [],
+    completeness: { quizzesCompleted: 0, quizzesTotal: 0, quizzesPercent: 0 },
     badges: [],
   };
 }
