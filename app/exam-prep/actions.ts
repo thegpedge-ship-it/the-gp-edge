@@ -20,6 +20,19 @@ import prisma from "@/lib/prisma";
 import { ensureDbUser } from "@/lib/user";
 import type { difficulty_level } from "@/lib/generated/prisma";
 
+/**
+ * Derive a public R2 URL from a stored object_key (files.object_key).
+ * Bytes live in R2; Postgres only keeps the key, so the URL is built at
+ * read time from NEXT_PUBLIC_R2_PUBLIC_URL. Returns undefined when there is
+ * no image or the public base URL isn't configured.
+ */
+function r2PublicUrl(objectKey: string | null | undefined): string | undefined {
+  if (!objectKey) return undefined;
+  const base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
+  if (!base) return undefined;
+  return `${base.endsWith("/") ? base : `${base}/`}${objectKey}`;
+}
+
 /* ─── Serializable shapes returned to client components ─────────────────── */
 
 export type UiDifficulty = "Easy" | "Medium" | "Hard";
@@ -337,6 +350,8 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         exam_type_code: true,
         subtopics: { select: { name: true } },
         subjects: { select: { name: true } },
+        // R2 image metadata: the public URL is derived from object_key at read time.
+        files: { select: { object_key: true } },
       },
     }),
     prisma.question_options.findMany({
@@ -372,7 +387,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         topic: q.subtopics?.name ?? q.subjects?.name ?? "General",
         difficulty: DIFFICULTY_LABEL[q.difficulty],
         examType: q.exam_type_code,
-        // image: resolved from files/R2 once question images exist — none seeded yet.
+        image: r2PublicUrl(q.files?.object_key),
       };
     });
 }
