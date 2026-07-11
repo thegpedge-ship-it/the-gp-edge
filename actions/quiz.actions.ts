@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { importQuestionsAction } from "./question.actions";
 
 export interface SyncQuizInput {
   name: string;
@@ -18,7 +19,7 @@ export interface SyncQuizInput {
  * Note: To satisfy the database check constraint "mock_tests_question_count_check",
  * mock test records are only created/updated in the `mock_tests` table if they contain at least 1 question.
  */
-export async function syncQuizToDbAction(quiz: SyncQuizInput, questionStems: string[], createdBy?: string) {
+export async function syncQuizToDbAction(quiz: SyncQuizInput, questionsList: any[], createdBy?: string) {
   try {
     const statusMap: Record<string, "draft" | "active" | "suspended" | "archived"> = {
       draft: "draft",
@@ -27,7 +28,12 @@ export async function syncQuizToDbAction(quiz: SyncQuizInput, questionStems: str
     };
     const dbStatus = statusMap[quiz.status] || "draft";
     const examTypeCode = quiz.examType || "AKT";
-    const qCount = questionStems.length;
+    const qCount = questionsList.length;
+
+    // First: Sync all questions of the quiz to the database to ensure they exist
+    if (qCount > 0) {
+      await importQuestionsAction(questionsList);
+    }
 
     // Validate that createdBy is a valid UUID format before saving to database
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -77,12 +83,12 @@ export async function syncQuizToDbAction(quiz: SyncQuizInput, questionStems: str
     // 2. Rebuild Question associations for the `quizzes` table
     // ────────────────────────────────────────────────────────────────
     const quizQuestionsData = [];
-    for (let index = 0; index < questionStems.length; index++) {
-      const stem = questionStems[index];
-      if (!stem) continue;
+    for (let index = 0; index < questionsList.length; index++) {
+      const q = questionsList[index];
+      if (!q || !q.text) continue;
 
       const question = await prisma.questions.findFirst({
-        where: { stem: stem.trim() },
+        where: { stem: q.text.trim() },
       });
 
       if (question) {
@@ -144,12 +150,12 @@ export async function syncQuizToDbAction(quiz: SyncQuizInput, questionStems: str
 
       // Rebuild mock_test_questions mapping
       const mockQuestionsData = [];
-      for (let index = 0; index < questionStems.length; index++) {
-        const stem = questionStems[index];
-        if (!stem) continue;
+      for (let index = 0; index < questionsList.length; index++) {
+        const q = questionsList[index];
+        if (!q || !q.text) continue;
 
         const question = await prisma.questions.findFirst({
-          where: { stem: stem.trim() },
+          where: { stem: q.text.trim() },
         });
 
         if (question) {

@@ -166,6 +166,30 @@ export async function importQuestionsAction(questionsList: any[]) {
             });
             imageFileId = newFile.id;
           }
+        } else {
+          // Relative path or local asset key (e.g. /assets/ecg_inferior_stemi.png)
+          const objectKey = q.image;
+          const bucketName = "local_assets";
+          
+          const existingFile = await prisma.files.findFirst({
+            where: { object_key: objectKey }
+          });
+          
+          if (existingFile) {
+            imageFileId = existingFile.id;
+          } else {
+            const newFile = await prisma.files.create({
+              data: {
+                bucket: bucketName,
+                object_key: objectKey,
+                original_name: objectKey.split("/").pop() || objectKey,
+                mime_type: "image/png",
+                size_bytes: 0,
+                status: "active"
+              }
+            });
+            imageFileId = newFile.id;
+          }
         }
       }
 

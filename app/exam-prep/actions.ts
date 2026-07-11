@@ -28,6 +28,9 @@ import type { difficulty_level } from "@/lib/generated/prisma";
  */
 function r2PublicUrl(objectKey: string | null | undefined): string | undefined {
   if (!objectKey) return undefined;
+  if (objectKey.startsWith("/") || objectKey.startsWith("http://") || objectKey.startsWith("https://")) {
+    return objectKey;
+  }
   const base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
   if (!base) return undefined;
   return `${base.endsWith("/") ? base : `${base}/`}${objectKey}`;

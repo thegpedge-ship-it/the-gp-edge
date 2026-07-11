@@ -471,7 +471,7 @@ export default function EditQuizPage() {
     }
 
     // Sync updated quiz configuration and questions mapping to database
-    const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+    const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
     syncQuizToDbAction({
       name: updated.name,
       description: updated.description,
@@ -480,7 +480,7 @@ export default function EditQuizPage() {
       randomize: updated.randomize,
       status: updated.status as any,
       examType: updated.examType as any,
-    }, stems, currentAdmin?.id);
+    }, questionsOfQuiz, currentAdmin?.id);
 
     setSaveMessage("Changes saved successfully.");
     setTimeout(() => setSaveMessage(null), 3000);
@@ -510,7 +510,7 @@ export default function EditQuizPage() {
     });
 
     if (updated) {
-      const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
       syncQuizToDbAction({
         name: updated.name,
         description: updated.description,
@@ -519,7 +519,7 @@ export default function EditQuizPage() {
         randomize: updated.randomize,
         status: updated.status as any,
         examType: updated.examType as any,
-      }, stems, currentAdmin?.id);
+      }, questionsOfQuiz, currentAdmin?.id);
     }
 
     addUserNotification(
@@ -548,7 +548,7 @@ export default function EditQuizPage() {
     });
 
     if (updated) {
-      const stems = updated.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
       syncQuizToDbAction({
         name: updated.name,
         description: updated.description,
@@ -557,7 +557,7 @@ export default function EditQuizPage() {
         randomize: updated.randomize,
         status: updated.status as any,
         examType: updated.examType as any,
-      }, stems, currentAdmin?.id);
+      }, questionsOfQuiz, currentAdmin?.id);
     }
 
     setSaveMessage("Quiz suspended.");
@@ -568,7 +568,7 @@ export default function EditQuizPage() {
     if (isReadOnly) return;
     const copy = duplicateQuiz(quizId);
     if (copy) {
-      const stems = copy.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      const questionsOfQuiz = copy.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
       syncQuizToDbAction({
         name: copy.name,
         description: copy.description,
@@ -577,7 +577,7 @@ export default function EditQuizPage() {
         randomize: copy.randomize,
         status: copy.status as any,
         examType: copy.examType as any,
-      }, stems, currentAdmin?.id);
+      }, questionsOfQuiz, currentAdmin?.id);
       router.push(`/admin/quizzes/${copy.id}/edit`);
     }
   };

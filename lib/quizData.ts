@@ -701,7 +701,7 @@ export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
     name: "DIABETES ANNUAL CYCLE OF CARE", 
     category: "Chronic", 
     system: "Endocrine", 
-    fields: 15, 
+    fields: 14, 
     usageCount: 1876, 
     lastUsed: "15 mins ago", 
     status: "active", 
@@ -722,15 +722,17 @@ CURRENT STATUS:
     objective: `EXAMINATIONS:
 - Blood Pressure: {{blood_pressure}} mmHg
 - BMI: {{bmi}} kg/m2
-- Foot Exam: {{foot_exam}}
-- Eye Check: {{eye_check}}`,
+- Foot Exam: Intact sensation, pulses present. No ulcers.
+- Eye Check: Optometrist review completed on {{eye_check_date}}.`,
     assessment: "Established Type 2 Diabetes Mellitus.",
     plan: `MANAGEMENT PLAN:
 1. Continue current medications: {{medications}}
 2. Dietary advice provided.
 3. Encourage 150 mins moderate exercise per week.
 4. Next review in 6 months.`,
-    content: `Patient Name: {{patient_name}}
+    content: `DIABETES ANNUAL CYCLE OF CARE
+
+Patient Name: {{patient_name}}
 DOB: {{dob}}
 Date: {{date}}
 
@@ -743,8 +745,8 @@ CURRENT STATUS:
 EXAMINATIONS:
 - Blood Pressure: {{blood_pressure}} mmHg
 - BMI: {{bmi}} kg/m2
-- Foot Exam: {{foot_exam}}
-- Eye Check: {{eye_check}}
+- Foot Exam: Intact sensation, pulses present. No ulcers.
+- Eye Check: Optometrist review completed on {{eye_check_date}}.
 
 MANAGEMENT PLAN:
 1. Continue current medications: {{medications}}
@@ -768,8 +770,7 @@ MANAGEMENT PLAN:
       { name: "Urine ACR", type: "Numeric", required: true, placeholder: "e.g. 1.5" },
       { name: "Blood Pressure", type: "Text Input", required: true, placeholder: "e.g. 130/80" },
       { name: "BMI", type: "Numeric", required: true, placeholder: "e.g. 27.5" },
-      { name: "Foot Exam", type: "Text Input", required: true, placeholder: "e.g. Intact sensation, pulses present. No ulcers." },
-      { name: "Eye Check", type: "Text Input", required: true, placeholder: "e.g. Optometrist review completed on 14/06/2026" },
+      { name: "Eye Check Date", type: "Text Input", required: true, placeholder: "e.g. 14/06/2026" },
       { name: "Medications", type: "Textarea", required: true, placeholder: "e.g. Metformin 1000mg BD" }
     ],
     versions: []
@@ -1745,7 +1746,7 @@ export function getAutofillTemplates(): AutofillTemplate[] {
       }
       
       // Force migration for old default template ID 2 to the new Diabetes template
-      if (t.id === 2 && (t.name === "Type 2 Diabetes Review" || !t.subjective || !t.subjective.includes("DIABETES ANNUAL CYCLE OF CARE"))) {
+      if (t.id === 2 && (t.name === "Type 2 Diabetes Review" || !t.subjective || !t.objective || !t.objective.includes("Intact sensation"))) {
         return def;
       }
       

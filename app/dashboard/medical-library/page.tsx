@@ -5,8 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import { getMedicalContent, MedicalContent } from "@/lib/quizData";
+import { getMedicalContent, getApproachCards, saveApproachCards, MedicalContent, ApproachCard } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
@@ -135,6 +136,55 @@ function normalizeSystemName(sys: string): string {
   if (s === "musculoskeletal" || s === "msk") return "Musculoskeletal";
   if (s === "mbs" || s === "billing") return "MBS";
   return sys;
+}
+
+const getSystemBadgeColor = (system: string): string => {
+  const s = normalizeSystemName(system);
+  const colors: Record<string, string> = {
+    Cardiology: "bg-emerald-50 text-emerald-700 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Respiratory: "bg-teal-50 text-teal-700 border-teal-250 dark:bg-teal-955/40 dark:text-teal-400 dark:border-teal-900/30",
+    Endocrine: "bg-green-50 text-green-700 border-green-200 dark:bg-green-955/40 dark:text-green-400 dark:border-green-900/30",
+    Gastrointestinal: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-955/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Psychiatry: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-955/40 dark:text-teal-400 dark:border-teal-900/30",
+    Dermatology: "bg-green-50 text-green-800 border-green-200 dark:bg-green-955/40 dark:text-green-400 dark:border-green-900/30",
+    "Women's Health": "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800/30",
+    Paediatrics: "bg-emerald-50 text-emerald-605 border-emerald-200 dark:bg-emerald-955/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Neurology: "bg-blue-50 text-blue-750 border-blue-200 dark:bg-blue-955/40 dark:text-blue-450 dark:border-blue-900/30",
+    Musculoskeletal: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-955/40 dark:text-indigo-400 dark:border-indigo-900/30",
+    MBS: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/40 dark:text-amber-400 dark:border-amber-900/30",
+  };
+  return colors[s] || "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+};
+
+const getBrightSystemColor = (system: string): string => {
+  const s = normalizeSystemName(system);
+  const colors: Record<string, string> = {
+    Cardiology: "text-emerald-400",
+    Respiratory: "text-teal-400",
+    Endocrine: "text-green-405",
+    Gastrointestinal: "text-emerald-400",
+    Psychiatry: "text-teal-400",
+    Dermatology: "text-green-400",
+    "Women's Health": "text-slate-300",
+    Paediatrics: "text-emerald-400",
+    Neurology: "text-blue-400",
+    Musculoskeletal: "text-indigo-400",
+    MBS: "text-amber-400",
+  };
+  return colors[s] || "text-green-400";
+};
+
+
+const STEP_TYPES = [
+  { value: "action", label: "Action", color: "text-teal-700 bg-teal-50 border-teal-200", icon: "" },
+  { value: "decision", label: "Decision", color: "text-amber-700 bg-amber-50 border-amber-200", icon: "" },
+  { value: "checklist", label: "Checklist", color: "text-blue-700 bg-blue-50 border-blue-200", icon: "" },
+  { value: "info", label: "Info", color: "text-slate-700 bg-slate-50 border-slate-200", icon: "" },
+  { value: "warning", label: "Warning", color: "text-red-700 bg-red-50 border-red-200", icon: "" },
+];
+
+function getStepStyle(type: string) {
+  return STEP_TYPES.find(t => t.value === type) || STEP_TYPES[0];
 }
 
 const gridVariants = {
@@ -365,6 +415,7 @@ function MedicalLibraryContent() {
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
   const [visibleLimit, setVisibleLimit] = useState(9);
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -404,7 +455,69 @@ function MedicalLibraryContent() {
           }
         };
       });
-      setCustomConditions(mapped);
+
+      const localApproaches = getApproachCards();
+      const mappedApproaches: MedicalCondition[] = localApproaches.map((card) => {
+        return {
+          id: `CUSTOM-APPROACH-${card.id}`,
+          name: card.title,
+          system: normalizeSystemName(card.system) as any,
+          category: card.category,
+          type: "Approach" as const,
+          isPremium: card.isPremium,
+          lastUpdated: card.lastUpdated,
+          author: card.author,
+          symptoms: card.redFlags || [],
+          diagnosisCriteria: (card.steps || []).map(s => `${s.title}: ${s.description}`),
+          treatmentOptions: card.keyPoints || [],
+          clinicalNotes: card.overview || "",
+          references: (card.references || []).map((r, idx) => ({ id: r.id || idx + 1, text: r.text, url: r.url })),
+          document: {
+            filename: `${card.title.replace(/\s+/g, "_")}.pdf`,
+            fileSize: "1.2 MB",
+            totalPages: 1,
+            downloadUrl: "#",
+            summary: card.subtitle || card.overview || ""
+          }
+        };
+      });
+
+      setCustomConditions([...mapped, ...mappedApproaches]);
+
+      // Fetch fresh approaches from DB in background
+      getApproachCardsFromDbAction().then(dbCards => {
+        if (dbCards && dbCards.length > 0) {
+          saveApproachCards(dbCards);
+          const mappedDb: MedicalCondition[] = dbCards.map((card) => {
+            return {
+              id: `CUSTOM-APPROACH-${card.id}`,
+              name: card.title,
+              system: normalizeSystemName(card.system) as any,
+              category: card.category,
+              type: "Approach" as const,
+              isPremium: card.isPremium,
+              lastUpdated: card.lastUpdated,
+              author: card.author,
+              symptoms: card.redFlags || [],
+              diagnosisCriteria: (card.steps || []).map(s => `${s.title}: ${s.description}`),
+              treatmentOptions: card.keyPoints || [],
+              clinicalNotes: card.overview || "",
+              references: (card.references || []).map((r, idx) => ({ id: r.id || idx + 1, text: r.text, url: r.url })),
+              document: {
+                filename: `${card.title.replace(/\s+/g, "_")}.pdf`,
+                fileSize: "1.2 MB",
+                totalPages: 1,
+                downloadUrl: "#",
+                summary: card.subtitle || card.overview || ""
+              }
+            };
+          });
+          setCustomConditions(prev => {
+            const filteredPrev = prev.filter(item => !item.id.startsWith("CUSTOM-APPROACH-"));
+            return [...filteredPrev, ...mappedDb];
+          });
+        }
+      });
 
       // Load Favorites
       const favs = localStorage.getItem("gpedge_favorite_conditions");
@@ -447,8 +560,15 @@ function MedicalLibraryContent() {
     return allConditions.find((c) => c.id === selectedConditionId) ?? null;
   }, [selectedConditionId, allConditions]);
 
+  const selectedApproachCard = useMemo(() => {
+    if (!selectedCondition || !selectedCondition.id.startsWith("CUSTOM-APPROACH-")) return null;
+    const cleanId = selectedCondition.id.replace("CUSTOM-APPROACH-", "");
+    const cards = getApproachCards();
+    return cards.find(c => c.id === cleanId) || null;
+  }, [selectedCondition]);
+
   const customHtml = useMemo(() => {
-    if (typeof window === "undefined" || !selectedCondition || !selectedCondition.id.startsWith("CUSTOM-")) {
+    if (typeof window === "undefined" || !selectedCondition || !selectedCondition.id.startsWith("CUSTOM-") || selectedCondition.id.startsWith("CUSTOM-APPROACH-")) {
       return "";
     }
     const cleanId = selectedCondition.id.replace("CUSTOM-", "");
@@ -897,9 +1017,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
             </button>
 
             {/* Split Screen 12 Column Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
               {/* Left Column: Clinical Info */}
-              <div className="lg:col-span-7 min-w-0">
+              <div className="xl:col-span-7 min-w-0">
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
@@ -981,7 +1101,45 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   </div>
 
                   {/* Rest of Clinical Details */}
-                  {!selectedCondition.id.startsWith("CUSTOM-") ? (
+                  {selectedCondition.id.startsWith("CUSTOM-APPROACH-") && selectedApproachCard ? (
+                    <div className="space-y-6">
+                      {/* Key Points */}
+                      {selectedApproachCard.keyPoints && selectedApproachCard.keyPoints.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none flex items-center gap-2">
+                            <Lucide.Lightbulb className="w-4 h-4 text-amber-500" />
+                            Key Points & Pearls
+                          </h4>
+                          <div className="space-y-2">
+                            {selectedApproachCard.keyPoints.map((kp, i) => (
+                              <div key={i} className="flex gap-2.5 font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15 animate-fade-in">
+                                <span className="text-amber-500 font-bold">•</span>
+                                <span>{kp}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Red Flags */}
+                      {selectedApproachCard.redFlags && selectedApproachCard.redFlags.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none flex items-center gap-2">
+                            <Lucide.AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
+                            Red Flags
+                          </h4>
+                          <div className="space-y-2">
+                            {selectedApproachCard.redFlags.map((rf, i) => (
+                              <div key={i} className="flex gap-2.5 font-sans text-xs md:text-sm font-normal leading-relaxed text-rose-705 dark:text-rose-400 bg-rose-50/10 dark:bg-rose-950/10 p-3 rounded-xl border border-rose-200/20 dark:border-rose-900/20">
+                                <span className="text-rose-500 font-bold">•</span>
+                                <span>{rf}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : !selectedCondition.id.startsWith("CUSTOM-") ? (
                     <>
                       {/* Symptoms Section */}
                       <div className="space-y-3">
@@ -1092,8 +1250,153 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </div>
 
               {/* Right Column: PDF Viewer or Placeholder */}
-              <div className="lg:col-span-5 space-y-5 min-w-0">
-                {selectedCondition.document ? (
+              <div className="xl:col-span-5 space-y-5 min-w-0">
+                {selectedCondition.type === "Approach" ? (
+                  (() => {
+                    const sys = getSystem(selectedCondition.system);
+                    return (
+                      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col">
+                        {/* Dark Header Box */}
+                        <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-850 text-white relative overflow-hidden">
+                          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-transparent pointer-events-none" />
+                          <div className="relative">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap select-none">
+                              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getSystemBadgeColor(selectedCondition.system)}`}>{selectedCondition.system}</span>
+                              <span className="text-[9px] font-bold text-slate-300 bg-slate-700/50 px-2 py-0.5 rounded-full border border-slate-600">{selectedCondition.category}</span>
+                            </div>
+                            <h2 className="font-serif text-xl font-bold text-white flex items-center gap-2">
+                              <Lucide.ClipboardCheck className={`w-5 h-5 shrink-0 ${getBrightSystemColor(selectedCondition.system)}`} />
+                              {selectedCondition.name}
+                            </h2>
+                            <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-400 select-none">
+                              <span>{selectedApproachCard ? selectedApproachCard.steps.length : (selectedCondition.diagnosisCriteria.length + selectedCondition.treatmentOptions.length)} steps</span>
+                              <span>·</span>
+                              <span>{selectedApproachCard ? selectedApproachCard.keyPoints.length : selectedCondition.treatmentOptions.length} key points</span>
+                              <span>·</span>
+                              <span>{selectedApproachCard ? selectedApproachCard.redFlags.length : selectedCondition.symptoms.length} red flags</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-6 space-y-5 max-h-[600px] overflow-y-auto medical-scroll">
+                          {/* Overview Box */}
+                          {(selectedApproachCard?.overview || selectedCondition.document?.summary) && (
+                            <div className={`p-4 bg-gradient-to-br ${sys.glow} to-transparent border border-slate-200/50 dark:border-slate-800/30 ${sys.text} text-xs leading-relaxed font-semibold rounded-2xl`}>
+                              {selectedApproachCard ? selectedApproachCard.overview : selectedCondition.document?.summary}
+                            </div>
+                          )}
+
+                          {/* Steps Checklist */}
+                          <div className="space-y-3">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest select-none">Clinical Steps</h3>
+                            {selectedApproachCard ? (
+                              selectedApproachCard.steps.map((step, idx) => {
+                                const ck = `${selectedApproachCard.id}-${step.id}`;
+                                const checked = !!checkedItems[ck];
+                                return (
+                                  <div
+                                    key={step.id}
+                                    onClick={() => setCheckedItems(p => ({ ...p, [ck]: !p[ck] }))}
+                                    className={`border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3 shadow-sm cursor-pointer select-none transition-all ${sys.border} group`}
+                                  >
+                                    {checked ? (
+                                      <div className={`w-5 h-5 rounded-full ${sys.accent} text-white flex items-center justify-center shrink-0 shadow-sm transition-transform group-active:scale-95`}>
+                                        <Lucide.Check className="w-3.5 h-3.5 stroke-[3]" />
+                                      </div>
+                                    ) : (
+                                      <div className={`w-5 h-5 rounded-full border-2 border-current flex items-center justify-center shrink-0 transition-transform group-active:scale-95 ${sys.text} opacity-60 group-hover:opacity-100`} />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className={`text-sm font-semibold transition-colors ${checked ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-100"}`}>{step.title}</h4>
+                                      {step.description && !checked && (
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{step.description}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              [...selectedCondition.diagnosisCriteria, ...selectedCondition.treatmentOptions].map((stepText, idx) => {
+                                const ck = `${selectedCondition.id}-${idx}`;
+                                const checked = !!checkedItems[ck];
+                                return (
+                                  <div
+                                    key={idx}
+                                    onClick={() => setCheckedItems(p => ({ ...p, [ck]: !p[ck] }))}
+                                    className={`border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-3 shadow-sm cursor-pointer select-none transition-all ${sys.border} group`}
+                                  >
+                                    {checked ? (
+                                      <div className={`w-5 h-5 rounded-full ${sys.accent} text-white flex items-center justify-center shrink-0 shadow-sm transition-transform group-active:scale-95`}>
+                                        <Lucide.Check className="w-3.5 h-3.5 stroke-[3]" />
+                                      </div>
+                                    ) : (
+                                      <div className={`w-5 h-5 rounded-full border-2 border-current flex items-center justify-center shrink-0 transition-transform group-active:scale-95 ${sys.text} opacity-60 group-hover:opacity-100`} />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className={`text-sm font-semibold transition-colors ${checked ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-100"}`}>{stepText}</h4>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+
+                          {/* Red Flags Section */}
+                          {((selectedApproachCard && selectedApproachCard.redFlags.length > 0) || (!selectedApproachCard && selectedCondition.symptoms.length > 0)) && (
+                            <div className="p-4 bg-red-50 dark:bg-red-955/20 rounded-2xl border border-red-100 dark:border-red-900/30">
+                              <h3 className="text-[10px] font-bold text-red-700 dark:text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 select-none">
+                                <Lucide.AlertTriangle className="w-3.5 h-3.5" />
+                                Red Flags
+                              </h3>
+                              <ul className="space-y-1.5 pl-0 m-0 list-none">
+                                {(selectedApproachCard ? selectedApproachCard.redFlags : selectedCondition.symptoms).map((rf, i) => (
+                                  <li key={i} className="flex items-start gap-2 text-xs text-red-800 dark:text-red-300">
+                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                    <span>{rf}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Tags Section */}
+                          {selectedApproachCard && selectedApproachCard.tags && selectedApproachCard.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-2">
+                              {selectedApproachCard.tags.map(tag => (
+                                <span key={tag} className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${getSystemBadgeColor(selectedCondition.system)}`}>{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Footer / Reset Area */}
+                        <div className="p-4 border-t border-slate-150 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 rounded-b-3xl select-none">
+                          <span className="text-[11px] text-slate-400">
+                            {selectedApproachCard ? `${selectedApproachCard.author} · ${selectedApproachCard.lastUpdated}` : `${selectedCondition.author} · ${selectedCondition.lastUpdated}`}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const prefix = selectedApproachCard ? selectedApproachCard.id : selectedCondition.id;
+                              setCheckedItems(prev => {
+                                const copy = { ...prev };
+                                Object.keys(copy).forEach(key => {
+                                  if (key.startsWith(`${prefix}-`)) {
+                                    delete copy[key];
+                                  }
+                                });
+                                return copy;
+                              });
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200/80 dark:hover:bg-slate-700 rounded-xl transition-all border-none cursor-pointer"
+                          >
+                            <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                            Reset Checklist
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : selectedCondition.document ? (
                   <div className="flex flex-col space-y-4">
                     {/* PDF Toolbar */}
                     <div className="bg-slate-900 dark:bg-slate-955 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none">

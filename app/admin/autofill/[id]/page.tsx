@@ -356,7 +356,7 @@ export default function AutofillDetailPage() {
 
               {/* Tags */}
               <div className="pt-4 border-t border-slate-100 dark:border-slate-800/60 space-y-3">
-                <h4 style={{ fontFamily: "Georgia, serif" }} className="text-sm font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
+                <h4 style={{ fontFamily: "'DM Serif Display', Georgia, serif" }} className="text-sm font-bold text-teal-800 dark:text-teal-400 border-l-[3.5px] border-teal-700 dark:border-teal-500 pl-3.5 leading-none py-1">
                   Tags
                 </h4>
                 <div className="flex flex-wrap gap-1.5 pl-4">
@@ -412,179 +412,84 @@ export default function AutofillDetailPage() {
                   >
                     <Lucide.X className="w-5 h-5" />
                   </button>
-                </div>                {/* Modal Tab Switcher */}
-                <div className="flex border-b border-slate-100 dark:border-slate-800 mb-5">
-                  <button
-                    onClick={() => setActiveTab("manual")}
-                    className={`flex-1 py-2 cursor-pointer text-center text-xs font-semibold border-b-2 transition-all border-none bg-transparent ${
-                      activeTab === "manual"
-                        ? "border-b-teal-700 text-teal-700 font-bold border-solid"
-                        : "border-b-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    Manual Builder
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("upload")}
-                    className={`flex-1 py-2 cursor-pointer text-center text-xs font-semibold border-b-2 transition-all border-none bg-transparent ${
-                      activeTab === "upload"
-                        ? "border-b-teal-700 text-teal-700 font-bold border-solid"
-                        : "border-b-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    }`}
-                  >
-                    Import from Document (PDF/DOCX)
-                  </button>
                 </div>
+                {/* Manual Builder */}
+                <div className="space-y-4">
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Template Name</label>
+                    <input
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
+                      placeholder="e.g. Acute Sore Throat"
+                    />
+                  </div>
 
-                {activeTab === "manual" ? (
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Template Name</label>
-                      <input
-                        type="text"
-                        value={newName}
-                        onChange={(e) => setNewName(e.target.value)}
-                        className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                        placeholder="e.g. Acute Sore Throat"
+                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
+                      <CustomSelect
+                        value={newSystem}
+                        onChange={setNewSystem}
+                        options={[
+                          { value: "Respiratory", label: "Respiratory" },
+                          { value: "Cardiovascular", label: "Cardiovascular" },
+                          { value: "Gastroenterology", label: "Gastroenterology" },
+                          { value: "Endocrine", label: "Endocrine" },
+                          { value: "Psychiatry", label: "Psychiatry" },
+                          { value: "Dermatology", label: "Dermatology" },
+                          { value: "Women's Health", label: "Women's Health" },
+                          { value: "Paediatrics", label: "Paediatrics" },
+                          { value: "Musculoskeletal", label: "Musculoskeletal" },
+                          { value: "MBS", label: "MBS" }
+                        ]}
                       />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">System</label>
-                        <CustomSelect
-                          value={newSystem}
-                          onChange={setNewSystem}
-                          options={[
-                            { value: "Respiratory", label: "Respiratory" },
-                            { value: "Cardiovascular", label: "Cardiovascular" },
-                            { value: "Endocrine", label: "Endocrine" },
-                            { value: "Psychiatry", label: "Psychiatry" },
-                            { value: "Dermatology", label: "Dermatology" },
-                            { value: "Women's Health", label: "Women's Health" },
-                            { value: "Paediatrics", label: "Paediatrics" }
-                          ]}
-                          className="w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
-                        <CustomSelect
-                          value={newCategory}
-                          onChange={setNewCategory}
-                          options={[
-                            { value: "Acute", label: "Acute" },
-                            { value: "Chronic", label: "Chronic" },
-                            { value: "Screening", label: "Screening" },
-                            { value: "Mental Health", label: "Mental Health" },
-                          ]}
-                          className="w-full"
-                        />
-                      </div>
-                    </div>
-
                     <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Template Content</label>
-                      <textarea
-                        value={newContent}
-                        onChange={(e) => setNewContent(e.target.value)}
-                        rows={12}
-                        className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200 font-mono"
-                        placeholder="Template text content..."
+                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Category</label>
+                      <CustomSelect
+                        value={newCategory}
+                        onChange={setNewCategory}
+                        options={[
+                          { value: "Acute", label: "Acute" },
+                          { value: "Chronic", label: "Chronic" },
+                          { value: "Mental Health", label: "Mental Health" },
+                          { value: "Preventative", label: "Preventative" }
+                        ]}
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Tags (Comma-separated)</label>
-                      <input
-                        type="text"
-                        value={newTagsString}
-                        onChange={(e) => setNewTagsString(e.target.value)}
-                        className={`w-full px-4 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                        placeholder="e.g. Asthma, Paediatrics, Inhaler"
-                      />
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2">
-                      <button onClick={() => setShowEditor(false)} className={`px-4 py-2.5 text-sm font-medium ${themeBtnGhost}`}>Cancel</button>
-                      <button onClick={handleSaveTemplate} className={`px-4 py-2.5 text-sm font-semibold ${themeBtnPrimary}`}>
-                        Save Changes
-                      </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* PDF/DOCX dropzone / uploader */}
-                    {uploadState === "idle" && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
-                          <div
-                            onClick={() => fileInputRef.current?.click()}
-                            className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex flex-col items-center justify-center"
-                          >
-                            <input
-                              type="file"
-                              ref={fileInputRef}
-                              onChange={handleFileChange}
-                              accept=".pdf,.docx"
-                              className="hidden"
-                            />
-                            <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
 
-                    {uploadState === "uploading" && (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-800 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-slate-700 dark:text-slate-350 truncate max-w-[220px]">{uploadedFileName}</span>
-                          <span className="text-slate-400 font-mono">{uploadProgress}%</span>
-                        </div>
-                        
-                        <div className="flex h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-teal-700 transition-all" style={{ width: `${uploadProgress}%` }} />
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
-                      </div>
-                    )}
-
-                    {uploadState === "success" && (
-                      <div className="space-y-4">
-                        <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10 flex items-start gap-3 shadow-sm">
-                          <span className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center shrink-0">
-                            <Lucide.Check className="w-4 h-4 text-emerald-600 dark:text-emerald-450" />
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
-                            <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
-                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-650 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer border-none bg-transparent">Replace file</button>
-                          </div>
-                        </div>
-
-                        {extractionState === "extracting" && (
-                          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
-                              <span className="flex items-center gap-2">
-                                <Lucide.Loader className="w-3.5 h-3.5 text-teal-700 animate-spin" />
-                                <span>{extractionLog}</span>
-                              </span>
-                              <span className="font-mono text-teal-700 dark:text-teal-400">{extractionProgress}%</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                              <div className="h-full bg-teal-700 transition-all duration-300" style={{ width: `${extractionProgress}%` }} />
-                            </div>
-                          </div>
-                        )}
-
-
-                      </div>
-                    )}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Template Content</label>
+                    <textarea
+                      rows={8}
+                      value={newContent}
+                      onChange={(e) => setNewContent(e.target.value)}
+                      className="w-full px-4 py-2.5 text-xs border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-700/20 dark:text-slate-200 font-mono"
+                      placeholder="Enter raw SOAP template markdown or variables..."
+                    />
                   </div>
-                )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-650 dark:text-slate-350 mb-1.5">Tags (Comma-separated)</label>
+                    <input
+                      type="text"
+                      value={newTagsString}
+                      onChange={(e) => setNewTagsString(e.target.value)}
+                      className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
+                      placeholder="e.g. Cough, Viral, Respiratory"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                    <button onClick={() => setShowEditor(false)} className={`px-4 py-2.5 text-sm font-medium ${themeBtnGhost}`}>Cancel</button>
+                    <button onClick={handleSaveTemplate} className={`px-4 py-2.5 text-sm font-semibold ${themeBtnPrimary}`}>
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>

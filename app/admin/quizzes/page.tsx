@@ -79,7 +79,7 @@ export default function QuizzesPage() {
     // Proactively sync all mock exams to Neon PostgreSQL in the background
     const allQuestions = getQuestions();
     list.forEach((quiz) => {
-      const stems = quiz.questionIds.map(id => allQuestions.find(q => q.id === id)?.text).filter(Boolean) as string[];
+      const questionsOfQuiz = quiz.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
       syncQuizToDbAction({
         name: quiz.name,
         description: quiz.description,
@@ -88,7 +88,7 @@ export default function QuizzesPage() {
         randomize: quiz.randomize,
         status: quiz.status as any,
         examType: quiz.examType as any,
-      }, stems, currentAdmin?.id);
+      }, questionsOfQuiz, currentAdmin?.id);
     });
   }, [currentAdmin]);
 

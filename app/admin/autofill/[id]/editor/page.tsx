@@ -22,7 +22,7 @@ import { addUserNotification } from "@/utils/notifications";
 // SOAP → HTML seed
 // ─────────────────────────────────────────────────────────────
 function soapToHtml(t: AutofillTemplate): string {
-  let html = `<h1 style="font-family:Georgia,serif;font-size:1.7rem;font-weight:700;color:#0f172a;margin:0 0 0.25rem;line-height:1.2">${t.name}</h1>`;
+  let html = `<h1 style="font-family:'DM Serif Display',Georgia,serif;font-size:1.7rem;font-weight:700;color:#0f172a;margin:0 0 0.25rem;line-height:1.2">${t.name}</h1>`;
   html += `<p style="font-size:0.8rem;color:#64748b;margin:0 0 2rem;font-family:'DM Sans',sans-serif">${t.description || ""}</p>`;
   
   const content = t.content || [t.subjective, t.objective, t.assessment, t.plan, t.doctorSummary, t.patientResources].filter(Boolean).join("\n\n");
@@ -31,7 +31,7 @@ function soapToHtml(t: AutofillTemplate): string {
   
   if (t.references) {
     html += `<hr style="border:0;border-top:1px solid #cbd5e1;margin:1.75rem 0"/>`;
-    html += `<h2 style="font-family:Georgia,serif;font-size:1.1rem;font-weight:700;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-bottom:0.5rem">References</h2>`;
+    html += `<h2 style="font-family:'DM Serif Display',Georgia,serif;font-size:1.1rem;font-weight:700;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-bottom:0.5rem">References</h2>`;
     html += `<p style="font-size:0.875rem;color:#334155;line-height:1.75;font-family:'DM Sans',sans-serif">${t.references}</p>`;
   }
   return html;
@@ -186,6 +186,7 @@ function TemplateEditorContent() {
   // Font / size
   const fontOptions = [
     { value: "'DM Sans',sans-serif", label: "DM Sans" },
+    { value: "'DM Serif Display',serif", label: "DM Serif Display" },
     { value: "Arial,sans-serif", label: "Arial" },
     { value: "'Times New Roman',serif", label: "Times New Roman" },
     { value: "Georgia,serif", label: "Georgia" },
@@ -1539,9 +1540,9 @@ function TemplateEditorContent() {
     <>
       <style dangerouslySetInnerHTML={{ __html: `
         .word-editor { outline: none; min-height: 860px; caret-color: #0f766e; }
-        .word-editor h1 { font-family: Georgia,serif; font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0 0 0.25rem; }
-        .word-editor h2 { font-family: Georgia,serif; font-size: 1.15rem; font-weight: 700; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin: 1.75rem 0 0.5rem; }
-        .word-editor h3 { font-family: Georgia,serif; font-size: 1rem; font-weight: 700; color: #1e40af; margin: 1.25rem 0 0.4rem; }
+        .word-editor h1 { font-family: 'DM Serif Display',Georgia,serif; font-size: 1.7rem; font-weight: 700; color: #0f172a; margin: 0 0 0.25rem; }
+        .word-editor h2 { font-family: 'DM Serif Display',Georgia,serif; font-size: 1.15rem; font-weight: 700; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin: 1.75rem 0 0.5rem; }
+        .word-editor h3 { font-family: 'DM Serif Display',Georgia,serif; font-size: 1rem; font-weight: 700; color: #1e40af; margin: 1.25rem 0 0.4rem; }
         .word-editor p { font-size: 0.875rem; color: #334155; line-height: 1.75; margin: 0 0 0.75rem; font-family: 'DM Sans',sans-serif; }
         .word-editor ul, .word-editor ol { padding-left: 1.5rem; margin: 0.5rem 0 1rem; font-size: 0.875rem; color: #334155; line-height: 1.75; }
         .word-editor li { margin-bottom: 0.25rem; }
@@ -1631,17 +1632,6 @@ function TemplateEditorContent() {
                   <span>Export PDF</span>
                 </button>
 
-
-                {/* Import Document */}
-                <button
-                  onClick={() => { if (isReadOnly) return; docFileInputRef.current?.click(); }}
-                  disabled={isReadOnly}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
-                  title={isReadOnly ? "Viewers cannot import documents" : "Import DOCX or PDF"}
-                >
-                  <Lucide.Upload className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
-                  <span>Import Document</span>
-                </button>
 
                 {/* Duplicate */}
                 <button
