@@ -204,7 +204,7 @@ function PDFViewerContent() {
           padding: 0.75rem 1rem !important;
           font-size: 0.825rem !important;
           border: 1px solid #e2e8f0 !important;
-          color: #475569 !important;
+          color: #475569;
         }
         .print-area td p, .print-area th p {
           margin: 0 !important;
@@ -213,10 +213,10 @@ function PDFViewerContent() {
           line-height: inherit !important;
         }
         .print-area tr:nth-child(even) td {
-          background-color: #f8fafc !important;
+          background-color: #f8fafc;
         }
         .print-area tr:nth-child(odd) td {
-          background-color: #ffffff !important;
+          background-color: #ffffff;
         }
         .print-area .callout-block {
           border-radius: 0.75rem !important;
@@ -259,10 +259,10 @@ function PDFViewerContent() {
           color: #7b341e !important;
         }
         .print-area .callout-block[data-variant="danger"] {
-          background-color: #fff5f5 !important;
-          border: 1px solid #fff5f5 !important;
-          border-left: 5px solid #c53030 !important;
-          color: #9b2c2c !important;
+          background-color: #fef2f2 !important;
+          border: 1px solid #fee2e2 !important;
+          border-left: 5px solid #ef4444 !important;
+          color: #991b1b !important;
         }
         .print-area .callout-block[data-variant="billing"] {
           background-color: #f8fafc !important;
@@ -302,7 +302,7 @@ function PDFViewerContent() {
         }
         .dark .print-area td {
           border-color: #334155 !important;
-          color: #cbd5e1 !important;
+          color: #cbd5e1;
         }
         .dark .print-area tr:nth-child(even) td {
           background-color: #1e293b !important;

@@ -865,6 +865,129 @@ function parseHeaderMetadata(headerHtml: string, fileName: string): { title: str
   return { title, system, category, tags };
 }
 
+function mergeStyles(originalAttrStr: string, defaultStyles: Record<string, string>): string {
+  const inlineStyles: Record<string, string> = { ...defaultStyles };
+  
+  // Extract style attribute value
+  const styleMatch = originalAttrStr.match(/style=["']([^"']*)["']/i);
+  if (styleMatch && styleMatch[1]) {
+    const declarations = styleMatch[1].split(";");
+    for (const decl of declarations) {
+      const parts = decl.split(":");
+      if (parts.length >= 2) {
+        const prop = parts[0].trim().toLowerCase();
+        const val = parts.slice(1).join(":").trim();
+        if (prop) {
+          inlineStyles[prop] = val;
+        }
+      }
+    }
+  }
+  
+  // Extract bgcolor attribute value
+  const bgcolorMatch = originalAttrStr.match(/bgcolor=["']([^"']*)["']/i);
+  if (bgcolorMatch && bgcolorMatch[1]) {
+    inlineStyles["background-color"] = bgcolorMatch[1].trim();
+  }
+  
+  return Object.entries(inlineStyles)
+    .map(([prop, val]) => `${prop}: ${val}`)
+    .join("; ");
+}
+
+function highlightWarningText(html: string): string {
+  let processed = html;
+  
+  // Replace span highlights with styled badges or inline highlights that look premium
+  processed = processed.replace(/<span([^>]*)>([\s\S]*?)<\/span>/gi, (match: string, attrs: string, content: string) => {
+    const styleMatch = attrs.match(/style=["']([^"']*)["']/i);
+    if (styleMatch && styleMatch[1]) {
+      const styleStr = styleMatch[1].toLowerCase();
+      if (styleStr.includes("background-color") || styleStr.includes("background")) {
+        // Extract color
+        const colorMatch = styleStr.match(/(?:background-color|background):\s*(#[0-9a-fA-F]{3,8}|rgb\([^)]+\)|[a-zA-Z]+)/);
+        if (colorMatch) {
+          const bgColor = colorMatch[1].trim();
+          // Detect red/pink highlights (Red Flag)
+          if (/(?:#f[ca][a-f0-9]{2,4}|rgb\(25[0-5],\s*1[0-9]{2},\s*1[0-9]{2}\)|red|pink)/i.test(bgColor)) {
+            return `<span style="background-color: #fee2e2; border-bottom: 2px solid #ef4444; color: #991b1b; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-weight: 600;">⚠️ ${content.trim()}</span>`;
+          }
+          // Detect yellow/orange highlights (Caution/Warning)
+          if (/(?:#f[a-f0-9]{2,5}|#e[a-f0-9]{3,5}|rgb\(25[0-5],\s*2[0-9]{2},\s*[0-9]+\)|yellow|orange)/i.test(bgColor)) {
+            return `<span style="background-color: #fef3c7; border-bottom: 2px solid #f59e0b; color: #92400e; padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-weight: 600;">⚡ ${content.trim()}</span>`;
+          }
+        }
+      }
+    }
+    return match;
+  });
+  
+  return processed;
+}
+
+function convertTextCallouts(html: string): string {
+  let processed = html;
+  
+  // Match paragraphs that have warning keywords or are colored/styled
+  processed = processed.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match: string, attrs: string, content: string) => {
+    const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
+    
+    // Only turn into a callout if it starts with warning tags or has warning highlights/indicators
+    const isRedFlag = plainText.includes("red flag") || plainText.startsWith("⚠️") || plainText.startsWith("red flag:");
+    const isWarning = plainText.includes("warning") || plainText.includes("caution") || plainText.startsWith("⚡") || plainText.includes("important");
+    const isMbs = plainText.includes("mbs") || plainText.includes("billing");
+    
+    if (!isRedFlag && !isWarning && !isMbs) {
+      return match;
+    }
+    
+    let variant = "info";
+    let bg = "#e6f7f4";
+    let border = "#2bb09c";
+    let color = "#1a5c51";
+    let titleColor = "#2bb09c";
+    let label = "Guideline";
+    let icon = "ℹ️";
+    
+    if (isRedFlag) {
+      variant = "danger";
+      bg = "#fef2f2";
+      border = "#ef4444";
+      titleColor = "#dc2626";
+      color = "#991b1b";
+      label = "Red Flags";
+      icon = "⚠️";
+    } else if (isWarning) {
+      variant = "warning";
+      bg = "#fff9e6";
+      border = "#dd6b20";
+      titleColor = "#dd6b20";
+      color = "#7b341e";
+      label = "Warning / Caution";
+      icon = "⚡";
+    } else if (isMbs) {
+      variant = "billing";
+      bg = "#f8fafc";
+      border = "#64748b";
+      titleColor = "#475569";
+      color = "#334155";
+      label = "MBS Billing Info";
+      icon = "📋";
+    }
+    
+    const cleanContent = content.replace(/^\s*(?:\[RED\s*FLAG\]|⚠️|\[WARNING\]|⚡|\[CAUTION\]|\[IMPORTANT\]|\[MBS\]|\[BILLING\]|red\s*flag\s*:|warning\s*:|caution\s*:)\s*/gi, "");
+    
+    return `
+      <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${bg}; border-left: 5px solid ${border}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
+        <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: ${titleColor};">${icon} ${label}</div>
+        <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">${cleanContent}</div>
+      </div>
+    `;
+  });
+  
+  return processed;
+}
+
 function styleHtmlCallouts(html: string): string {
   return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (tableMatch: string, tableBody: string) => {
     const rows = tableBody.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
@@ -916,10 +1039,10 @@ function styleHtmlCallouts(html: string): string {
           plainText.includes("urgently")
         ) {
           variant = "danger";
-          bg = "#fff5f5";
-          border = "#c53030";
-          titleColor = "#c53030";
-          color = "#9b2c2c";
+          bg = "#fef2f2";
+          border = "#ef4444";
+          titleColor = "#dc2626";
+          color = "#991b1b";
           label = "Red Flags";
           icon = "⚠️";
         } else if (
@@ -992,26 +1115,51 @@ function styleHtmlTables(html: string): string {
     let styledBody = tableBody;
     
     // Style headers
-    styledBody = styledBody.replace(/<th[^>]*>([\s\S]*?)<\/th>/gi, (m: string, cellContent: string) => {
-      return `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">${cellContent.trim()}</th>`;
+    styledBody = styledBody.replace(/<th([^>]*)>([\s\S]*?)<\/th>/gi, (m: string, attrs: string, cellContent: string) => {
+      const mergedStyle = mergeStyles(attrs, {
+        "text-align": "left",
+        "font-weight": "600",
+        "font-size": "0.75rem",
+        "text-transform": "uppercase",
+        "letter-spacing": "0.05em",
+        "padding": "0.75rem 1rem",
+        "background-color": "#2bb09c",
+        "border": "1px solid #cbd5e1",
+        "color": "#ffffff"
+      });
+      const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
+      return `<th ${cleanAttrs} style="${mergedStyle}">${cellContent.trim()}</th>`;
     });
     
+    // If no TH, style the first row cells as headers
     if (!tableBody.toLowerCase().includes("<th")) {
       let isFirstRow = true;
-      styledBody = styledBody.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (trMatch: string, trContent: string) => {
+      styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
         if (isFirstRow) {
           isFirstRow = false;
-          const headerContent = trContent.replace(/<td[^>]*>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdContent: string) => {
-            return `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">${tdContent.trim()}</th>`;
+          const headerContent = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdAttrs: string, tdContent: string) => {
+            const mergedStyle = mergeStyles(tdAttrs, {
+              "text-align": "left",
+              "font-weight": "600",
+              "font-size": "0.75rem",
+              "text-transform": "uppercase",
+              "letter-spacing": "0.05em",
+              "padding": "0.75rem 1rem",
+              "background-color": "#2bb09c",
+              "border": "1px solid #cbd5e1",
+              "color": "#ffffff"
+            });
+            const cleanAttrs = tdAttrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
+            return `<th ${cleanAttrs} style="${mergedStyle}">${tdContent.trim()}</th>`;
           });
-          return `<tr>${headerContent}</tr>`;
+          return `<tr ${trAttrs.trim()}>${headerContent}</tr>`;
         }
         return trMatch;
       });
     }
     
     let rowIndex = 0;
-    styledBody = styledBody.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (trMatch: string, trContent: string) => {
+    styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
       if (trContent.toLowerCase().includes("<th")) {
         return trMatch;
       }
@@ -1020,13 +1168,34 @@ function styleHtmlTables(html: string): string {
       rowIndex++;
       
       let cellIndex = 0;
-      const styledCells = trContent.replace(/<td[^>]*>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdContent: string) => {
+      const styledCells = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdAttrs: string, tdContent: string) => {
         const color = cellIndex === 0 ? "#0f172a" : "#475569";
         cellIndex++;
-        return `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; background-color: ${bg}; color: ${color};">${tdContent.trim()}</td>`;
+        
+        // Strip inline background and color styles to ensure data cells default to white background with dark text
+        let filteredAttrs = tdAttrs;
+        const styleMatch = tdAttrs.match(/style=["']([^"']*)["']/i);
+        if (styleMatch && styleMatch[1]) {
+          const declarations = styleMatch[1].split(";");
+          const filteredDecls = declarations.filter(decl => {
+            const prop = decl.split(":")[0].trim().toLowerCase();
+            return prop !== "background-color" && prop !== "background" && prop !== "color";
+          });
+          filteredAttrs = tdAttrs.replace(/style=["']([^"']*)["']/i, `style="${filteredDecls.join(";")}"`);
+        }
+        
+        const mergedStyle = mergeStyles(filteredAttrs, {
+          "padding": "0.75rem 1rem",
+          "font-size": "0.825rem",
+          "border": "1px solid #e2e8f0",
+          "background-color": bg,
+          "color": color
+        });
+        const cleanAttrs = filteredAttrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
+        return `<td ${cleanAttrs} style="${mergedStyle}">${tdContent.trim()}</td>`;
       });
       
-      return `<tr>${styledCells}</tr>`;
+      return `<tr ${trAttrs.trim()}>${styledCells}</tr>`;
     });
     
     return `
@@ -1053,6 +1222,8 @@ function formatSectionHtml(html: string): string {
   
   let formatted = html;
   formatted = styleHtmlCallouts(formatted);
+  formatted = convertTextCallouts(formatted);
+  formatted = highlightWarningText(formatted);
   formatted = styleHtmlTables(formatted);
   formatted = styleHtmlImages(formatted);
   

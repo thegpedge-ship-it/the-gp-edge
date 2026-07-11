@@ -8,7 +8,7 @@ const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.resolve(__dirname),
 
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "pdfkit"],
 
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],

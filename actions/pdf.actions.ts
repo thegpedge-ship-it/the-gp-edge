@@ -5,6 +5,8 @@ import { r2 } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import PDFDocument from "pdfkit";
+import path from "path";
+import fs from "fs";
 
 interface ExtractedData {
   title: string;
@@ -30,48 +32,54 @@ export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", (err) => reject(err));
 
+      // Register fonts with absolute paths resolved via process.cwd()
+      const regularFontPath = path.join(process.cwd(), "assets", "fonts", "Geist-Regular.ttf");
+      const boldFontPath = path.join(process.cwd(), "assets", "fonts", "LiberationSans-Bold.ttf");
+      doc.registerFont("Geist-Regular", regularFontPath);
+      doc.registerFont("Geist-Bold", boldFontPath);
+
       // Title
-      doc.fontSize(22).fillColor("#0f766e").text(data.title || "Clinical Reference Guideline", { align: "center" });
+      doc.font("Geist-Bold").fontSize(22).fillColor("#0f766e").text(data.title || "Clinical Reference Guideline", { align: "center" });
       doc.moveDown(1.5);
 
       // Metadata Header
-      doc.fontSize(9).fillColor("#475569").text(
+      doc.font("Geist-Regular").fontSize(9).fillColor("#475569").text(
         `Author: GP Edge Admin  |  System: ${data.system || "Endocrine"}  |  Category: ${data.category || "Clinical Reference"}`,
         { align: "center" }
       );
       doc.moveDown(2);
 
       // Section 1: Overview
-      doc.fontSize(14).fillColor("#0f766e").text("1. Overview", { underline: true });
+      doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("1. Overview", { underline: true });
       doc.moveDown(0.5);
-      doc.fontSize(10).fillColor("#1e293b").text(data.notes || "No overview notes provided.", { lineGap: 4 });
+      doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text(data.notes || "No overview notes provided.", { lineGap: 4 });
       doc.moveDown(1.5);
 
       // Section 2: Clinical Features
-      doc.fontSize(14).fillColor("#0f766e").text("2. Clinical Features", { underline: true });
+      doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("2. Clinical Features", { underline: true });
       doc.moveDown(0.5);
       if (data.symptoms) {
         const symptomsList = data.symptoms.split("\n").filter(Boolean);
         for (const item of symptomsList) {
-          doc.fontSize(10).fillColor("#1e293b").text(`• ${item.trim()}`, { lineGap: 3 });
+          doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text(`• ${item.trim()}`, { lineGap: 3 });
         }
       } else {
-        doc.fontSize(10).fillColor("#1e293b").text("No clinical symptoms documented.", { lineGap: 4 });
+        doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text("No clinical symptoms documented.", { lineGap: 4 });
       }
       doc.moveDown(1.5);
 
       // Section 3: Management
-      doc.fontSize(14).fillColor("#0f766e").text("3. Management & Treatment Guidelines", { underline: true });
+      doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("3. Management & Treatment Guidelines", { underline: true });
       doc.moveDown(0.5);
-      doc.fontSize(10).fillColor("#1e293b").text(data.treatment || "No management guidelines documented.", { lineGap: 4 });
+      doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text(data.treatment || "No management guidelines documented.", { lineGap: 4 });
       doc.moveDown(2);
 
       // Section 4: References
       if (data.references && data.references.length > 0) {
-        doc.fontSize(12).fillColor("#0f766e").text("Clinical References", { underline: true });
+        doc.font("Geist-Bold").fontSize(12).fillColor("#0f766e").text("Clinical References", { underline: true });
         doc.moveDown(0.5);
         data.references.forEach((ref) => {
-          doc.fontSize(9).fillColor("#64748b").text(`[${ref.id}] ${ref.text}`, { lineGap: 2 });
+          doc.font("Geist-Regular").fontSize(9).fillColor("#64748b").text(`[${ref.id}] ${ref.text}`, { lineGap: 2 });
         });
       }
 

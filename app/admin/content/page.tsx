@@ -12,7 +12,6 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
-import { generatePdfAndUploadToR2Action } from "@/actions/pdf.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -290,34 +289,7 @@ export default function ContentPage() {
           let r2Url = item.pdfUrl || "";
           let size = item.size || "1.2 MB";
 
-          // If the original file was DOCX/DOC, convert the extracted text to a real PDF on the fly!
-          if (item.isDocx) {
-            try {
-              const formattedRefs = ext.references?.map((refText, idx) => ({
-                id: idx + 1,
-                text: refText,
-              })) || [];
 
-              const pdfResult = await generatePdfAndUploadToR2Action({
-                title: ext.title || item.name.replace(/\.[^/.]+$/, ""),
-                system: ext.system || "Endocrine",
-                category: ext.category || "Clinical Reference",
-                symptoms: ext.symptoms || "",
-                treatment: ext.treatment || "",
-                notes: ext.notes || "",
-                references: formattedRefs,
-              });
-
-              if (pdfResult.success && pdfResult.pdfUrl) {
-                r2Url = pdfResult.pdfUrl;
-                size = pdfResult.fileSize || size;
-              } else {
-                console.error("PDF generation returned error:", pdfResult.error);
-              }
-            } catch (pdfErr) {
-              console.error("Error generating PDF buffer:", pdfErr);
-            }
-          }
 
           const newItem: MedicalContent & { pdfUrl?: string; pdfSize?: string } = {
             id: nextId++,
