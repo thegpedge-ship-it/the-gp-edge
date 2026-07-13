@@ -30,6 +30,7 @@ export interface MedicalCondition {
     totalPages: number;
     downloadUrl?: string;
     summary: string;
+    pages?: string[];
   };
 }
 

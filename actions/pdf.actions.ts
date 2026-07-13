@@ -1,12 +1,10 @@
 "use server";
 
-import prisma from "@/lib/prisma";
 import { r2 } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import PDFDocument from "pdfkit";
 import path from "path";
-import fs from "fs";
 
 interface ExtractedData {
   title: string;
@@ -19,8 +17,8 @@ interface ExtractedData {
 }
 
 /**
- * Generates a clean clinical PDF document from extracted guideline text
- * and uploads it to Cloudflare R2, returning the final public PDF URL.
+ * Generates a clinical PDF and uploads it to Cloudflare R2.
+ * Returns the public PDF URL — no database row is written.
  */
 export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
   try {
@@ -32,30 +30,27 @@ export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
       doc.on("end", () => resolve(Buffer.concat(chunks)));
       doc.on("error", (err) => reject(err));
 
-      // Register fonts with absolute paths resolved via process.cwd()
       const regularFontPath = path.join(process.cwd(), "assets", "fonts", "Geist-Regular.ttf");
       const boldFontPath = path.join(process.cwd(), "assets", "fonts", "LiberationSans-Bold.ttf");
       doc.registerFont("Geist-Regular", regularFontPath);
       doc.registerFont("Geist-Bold", boldFontPath);
 
-      // Title
-      doc.font("Geist-Bold").fontSize(22).fillColor("#0f766e").text(data.title || "Clinical Reference Guideline", { align: "center" });
+      doc.font("Geist-Bold").fontSize(22).fillColor("#0f766e").text(
+        data.title || "Clinical Reference Guideline", { align: "center" }
+      );
       doc.moveDown(1.5);
 
-      // Metadata Header
       doc.font("Geist-Regular").fontSize(9).fillColor("#475569").text(
         `Author: GP Edge Admin  |  System: ${data.system || "Endocrine"}  |  Category: ${data.category || "Clinical Reference"}`,
         { align: "center" }
       );
       doc.moveDown(2);
 
-      // Section 1: Overview
       doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("1. Overview", { underline: true });
       doc.moveDown(0.5);
       doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text(data.notes || "No overview notes provided.", { lineGap: 4 });
       doc.moveDown(1.5);
 
-      // Section 2: Clinical Features
       doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("2. Clinical Features", { underline: true });
       doc.moveDown(0.5);
       if (data.symptoms) {
@@ -68,14 +63,12 @@ export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
       }
       doc.moveDown(1.5);
 
-      // Section 3: Management
       doc.font("Geist-Bold").fontSize(14).fillColor("#0f766e").text("3. Management & Treatment Guidelines", { underline: true });
       doc.moveDown(0.5);
       doc.font("Geist-Regular").fontSize(10).fillColor("#1e293b").text(data.treatment || "No management guidelines documented.", { lineGap: 4 });
       doc.moveDown(2);
 
-      // Section 4: References
-      if (data.references && data.references.length > 0) {
+      if (data.references?.length > 0) {
         doc.font("Geist-Bold").fontSize(12).fillColor("#0f766e").text("Clinical References", { underline: true });
         doc.moveDown(0.5);
         data.references.forEach((ref) => {
@@ -89,7 +82,6 @@ export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
     const fileKey = `${crypto.randomUUID()}-${(data.title || "guideline").toLowerCase().replace(/[^a-z0-9.-]/g, "_")}.pdf`;
     const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
 
-    // Upload directly to Cloudflare R2
     await r2.send(
       new PutObjectCommand({
         Bucket: bucketName,
@@ -99,23 +91,14 @@ export async function generatePdfAndUploadToR2Action(data: ExtractedData) {
       })
     );
 
-    // Register the file in the files table
-    const newFile = await prisma.files.create({
-      data: {
-        bucket: bucketName,
-        object_key: fileKey,
-        original_name: `${data.title || "guideline"}.pdf`,
-        mime_type: "application/pdf",
-        size_bytes: pdfBuffer.length,
-        status: "active"
-      }
-    });
+    const publicUrl = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+    const pdfUrl = `${publicUrl}/${fileKey}`;
 
-    const publicUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "";
-    const basePublicUrl = publicUrl.endsWith("/") ? publicUrl : `${publicUrl}/`;
-    const pdfUrl = `${basePublicUrl}${fileKey}`;
-
-    return { success: true, pdfUrl, fileSize: `${(pdfBuffer.length / (1024 * 1024)).toFixed(2)} MB` };
+    return {
+      success: true,
+      pdfUrl,
+      fileSize: `${(pdfBuffer.length / (1024 * 1024)).toFixed(2)} MB`,
+    };
   } catch (err: any) {
     console.error("Failed to generate and upload PDF:", err);
     return { success: false, error: err.message };

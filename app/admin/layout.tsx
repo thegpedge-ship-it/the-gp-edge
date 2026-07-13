@@ -94,12 +94,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
           const found = dbAdmins.find((u) => u.id === stored);
           if (found) {
+            // Always derive permissions from role — never trust an empty DB permissions array,
+            // since admin_user_permissions rows may not exist yet for Super Admin.
+            let permissions: string[] = found.permissions || [];
+            if (found.role === "Super Admin" || permissions.length === 0) {
+              if (found.role === "Super Admin") {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+              } else if (found.role === "Admin") {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
+              } else if (found.role === "Moderator") {
+                permissions = ["dashboard", "questions", "content", "approaches"];
+              } else {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+              }
+            }
             setCurrentAdmin({
               id: found.id,
               name: found.name,
               email: found.email,
               role: found.role,
-              permissions: found.permissions || [],
+              permissions,
             });
           }
         }

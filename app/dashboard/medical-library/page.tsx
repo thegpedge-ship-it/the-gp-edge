@@ -9,6 +9,91 @@ import { getMedicalContent, getApproachCards, saveApproachCards, MedicalContent,
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 
+function getBlockNodes(html: string): ChildNode[] {
+  if (typeof window === "undefined") return [];
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  
+  const blocks: ChildNode[] = [];
+  
+  function traverse(node: ChildNode) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent?.trim()) {
+        blocks.push(node);
+      }
+      return;
+    }
+    
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tagName = el.tagName.toUpperCase();
+      
+      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
+        blocks.push(el);
+      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
+        if (el.childNodes.length > 0) {
+          Array.from(el.childNodes).forEach(traverse);
+        } else if (el.textContent?.trim()) {
+          blocks.push(el);
+        }
+      } else {
+        blocks.push(el);
+      }
+    }
+  }
+  
+  Array.from(temp.childNodes).forEach(traverse);
+  return blocks;
+}
+
+function cleanTableHtmlStyles(html: string): string {
+  return html;
+}
+
+function splitHtmlIntoPages(html: string): string[] {
+  if (typeof window === "undefined") return [html];
+  
+  const blocks = getBlockNodes(html);
+  if (blocks.length === 0) return [html];
+  
+  const pages: string[] = [];
+  let currentPageHtml = "";
+  let currentPageTextLength = 0;
+  
+  blocks.forEach((node) => {
+    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
+      ? (node as HTMLElement).outerHTML 
+      : node.textContent || "";
+    const nodeText = node.textContent || "";
+    const nodeLength = nodeText.length;
+    
+    const isFirstPage = pages.length === 0;
+    const limit = isFirstPage ? 1000 : 1400;
+    
+    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
+      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
+    
+    const shouldStartNewPage = 
+      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
+      (isHeading && currentPageTextLength > 800);
+      
+    if (shouldStartNewPage) {
+      pages.push(currentPageHtml.trim());
+      currentPageHtml = nodeHtml;
+      currentPageTextLength = nodeLength;
+    } else {
+      currentPageHtml += nodeHtml;
+      currentPageTextLength += nodeLength;
+    }
+  });
+  
+  if (currentPageHtml.trim()) {
+    pages.push(currentPageHtml.trim());
+  }
+  
+  return pages.length > 0 ? pages : [html];
+}
+
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
 
@@ -433,6 +518,20 @@ function MedicalLibraryContent() {
               item.type === "Note" ? "Note" : "Document";
 
         const customItem = item as MedicalContent & { pdfUrl?: string; pdfSize?: string };
+        const savedHtml = typeof window !== "undefined" ? (localStorage.getItem(`gpedge_content_body_${item.id}`) || "") : "";
+        const cleanedHtml = cleanTableHtmlStyles(savedHtml);
+        
+        let parsedPages: string[] = [];
+        const savedPagesRaw = typeof window !== "undefined" ? localStorage.getItem(`gpedge_content_pages_${item.id}`) : null;
+        if (savedPagesRaw) {
+          try { parsedPages = JSON.parse(savedPagesRaw); } catch {}
+        }
+        if (parsedPages.length <= 1) {
+          parsedPages = splitHtmlIntoPages(cleanedHtml || "");
+        } else {
+          parsedPages = parsedPages.map(pageHtml => cleanTableHtmlStyles(pageHtml));
+        }
+
         return {
           id: `CUSTOM-${item.id}`,
           name: item.name,
@@ -444,14 +543,15 @@ function MedicalLibraryContent() {
           symptoms: [],
           diagnosisCriteria: [],
           treatmentOptions: [],
-          clinicalNotes: typeof window !== "undefined" ? (localStorage.getItem(`gpedge_content_body_${item.id}`) || "") : "",
+          clinicalNotes: cleanedHtml,
           references: refs,
           document: {
             filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
             fileSize: customItem.pdfSize || "1.2 MB",
-            totalPages: 1,
+            totalPages: parsedPages.length,
             downloadUrl: customItem.pdfUrl || "#",
-            summary: item.name
+            summary: item.name,
+            pages: parsedPages
           }
         };
       });
@@ -1409,7 +1509,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           {selectedCondition.document.fileSize}
                         </span>
                       </div>
-                      {!selectedCondition.id.startsWith("CUSTOM-") && (
+                      {selectedCondition.document && selectedCondition.document.totalPages > 1 && (
                         <div className="flex items-center gap-1.5 shrink-0">
                           <button onClick={() => setPdfPage((p) => Math.max(1, p - 1))} disabled={pdfPage === 1} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors border-none bg-transparent cursor-pointer text-white">
                             <Lucide.ChevronLeft className="w-4 h-4" />
@@ -1645,7 +1745,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         <div
                           style={{
                             width: `${720 * currentZoomScale}px`,
-                            height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : `${940 * currentZoomScale}px`,
+                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? `${940 * currentZoomScale}px` : "auto",
                             position: "relative",
                             flexShrink: 0,
                           }}
@@ -1656,8 +1756,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                             transform: `scale(${currentZoomScale})`,
                             transformOrigin: "top left",
                             width: "720px",
-                            height: selectedCondition.id.startsWith("CUSTOM-") ? "auto" : "940px",
-                            position: selectedCondition.id.startsWith("CUSTOM-") ? "relative" : "absolute",
+                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "940px" : "auto",
+                            position: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "absolute" : "relative",
                             top: 0,
                             left: 0,
                           }}
@@ -1678,10 +1778,34 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                           {/* Render custom guideline HTML or paginated default content */}
                           {selectedCondition.id.startsWith("CUSTOM-") ? (
-                            <div
-                              className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
-                              dangerouslySetInnerHTML={{ __html: customHtml }}
-                            />
+                            <div className="space-y-4 flex flex-col h-full text-slate-800">
+                              {/* Header info / title inside document */}
+                              <div className="mb-4 border-b-2 border-teal-700/30 pb-2 select-none text-left">
+                                <span className="text-[9px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                                  {selectedCondition.system} · {selectedCondition.category}
+                                </span>
+                                {pdfPage === 1 ? (
+                                  <>
+                                    <h1 className="font-serif text-2xl text-slate-900 mt-1.5 font-normal tracking-tight leading-snug">
+                                      {selectedCondition.name}
+                                    </h1>
+                                    <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
+                                      <span>Author: {selectedCondition.author || "GP Edge Content Team"}</span>
+                                      <span>•</span>
+                                      <span>Last updated: {selectedCondition.lastUpdated || "Just now"}</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <p className="text-xs font-serif text-slate-605 mt-1 italic">
+                                    {selectedCondition.name} — continued (Page {pdfPage})
+                                  </p>
+                                )}
+                              </div>
+                              <div
+                                className="text-slate-700 select-text pb-12 flex-1 text-left"
+                                dangerouslySetInnerHTML={{ __html: selectedCondition.document?.pages?.[pdfPage - 1] || selectedCondition.clinicalNotes || "" }}
+                              />
+                            </div>
                           ) : (
                             <>
                               {/* PAGE 1 CONTENT */}

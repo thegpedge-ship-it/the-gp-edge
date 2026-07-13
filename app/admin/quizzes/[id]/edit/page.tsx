@@ -132,7 +132,7 @@ export default function EditQuizPage() {
   const [questionIds, setQuestionIds] = useState<number[]>([]);
   const [timeLimit, setTimeLimit] = useState(60);
   const [passingScore, setPassingScore] = useState(65);
-  const [status, setStatus] = useState<QuizStatus>("draft");
+  const [status, setStatus] = useState<QuizStatus>("active");
   const [examType, setExamType] = useState<Quiz["examType"]>("AKT");
   const [randomize, setRandomize] = useState(true);
   const [attempts, setAttempts] = useState(0);
@@ -153,7 +153,7 @@ export default function EditQuizPage() {
     setQuestionIds(quiz.questionIds);
     setTimeLimit(quiz.timeLimit);
     setPassingScore(quiz.passingScore);
-    setStatus(quiz.status);
+    setStatus("active");
     setExamType(quiz.examType);
     setRandomize(quiz.randomize);
     setAttempts(quiz.attempts);
@@ -203,7 +203,7 @@ export default function EditQuizPage() {
       topic: newQuestionTopics.join(", "),
       difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
       examType: "AKT" as const,
-      status: "draft",
+      status: "published",
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
@@ -368,7 +368,7 @@ export default function EditQuizPage() {
         difficulty: q.difficulty || "Medium",
         examType: "AKT" as const,
         tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-        status: "draft" as const
+        status: "published" as const
       };
       return newQ;
     });
@@ -393,7 +393,7 @@ export default function EditQuizPage() {
     setExtractionState("idle");
     setExtractedQuestions([]);
     
-    alert(`Successfully imported ${newQs.length} questions as drafts and added them to this quiz!`);
+    alert(`Successfully imported ${newQs.length} questions as published and added them to this quiz!`);
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -623,16 +623,7 @@ export default function EditQuizPage() {
             <button type="button" onClick={handleDuplicate} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Duplicate
             </button>
-            {status !== "active" && (
-              <button type="button" onClick={handlePublish} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
-                Publish
-              </button>
-            )}
-            {status === "active" && (
-              <button type="button" onClick={handleSuspend} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
-                Suspend
-              </button>
-            )}
+
             <button type="button" onClick={() => handleSave(true)} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Save & Close
             </button>
@@ -762,19 +753,7 @@ export default function EditQuizPage() {
               />
             </div>
 
-            <div>
-              <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Status</label>
-              <CustomSelect
-                value={status}
-                onChange={(v) => setStatus(v as QuizStatus)}
-                options={[
-                  { value: "draft", label: "Draft" },
-                  { value: "active", label: "Active" },
-                  { value: "suspended", label: "Suspended" },
-                ]}
-                className="w-full"
-              />
-            </div>
+
           </div>
 
           <div>
@@ -810,9 +789,7 @@ export default function EditQuizPage() {
               Delete Quiz
             </button>
             <div className="flex gap-3">
-              <button type="button" onClick={() => handleSave(false)} className={themeBtnGhost}>
-                Save Draft
-              </button>
+
               <button type="button" onClick={() => handleSave(true)} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary}`}>
                 Save Changes
               </button>

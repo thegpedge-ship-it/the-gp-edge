@@ -1,6 +1,6 @@
 "use server";
 
-import prisma from "@/lib/prisma";
+import { query, queryOne, execute } from "@/lib/db";
 import { importQuestionsAction } from "./question.actions";
 
 export interface SyncQuizInput {
@@ -14,179 +14,172 @@ export interface SyncQuizInput {
 }
 
 /**
- * Synchronizes a mock exam configuration and its question associations to the PostgreSQL database.
- * Saves to BOTH the `quizzes` and `mock_tests` tables so that it is visible everywhere.
- * Note: To satisfy the database check constraint "mock_tests_question_count_check",
- * mock test records are only created/updated in the `mock_tests` table if they contain at least 1 question.
+ * Synchronizes a mock exam configuration and its question associations to the database.
+ * Saves to both the `quizzes` and `mock_tests` tables.
  */
-export async function syncQuizToDbAction(quiz: SyncQuizInput, questionsList: any[], createdBy?: string) {
+export async function syncQuizToDbAction(
+  quiz: SyncQuizInput,
+  questionsList: any[],
+  createdBy?: string
+) {
   try {
-    const statusMap: Record<string, "draft" | "active" | "suspended" | "archived"> = {
-      draft: "draft",
+    const statusMap: Record<string, string> = {
+      draft: "active",
       active: "active",
       archived: "archived",
     };
-    const dbStatus = statusMap[quiz.status] || "draft";
+    const dbStatus = statusMap[quiz.status] || "active";
     const examTypeCode = quiz.examType || "AKT";
     const qCount = questionsList.length;
 
-    // First: Sync all questions of the quiz to the database to ensure they exist
+    // Sync questions first
     if (qCount > 0) {
       await importQuestionsAction(questionsList);
     }
 
-    // Validate that createdBy is a valid UUID format before saving to database
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const creatorId = createdBy && uuidRegex.test(createdBy) ? createdBy : null;
 
-    // ────────────────────────────────────────────────────────────────
-    // 1. Sync to the `quizzes` / `quiz_questions` tables
-    // ────────────────────────────────────────────────────────────────
-    let dbQuiz = await prisma.quizzes.findFirst({
-      where: { name: quiz.name },
-    });
+    // ── quizzes table ──────────────────────────────────────────────
+    let dbQuiz = await queryOne<{ id: string }>(
+      `SELECT id FROM quizzes WHERE name = $1 LIMIT 1`,
+      [quiz.name]
+    );
 
     if (dbQuiz) {
-      dbQuiz = await prisma.quizzes.update({
-        where: { id: dbQuiz.id },
-        data: {
-          description: quiz.description || "",
-          time_limit_min: quiz.timeLimit,
-          passing_score: quiz.passingScore,
-          randomize: quiz.randomize,
-          status: dbStatus,
-          exam_type_code: examTypeCode,
-          created_by: creatorId,
-          updated_at: new Date(),
-        },
-      });
-
-      await prisma.quiz_questions.deleteMany({
-        where: { quiz_id: dbQuiz.id },
-      });
+      await execute(
+        `UPDATE quizzes
+           SET description = $1, time_limit_min = $2, passing_score = $3,
+               randomize = $4, status = $5, exam_type_code = $6,
+               created_by = $7, updated_at = NOW()
+         WHERE id = $8`,
+        [
+          quiz.description || "",
+          quiz.timeLimit,
+          quiz.passingScore,
+          quiz.randomize,
+          dbStatus,
+          examTypeCode,
+          creatorId,
+          dbQuiz.id,
+        ]
+      );
+      await execute(`DELETE FROM quiz_questions WHERE quiz_id = $1`, [dbQuiz.id]);
     } else {
-      dbQuiz = await prisma.quizzes.create({
-        data: {
-          name: quiz.name,
-          description: quiz.description || "",
-          time_limit_min: quiz.timeLimit,
-          passing_score: quiz.passingScore,
-          randomize: quiz.randomize,
-          status: dbStatus,
-          exam_type_code: examTypeCode,
-          created_by: creatorId,
-        },
-      });
+      dbQuiz = await queryOne<{ id: string }>(
+        `INSERT INTO quizzes
+           (name, description, time_limit_min, passing_score, randomize,
+            status, exam_type_code, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING id`,
+        [
+          quiz.name,
+          quiz.description || "",
+          quiz.timeLimit,
+          quiz.passingScore,
+          quiz.randomize,
+          dbStatus,
+          examTypeCode,
+          creatorId,
+        ]
+      );
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // 2. Rebuild Question associations for the `quizzes` table
-    // ────────────────────────────────────────────────────────────────
-    const quizQuestionsData = [];
-    for (let index = 0; index < questionsList.length; index++) {
-      const q = questionsList[index];
-      if (!q || !q.text) continue;
-
-      const question = await prisma.questions.findFirst({
-        where: { stem: q.text.trim() },
-      });
-
+    // Rebuild quiz_questions
+    for (let i = 0; i < questionsList.length; i++) {
+      const q = questionsList[i];
+      if (!q?.text) continue;
+      const question = await queryOne<{ id: string }>(
+        `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
+        [q.text.trim()]
+      );
       if (question) {
-        quizQuestionsData.push({
-          quiz_id: dbQuiz.id,
-          question_id: question.id,
-          position: index,
-        });
+        await execute(
+          `INSERT INTO quiz_questions (quiz_id, question_id, position)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (quiz_id, question_id) DO NOTHING`,
+          [dbQuiz!.id, question.id, i]
+        );
       }
     }
 
-    if (quizQuestionsData.length > 0) {
-      await prisma.quiz_questions.createMany({
-        data: quizQuestionsData,
-        skipDuplicates: true,
-      });
-    }
+    // ── mock_tests table ───────────────────────────────────────────
+    let dbMockId: string | null = null;
 
-    // ────────────────────────────────────────────────────────────────
-    // 3. Sync to the `mock_tests` / `mock_test_questions` tables
-    // ────────────────────────────────────────────────────────────────
     if (qCount > 0) {
-      let dbMock = await prisma.mock_tests.findFirst({
-        where: { name: quiz.name },
-      });
+      const availabilityVal = "available";
 
-      const availabilityVal: "available" | "locked" = quiz.status === "active" ? "available" : "locked";
+      let dbMock = await queryOne<{ id: string }>(
+        `SELECT id FROM mock_tests WHERE name = $1 LIMIT 1`,
+        [quiz.name]
+      );
 
       if (dbMock) {
-        dbMock = await prisma.mock_tests.update({
-          where: { id: dbMock.id },
-          data: {
-            subtitle: quiz.description || "",
-            exam_type_code: examTypeCode,
-            question_count: qCount,
-            duration_min: quiz.timeLimit || 60,
-            availability: availabilityVal,
-            created_by: creatorId,
-            updated_at: new Date(),
-          },
-        });
-
-        await prisma.mock_test_questions.deleteMany({
-          where: { mock_test_id: dbMock.id },
-        });
+        await execute(
+          `UPDATE mock_tests
+             SET subtitle = $1, exam_type_code = $2, question_count = $3,
+                 duration_min = $4, availability = $5, created_by = $6, updated_at = NOW()
+           WHERE id = $7`,
+          [
+            quiz.description || "",
+            examTypeCode,
+            qCount,
+            quiz.timeLimit || 60,
+            availabilityVal,
+            creatorId,
+            dbMock.id,
+          ]
+        );
+        await execute(`DELETE FROM mock_test_questions WHERE mock_test_id = $1`, [dbMock.id]);
       } else {
-        dbMock = await prisma.mock_tests.create({
-          data: {
-            name: quiz.name,
-            subtitle: quiz.description || "",
-            exam_type_code: examTypeCode,
-            question_count: qCount,
-            duration_min: quiz.timeLimit || 60,
-            availability: availabilityVal,
-            created_by: creatorId,
-          },
-        });
+        dbMock = await queryOne<{ id: string }>(
+          `INSERT INTO mock_tests
+             (name, subtitle, exam_type_code, question_count, duration_min,
+              availability, created_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           RETURNING id`,
+          [
+            quiz.name,
+            quiz.description || "",
+            examTypeCode,
+            qCount,
+            quiz.timeLimit || 60,
+            availabilityVal,
+            creatorId,
+          ]
+        );
       }
 
-      // Rebuild mock_test_questions mapping
-      const mockQuestionsData = [];
-      for (let index = 0; index < questionsList.length; index++) {
-        const q = questionsList[index];
-        if (!q || !q.text) continue;
+      dbMockId = dbMock!.id;
 
-        const question = await prisma.questions.findFirst({
-          where: { stem: q.text.trim() },
-        });
-
+      for (let i = 0; i < questionsList.length; i++) {
+        const q = questionsList[i];
+        if (!q?.text) continue;
+        const question = await queryOne<{ id: string }>(
+          `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
+          [q.text.trim()]
+        );
         if (question) {
-          mockQuestionsData.push({
-            mock_test_id: dbMock.id,
-            question_id: question.id,
-            position: index,
-          });
+          await execute(
+            `INSERT INTO mock_test_questions (mock_test_id, question_id, position)
+             VALUES ($1, $2, $3)
+             ON CONFLICT DO NOTHING`,
+            [dbMockId, question.id, i]
+          );
         }
       }
-
-      if (mockQuestionsData.length > 0) {
-        await prisma.mock_test_questions.createMany({
-          data: mockQuestionsData,
-          skipDuplicates: true,
-        });
-      }
-
-      return { success: true, dbId: dbQuiz.id, dbMockId: dbMock.id };
     } else {
-      // If the quiz has 0 questions, ensure it does not exist in the mock_tests table to satisfy check constraints
-      const dbMock = await prisma.mock_tests.findFirst({
-        where: { name: quiz.name },
-      });
-      if (dbMock) {
-        await prisma.mock_tests.delete({
-          where: { id: dbMock.id },
-        });
+      // Remove from mock_tests if quiz now has 0 questions
+      const existingMock = await queryOne<{ id: string }>(
+        `SELECT id FROM mock_tests WHERE name = $1 LIMIT 1`,
+        [quiz.name]
+      );
+      if (existingMock) {
+        await execute(`DELETE FROM mock_tests WHERE id = $1`, [existingMock.id]);
       }
-      return { success: true, dbId: dbQuiz.id, dbMockId: null };
     }
+
+    return { success: true, dbId: dbQuiz!.id, dbMockId };
   } catch (error: any) {
     console.error("Failed to sync quiz to database:", error);
     return { success: false, error: error.message };
@@ -194,28 +187,12 @@ export async function syncQuizToDbAction(quiz: SyncQuizInput, questionsList: any
 }
 
 /**
- * Deletes a quiz from both the `quizzes` and `mock_tests` tables in the database.
+ * Deletes a quiz from both quizzes and mock_tests tables.
  */
 export async function deleteQuizFromDbAction(quizName: string) {
   try {
-    const dbQuiz = await prisma.quizzes.findFirst({
-      where: { name: quizName },
-    });
-    if (dbQuiz) {
-      await prisma.quizzes.delete({
-        where: { id: dbQuiz.id },
-      });
-    }
-
-    const dbMock = await prisma.mock_tests.findFirst({
-      where: { name: quizName },
-    });
-    if (dbMock) {
-      await prisma.mock_tests.delete({
-        where: { id: dbMock.id },
-      });
-    }
-
+    await execute(`DELETE FROM quizzes WHERE name = $1`, [quizName]);
+    await execute(`DELETE FROM mock_tests WHERE name = $1`, [quizName]);
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete quiz from database:", error);

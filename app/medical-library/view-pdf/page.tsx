@@ -22,6 +22,91 @@ function normalizeSystemName(sys: string): string {
   return sys;
 }
 
+function getBlockNodes(html: string): ChildNode[] {
+  if (typeof window === "undefined") return [];
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  
+  const blocks: ChildNode[] = [];
+  
+  function traverse(node: ChildNode) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent?.trim()) {
+        blocks.push(node);
+      }
+      return;
+    }
+    
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tagName = el.tagName.toUpperCase();
+      
+      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
+        blocks.push(el);
+      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
+        if (el.childNodes.length > 0) {
+          Array.from(el.childNodes).forEach(traverse);
+        } else if (el.textContent?.trim()) {
+          blocks.push(el);
+        }
+      } else {
+        blocks.push(el);
+      }
+    }
+  }
+  
+  Array.from(temp.childNodes).forEach(traverse);
+  return blocks;
+}
+
+function cleanTableHtmlStyles(html: string): string {
+  return html;
+}
+
+function splitHtmlIntoPages(html: string): string[] {
+  if (typeof window === "undefined") return [html];
+  
+  const blocks = getBlockNodes(html);
+  if (blocks.length === 0) return [html];
+  
+  const pages: string[] = [];
+  let currentPageHtml = "";
+  let currentPageTextLength = 0;
+  
+  blocks.forEach((node) => {
+    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
+      ? (node as HTMLElement).outerHTML 
+      : node.textContent || "";
+    const nodeText = node.textContent || "";
+    const nodeLength = nodeText.length;
+    
+    const isFirstPage = pages.length === 0;
+    const limit = isFirstPage ? 1000 : 1400;
+    
+    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
+      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
+    
+    const shouldStartNewPage = 
+      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
+      (isHeading && currentPageTextLength > 800);
+      
+    if (shouldStartNewPage) {
+      pages.push(currentPageHtml.trim());
+      currentPageHtml = nodeHtml;
+      currentPageTextLength = nodeLength;
+    } else {
+      currentPageHtml += nodeHtml;
+      currentPageTextLength += nodeLength;
+    }
+  });
+  
+  if (currentPageHtml.trim()) {
+    pages.push(currentPageHtml.trim());
+  }
+  
+  return pages.length > 0 ? pages : [html];
+}
+
 function PDFViewerContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -29,6 +114,8 @@ function PDFViewerContent() {
 
   const [condition, setCondition] = useState<MedicalCondition | null>(null);
   const [customHtml, setCustomHtml] = useState<string>("");
+  const [customPages, setCustomPages] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
@@ -58,7 +145,27 @@ function PDFViewerContent() {
             try { refs = JSON.parse(referencesRaw); } catch {}
           }
           const savedHtml = localStorage.getItem(`gpedge_content_body_${item.id}`) || "";
-          setCustomHtml(savedHtml);
+          const cleanedHtml = cleanTableHtmlStyles(savedHtml);
+          setCustomHtml(cleanedHtml);
+
+          const savedPagesRaw = localStorage.getItem(`gpedge_content_pages_${item.id}`);
+          let parsedPages: string[] = [];
+          if (savedPagesRaw) {
+            try { parsedPages = JSON.parse(savedPagesRaw); } catch {}
+          }
+          if (parsedPages.length <= 1) {
+            parsedPages = splitHtmlIntoPages(cleanedHtml || "");
+          } else {
+            parsedPages = parsedPages.map(pageHtml => cleanTableHtmlStyles(pageHtml));
+          }
+          setCustomPages(parsedPages);
+
+          const tagsRaw = localStorage.getItem(`gpedge_content_tags_${item.id}`);
+          let parsedTags: string[] = [];
+          if (tagsRaw) {
+            try { parsedTags = JSON.parse(tagsRaw); } catch {}
+          }
+          setCustomTags(parsedTags);
 
           const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
             item.type === "Condition" ? "Condition" :
@@ -81,7 +188,7 @@ function PDFViewerContent() {
             document: {
               filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
               fileSize: "1.2 MB",
-              totalPages: 1,
+              totalPages: parsedPages.length,
               downloadUrl: "#",
               summary: item.name
             }
@@ -385,7 +492,7 @@ function PDFViewerContent() {
         </div>
 
         {/* Middle Side: Page navigation */}
-        {!condition.id.startsWith("CUSTOM-") && (
+        {doc.totalPages > 1 && (
           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
             <button
               onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
@@ -461,20 +568,20 @@ function PDFViewerContent() {
         <div
           style={{
             width: `${720 * (pdfZoom / 100)}px`,
-            height: condition.id.startsWith("CUSTOM-") ? "auto" : `${940 * (pdfZoom / 100)}px`,
+            height: doc.totalPages > 1 ? `${1020 * (pdfZoom / 100)}px` : "auto",
             position: "relative",
             flexShrink: 0,
           }}
         >
           <div 
             id="printable-pdf-area"
-            className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
+            className="bg-white text-slate-800 p-10 sm:p-12 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area overflow-hidden"
             style={{
               transform: `scale(${pdfZoom / 100})`,
               transformOrigin: "top left",
               width: "720px",
-              height: condition.id.startsWith("CUSTOM-") ? "auto" : "940px",
-              position: condition.id.startsWith("CUSTOM-") ? "relative" : "absolute",
+              height: doc.totalPages > 1 ? "1020px" : "auto",
+              position: doc.totalPages > 1 ? "absolute" : "relative",
             }}
           >
             {/* Faint Confidential Watermark */}
@@ -493,10 +600,43 @@ function PDFViewerContent() {
 
             {/* Render custom guideline HTML or paginated default content */}
             {condition.id.startsWith("CUSTOM-") ? (
-              <div 
-                className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
-                dangerouslySetInnerHTML={{ __html: customHtml }}
-              />
+              <div className="space-y-6 flex flex-col h-full text-slate-800">
+                {/* Header info / title inside document */}
+                <div className="mb-8 border-b-2 border-teal-700/30 pb-4 select-none text-left">
+                  <span className="text-[10px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                    {condition.system} · {condition.category}
+                  </span>
+                  {pdfPage === 1 ? (
+                    <>
+                      <h1 className="font-serif text-3xl text-slate-900 mt-2 font-normal tracking-tight leading-snug">
+                        {condition.name}
+                      </h1>
+                      <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
+                        <span>Author: {condition.author || "GP Edge Content Team"}</span>
+                        <span>•</span>
+                        <span>Last updated: {condition.lastUpdated || "Just now"}</span>
+                      </div>
+                      {customTags && customTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {customTags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200/50 px-2.5 py-0.5 rounded-full">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-lg font-serif text-slate-600 mt-1 italic">
+                      {condition.name} — continued (Page {pdfPage})
+                    </p>
+                  )}
+                </div>
+                <div 
+                  className="prose prose-sm text-slate-700 max-w-none select-text pb-12 flex-1 text-left"
+                  dangerouslySetInnerHTML={{ __html: customPages[pdfPage - 1] || "" }}
+                />
+              </div>
             ) : (
               <>
                 {/* PAGE 1 CONTENT */}

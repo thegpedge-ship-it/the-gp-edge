@@ -6,6 +6,13 @@ import fs from "fs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { execFileSync } from "child_process";
+import crypto from "crypto";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+
+// Next.js App Router route segment config — allow large uploads (images in DOCX/PDF)
+export const maxDuration = 60; // seconds
+export const dynamic = "force-dynamic";
+
 
 // Shim canvas globals (DOMMatrix, Image, etc.) for pdfjs-dist in Next.js Node environment using pure JS classes to avoid native binding errors
 class DOMMatrixShim {
@@ -340,7 +347,7 @@ function associateImagesWithText(text: string, dataUrls: string[]): string {
     // If it does, find the best position to insert the images at the end of the question text
     let resultText = normalizedText;
     for (const url of dataUrls) {
-      const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:)/i;
+      const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:|Explaination:)/i;
       const match = resultText.match(markerRegex);
       if (match && match.index !== undefined) {
         const idx = match.index;
@@ -408,7 +415,7 @@ function associateImagesWithText(text: string, dataUrls: string[]): string {
  * Inserts the image tag right after the question sentence (before options/metadata).
  */
 function insertImageIntoBlock(blockText: string, dataUrl: string): string {
-  const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:)/i;
+  const markerRegex = /\n\s*(?:Options:|Correct Answer:|Correct:|Answer:|[A-H][\.\)\-]\s+|Topic:|Category:|Subtopic:|Difficulty:|Tags:|Rationale:|High-Yield Rationale:|Explanation:|Explaination:)/i;
   const match = blockText.match(markerRegex);
   if (match && match.index !== undefined) {
     const idx = match.index;
@@ -423,12 +430,12 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
 function isMetadataLine(line: string): boolean {
   const clean = line.trim().toLowerCase();
   return (
-    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]?/i.test(clean) ||
-    /^(?:topic|category)\s*[:\-]?/i.test(clean) ||
-    /^subtopic\s*[:\-]?/i.test(clean) ||
-    /^difficulty\s*[:\-]?/i.test(clean) ||
-    /^tags\s*[:\-]?/i.test(clean) ||
-    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation)\s*[:\-]?/i.test(clean)
+    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]/i.test(clean) ||
+    /^(?:topic|category)\s*[:\-]/i.test(clean) ||
+    /^subtopic\s*[:\-]/i.test(clean) ||
+    /^difficulty\s*[:\-]/i.test(clean) ||
+    /^tags\s*[:\-]/i.test(clean) ||
+    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination)\s*[:\-]/i.test(clean)
   );
 }
 
@@ -617,10 +624,14 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
   }
 
   // ── Strategy 2: In-process PDFParse ──
+  // NOTE: Each getText() / getImage() call internally calls load() and closes
+  // the document, so a fresh PDFParse instance is required for each call.
   try {
-    const parser = new PDFParse({ data: buffer, verbosity: 0 });
-    const textResult = await parser.getText();
-    const imageResult = await parser.getImage({ imageThreshold: 0 });
+    const textParser = new PDFParse({ data: buffer, verbosity: 0 });
+    const textResult = await textParser.getText();
+
+    const imageParser = new PDFParse({ data: buffer, verbosity: 0 });
+    const imageResult = await imageParser.getImage({ imageThreshold: 0 });
 
     const combinedText = textResult.pages.map((p: any) => p.text || "").join("\n\n").trim();
 
@@ -662,10 +673,13 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
   }
 
   // ── Strategy 3: Text-only extraction + image carving ──
+  // Fallback for cases where getImage() throws but getText() succeeds.
   try {
     const parser = new PDFParse({ data: buffer, verbosity: 0 });
     const textResult = await parser.getText();
-    const text = textResult.text || "";
+    // Use the top-level .text field (concatenated across all pages) if available,
+    // otherwise join individual page texts.
+    const text = textResult.text || textResult.pages.map((p: any) => p.text || "").join("\n\n");
     if (text.trim().length > 20) {
       const images = getCarvedImages();
       if (images.length > 0) {
@@ -739,9 +753,22 @@ interface ExtractedCatalog {
   };
 }
 
+
 async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
   try {
     const result = await mammoth.convertToHtml({ buffer }, {
+      styleMap: [
+        "p[style-name='Heading 1'] => h1:fresh",
+        "p[style-name='Heading 2'] => h2:fresh",
+        "p[style-name='Heading 3'] => h3:fresh",
+        "p[style-name='Heading 4'] => h4:fresh",
+        "p[style-name='Title'] => h1:fresh",
+        "p[style-name='Subtitle'] => h2:fresh",
+        "b => strong",
+        "i => em",
+        "u => u",
+        "strike => s",
+      ],
       convertImage: mammoth.images.imgElement(function(image) {
         return image.read("base64").then(function(imageBuffer) {
           return {
@@ -755,6 +782,63 @@ async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
     console.error("Mammoth HTML extraction failed:", error);
     return "";
   }
+}
+
+/**
+ * Converts mammoth HTML into richly styled GP Edge HTML suitable for the viewer.
+ * Preserves all original content — tables, images, lists, headings — and applies
+ * the GP Edge design system styles without discarding anything.
+ */
+function polishDocxHtml(rawHtml: string): string {
+  if (!rawHtml) return "";
+  let html = rawHtml;
+
+  // ── 1. Style headings ──────────────────────────────────────────────────────
+  html = html.replace(/<h1([^>]*)>([\s\S]*?)<\/h1>/gi, (_m, attrs, inner) =>
+    `<h1${attrs} style="font-family: Georgia, serif; font-size: 1.75rem; font-weight: bold; color: #0f172a; margin: 1.5rem 0 0.75rem; line-height: 1.2;">${inner}</h1>`
+  );
+  html = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/gi, (_m, attrs, inner) =>
+    `<h2${attrs} style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">${inner}</h2>`
+  );
+  html = html.replace(/<h3([^>]*)>([\s\S]*?)<\/h3>/gi, (_m, attrs, inner) =>
+    `<h3${attrs} style="font-family: Georgia, serif; font-size: 1.1rem; font-weight: 600; color: #1e293b; margin-top: 1.25rem; margin-bottom: 0.5rem;">${inner}</h3>`
+  );
+  html = html.replace(/<h4([^>]*)>([\s\S]*?)<\/h4>/gi, (_m, attrs, inner) =>
+    `<h4${attrs} style="font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 1rem; margin-bottom: 0.4rem;">${inner}</h4>`
+  );
+
+  // ── 2. Style paragraphs ───────────────────────────────────────────────────
+  // [\s\S]*? matches across newlines without the dotAll flag (unavailable below ES2018).
+  // Non-greedy *? stops at the first </p>, so adjacent paragraphs are handled correctly.
+  html = html.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, (_m, attrs, inner) => {
+    if (inner.includes("<img")) return `<p${attrs}>${inner}</p>`;
+    const plain = inner.replace(/<[^>]+>/g, "").trim();
+    if (!plain) return "";
+    return `<p${attrs} style="font-family:'DM Sans',sans-serif;font-size:0.875rem;color:#334155;line-height:1.75;margin-bottom:0.9rem;">${inner}</p>`;
+  });
+
+  // ── 3. Style lists ────────────────────────────────────────────────────────
+  html = html.replace(/<ul([^>]*)>/gi, (_m, attrs) =>
+    `<ul${attrs} style="list-style-type: disc; padding-left: 1.5rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">`
+  );
+  html = html.replace(/<ol([^>]*)>/gi, (_m, attrs) =>
+    `<ol${attrs} style="list-style-type: decimal; padding-left: 1.5rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">`
+  );
+  html = html.replace(/<li([^>]*)>([\s\S]*?)<\/li>/gi, (_m, attrs, inner) =>
+    `<li${attrs} style="font-size: 0.875rem; color: #334155; margin-bottom: 0.35rem; line-height: 1.65;">${inner}</li>`
+  );
+
+  // ── 4. Style tables ───────────────────────────────────────────────────────
+  html = styleHtmlTables(html);
+
+  // ── 5. Style images ───────────────────────────────────────────────────────
+  html = styleHtmlImages(html);
+
+  // ── 6. Apply highlight colours and callout blocks ──────────────────────────
+  html = highlightWarningText(html);
+  html = styleHtmlCallouts(html);
+
+  return html.trim();
 }
 
 function convertPlainTextToHtml(text: string): string {
@@ -808,24 +892,82 @@ function markHtmlHeaders(html: string): string {
     { key: "RESOURCES", regex: /resources|references/i }
   ];
   
-  let marked = html;
-  
-  for (const sec of sections) {
-    const pattern = new RegExp(
-      `<(h[1-6]|p)[^>]*>([\\s\\S]*?)(?:\\b${sec.regex.source}\\b)([\\s\\S]*?)<\\/\\1>`,
-      "gi"
-    );
+  // PHASE 1: Handle section headings inside table cells (<td>).
+  // The DOCX template uses styled two-column tables for section headers 
+  // (e.g. left cell = "Typical Features", right cell = "4. Diagnosis & Investigations").
+  // We need to detect when a table cell contains a numbered section heading,
+  // keep the non-header cells as content, and insert a [SECTION_SPLIT] marker.
+  let marked = html.replace(/<table[^>]*>[\s\S]*?<\/table>/gi, (tableMatch: string) => {
+    // Extract all cell contents with their raw HTML
+    const cellsRaw: string[] = [];
+    const cellsPlain: string[] = [];
+    tableMatch.replace(/<td[^>]*>([\s\S]*?)<\/td>/gi, (_m: string, cellContent: string) => {
+      cellsRaw.push(cellContent);
+      cellsPlain.push(cellContent.replace(/<[^>]+>/g, "").trim());
+      return _m;
+    });
     
-    marked = marked.replace(pattern, (match: string, tag: string, before: string, after: string) => {
-      const plainBefore = before.replace(/<[^>]+>/g, "").trim();
-      const plainAfter = after.replace(/<[^>]+>/g, "").trim();
-      
-      if (plainBefore.length + plainAfter.length < 10) {
+    // Check if any cell contains a numbered section heading keyword
+    let splitKey = "";
+    let splitCellIdx = -1;
+    for (let ci = 0; ci < cellsPlain.length; ci++) {
+      const cellText = cellsPlain[ci];
+      if (cellText.length > 120) continue;
+      for (const sec of sections) {
+        if (sec.regex.test(cellText)) {
+          const looksLikeHeader = /^\d+[.\s]/.test(cellText) || cellText.length < 60;
+          if (looksLikeHeader) {
+            splitKey = sec.key;
+            splitCellIdx = ci;
+            break;
+          }
+        }
+      }
+      if (splitKey) break;
+    }
+    
+    // Protect flowcharts and multi-row tables — only consider 1-2 row tables as section headers
+    const rowCount = (tableMatch.match(/<tr/gi) || []).length;
+    if (rowCount > 2) return tableMatch; // multi-row = flowchart or data table, keep as-is
+    
+    if (!splitKey) return tableMatch; // no section header found — keep table as-is
+    
+    // Collect non-header cell content to preserve before the split
+    const preservedContent: string[] = [];
+    for (let ci = 0; ci < cellsRaw.length; ci++) {
+      if (ci === splitCellIdx) continue;
+      const raw = cellsRaw[ci].trim();
+      if (raw) preservedContent.push(raw);
+    }
+    
+    // Output: preserved content (belongs to previous section) + split marker
+    let output = "";
+    if (preservedContent.length > 0) {
+      output += preservedContent.join("\n");
+    }
+    output += `[SECTION_SPLIT: ${splitKey}]`;
+    return output;
+  });
+  
+  // PHASE 2: Handle heading tags (h1-h6) and bold paragraphs containing section keywords
+  const tagPattern = /<(h[1-6]|p)[^>]*>([\s\S]*?)<\/\1>/gi;
+  
+  marked = marked.replace(tagPattern, (match: string, tag: string, innerContent: string) => {
+    // Never treat a paragraph containing an image as a section header
+    if (innerContent.includes('<img')) return match;
+    
+    const plainText = innerContent.replace(/<[^>]+>/g, "").trim();
+    
+    // Only treat short text as potential section headers (not long paragraphs)
+    if (plainText.length > 80) return match;
+    
+    for (const sec of sections) {
+      if (sec.regex.test(plainText)) {
         return `[SECTION_SPLIT: ${sec.key}]`;
       }
-      return match;
-    });
-  }
+    }
+    return match;
+  });
   
   return marked;
 }
@@ -932,12 +1074,13 @@ function convertTextCallouts(html: string): string {
   processed = processed.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match: string, attrs: string, content: string) => {
     const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
     
-    // Only turn into a callout if it starts with warning tags or has warning highlights/indicators
-    const isRedFlag = plainText.includes("red flag") || plainText.startsWith("⚠️") || plainText.startsWith("red flag:");
-    const isWarning = plainText.includes("warning") || plainText.includes("caution") || plainText.startsWith("⚡") || plainText.includes("important");
-    const isMbs = plainText.includes("mbs") || plainText.includes("billing");
+    // Only turn into a callout if it starts with warning tags or has warning highlights/indicators at the beginning
+    const isRedFlag = /^\s*[^a-z0-9]*(?:⚠️|red\s*flag|important)/i.test(plainText);
+    const isWarning = /^\s*[^a-z0-9]*(?:⚡|warning|caution)/i.test(plainText);
+    const isMbs = /^\s*[^a-z0-9]*(?:📋|mbs|billing)/i.test(plainText);
+    const isPearl = /^\s*[^a-z0-9]*(?:☑|✅|key\s*point|pearl|clinical\s*pearl)/i.test(plainText);
     
-    if (!isRedFlag && !isWarning && !isMbs) {
+    if (!isRedFlag && !isWarning && !isMbs && !isPearl) {
       return match;
     }
     
@@ -947,7 +1090,7 @@ function convertTextCallouts(html: string): string {
     let color = "#1a5c51";
     let titleColor = "#2bb09c";
     let label = "Guideline";
-    let icon = "ℹ️";
+    let icon = "";
     
     if (isRedFlag) {
       variant = "danger";
@@ -955,8 +1098,8 @@ function convertTextCallouts(html: string): string {
       border = "#ef4444";
       titleColor = "#dc2626";
       color = "#991b1b";
-      label = "Red Flags";
-      icon = "⚠️";
+      label = plainText.includes("important") ? "Important" : "Red Flags";
+      icon = "";
     } else if (isWarning) {
       variant = "warning";
       bg = "#fff9e6";
@@ -964,7 +1107,7 @@ function convertTextCallouts(html: string): string {
       titleColor = "#dd6b20";
       color = "#7b341e";
       label = "Warning / Caution";
-      icon = "⚡";
+      icon = "";
     } else if (isMbs) {
       variant = "billing";
       bg = "#f8fafc";
@@ -972,10 +1115,18 @@ function convertTextCallouts(html: string): string {
       titleColor = "#475569";
       color = "#334155";
       label = "MBS Billing Info";
-      icon = "📋";
+      icon = "";
+    } else if (isPearl) {
+      variant = "pearl";
+      bg = "#e6f7f4";
+      border = "#2bb09c";
+      titleColor = "#2bb09c";
+      color = "#1a5c51";
+      label = "Key Points";
+      icon = "";
     }
     
-    const cleanContent = content.replace(/^\s*(?:\[RED\s*FLAG\]|⚠️|\[WARNING\]|⚡|\[CAUTION\]|\[IMPORTANT\]|\[MBS\]|\[BILLING\]|red\s*flag\s*:|warning\s*:|caution\s*:)\s*/gi, "");
+    const cleanContent = content.replace(/^\s*(?:\[RED\s*FLAG\]|⚠️|\[WARNING\]|⚡|\[CAUTION\]|\[IMPORTANT\]|\[MBS\]|\[BILLING\]|✅|☑|red\s*flag\s*:|warning\s*:|caution\s*:|key\s*points?\s*:)\s*/gi, "");
     
     return `
       <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${bg}; border-left: 5px solid ${border}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
@@ -1028,7 +1179,7 @@ function styleHtmlCallouts(html: string): string {
         let color = "#1a5c51";
         let titleColor = "#2bb09c";
         let label = "Guideline";
-        let icon = "ℹ️";
+        let icon = "";
         
         if (
           plainText.includes("red flag") || 
@@ -1036,7 +1187,10 @@ function styleHtmlCallouts(html: string): string {
           plainText.includes("danger") || 
           plainText.includes("critical") ||
           plainText.includes("alert") ||
-          plainText.includes("urgently")
+          plainText.includes("urgently") ||
+          plainText.includes("important") ||
+          plainText.includes("urgent") ||
+          plainText.includes("attention")
         ) {
           variant = "danger";
           bg = "#fef2f2";
@@ -1044,25 +1198,24 @@ function styleHtmlCallouts(html: string): string {
           titleColor = "#dc2626";
           color = "#991b1b";
           label = "Red Flags";
-          icon = "⚠️";
+          icon = "";
         } else if (
-          plainText.includes("important") || 
           plainText.includes("warning") || 
-          plainText.includes("caution") || 
-          plainText.includes("urgent") || 
-          plainText.includes("attention")
+          plainText.includes("caution")
         ) {
           variant = "warning";
           bg = "#fff9e6";
           border = "#dd6b20";
           titleColor = "#dd6b20";
           color = "#7b341e";
-          label = "Important";
-          icon = "⚡";
+          label = "Warning / Caution";
+          icon = "";
         } else if (
           plainText.includes("key point") || 
           plainText.includes("pearl") || 
-          plainText.includes("clinical pearl")
+          plainText.includes("clinical pearl") ||
+          plainText.includes("✅") ||
+          plainText.includes("☑")
         ) {
           variant = "pearl";
           bg = "#e6f7f4";
@@ -1070,7 +1223,7 @@ function styleHtmlCallouts(html: string): string {
           titleColor = "#2bb09c";
           color = "#1a5c51";
           label = "Key Points";
-          icon = "☑";
+          icon = "";
         } else if (
           plainText.includes("billing") || 
           plainText.includes("mbs")
@@ -1081,7 +1234,7 @@ function styleHtmlCallouts(html: string): string {
           titleColor = "#475569";
           color = "#334155";
           label = "Billing";
-          icon = "📋";
+          icon = "";
         }
         
         let headerText = label;
@@ -1100,8 +1253,10 @@ function styleHtmlCallouts(html: string): string {
         
         return `
           <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${bg}; border-left: 5px solid ${border}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
-            <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: ${titleColor};">${icon} ${headerText}</div>
-            <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">${bodyHtml}</div>
+            <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: ${titleColor};">${icon} ${headerText}</div>
+            <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">
+              ${bodyHtml}
+            </div>
           </div>
         `;
       }
@@ -1179,7 +1334,7 @@ function styleHtmlTables(html: string): string {
           const declarations = styleMatch[1].split(";");
           const filteredDecls = declarations.filter(decl => {
             const prop = decl.split(":")[0].trim().toLowerCase();
-            return prop !== "background-color" && prop !== "background" && prop !== "color";
+            return false; // preserve all original inline styles for flowcharts/colored tables
           });
           filteredAttrs = tdAttrs.replace(/style=["']([^"']*)["']/i, `style="${filteredDecls.join(";")}"`);
         }
@@ -1209,11 +1364,13 @@ function styleHtmlTables(html: string): string {
 }
 
 function styleHtmlImages(html: string): string {
-  return html.replace(/<img([^>]*?)>/gi, (match: string, attributes: string) => {
-    if (attributes.includes("style=")) {
-      return match;
+  // Preserve base64 embedded images (flowcharts, figures from DOCX), style them responsively
+  return html.replace(/<img([^>]*)>/gi, (match: string, attrs: string) => {
+    // Only preserve images that have a valid src (base64 data URLs from mammoth)
+    if (attrs.includes('src=') && (attrs.includes('data:image') || attrs.includes('http'))) {
+      return `<img${attrs} style="max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);" />`;
     }
-    return `<img style="border-radius: 0.75rem; max-width: 100%; height: auto; display: block; margin: 1.25rem auto;" ${attributes}>`;
+    return ''; // strip images with no valid src
   });
 }
 
@@ -1221,16 +1378,31 @@ function formatSectionHtml(html: string): string {
   if (!html) return "";
   
   let formatted = html;
+  
+  // Remove any leading heading tags that are just section headers (e.g. "1. Overview" or "1. OVERVIEW")
+  // to prevent duplication when the viewer injects its own section header!
+  formatted = formatted.replace(/^\s*<h[1-6][^>]*>\s*(?:\d+\.?\s*)?(?:overview|pathophysiology|clinical\s+features|diagnosis|management|complications|when\s+to\s+refer|prognosis|resources|references)\s*<\/h[1-6]>/i, "");
+  
+  // Also remove bold paragraph variants: <p><strong>1. OVERVIEW</strong></p>
+  formatted = formatted.replace(/^\s*<p[^>]*>\s*<strong>\s*(?:\d+\.?\s*)?(?:overview|pathophysiology|clinical\s+features|diagnosis|management|complications|when\s+to\s+refer|prognosis|resources|references)\s*<\/strong>\s*<\/p>/i, "");
+
   formatted = styleHtmlCallouts(formatted);
   formatted = convertTextCallouts(formatted);
   formatted = highlightWarningText(formatted);
   formatted = styleHtmlTables(formatted);
   formatted = styleHtmlImages(formatted);
   
-  formatted = formatted.replace(/<p[^>]*>/gi, '<p style="font-family: \'DM Sans\', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">');
+  // Replace <p> open tags ONLY if they don't wrap images (preserve figure paragraphs)
+  formatted = formatted.replace(/<p([^>]*)>/gi, (_m: string, attrs: string) => {
+    if (attrs.includes('data:image') || attrs.includes('src=')) return `<p${attrs}>`;
+    return '<p style="font-family: \'DM Sans\', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">';
+  });
   formatted = formatted.replace(/<ul[^>]*>/gi, '<ul style="list-style-type: disc; padding-left: 1.25rem; font-family: \'DM Sans\', sans-serif; margin-bottom: 1rem;">');
   formatted = formatted.replace(/<ol[^>]*>/gi, '<ol style="list-style-type: decimal; padding-left: 1.25rem; font-family: \'DM Sans\', sans-serif; margin-bottom: 1rem;">');
   formatted = formatted.replace(/<li[^>]*>/gi, '<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">');
+  
+  // Strip all emojis from final output
+  formatted = formatted.replace(/⚠️|⚡|✅|☑|📋|ℹ️|ℹ/g, "");
   
   return formatted.trim();
 }
@@ -1301,10 +1473,8 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   
   cleanHeaderHtml = cleanHeaderHtml.trim();
   
+  // Keep overview content strictly within its parsed section (do NOT prepend header metadata/description)
   let overviewContent = sectionsMap.OVERVIEW;
-  if (cleanHeaderHtml) {
-    overviewContent = cleanHeaderHtml + "\n" + overviewContent;
-  }
   
   catalog.sections.overview = formatSectionHtml(overviewContent);
   catalog.sections.pathophysiology = formatSectionHtml(sectionsMap.PATHOPHYSIOLOGY);
@@ -1460,11 +1630,83 @@ function inferTitle(fileName: string, text: string): string {
     .trim();
 }
 
+function isDocxFilename(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower.startsWith('word/') ||
+    lower.startsWith('word\\') ||
+    lower.startsWith('_rels/') ||
+    lower.startsWith('_rels\\') ||
+    lower.startsWith('docprops/') ||
+    lower.startsWith('docprops\\') ||
+    lower.startsWith('customxml/') ||
+    lower.startsWith('customxml\\') ||
+    lower.startsWith('[content_types].xml')
+  );
+}
+
+function fixZipSeparators(buffer: Buffer): Buffer {
+  const result = Buffer.from(buffer);
+  let offset = 0;
+  while (offset < result.length - 30) {
+    const signature = result.readUInt32LE(offset);
+    if (signature === 0x04034b50) { // Local File Header
+      const fileNameLength = result.readUInt16LE(offset + 26);
+      const fileNameStart = offset + 30;
+      const fileNameEnd = fileNameStart + fileNameLength;
+      
+      if (fileNameEnd <= result.length) {
+        const fileName = result.toString('utf8', fileNameStart, fileNameEnd);
+        if (isDocxFilename(fileName)) {
+          for (let i = fileNameStart; i < fileNameEnd; i++) {
+            if (result[i] === 0x5C) { // '\\'
+              result[i] = 0x2F; // '/'
+            }
+          }
+          const compressedSize = result.readUInt32LE(offset + 18);
+          const extraFieldLength = result.readUInt16LE(offset + 28);
+          if (compressedSize > 0) {
+            offset += 30 + fileNameLength + extraFieldLength + compressedSize;
+            continue;
+          }
+        }
+      }
+      offset++;
+    } else if (signature === 0x02014b50) { // Central Directory File Header
+      if (offset + 46 <= result.length) {
+        const fileNameLength = result.readUInt16LE(offset + 28);
+        const fileNameStart = offset + 46;
+        const fileNameEnd = fileNameStart + fileNameLength;
+        
+        if (fileNameEnd <= result.length) {
+          const fileName = result.toString('utf8', fileNameStart, fileNameEnd);
+          if (isDocxFilename(fileName)) {
+            for (let i = fileNameStart; i < fileNameEnd; i++) {
+              if (result[i] === 0x5C) { // '\\'
+                result[i] = 0x2F; // '/'
+              }
+            }
+            const extraFieldLength = result.readUInt16LE(offset + 30);
+            const fileCommentLength = result.readUInt16LE(offset + 32);
+            offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
+            continue;
+          }
+        }
+      }
+      offset++;
+    } else {
+      offset++;
+    }
+  }
+  return result;
+}
+
 // ── Question Extractor and Parser ──────────────────────────────────────────────
 
 async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<string> {
+  const fixedBuffer = fixZipSeparators(buffer);
   try {
-    const result = await mammoth.convertToHtml({ buffer }, {
+    const result = await mammoth.convertToHtml({ buffer: fixedBuffer }, {
       convertImage: mammoth.images.imgElement(function(image) {
         return image.read("base64").then(function(imageBuffer) {
           return {
@@ -1488,12 +1730,25 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
     return cleaned.trim();
   } catch (error) {
     console.error("Mammoth HTML conversion failed:", error);
-    const textResult = await mammoth.extractRawText({ buffer });
-    return textResult.value.trim();
+    try {
+      const textResult = await mammoth.extractRawText({ buffer });
+      return textResult.value.trim();
+    } catch (e) {
+      console.error("Mammoth extractRawText also failed. Trying word-extractor fallback...", e);
+      try {
+        const WordExtractor = require("word-extractor");
+        const extractor = new WordExtractor();
+        const doc = await extractor.extract(buffer);
+        return doc.getBody().trim();
+      } catch (extractorErr) {
+        console.error("word-extractor fallback failed:", extractorErr);
+        throw error;
+      }
+    }
   }
 }
 
-function parseTextToQuestions(text: string): any[] {
+export function parseTextToQuestions(text: string): any[] {
   const questions: any[] = [];
   
   // Normalize line endings
@@ -1586,7 +1841,8 @@ function parseTextToQuestions(text: string): any[] {
       
       // 2. Metadata Matches (only checked once we leave the question text state)
       // Check for Correct Answer
-      const correctMatch = line.match(/^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]\s*(.*)$/i);
+      // Check for Correct Answer (only if we are not already parsing rationale)
+      const correctMatch = !parsingRationale ? line.match(/^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]\s*(.*)$/i) : null;
       if (correctMatch) {
         parsingState = "metadata";
         parsingRationale = false;
@@ -1617,9 +1873,10 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Topic
+      // Check for Topic (only if not in rationale, or line is short)
       const topicMatch = line.match(/^(?:topic|category)\s*[:\-]\s*(.*)$/i);
-      if (topicMatch) {
+      const isRealTopic = topicMatch && (!parsingRationale || line.length < 100);
+      if (isRealTopic && topicMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let topicVal = topicMatch[1].trim();
@@ -1640,9 +1897,10 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Subtopic
+      // Check for Subtopic (only if not in rationale, or line is short)
       const subtopicMatch = line.match(/^subtopic\s*[:\-]\s*(.*)$/i);
-      if (subtopicMatch) {
+      const isRealSubtopic = subtopicMatch && (!parsingRationale || line.length < 100);
+      if (isRealSubtopic && subtopicMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let subtopicVal = subtopicMatch[1].trim();
@@ -1663,9 +1921,10 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Difficulty
+      // Check for Difficulty (only if not in rationale, or line is short)
       const difficultyMatch = line.match(/^difficulty\s*[:\-]\s*(.*)$/i);
-      if (difficultyMatch) {
+      const isRealDifficulty = difficultyMatch && (!parsingRationale || line.length < 100);
+      if (isRealDifficulty && difficultyMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let diffVal = difficultyMatch[1].trim();
@@ -1689,9 +1948,10 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Tags
+      // Check for Tags (only if not in rationale, or line is short)
       const tagsMatch = line.match(/^tags\s*[:\-]\s*(.*)$/i);
-      if (tagsMatch) {
+      const isRealTags = tagsMatch && (!parsingRationale || line.length < 100);
+      if (isRealTags && tagsMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let tagsVal = tagsMatch[1].trim();
@@ -1712,8 +1972,8 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Rationale
-      const rationaleMatch = line.match(/^(?:rationale|high-yield\s*rationale|explanation)\s*[:\-]\s*(.*)$/i);
+      // Check for Rationale (only if we are not already parsing rationale)
+      const rationaleMatch = !parsingRationale ? line.match(/^(?:rationale|high-yield\s*rationale|explanation|explaination)\s*[:\-]\s*(.*)$/i) : null;
       if (rationaleMatch) {
         parsingState = "metadata";
         parsingRationale = true;
@@ -1790,6 +2050,80 @@ function parseTextToQuestions(text: string): any[] {
   }
   
   return questions;
+}
+
+// ── R2 image uploader ──────────────────────────────────────────────────────────
+
+/**
+ * Finds every base64 data:image/... src in an HTML string, uploads each to R2,
+ * and replaces the src with the public R2 URL.
+ * Returns the updated HTML. Images that fail to upload are left as-is.
+ */
+async function uploadBase64ImagesToR2(html: string): Promise<string> {
+  // Quick exit — if there are no embedded data URLs skip the whole pass
+  if (!html.includes("data:image/")) return html;
+
+  const r2Client = new S3Client({
+    region: "auto",
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+    },
+  });
+
+  const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
+  const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+
+  // Match all src="data:image/...;base64,<data>" (single or double quotes)
+  const dataUrlRegex = /src=(["'])(data:image\/([a-zA-Z+]+);base64,([A-Za-z0-9+/=\s]+?))\1/gi;
+
+  // Collect all unique data URLs first to avoid uploading the same image twice
+  const seen = new Map<string, string>(); // dataUrl → r2Url
+  const matches: Array<{ full: string; dataUrl: string; mimeType: string; base64: string }> = [];
+
+  let m: RegExpExecArray | null;
+  const clone = new RegExp(dataUrlRegex.source, dataUrlRegex.flags);
+  while ((m = clone.exec(html)) !== null) {
+    const dataUrl = m[2];
+    if (!seen.has(dataUrl)) {
+      seen.set(dataUrl, ""); // placeholder
+      matches.push({ full: m[0], dataUrl, mimeType: m[3], base64: m[4].replace(/\s/g, "") });
+    }
+  }
+
+  // Upload each unique image
+  await Promise.all(
+    matches.map(async ({ dataUrl, mimeType, base64 }) => {
+      try {
+        const ext = mimeType.split("+")[0].split("/").pop() || "png";
+        const objectKey = `content-images/${crypto.randomUUID()}.${ext}`;
+        const buffer = Buffer.from(base64, "base64");
+
+        await r2Client.send(new PutObjectCommand({
+          Bucket: bucketName,
+          Key: objectKey,
+          Body: buffer,
+          ContentType: `image/${mimeType}`,
+        }));
+
+        seen.set(dataUrl, `${publicBase}/${objectKey}`);
+      } catch (err: any) {
+        console.error("Failed to upload extracted image to R2:", err.message);
+        // Leave the data URL in place — better than losing the image entirely
+        seen.set(dataUrl, dataUrl);
+      }
+    })
+  );
+
+  // Replace every data URL src with the R2 URL
+  return html.replace(dataUrlRegex, (match, _quote, dataUrl) => {
+    const r2Url = seen.get(dataUrl);
+    if (r2Url && r2Url !== dataUrl) {
+      return `src="${r2Url}"`;
+    }
+    return match;
+  });
 }
 
 // ── Route handler ──────────────────────────────────────────────────────────────
@@ -1908,7 +2242,10 @@ export async function POST(req: NextRequest) {
       const docText = await extractTextAndImagesFromDocBuffer(buffer);
       catalogHtml = convertPlainTextToHtml(docText);
     } else {
-      catalogHtml = await extractHtmlFromDocxBuffer(buffer);
+      // DOCX — extract full HTML via mammoth, then polish it directly.
+      // Do NOT strip or re-parse it; save the complete styled HTML as fullHtml.
+      const rawHtml = await extractHtmlFromDocxBuffer(buffer);
+      catalogHtml = rawHtml; // used for section-split parsing below
     }
 
     const rawText = catalogHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -1951,7 +2288,20 @@ export async function POST(req: NextRequest) {
     
     // Parse catalog sections using HTML parser
     const catalog = parseHtmlToCatalog(catalogHtml, fileName);
-    const fullHtml = generateCatalogHtml(catalog, system, category);
+
+    // ── Build fullHtml ────────────────────────────────────────────────────────
+    // For DOCX: use polished mammoth HTML directly — preserves ALL original formatting.
+    // For PDF/DOC: use the section-based catalog generator.
+    let fullHtml: string;
+    if (ext === "docx") {
+      fullHtml = polishDocxHtml(catalogHtml);
+      // Only fall back if polishing produced genuinely nothing (not just short content)
+      if (!fullHtml || !fullHtml.trim()) {
+        fullHtml = generateCatalogHtml(catalog, system, category);
+      }
+    } else {
+      fullHtml = generateCatalogHtml(catalog, system, category);
+    }
     
     // Map backwards-compatible fields
     const finalSymptoms = catalog.sections.clinicalFeatures.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || matchField(rawText, SOAP_PATTERNS.subjective) || matchField(rawText, SOAP_PATTERNS.symptoms) || "";
@@ -1962,6 +2312,11 @@ export async function POST(req: NextRequest) {
     const refLines = catalog.sections.resources.match(/<li>([^<]+)<\/li>/g) || [];
     const references = refLines.map(line => line.replace(/<\/?li>/g, "").trim());
 
+    // Upload any embedded base64 images to R2 so the stored HTML stays small.
+    // Without this, a DOCX with images produces megabytes of base64 that blows
+    // past Next.js's 4 MB JSON body limit and silently drops the images.
+    fullHtml = await uploadBase64ImagesToR2(fullHtml);
+
     // Cleanup
     if (tempPath && fs.existsSync(tempPath)) {
       fs.unlinkSync(tempPath);
@@ -1970,7 +2325,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      title: catalog.title || title || "Extracted Template",
+      title: catalog.title || title || inferTitle(fileName, rawText),
       system,
       category,
       subjective: finalSymptoms,

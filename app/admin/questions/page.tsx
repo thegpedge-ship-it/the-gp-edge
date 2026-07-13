@@ -32,7 +32,7 @@ import { useAdminRole } from "@/hooks/useAdminRole";
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-type StatusFilter = "all" | "draft" | "review" | "published";
+type StatusFilter = "all" | "published";
 
 function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> {
   return new Promise((resolve) => {
@@ -217,6 +217,7 @@ export default function QuestionsPage() {
             topic: newQuestionTopics.join(", "),
             difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
             examType: "AKT" as const,
+            status: "published",
             tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
             image: newImage || undefined,
           };
@@ -245,7 +246,7 @@ export default function QuestionsPage() {
       topic: newQuestionTopics.join(", "),
       difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
       examType: "AKT" as const,
-      status: "draft",
+      status: "published",
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
@@ -416,7 +417,7 @@ export default function QuestionsPage() {
         difficulty: q.difficulty || "Medium",
         examType: q.examType || "AKT",
         tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-        status: "draft" as const
+        status: "published" as const
       };
       return newQ;
     });
@@ -438,7 +439,7 @@ export default function QuestionsPage() {
     setExtractionState("idle");
     setExtractedQuestions([]);
     
-    alert(`Successfully imported ${newQs.length} questions as drafts!`);
+    alert(`Successfully imported ${newQs.length} questions as published!`);
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -456,7 +457,7 @@ export default function QuestionsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <a
-              href="/templates/question_template.docx"
+              href="/templates/question_template.docx?v=2"
               download
               className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
             >
@@ -526,8 +527,6 @@ export default function QuestionsPage() {
           onChange={(val) => setStatusFilter(val as StatusFilter)}
           options={[
             { value: "all", label: "All Status" },
-            { value: "draft", label: "Draft" },
-            { value: "review", label: "Review" },
             { value: "published", label: "Published" },
           ]}
           className="w-48"
@@ -637,16 +636,7 @@ export default function QuestionsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      {q.status === "draft" && (
-                        <button onClick={() => updateStatus(q.id, "review")} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Send to Review">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                      )}
-                      {q.status === "review" && (
-                        <button onClick={() => updateStatus(q.id, "published")} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Publish">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        </button>
-                      )}
+
                       <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Delete">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
@@ -1195,7 +1185,7 @@ export default function QuestionsPage() {
                       onClick={handleCreateQuestion}
                       className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                     >
-                      {editingQuestion ? "Save Changes" : "Save as Draft"}
+                      {editingQuestion ? "Save Changes" : "Save & Publish"}
                     </button>
                   </div>
                 </div>
@@ -1634,7 +1624,7 @@ export default function QuestionsPage() {
                     onClick={handleSaveImportedQuestions}
                     className={`px-4 py-2.5 text-xs font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                   >
-                    Import & Save as Draft
+                    Import & Publish
                   </button>
                 )}
               </div>

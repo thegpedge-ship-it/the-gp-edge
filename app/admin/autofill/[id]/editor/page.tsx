@@ -1117,8 +1117,8 @@ function TemplateEditorContent() {
     const bank = getQuestions();
     const rel = bank.filter(q => q.topic.toLowerCase().includes(selectedSystem.toLowerCase()));
     const qqs = rel.slice(0, 8); if (qqs.length === 0) qqs.push(...bank.slice(0, 5));
-    const nq = createQuiz({ name: `Quiz: ${docTitle}`, description: `Auto-generated from "${docTitle}"`, timeLimit: qqs.length * 2, passingScore: 70, randomize: true, status: "draft", examType: "AKT", questionIds: qqs.map(q => q.id), topics: [selectedSystem] });
-    addUserNotification("Quiz Generated", `Generated quiz "${nq.name}".`, qqs.length, "quiz");
+    const nq = createQuiz({ name: `Quiz: ${docTitle}`, description: `Auto-generated from "${docTitle}"`, timeLimit: qqs.length * 2, passingScore: 70, randomize: true, status: "active", examType: "AKT", questionIds: qqs.map(q => q.id), topics: [selectedSystem] });
+    addUserNotification("Quiz Generated & Published", `Generated and published quiz "${nq.name}".`, qqs.length, "quiz");
     router.push(`/admin/quizzes/${nq.id}/edit`);
   };
 

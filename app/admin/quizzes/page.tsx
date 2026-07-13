@@ -418,7 +418,7 @@ export default function QuizzesPage() {
                           timeLimit: quizTimeLimit || 60,
                           passingScore: quizPassingScore || 65,
                           randomize: quizRandomize,
-                          status: "draft",
+                          status: "active",
                           examType: "AKT",
                         });
                         
@@ -435,8 +435,8 @@ export default function QuizzesPage() {
                         setQuizzes(getQuizzes());
                         setShowCreateModal(false);
                         addUserNotification(
-                          `New Quiz Draft: ${finalName}`,
-                          `A new mock exam draft has been created. Add questions and publish when ready.`,
+                          `New Quiz Created: ${finalName}`,
+                          `A new mock exam "${finalName}" has been created and published.`,
                           quizLimit || 50,
                           "quiz"
                         );

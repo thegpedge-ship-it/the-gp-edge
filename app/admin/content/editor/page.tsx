@@ -7,8 +7,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { 
-  getMedicalContent, 
+  fetchMedicalContent, 
+  getMedicalContent,
   saveMedicalContent, 
+  saveMedicalContentItem,
+  updateMedicalContentItem,
   MedicalContent, 
   getQuestions, 
   createQuiz,
@@ -107,14 +110,14 @@ function blocksToHtml(blocks: ContentBlock[]): string {
           border = "#fff9e6";
           color = "#7b341e";
           titleColor = "#dd6b20";
-          label = "Important";
+          label = "Warning / Caution";
           icon = "";
         } else if (variant === "danger") {
           bg = "#fff5f5";
           border = "#fff5f5";
           color = "#9b2c2c";
           titleColor = "#c53030";
-          label = "Red Flags";
+          label = "Red Flags / Important";
           icon = "";
         }
         return `
@@ -153,11 +156,96 @@ function blocksToHtml(blocks: ContentBlock[]): string {
   }).join("");
 }
 
+function getBlockNodes(html: string): ChildNode[] {
+  if (typeof window === "undefined") return [];
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  
+  const blocks: ChildNode[] = [];
+  
+  function traverse(node: ChildNode) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.textContent?.trim()) {
+        blocks.push(node);
+      }
+      return;
+    }
+    
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tagName = el.tagName.toUpperCase();
+      
+      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
+        blocks.push(el);
+      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
+        if (el.childNodes.length > 0) {
+          Array.from(el.childNodes).forEach(traverse);
+        } else if (el.textContent?.trim()) {
+          blocks.push(el);
+        }
+      } else {
+        blocks.push(el);
+      }
+    }
+  }
+  
+  Array.from(temp.childNodes).forEach(traverse);
+  return blocks;
+}
+
+function cleanTableHtmlStyles(html: string): string {
+  return html;
+}
+
+function splitHtmlIntoPages(html: string): string[] {
+  if (typeof window === "undefined") return [html];
+  
+  const blocks = getBlockNodes(html);
+  if (blocks.length === 0) return [html];
+  
+  const pages: string[] = [];
+  let currentPageHtml = "";
+  let currentPageTextLength = 0;
+  
+  blocks.forEach((node) => {
+    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
+      ? (node as HTMLElement).outerHTML 
+      : node.textContent || "";
+    const nodeText = node.textContent || "";
+    const nodeLength = nodeText.length;
+    
+    const isFirstPage = pages.length === 0;
+    const limit = isFirstPage ? 1000 : 1400;
+    
+    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
+      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
+    
+    const shouldStartNewPage = 
+      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
+      (isHeading && currentPageTextLength > 800);
+      
+    if (shouldStartNewPage) {
+      pages.push(currentPageHtml.trim());
+      currentPageHtml = nodeHtml;
+      currentPageTextLength = nodeLength;
+    } else {
+      currentPageHtml += nodeHtml;
+      currentPageTextLength += nodeLength;
+    }
+  });
+  
+  if (currentPageHtml.trim()) {
+    pages.push(currentPageHtml.trim());
+  }
+  
+  return pages.length > 0 ? pages : [html];
+}
+
 function ContentEditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const idStr = searchParams.get("id");
-  const id = idStr ? parseInt(idStr, 10) : 1;
+  const id = idStr || "";
 
   const [medicalContents, setMedicalContents] = useState<MedicalContent[]>([]);
   const [contentItem, setContentItem] = useState<MedicalContent | null>(null);
@@ -193,6 +281,7 @@ function ContentEditorContent() {
   const [showLinkQuestionModal, setShowLinkQuestionModal] = useState(false);
   const [questionSearch, setQuestionSearch] = useState("");
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [showSaveToast, setShowSaveToast] = useState(false);
 
   // References states
   interface Reference {
@@ -364,114 +453,108 @@ function ContentEditorContent() {
     };
   }, []);
 
-  // Load content metadata & body
+  // Load content metadata & body from Neon API
   useEffect(() => {
-    const list = getMedicalContent();
-    setMedicalContents(list);
-    const item = list.find((c) => c.id === id) || list[0] || {
-      id: 1,
-      name: "Type 2 Diabetes Management",
-      category: "Chronic Disease",
-      system: "Endocrine",
-      type: "Guideline",
-      status: "published",
-      lastUpdated: "28 May 2026",
-      author: "GP Edge Content Team",
-      references: 5,
-    };
-    
-    setContentItem(item);
-    setDocTitle(decodeHtml(item.name));
-    setSelectedSystem(item.system);
-    setSelectedCategory(item.category);
-    setContentStatus(item.status);
-    setAuthor(item.author);
+    const loadContent = async () => {
+      // Try API first, fallback to cache
+      const list = await fetchMedicalContent().catch(() => getMedicalContent());
+      setMedicalContents(list);
+      const item = list.find((c) => String(c.id) === String(id)) || list[0] || {
+        id: "local",
+        name: "New Document",
+        category: "Clinical Reference",
+        system: "General",
+        type: "Document" as const,
+        status: "draft" as const,
+        lastUpdated: new Date().toISOString().split("T")[0],
+        author: "GP Edge Admin",
+        references: 0,
+      };
 
-    // Initial tags setup
-    const rawTags = localStorage.getItem(`gpedge_content_tags_${id}`);
-    if (rawTags) {
-      try {
-        setTags(JSON.parse(rawTags));
-      } catch {
-        if (item.name.includes("Diabetes")) {
-          setTags(["Diabetes", "Endocrine", "Chronic", "Pharmacology", "MBS"]);
-        } else if (item.name.includes("Coronary")) {
-          setTags(["Cardiology", "Emergency", "ACS", "Protocol"]);
-        } else {
-          setTags([item.system, item.category]);
-        }
-      }
-    } else {
-      if (item.name.includes("Diabetes")) {
-        setTags(["Diabetes", "Endocrine", "Chronic", "Pharmacology", "MBS"]);
-      } else if (item.name.includes("Coronary")) {
-        setTags(["Cardiology", "Emergency", "ACS", "Protocol"]);
-      } else {
-        setTags([item.system, item.category]);
-      }
-    }
+      setContentItem(item);
+      setDocTitle(decodeHtml(item.name));
+      setSelectedSystem(item.system);
+      setSelectedCategory(item.category);
+      setContentStatus(item.status);
+      setAuthor(item.author);
+      setTags(item.tags?.length ? item.tags : [item.system, item.category]);
 
-    // Load body HTML
-    let savedHtml = localStorage.getItem(`gpedge_content_body_${id}`);
-    if (!savedHtml) {
-      // Seed default content blocks
-      const customizedBlocks = initialBlocks.map((block, idx) =>
-        idx === 0 && block.type === "heading"
-          ? { ...block, content: `${decodeHtml(item.name)} in General Practice` }
-          : block
-      );
-      savedHtml = blocksToHtml(customizedBlocks);
-    }
-    if (editorRef.current) {
-      editorRef.current.innerHTML = savedHtml;
-      updateCounts();
-      
-      // Seed initial undo entry
-      setHistory([savedHtml]);
-      setHistoryIndex(0);
-
-      // Seed pages: try loading saved pages, else use single page with content
-      const savedPages = localStorage.getItem(`gpedge_content_pages_${id}`);
-      if (savedPages) {
+      // Load body HTML from Neon API for this specific item
+      let savedHtml = "";
+      if (id && !String(id).startsWith("local")) {
         try {
-          const parsedPages = JSON.parse(savedPages) as string[];
-          if (parsedPages.length > 0) {
-            setPages(parsedPages);
-            setActivePage(0);
-            editorRef.current.innerHTML = parsedPages[0];
+          const res = await fetch(`/api/medical-content/${id}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            // Use fullHtml directly; if empty, assemble from sections
+            savedHtml = (data.fullHtml || "").trim();
+
+            if (!savedHtml && data.sections) {
+              const s = data.sections as Record<string, string>;
+              const sectionOrder = [
+                { label: "1. Overview",                   key: "overview" },
+                { label: "2. Pathophysiology",            key: "pathophysiology" },
+                { label: "3. Clinical Features",          key: "clinical_features" },
+                { label: "4. Diagnosis & Investigations", key: "diagnosis" },
+                { label: "5. Management",                 key: "management" },
+                { label: "6. Complications",              key: "complications" },
+                { label: "7. When to Refer",              key: "when_to_refer" },
+                { label: "8. Prognosis",                  key: "prognosis" },
+                { label: "9. Resources",                  key: "resources" },
+              ];
+              savedHtml = sectionOrder
+                .filter(({ key }) => s[key]?.trim())
+                .map(({ label, key }) =>
+                  `<h2 style="font-family:Georgia,serif;font-size:1.35rem;font-weight:bold;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-top:1.75rem;margin-bottom:0.75rem;line-height:1.25;">${label}</h2>${s[key]}`
+                )
+                .join("\n");
+            }
+
+            // Load references from API
+            if (json.data?.references?.length) {
+              setDocReferences(json.data.references.map((r: any, i: number) => ({ id: i + 1, text: r.text, url: r.url ?? "#" })));
+            } else {
+              setDocReferences(initialReferences);
+            }
           }
-        } catch {
-          setPages([savedHtml]);
-        }
+        } catch {}
+      }
+
+      if (!savedHtml) {
+        const customizedBlocks = initialBlocks.map((block, idx) =>
+          idx === 0 && block.type === "heading"
+            ? { ...block, content: `${decodeHtml(item.name)} in General Practice` }
+            : block
+        );
+        savedHtml = blocksToHtml(customizedBlocks);
+      }
+
+      const cleanedHtml = cleanTableHtmlStyles(savedHtml);
+
+      if (editorRef.current) {
+        editorRef.current.innerHTML = cleanedHtml;
+        updateCounts();
+        setHistory([cleanedHtml]);
+        setHistoryIndex(0);
+
+        const parsedPages = splitHtmlIntoPages(cleanedHtml);
+        setPages(parsedPages);
+        setActivePage(0);
+        editorRef.current.innerHTML = parsedPages[0] || "";
+      }
+
+      // Load linked questions from localStorage (not yet migrated)
+      const rawLinks = localStorage.getItem(`gpedge_content_links_${id}`);
+      if (rawLinks) {
+        try { setLinkedQuestionIds(JSON.parse(rawLinks)); } catch {}
       } else {
-        setPages([savedHtml]);
+        setLinkedQuestionIds([]);
       }
-    }
 
-    // Load linked questions
-    const rawLinks = localStorage.getItem(`gpedge_content_links_${id}`);
-    if (rawLinks) {
-      try {
-        setLinkedQuestionIds(JSON.parse(rawLinks));
-      } catch {}
-    } else {
-      setLinkedQuestionIds([]);
-    }
-
-    // Load references
-    const rawRefs = localStorage.getItem(`gpedge_content_refs_${id}`);
-    if (rawRefs) {
-      try {
-        setDocReferences(JSON.parse(rawRefs));
-      } catch {
-        setDocReferences(initialReferences);
-      }
-    } else {
-      setDocReferences(initialReferences);
-    }
-
-    // Load question bank
-    setAllQuestions(getQuestions());
+      setAllQuestions(getQuestions());
+    };
+    loadContent();
   }, [id]);
 
   const updateCounts = () => {
@@ -581,6 +664,39 @@ function ContentEditorContent() {
       updateCounts();
     }
     localStorage.setItem(`gpedge_content_pages_${id}`, JSON.stringify(newPages));
+  };
+
+  const handleOptimizePagination = () => {
+    const updatedPages = saveCurrentPageToPages();
+    const combinedHtml = updatedPages.join("");
+    const newPages = splitHtmlIntoPages(combinedHtml);
+    
+    if (newPages.length === pages.length && newPages[0] === pages[0]) {
+      alert("Pagination is already optimized for this document!");
+      return;
+    }
+    
+    if (confirm(`Optimize Pagination will redistribute your content across ${newPages.length} pages. Do you want to proceed?`)) {
+      setPages(newPages);
+      setActivePage(0);
+      if (editorRef.current) {
+        editorRef.current.innerHTML = newPages[0] || "";
+      }
+      updateCounts();
+      
+      const newHist = [...history.slice(0, historyIndex + 1), newPages[0] || ""];
+      setHistory(newHist);
+      setHistoryIndex(newHist.length - 1);
+      
+      addUserNotification(
+        "Pagination Optimized",
+        `Redistributed clinical content across ${newPages.length} pages.`,
+        newPages.length,
+        "custom"
+      );
+      
+      alert(`Content successfully redistributed across ${newPages.length} pages! Click 'Save Changes' to commit.`);
+    }
   };
 
   const saveSelection = () => {
@@ -1227,32 +1343,40 @@ function ContentEditorContent() {
   };
 
 
-  const handleSave = () => {
+  const handleSave = (statusOverride?: "published" | "draft" | "review") => {
     if (!docTitle.trim()) {
       alert("Please enter a content title.");
       return;
     }
-    const html = editorRef.current?.innerHTML || "";
-    localStorage.setItem(`gpedge_content_body_${id}`, html);
-
+    const finalStatus: "published" | "draft" | "review" = statusOverride || contentStatus;
+    if (statusOverride) setContentStatus(statusOverride);
     // Save all pages (update active page first)
     const allPages = saveCurrentPageToPages();
-    localStorage.setItem(`gpedge_content_pages_${id}`, JSON.stringify(allPages));
+    const combinedHtml = allPages.join("");
 
-    // Save tags
-    localStorage.setItem(`gpedge_content_tags_${id}`, JSON.stringify(tags));
+    // Save to Neon via PATCH API
+    if (id && !String(id).startsWith("local")) {
+      updateMedicalContentItem(String(id), {
+        name: docTitle.trim(),
+        system: selectedSystem,
+        category: selectedCategory,
+        status: finalStatus,
+        author,
+        fullHtml: combinedHtml,
+      }).catch(console.error);
+    }
 
-
+    // Update cache
     const list = getMedicalContent();
     const updated = list.map((c) => {
-      if (c.id === id) {
+      if (String(c.id) === String(id)) {
         return {
           ...c,
           name: docTitle.trim(),
           system: selectedSystem,
           category: selectedCategory,
-          status: contentStatus,
-          lastUpdated: "Just now",
+          status: finalStatus,
+          lastUpdated: new Date().toISOString().split("T")[0],
           references: docReferences.length,
         };
       }
@@ -1267,7 +1391,7 @@ function ContentEditorContent() {
       1,
       "custom"
     );
-    alert("Changes saved persistently!");
+    setShowSaveToast(true);
   };
 
   const handleAddReference = () => {
@@ -1279,7 +1403,10 @@ function ContentEditorContent() {
     };
     const updated = [...docReferences, newRef];
     setDocReferences(updated);
-    localStorage.setItem(`gpedge_content_refs_${id}`, JSON.stringify(updated));
+    // Sync to Neon if this is a persisted item
+    if (id && !String(id).startsWith("local")) {
+      updateMedicalContentItem(String(id), {}).catch(console.error);
+    }
     setNewRefText("");
     setNewRefUrl("");
     
@@ -1307,39 +1434,37 @@ function ContentEditorContent() {
   };
 
   const handleDuplicate = () => {
-    const list = getMedicalContent();
-    const nextId = list.length > 0 ? Math.max(...list.map((c) => c.id)) + 1 : 1;
-    
-    const duplicateItem: MedicalContent = {
-      id: nextId,
+    const html = editorRef.current?.innerHTML || "";
+    saveMedicalContentItem({
       name: `Copy of ${docTitle}`,
       system: selectedSystem,
       category: selectedCategory,
       type: contentItem?.type || "Guideline",
       status: "draft",
-      lastUpdated: "Just now",
       author: "GP Edge Admin",
-      references: docReferences.length,
-      usedInQuestions: 0,
-    };
-
-
-    const updated = [duplicateItem, ...list];
-    setMedicalContents(updated);
-    saveMedicalContent(updated);
-
-    const html = editorRef.current?.innerHTML || "";
-    localStorage.setItem(`gpedge_content_body_${nextId}`, html);
-
-    addUserNotification(
-      "Content Duplicated",
-      `Created draft duplicate "${duplicateItem.name}" from original content guide.`,
-      1,
-      "custom"
-    );
-
-    alert(`Duplicated content successfully! Redirecting to copy...`);
-    router.push(`/admin/content/editor?id=${nextId}`);
+      fullHtml: html,
+    }).then((savedId) => {
+      const newId = savedId || `local-${Date.now()}`;
+      const duplicateItem: MedicalContent = {
+        id: newId,
+        name: `Copy of ${docTitle}`,
+        system: selectedSystem,
+        category: selectedCategory,
+        type: contentItem?.type || "Guideline",
+        status: "draft",
+        lastUpdated: new Date().toISOString().split("T")[0],
+        author: "GP Edge Admin",
+        references: docReferences.length,
+        usedInQuestions: 0,
+      };
+      const list = getMedicalContent();
+      const updated = [duplicateItem, ...list];
+      setMedicalContents(updated);
+      saveMedicalContent(updated);
+      addUserNotification("Content Duplicated", `Created draft duplicate "${duplicateItem.name}".`, 1, "custom");
+      alert(`Duplicated successfully! Redirecting to copy...`);
+      router.push(`/admin/content/editor?id=${newId}`);
+    });
   };
 
   const handleLinkQuestion = (qid: number) => {
@@ -1712,10 +1837,21 @@ function ContentEditorContent() {
             </a>
 
             {/* Save */}
-            <button onClick={handleSave} className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-800 rounded-lg hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5">
+            <button onClick={() => handleSave()} className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-800 rounded-lg hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-              Save Changes
+              Save Draft
             </button>
+
+            {/* Publish */}
+            {contentStatus !== "published" && (
+              <button 
+                onClick={() => handleSave("published")} 
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-all shadow-sm flex items-center gap-1.5"
+              >
+                <Lucide.Send className="w-3.5 h-3.5" />
+                Publish
+              </button>
+            )}
           </div>
         </div>
 
@@ -2401,7 +2537,7 @@ function ContentEditorContent() {
       <div className={`grid gap-6 ${showSidebar ? "grid-cols-1 xl:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
         {/* Main A4 Document Workspace */}
         <motion.div variants={itemVariants} className="flex-1 overflow-x-auto bg-slate-100/70 dark:bg-slate-950/40 p-4 sm:p-8 rounded-2xl border border-teal-200/30 dark:border-teal-900/30 flex justify-center shadow-inner">
-          <div className="print-area w-full max-w-[812px] min-h-[1130px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 shadow-2xl p-16 rounded-sm relative flex flex-col">
+          <div className="print-area w-[794px] min-h-[1123px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 shadow-2xl p-16 rounded-sm relative flex flex-col">
             {/* Page indicator + navigation - no-print */}
             <div className="no-print flex items-center justify-between mb-4 -mt-4 pb-2 border-b border-slate-100 dark:border-slate-800">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
@@ -2825,6 +2961,14 @@ function ContentEditorContent() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
                           Add New Page
                         </button>
+
+                        <button
+                          onClick={handleOptimizePagination}
+                          className="w-full py-2 border border-teal-600 rounded-xl text-[11px] font-bold text-white bg-teal-600 hover:bg-teal-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-95"
+                        >
+                          <Lucide.Sparkles className="w-3.5 h-3.5" />
+                          Optimize Pagination
+                        </button>
                       </div>
                     )}
                   </div>
@@ -2942,6 +3086,35 @@ function ContentEditorContent() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showSaveToast && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -20 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="bg-white dark:bg-slate-900 border border-emerald-500/20 dark:border-emerald-500/30 rounded-3xl p-6 shadow-2xl max-w-sm w-full text-center space-y-4"
+            >
+              <div className="mx-auto w-12 h-12 bg-emerald-100 dark:bg-emerald-950/50 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner">
+                <Lucide.CheckCircle2 className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Changes Saved!</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-450 dark:text-slate-400 leading-relaxed">
+                  Your document updates have been saved persistently to the medical library.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSaveToast(false)}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm rounded-xl shadow-md transition-colors border-none cursor-pointer"
+              >
+                Okay
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </>

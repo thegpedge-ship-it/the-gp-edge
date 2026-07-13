@@ -8,10 +8,13 @@ const nextConfig = {
   reactStrictMode: true,
   outputFileTracingRoot: path.resolve(__dirname),
 
-  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "pdfkit"],
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "pdfkit", "tesseract.js"],
 
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
   },
 
   images: {
@@ -19,6 +22,14 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "img.clerk.com",
+      },
+      {
+        protocol: "https",
+        hostname: "pub-*.r2.dev",
+      },
+      {
+        protocol: "https",
+        hostname: "*.r2.cloudflarestorage.com",
       },
     ],
   },

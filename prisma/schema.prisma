@@ -1148,6 +1148,17 @@ enum condition_item_kind {
   diagnosis_criterion
   treatment_option
   clinical_note
+  // Section HTML content kinds (for medical document storage)
+  overview
+  pathophysiology
+  clinical_features
+  diagnosis
+  management
+  complications
+  when_to_refer
+  prognosis
+  resources
+  full_html
 }
 
 enum content_format {
