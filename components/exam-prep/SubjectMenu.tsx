@@ -39,11 +39,9 @@ export default function SubjectMenu() {
   const [loadingQuizzes, setLoadingQuizzes] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
 
-  // Step 1 — load the user's subjects once. Before that, kick off the side
-  // panel's mock-tests request so its "Tests" count is the first thing to land:
-  // this menu's mount effect runs before SidePanel's, so firing it here gets the
-  // mock round-trip out ahead of the subjects one. The cache de-dupes it, so
-  // SidePanel's own fetch rides this request instead of racing it.
+  // Step 1 — load the user's subjects once. Also warm the mock-tests cache so
+  // the "Do a Mock Test" modal opens instantly if visited next (the cache
+  // de-dupes with the page-level prefetch).
   useEffect(() => {
     let cancelled = false;
     void cachedMockTests();
@@ -120,14 +118,8 @@ export default function SubjectMenu() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Title */}
-      <div className="mb-4 pl-4 sm:pl-6 mt-1">
-        <h1 className="font-serif text-[1.5rem] md:text-[1.8rem] lg:text-[2.4rem] font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-100">Exam Preparation</h1>
-        <p className="font-sans text-sm font-normal leading-relaxed text-slate-500 dark:text-slate-400 mt-1">Master every topic, drill your weak areas, and pass with confidence.</p>
-      </div>
-
       {/* ─── 3-Column Vertical Menu ───────────────────────────────────── */}
-      <div className="flex-1 flex min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20 mt-[10px] ml-[10px]">
+      <div className="flex-1 flex min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
 
         {/* ── Column 1: Subjects ──────────────────────────────────────── */}
         <div

@@ -143,6 +143,7 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
       select: {
         current_streak_days: true,
         longest_streak_days: true,
+        last_active_date: true,
         overall_accuracy: true,
         total_attempts: true,
       },
@@ -192,8 +193,14 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
 
   /* ── STATS (telemetry grid) ─────────────────────────────────────────────── */
   const totalMocks = userMockAttempts.length;
+  // current_streak_days is only rewritten on submit, so it goes stale after a
+  // missed day — show 0 unless the user was active today or yesterday.
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const streakAlive =
+    summary?.last_active_date != null &&
+    Math.round((startOfDay(new Date()) - startOfDay(new Date(summary.last_active_date))) / 86_400_000) <= 1;
   const stats: ProfileStat[] = [
-    { key: "streak", label: "Study Streak", value: String(summary?.current_streak_days ?? 0) },
+    { key: "streak", label: "Study Streak", value: String(streakAlive ? summary?.current_streak_days ?? 0 : 0) },
     { key: "accuracy", label: "Avg Accuracy", value: `${num(summary?.overall_accuracy).toFixed(1)}%` },
     { key: "attempts", label: "Quiz Attempts", value: withCommas(summary?.total_attempts ?? 0) },
     { key: "mocks", label: "Mock Exams", value: String(totalMocks) },

@@ -35,13 +35,18 @@ export default async function DashboardPage() {
         ))}
       </section>
 
-      <section className="mb-6">
-        <ActivityHeatmapCard studyActivity={data.studyActivity} />
-      </section>
-
-      {data.upcomingExam && (
+      {data.upcomingExam ? (
+        <section className="grid grid-cols-1 lg:grid-cols-10 gap-4 mb-6">
+          <div className="lg:col-span-3">
+            <CountdownCard exam={data.upcomingExam} />
+          </div>
+          <div className="lg:col-span-7">
+            <ActivityHeatmapCard studyActivity={data.studyActivity} />
+          </div>
+        </section>
+      ) : (
         <section className="mb-6">
-          <CountdownCard exam={data.upcomingExam} />
+          <ActivityHeatmapCard studyActivity={data.studyActivity} />
         </section>
       )}
 

@@ -9,6 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 import GlobalLogo from "@/components/shared/GlobalLogo";
+import VisitTracker from "@/components/shared/VisitTracker";
 import Script from "next/script";
 
 const inter = Inter({ 
@@ -86,11 +87,12 @@ export default function RootLayout({
         <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`}>
           <ThemeProvider>
             <PageBackground />
-            
+
             <GlobalLogo />
 
             <Header />
             {children}
+            <VisitTracker />
           </ThemeProvider>
         </body>
       </html>

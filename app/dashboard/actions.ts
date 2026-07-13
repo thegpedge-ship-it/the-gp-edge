@@ -108,6 +108,9 @@ const DAY_MS = 86_400_000;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const dayKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// For pure DATE columns stored as UTC-midnight (user_active_days.active_date).
+const dayKeyUTC = (d: Date) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 const pct = (correct: number, total: number) => (total > 0 ? (correct / total) * 100 : 0);
 const withCommas = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -128,7 +131,7 @@ export async function getDashboardData(): Promise<DashboardData> {
   const yearAgo = new Date(now.getTime() - 365 * DAY_MS);
 
   // ── Pull the sources in parallel ──────────────────────────────────────────
-  const [summary, attempts, mastery, subjectQCounts, counts, nextMock, mockBreakdown] =
+  const [summary, attempts, mastery, subjectQCounts, counts, nextMock, mockBreakdown, activeVisits] =
     await Promise.all([
       // 1. Running rollup: streak + totals + overall accuracy.
       prisma.user_performance_summary.findUnique({ where: { user_id: dbUser.id } }),
@@ -209,6 +212,13 @@ export async function getDashboardData(): Promise<DashboardData> {
           },
         },
       }),
+
+      // 8. Days the user simply visited the platform (any page) in the trailing
+      //    year. Lets the heatmap mark a day active on a visit, not just a submit.
+      prisma.user_active_days.findMany({
+        where: { user_id: dbUser.id, active_date: { gte: startOfDay(yearAgo) } },
+        select: { active_date: true },
+      }),
     ]);
 
   const [mbsCount, conditionCount, savedTemplates, bookmarks] = counts;
@@ -226,6 +236,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     bookmarks,
     nextMock,
     mockBreakdown,
+    activeVisits,
   });
 }
 
@@ -273,6 +284,7 @@ type BuildArgs = {
       subjects: { name: string } | null;
     }[];
   }[];
+  activeVisits: { active_date: Date }[];
 };
 
 function buildData(a: BuildArgs): DashboardData {
@@ -292,15 +304,29 @@ function buildData(a: BuildArgs): DashboardData {
       : "Start your first practice set to light up your dashboard.",
   };
 
+  /* ── ACTIVE DAYS (source of truth for the streak) ────────────────────────
+   * The set of calendar days the user was active — either they submitted a test
+   * OR simply visited the platform (user_active_days). We compute the streak
+   * from this set directly rather than trusting user_performance_summary's
+   * current_streak_days, which is only rewritten on submit and so goes stale the
+   * moment the user's activity isn't a fresh submission. */
+  const activeDayKeys = new Set<string>();
+  for (const t of attempts) if (t.submitted_at) activeDayKeys.add(dayKey(t.submitted_at));
+  for (const v of a.activeVisits) activeDayKeys.add(dayKeyUTC(v.active_date));
+
   /* ── STAT TILE 1 — STUDY STREAK ──────────────────────────────────────────
-   * Value: current_streak_days from the summary (incremented on submit only if
-   *   the previous active day was exactly yesterday; reset to 1 on a gap).
-   * Caption: longest_streak_days ever.
+   * Value: consecutive active days ending today (or yesterday — a streak is
+   *   still alive until a full day is missed). 0 once broken.
+   * Caption: longest run ever — the summary's lifetime figure, floored by the
+   *   longest run we can see in the trailing-year window.
    * Spark: active-day count per week for the last 12 weeks (a proxy for
-   *   momentum — a fuller bar means more days practised that week). */
-  const currentStreak = summary?.current_streak_days ?? 0;
-  const longestStreak = summary?.longest_streak_days ?? 0;
-  const weeklyActiveDays = weeklyActiveDaySeries(attempts, now, 12);
+   *   momentum — a fuller bar means more days active that week). */
+  const currentStreak = currentStreakFrom(activeDayKeys, now);
+  const longestStreak = Math.max(
+    summary?.longest_streak_days ?? 0,
+    longestStreakFrom(activeDayKeys)
+  );
+  const weeklyActiveDays = weeklyActiveDayCounts(activeDayKeys, now, 12);
 
   /* ── STAT TILE 2 — AVG ACCURACY ──────────────────────────────────────────
    * Value: overall_accuracy from the summary = total_correct / total_questions
@@ -377,14 +403,23 @@ function buildData(a: BuildArgs): DashboardData {
   ];
 
   /* ── STUDY ACTIVITY HEATMAP ───────────────────────────────────────────────
-   * One entry per day the user practised, count = total questions answered
-   * that day (summed across every attempt submitted that day). The card slices
-   * this to its trailing-12-month grid. */
+   * One entry per day the user was ACTIVE — either they submitted a test, or
+   * they simply visited the platform (user_active_days). count = total
+   * questions answered that day (0 for a visit-only day). Every entry, even a
+   * count-0 one, marks the day active in the heatmap; days absent from the map
+   * are the only ones shown inactive. The card slices this to its grid. */
   const perDay = new Map<string, number>();
   for (const t of attempts) {
     if (!t.submitted_at) continue;
     const k = dayKey(t.submitted_at);
     perDay.set(k, (perDay.get(k) ?? 0) + t.total_questions);
+  }
+  // A visit-only day contributes 0 questions but must still count as active.
+  // active_date is a pure DATE stored as UTC-midnight (see /api/visit), so read
+  // its calendar day back with UTC parts.
+  for (const v of a.activeVisits) {
+    const k = dayKeyUTC(v.active_date);
+    if (!perDay.has(k)) perDay.set(k, 0);
   }
   const studyActivity: DashHeatDay[] = [...perDay.entries()]
     .map(([date, count]) => ({ date, count }))
@@ -541,11 +576,53 @@ function weeklyBuckets<T>(attempts: Attempt[], now: Date, weeks: number, seed: T
   return buckets;
 }
 
-/** Distinct active days per week (streak-momentum sparkline). */
-function weeklyActiveDaySeries(attempts: Attempt[], now: Date, weeks: number): number[] {
-  return weeklyBuckets(attempts, now, weeks, []).map(
-    (b) => new Set(b.map((t) => dayKey(t.submitted_at!))).size
-  );
+/**
+ * Consecutive active days ending today, or yesterday if today isn't active yet
+ * (a streak stays alive until a full calendar day is missed). 0 once broken.
+ * `activeDays` holds "YYYY-MM-DD" keys for every day the user submitted or
+ * visited, so this is the authoritative streak — no dependency on the
+ * submit-only summary rollup.
+ */
+function currentStreakFrom(activeDays: Set<string>, now: Date): number {
+  let cursor = startOfDay(now);
+  if (!activeDays.has(dayKey(cursor))) {
+    cursor = new Date(cursor.getTime() - DAY_MS); // fall back to yesterday
+    if (!activeDays.has(dayKey(cursor))) return 0;
+  }
+  let streak = 0;
+  while (activeDays.has(dayKey(cursor))) {
+    streak += 1;
+    cursor = new Date(cursor.getTime() - DAY_MS);
+  }
+  return streak;
+}
+
+/** Longest run of consecutive active days within the set (trailing window). */
+function longestStreakFrom(activeDays: Set<string>): number {
+  if (activeDays.size === 0) return 0;
+  const sorted = [...activeDays].sort(); // YYYY-MM-DD sorts chronologically
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = startOfDay(new Date(`${sorted[i - 1]}T00:00:00`));
+    const cur = startOfDay(new Date(`${sorted[i]}T00:00:00`));
+    const gap = Math.round((cur.getTime() - prev.getTime()) / DAY_MS);
+    run = gap === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+  return longest;
+}
+
+/** Count of active days per trailing week (streak-momentum sparkline). */
+function weeklyActiveDayCounts(activeDays: Set<string>, now: Date, weeks: number): number[] {
+  const start = startOfDay(new Date(now.getTime() - (weeks * 7 - 1) * DAY_MS));
+  const buckets = new Array(weeks).fill(0);
+  for (const key of activeDays) {
+    const d = startOfDay(new Date(`${key}T00:00:00`));
+    const idx = Math.floor((d.getTime() - start.getTime()) / (7 * DAY_MS));
+    if (idx >= 0 && idx < weeks) buckets[idx] += 1;
+  }
+  return buckets;
 }
 
 /** Per-week accuracy; empty weeks inherit the last known value (flat line). */
