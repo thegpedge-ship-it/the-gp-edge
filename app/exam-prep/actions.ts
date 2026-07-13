@@ -437,11 +437,22 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
   ]);
 
   const subjectByQ = new Map(qRows.map((q) => [q.id, q.subject_id]));
-  const correctIsByQ = new Map<string, Map<number, boolean>>();
+
+  // Grade by the SAME 0-based option index the client uses: the client orders
+  // options by ascending `position` and reports selectedIndex as the index into
+  // that ordered list — NOT the raw `position` value (which may be 1-based or
+  // non-contiguous). Keying correctness by raw position mis-scored every attempt
+  // whose option positions didn't start at 0 (client shows 100%, DB stored 0%).
+  const optionRowsByQ = new Map<string, { position: number; is_correct: boolean }[]>();
   for (const o of optionRows) {
-    const m = correctIsByQ.get(o.question_id) ?? new Map<number, boolean>();
-    m.set(o.position, o.is_correct);
-    correctIsByQ.set(o.question_id, m);
+    const arr = optionRowsByQ.get(o.question_id) ?? [];
+    arr.push({ position: o.position, is_correct: o.is_correct });
+    optionRowsByQ.set(o.question_id, arr);
+  }
+  const correctByRank = new Map<string, boolean[]>();
+  for (const [qid, arr] of optionRowsByQ) {
+    arr.sort((a, b) => a.position - b.position);
+    correctByRank.set(qid, arr.map((o) => o.is_correct));
   }
 
   const answerByQ = new Map(input.answers.map((a) => [a.questionId, a]));
@@ -455,7 +466,7 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
   for (const qid of questionIds) {
     const selected = answerByQ.get(qid)?.selectedIndex ?? null;
     const answered = selected !== null && selected !== undefined;
-    const isCorrect = answered && correctIsByQ.get(qid)?.get(selected) === true;
+    const isCorrect = answered && correctByRank.get(qid)?.[selected] === true;
     if (isCorrect) correctCount++;
 
     const subjectId = subjectByQ.get(qid);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { cachedMockTests } from "@/lib/examCache";
+import { cachedMockTests, clearMockTestsCache } from "@/lib/examCache";
 import type { UiMockTest } from "@/app/exam-prep/actions";
 import StudyByTopicModal from "@/components/exam-prep/StudyByTopicModal";
 import MockTestsModal from "@/components/exam-prep/MockTestsModal";
@@ -56,6 +56,22 @@ export default function ExamPrepPage() {
       cancelled = true;
     };
   }, []);
+
+  // Best scores / attempt counts change after every attempt, so whenever the
+  // Mock Tests modal is opened we drop any (possibly stale) cached entry and
+  // pull the latest per-user stats. This keeps the "Best n%" on each card
+  // correct even if the post-attempt cache-clear raced with navigating back.
+  useEffect(() => {
+    if (active !== "mock") return;
+    let cancelled = false;
+    clearMockTestsCache();
+    cachedMockTests().then((m) => {
+      if (!cancelled) setMockTests(m);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   return (
     <div
