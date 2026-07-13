@@ -7,6 +7,7 @@ import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
 import type { ExamTreeSubject } from "@/app/exam-prep/actions";
 import { cachedExamTree } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
+import ViewReportButton from "@/components/report/ViewReportButton";
 
 /* Default question count when the modal opens — the user can change it,
    but it is always clamped to the pool of selected subtopics. */
@@ -387,17 +388,20 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                 </div>
               </div>
 
-              <button
-                onClick={startQuiz}
-                disabled={selectedList.length === 0 || starting}
-                className={`flex-shrink-0 px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
-                  selectedList.length === 0 || starting
-                    ? "bg-slate-200 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
-                    : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"
-                }`}
-              >
-                {starting ? "Preparing…" : "Start Quiz →"}
-              </button>
+              <div className="flex-shrink-0 flex items-center gap-3">
+                <ViewReportButton testId="custom" variant="link" />
+                <button
+                  onClick={startQuiz}
+                  disabled={selectedList.length === 0 || starting}
+                  className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
+                    selectedList.length === 0 || starting
+                      ? "bg-slate-200 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
+                      : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"
+                  }`}
+                >
+                  {starting ? "Preparing…" : "Start Quiz →"}
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>

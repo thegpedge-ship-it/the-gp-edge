@@ -8,6 +8,9 @@ import type { TestConfig, TestPlan } from "@/lib/testSession";
 import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
 import type { QuizQuestion } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
+import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
+import { generateReportBlob } from "@/lib/report/generateReport";
+import { saveReport } from "@/lib/report/reportStore";
 import TestNotFound from "@/components/test/TestNotFound";
 
 type QuestionStatus = "answered" | "not-answered" | "not-visited";
@@ -186,6 +189,10 @@ export default function TestPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
+  const reportBlobRef = useRef<Blob | null>(null);
+  const reportNameRef = useRef<string>("");
+  const reportGenRef = useRef(false);
   const submittedRef = useRef(false);
   const planRef = useRef<TestPlan | null>(null);
   const startedAtRef = useRef<string>("");
@@ -269,6 +276,65 @@ export default function TestPage() {
     setShowConfirm(false);
     setSubmitted(true);
   }, []);
+
+  /* Build the PDF report entirely in the browser and persist it locally
+     (IndexedDB, keyed by testId so re-takes overwrite). Nothing is sent to the
+     server, the database, or R2. Returns the generated Blob so the caller can
+     also offer a download. Reuses an already-generated report if present. */
+  const generateAndStore = useCallback(async (): Promise<Blob> => {
+    if (reportBlobRef.current) return reportBlobRef.current;
+    const plan = planRef.current;
+    const report = buildReportData({
+      testName: config?.name ?? plan?.name ?? "Test",
+      questions,
+      answers,
+      timeUsedSeconds: elapsed,
+    });
+    const blob = await generateReportBlob(report);
+    reportBlobRef.current = blob;
+    reportNameRef.current = reportFileName(report.testName);
+    await saveReport({
+      testId,
+      testName: report.testName,
+      scorePercent: report.scorePercent,
+      createdAt: new Date().toISOString(),
+      blob,
+    });
+    return blob;
+  }, [config, questions, answers, elapsed, testId]);
+
+  /* Compulsory: as soon as the test is submitted, generate the report and save
+     it to IndexedDB in the background — regardless of whether the user ever
+     downloads it. This is what makes "View Report" available afterwards. */
+  useEffect(() => {
+    if (!submitted || reportGenRef.current) return;
+    const plan = planRef.current;
+    if (!plan || questions.length === 0) return;
+    reportGenRef.current = true;
+    setReportState("generating");
+    generateAndStore()
+      .then(() => setReportState("ready"))
+      .catch(() => setReportState("error"));
+  }, [submitted, questions, generateAndStore]);
+
+  /* Downloading is entirely the user's choice — the file is already saved
+     locally by the effect above; this just hands them a copy. */
+  const handleDownloadReport = useCallback(async () => {
+    try {
+      const blob = reportBlobRef.current ?? (await generateAndStore());
+      setReportState("ready");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = reportNameRef.current || "report.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch {
+      setReportState("error");
+    }
+  }, [generateAndStore]);
 
   /* Countdown timer — auto-submit at zero. Mock tests only. */
   useEffect(() => {
@@ -392,7 +458,27 @@ export default function TestPage() {
               <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-1">Time Used</p>
             </div>
           </div>
-          <div className="px-8 py-5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+          <div className="px-8 py-5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2.5">
+            <button
+              onClick={handleDownloadReport}
+              disabled={reportState === "generating"}
+              className="w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700/60 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-800 text-[14px] font-bold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 disabled:opacity-70 disabled:cursor-wait transition-all duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {reportState === "generating" ? "Saving report…" : "Download Report"}
+            </button>
+            {reportState === "error" && (
+              <p className="text-[11px] text-red-500 dark:text-red-400 text-center">
+                Couldn&rsquo;t save the report. Tap the button to try again.
+              </p>
+            )}
+            {reportState === "ready" && (
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
+                Report saved to this device &mdash; download a copy now, or reopen it any time with &ldquo;View Report&rdquo;.
+              </p>
+            )}
             <button
               onClick={() => router.push("/exam-prep")}
               className="w-full px-6 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[14px] font-bold shadow-md shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"

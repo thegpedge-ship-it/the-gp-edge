@@ -7,6 +7,7 @@ import { getQuizQuestionIds } from "@/app/exam-prep/actions";
 import type { ExamSubject, ExamSubtopic, ExamQuiz } from "@/app/exam-prep/actions";
 import { cachedExamSubjects, cachedSubtopics, cachedQuizzes, cachedMockTests } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
+import ViewReportButton from "@/components/report/ViewReportButton";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
 const theme = {
@@ -301,13 +302,16 @@ export default function SubjectMenu() {
                           <span>&middot;</span>
                           <span>{quiz.questionCount} Qs</span>
                         </div>
-                        <button
-                          onClick={() => handleStart(quiz)}
-                          disabled={startingId === quiz.id}
-                          className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[12px] font-normal tracking-wide transition-colors duration-200"
-                        >
-                          {startingId === quiz.id ? "Loading…" : "Start"}
-                        </button>
+                        <div className="flex items-center gap-2.5">
+                          <ViewReportButton testId={quiz.id} variant="link" />
+                          <button
+                            onClick={() => handleStart(quiz)}
+                            disabled={startingId === quiz.id}
+                            className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[12px] font-normal tracking-wide transition-colors duration-200"
+                          >
+                            {startingId === quiz.id ? "Loading…" : "Start"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

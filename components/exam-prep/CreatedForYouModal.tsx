@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Sparkles, ArrowRight } from "lucide-react";
 import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
+import ViewReportButton from "@/components/report/ViewReportButton";
 
 /* ─── "Created for You" modal ─────────────────────────────────────────────
    A ready-made mixed quiz drawn live from the whole published bank (no topic
@@ -153,6 +154,11 @@ export default function CreatedForYouModal({
                 {starting ? "Preparing…" : "Start"}
                 {!starting && <ArrowRight size={15} strokeWidth={2.4} />}
               </button>
+
+              {/* Most-recent report for this drill, if one was saved locally */}
+              <div className="flex justify-center">
+                <ViewReportButton testId="drill" variant="link" />
+              </div>
             </div>
           </motion.div>
         </motion.div>

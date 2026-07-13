@@ -7,6 +7,7 @@ import { FileText, Clock, Lock, Trophy, ArrowRight, X } from "lucide-react";
 import type { UiMockTest } from "@/app/exam-prep/actions";
 import { cachedMockTestQuestionIds } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
+import ViewReportButton from "@/components/report/ViewReportButton";
 
 /* ─── Single mock-test card (roomy grid tile, minimal meta) ───────────────── */
 function TestCard({
@@ -90,30 +91,33 @@ function TestCard({
           </span>
         )}
 
-        {isLocked ? (
-          <span className="relative group/lock">
-            <button
-              disabled
-              aria-label={test.unlockHint ?? "This test is locked for now."}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-slate-100 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
-            >
-              <Lock size={13} strokeWidth={2.2} />
-              Locked
-            </button>
-            <span className="pointer-events-none absolute right-0 bottom-full mb-2 z-10 w-max max-w-[220px] rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-[11px] font-medium text-white opacity-0 translate-y-1 transition-all duration-150 group-hover/lock:opacity-100 group-hover/lock:translate-y-0 shadow-lg">
-              {test.unlockHint ?? "This test is locked for now."}
+        <div className="flex items-center gap-2.5">
+          {!isLocked && <ViewReportButton testId={test.id} variant="link" />}
+          {isLocked ? (
+            <span className="relative group/lock">
+              <button
+                disabled
+                aria-label={test.unlockHint ?? "This test is locked for now."}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-slate-100 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
+              >
+                <Lock size={13} strokeWidth={2.2} />
+                Locked
+              </button>
+              <span className="pointer-events-none absolute right-0 bottom-full mb-2 z-10 w-max max-w-[220px] rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-[11px] font-medium text-white opacity-0 translate-y-1 transition-all duration-150 group-hover/lock:opacity-100 group-hover/lock:translate-y-0 shadow-lg">
+                {test.unlockHint ?? "This test is locked for now."}
+              </span>
             </span>
-          </span>
-        ) : (
-          <button
-            onClick={() => onStart(test)}
-            disabled={starting}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-wait text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200"
-          >
-            {starting ? "Loading…" : action}
-            {!starting && <ArrowRight size={13} strokeWidth={2.4} />}
-          </button>
-        )}
+          ) : (
+            <button
+              onClick={() => onStart(test)}
+              disabled={starting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-wait text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200"
+            >
+              {starting ? "Loading…" : action}
+              {!starting && <ArrowRight size={13} strokeWidth={2.4} />}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
