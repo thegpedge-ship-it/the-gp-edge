@@ -110,7 +110,7 @@ export function cachedExamTree(): Promise<ExamTreeSubject[]> {
 }
 
 export function cachedMockTests(): Promise<UiMockTest[]> {
-  return cached("mock_tests", getMockTests);
+  return getMockTests();
 }
 
 /**

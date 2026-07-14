@@ -2,6 +2,7 @@
 
 import { query, queryOne, execute } from "@/lib/db";
 import { importQuestionsAction } from "./question.actions";
+import { revalidatePath } from "next/cache";
 
 export interface SyncQuizInput {
   name: string;
@@ -179,6 +180,9 @@ export async function syncQuizToDbAction(
       }
     }
 
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
+
     return { success: true, dbId: dbQuiz!.id, dbMockId };
   } catch (error: any) {
     console.error("Failed to sync quiz to database:", error);
@@ -193,6 +197,8 @@ export async function deleteQuizFromDbAction(quizName: string) {
   try {
     await execute(`DELETE FROM quizzes WHERE name = $1`, [quizName]);
     await execute(`DELETE FROM mock_tests WHERE name = $1`, [quizName]);
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
     console.error("Failed to delete quiz from database:", error);

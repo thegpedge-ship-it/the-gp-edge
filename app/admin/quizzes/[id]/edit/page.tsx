@@ -409,6 +409,7 @@ export default function EditQuizPage() {
 
   const availableQuestions = useMemo(() => {
     return QUESTION_BANK.filter((q) => {
+      if (q.status !== "published") return false;
       if (questionIds.includes(q.id)) return false;
       const matchSearch =
         questionSearch === "" ||

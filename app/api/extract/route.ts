@@ -445,19 +445,50 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
 }
 
 /**
- * Checks if a line is a metadata tag.
+ * Checks if a line is a metadata tag. Supports plural, alternative, or misspelled forms.
  */
 function isMetadataLine(line: string): boolean {
   const clean = line.trim().toLowerCase();
   return (
-    /^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]/i.test(clean) ||
-    /^(?:topic|category)\s*[:\-]/i.test(clean) ||
-    /^subtopic\s*[:\-]/i.test(clean) ||
-    /^difficulty\s*[:\-]/i.test(clean) ||
-    /^tags\s*[:\-]/i.test(clean) ||
+    /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-]/i.test(clean) ||
+    /^(?:topic|category|subject)s?\s*[:\-]/i.test(clean) ||
+    /^sub[- ]?topics?\s*[:\-]/i.test(clean) ||
+    /^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]/i.test(clean) ||
+    /^(?:tags?|keywords?)\s*[:\-]/i.test(clean) ||
     /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination)\s*[:\-]/i.test(clean)
   );
 }
+
+/**
+ * Checks if a parsed metadata value is strictly valid when we are already in rationale parsing mode.
+ * This prevents ordinary sentences inside rationale containing colons/dashes from triggering false positive exits.
+ */
+function isStrictMetadataMatch(
+  val: string,
+  type: "correct" | "difficulty" | "tags" | "topic" | "subtopic",
+  parsingRationale: boolean
+): boolean {
+  if (!parsingRationale) return true;
+  const cleanVal = val.trim();
+  if (type === "difficulty") {
+    // Must be exactly easy, medium, or hard (case-insensitive) and short
+    return /^(easy|medium|hard)$/i.test(cleanVal) && cleanVal.length < 20;
+  }
+  if (type === "correct") {
+    // Must be a single letter from A to H (optionally followed by option text)
+    return /^[A-H](\b|[\.\)\- ]|$)/i.test(cleanVal) && cleanVal.length < 200;
+  }
+  if (type === "tags") {
+    // Tags must be reasonably short
+    return cleanVal.length < 80;
+  }
+  if (type === "topic" || type === "subtopic") {
+    // Topic/subtopic must be short and not look like a full sentence
+    return cleanVal.length < 80 && !cleanVal.includes(".") && !/\b(is|are|was|were|should|will|have|has)\b/i.test(cleanVal);
+  }
+  return true;
+}
+
 
 /**
  * Carves JPEG, PNG images from raw binary buffer, and also extracts
@@ -1868,8 +1899,8 @@ export function parseTextToQuestions(text: string): any[] {
     return `[IMAGE_PLACEHOLDER_${imageUrls.length - 1}]`;
   });
   
-  // Split by Question/Q followed by number
-  let blocks = textWithPlaceholders.split(/\b(?:Question|Q)\s*\d+[:.]?/i);
+  // Split by Question/Q followed by number (only when starting at a new line)
+  let blocks = textWithPlaceholders.split(/(?:\n|^)\s*(?:Question|Q)\s*\d+\s*[:.]?/i);
   if (blocks.length <= 1) {
     // Fallback: split by numeric lines (e.g. "\n1. " or "\n1) ")
     blocks = textWithPlaceholders.split(/(?:\n|^)\s*\d+[\.\)]\s+/);
@@ -1945,10 +1976,11 @@ export function parseTextToQuestions(text: string): any[] {
       }
       
       // 2. Metadata Matches (only checked once we leave the question text state)
-      // Check for Correct Answer
-      // Check for Correct Answer (only if we are not already parsing rationale)
-      const correctMatch = !parsingRationale ? line.match(/^(?:correct\s*answer|correct\s*option|correct|answer)\s*[:\-]\s*(.*)$/i) : null;
-      if (correctMatch) {
+      // 2. Metadata Matches (only checked once we leave the question text state)
+      // Check for Correct Answer (only if we are not already parsing rationale, or it matches strictly)
+      const correctMatch = line.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-]\s*(.*)$/i);
+      const isRealCorrect = correctMatch && isStrictMetadataMatch(correctMatch[1], "correct", parsingRationale);
+      if (isRealCorrect && correctMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let ansVal = correctMatch[1].trim();
@@ -1978,9 +2010,9 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Topic (only if not in rationale, or line is short)
-      const topicMatch = line.match(/^(?:topic|category)\s*[:\-]\s*(.*)$/i);
-      const isRealTopic = topicMatch && (!parsingRationale || line.length < 100);
+      // Check for Topic (only if not in rationale, or matches strictly)
+      const topicMatch = line.match(/^(?:topic|category|subject)s?\s*[:\-]\s*(.*)$/i);
+      const isRealTopic = topicMatch && isStrictMetadataMatch(topicMatch[1], "topic", parsingRationale);
       if (isRealTopic && topicMatch) {
         parsingState = "metadata";
         parsingRationale = false;
@@ -2002,9 +2034,9 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Subtopic (only if not in rationale, or line is short)
-      const subtopicMatch = line.match(/^subtopic\s*[:\-]\s*(.*)$/i);
-      const isRealSubtopic = subtopicMatch && (!parsingRationale || line.length < 100);
+      // Check for Subtopic (only if not in rationale, or matches strictly)
+      const subtopicMatch = line.match(/^sub[- ]?topics?\s*[:\-]\s*(.*)$/i);
+      const isRealSubtopic = subtopicMatch && isStrictMetadataMatch(subtopicMatch[1], "subtopic", parsingRationale);
       if (isRealSubtopic && subtopicMatch) {
         parsingState = "metadata";
         parsingRationale = false;
@@ -2026,9 +2058,9 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Difficulty (only if not in rationale, or line is short)
-      const difficultyMatch = line.match(/^difficulty\s*[:\-]\s*(.*)$/i);
-      const isRealDifficulty = difficultyMatch && (!parsingRationale || line.length < 100);
+      // Check for Difficulty (only if not in rationale, or matches strictly)
+      const difficultyMatch = line.match(/^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]\s*(.*)$/i);
+      const isRealDifficulty = difficultyMatch && isStrictMetadataMatch(difficultyMatch[1], "difficulty", parsingRationale);
       if (isRealDifficulty && difficultyMatch) {
         parsingState = "metadata";
         parsingRationale = false;
@@ -2053,9 +2085,9 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
       
-      // Check for Tags (only if not in rationale, or line is short)
-      const tagsMatch = line.match(/^tags\s*[:\-]\s*(.*)$/i);
-      const isRealTags = tagsMatch && (!parsingRationale || line.length < 100);
+      // Check for Tags (only if not in rationale, or matches strictly)
+      const tagsMatch = line.match(/^(?:tags?|keywords?)\s*[:\-]\s*(.*)$/i);
+      const isRealTags = tagsMatch && isStrictMetadataMatch(tagsMatch[1], "tags", parsingRationale);
       if (isRealTags && tagsMatch) {
         parsingState = "metadata";
         parsingRationale = false;
@@ -2378,8 +2410,10 @@ export async function POST(req: NextRequest) {
 
     // Heuristic auto-detect fallback check for questions
     const hasQuestionPatterns = 
-      rawText.substring(0, 1500).toLowerCase().includes("question 1") && 
-      (rawText.toLowerCase().includes("correct answer") || rawText.toLowerCase().includes("rationale"));
+      /(?:\n|^|\s)(?:Question|Q)\s*\d+\b/i.test(rawText) && 
+      (/(?:correct\s*answer|correct\s*option|correct|answer\s*key)\s*[:\-]/i.test(rawText) || 
+       /(?:rationale|explanation)\s*[:\-]/i.test(rawText) ||
+       /\b[A-E][\.\)\-]\s+/i.test(rawText));
 
     if (hasQuestionPatterns) {
       let qRawText = "";

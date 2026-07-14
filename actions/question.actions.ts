@@ -91,8 +91,30 @@ export async function importQuestionsAction(questionsList: any[]) {
               `SELECT id FROM subjects WHERE LOWER(name) LIKE LOWER($1) LIMIT 1`,
               [`%${searchTopic}%`]
             );
-            if (partial) subjectId = partial.id;
+            if (partial) {
+              subjectId = partial.id;
+            } else {
+              // Create subject
+              const subjectSlug = searchTopic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+              const newSubject = await queryOne<{ id: string }>(
+                `INSERT INTO subjects (slug, name) VALUES ($1, $2) RETURNING id`,
+                [subjectSlug, searchTopic]
+              );
+              subjectId = newSubject ? newSubject.id : null;
+            }
           }
+        }
+      }
+
+      // If rawSubtopic was specified but not found, create it now that we have subjectId
+      if (rawSubtopic && !subtopicId && subjectId) {
+        const subtopicSlug = rawSubtopic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+        const newSubtopic = await queryOne<{ id: string }>(
+          `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
+          [subjectId, subtopicSlug, rawSubtopic]
+        );
+        if (newSubtopic) {
+          subtopicId = newSubtopic.id;
         }
       }
 
