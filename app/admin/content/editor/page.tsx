@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect, useRef } from "react";
+import { useState, Suspense, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -268,6 +268,29 @@ function ContentEditorContent() {
   const [activePage, setActivePage] = useState(0);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Zoom & scaling support
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+  const [pdfZoom, setPdfZoom] = useState(100);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !containerRef.current) return;
+    const updateScale = () => {
+      const parentWidth = containerRef.current?.getBoundingClientRect().width || 794;
+      const padding = window.innerWidth >= 640 ? 64 : 32;
+      const availableWidth = parentWidth - padding;
+      const factor = Math.min(1, availableWidth / 794);
+      setScaleFactor(factor);
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, [pages, activePage]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
+
   // Word & character counts
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
@@ -456,37 +479,31 @@ function ContentEditorContent() {
   // Load content metadata & body from Neon API
   useEffect(() => {
     const loadContent = async () => {
-      // Try API first, fallback to cache
-      const list = await fetchMedicalContent().catch(() => getMedicalContent());
-      setMedicalContents(list);
-      const item = list.find((c) => String(c.id) === String(id)) || list[0] || {
-        id: "local",
-        name: "New Document",
-        category: "Clinical Reference",
-        system: "General",
-        type: "Document" as const,
-        status: "draft" as const,
-        lastUpdated: new Date().toISOString().split("T")[0],
-        author: "GP Edge Admin",
-        references: 0,
-      };
-
-      setContentItem(item);
-      setDocTitle(decodeHtml(item.name));
-      setSelectedSystem(item.system);
-      setSelectedCategory(item.category);
-      setContentStatus(item.status);
-      setAuthor(item.author);
-      setTags(item.tags?.length ? item.tags : [item.system, item.category]);
-
-      // Load body HTML from Neon API for this specific item
+      let item: MedicalContent | null = null;
       let savedHtml = "";
+      let hasLoadedDirectly = false;
+
+      // 1. Try to load directly from the single item endpoint first to prevent list cache issues
       if (id && !String(id).startsWith("local")) {
         try {
           const res = await fetch(`/api/medical-content/${id}`);
           const json = await res.json();
           if (json.success && json.data) {
             const data = json.data;
+            item = {
+              id: data.id,
+              name: data.name,
+              system: data.system,
+              category: data.category,
+              type: data.type || "Document",
+              status: data.status,
+              author: data.author,
+              lastUpdated: data.lastUpdated,
+              tags: data.tags || [],
+              references: data.references?.length ?? 0,
+              pdfUrl: data.pdfUrl,
+            };
+
             // Use fullHtml directly; if empty, assemble from sections
             savedHtml = (data.fullHtml || "").trim();
 
@@ -512,19 +529,53 @@ function ContentEditorContent() {
             }
 
             // Load references from API
-            if (json.data?.references?.length) {
-              setDocReferences(json.data.references.map((r: any, i: number) => ({ id: i + 1, text: r.text, url: r.url ?? "#" })));
+            if (data.references?.length) {
+              setDocReferences(data.references.map((r: any, i: number) => ({ id: i + 1, text: r.text, url: r.url ?? "#" })));
             } else {
               setDocReferences(initialReferences);
             }
+
+            hasLoadedDirectly = true;
           }
-        } catch {}
+        } catch (err) {
+          console.error("Direct fetch in editor failed:", err);
+        }
       }
 
-      if (!savedHtml) {
+      // 2. If direct load failed or it is a local template, use list lookup
+      if (!hasLoadedDirectly) {
+        const list = await fetchMedicalContent().catch(() => getMedicalContent());
+        setMedicalContents(list);
+        const foundItem = list.find((c) => String(c.id) === String(id)) || list[0] || {
+          id: "local",
+          name: "New Document",
+          category: "Clinical Reference",
+          system: "General",
+          type: "Document" as const,
+          status: "draft" as const,
+          lastUpdated: new Date().toISOString().split("T")[0],
+          author: "GP Edge Admin",
+          references: 0,
+        };
+        item = foundItem;
+        setDocReferences(initialReferences);
+      }
+
+      // 3. Set metadata states
+      if (item) {
+        setContentItem(item);
+        setDocTitle(decodeHtml(item.name));
+        setSelectedSystem(item.system);
+        setSelectedCategory(item.category);
+        setContentStatus(item.status);
+        setAuthor(item.author);
+        setTags(item.tags?.length ? item.tags : [item.system, item.category]);
+      }
+
+      if (!savedHtml && item) {
         const customizedBlocks = initialBlocks.map((block, idx) =>
           idx === 0 && block.type === "heading"
-            ? { ...block, content: `${decodeHtml(item.name)} in General Practice` }
+            ? { ...block, content: `${decodeHtml(item!.name)} in General Practice` }
             : block
         );
         savedHtml = blocksToHtml(customizedBlocks);
@@ -2536,8 +2587,72 @@ function ContentEditorContent() {
       {/* Editor + sidebar layout */}
       <div className={`grid gap-6 ${showSidebar ? "grid-cols-1 xl:grid-cols-[1fr_320px]" : "grid-cols-1"}`}>
         {/* Main A4 Document Workspace */}
-        <motion.div variants={itemVariants} className="flex-1 overflow-x-auto bg-slate-100/70 dark:bg-slate-950/40 p-4 sm:p-8 rounded-2xl border border-teal-200/30 dark:border-teal-900/30 flex justify-center shadow-inner">
-          <div className="print-area w-[794px] min-h-[1123px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 shadow-2xl p-16 rounded-sm relative flex flex-col">
+        <motion.div variants={itemVariants} className="flex-1 flex flex-col gap-4">
+          {/* Zoom Toolbar */}
+          <div className="bg-slate-900 dark:bg-slate-950 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none no-print">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lucide.FileText className="w-4 h-4 text-teal-500 shrink-0" />
+              <span className="font-bold truncate max-w-[150px]" title={docTitle}>
+                {docTitle || "Untitled"}
+              </span>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono shrink-0">
+                Editor Preview Zoom
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button 
+                type="button"
+                onClick={() => setShowSidebar(!showSidebar)}
+                className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold rounded-lg border transition-all cursor-pointer bg-transparent ${showSidebar ? "text-slate-400 border-slate-800 hover:text-white" : "text-teal-400 border-teal-800/50 hover:bg-teal-950/20"}`}
+              >
+                <Lucide.Maximize2 className="w-3.5 h-3.5" />
+                {showSidebar ? "Focus Mode" : "Show Sidebar"}
+              </button>
+              
+              <div className="h-4 w-px bg-slate-800 mx-1" />
+              
+              <button type="button" onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
+                <Lucide.Minus className="w-3.5 h-3.5" />
+              </button>
+              <input 
+                type="range"
+                min="50"
+                max="200"
+                step="10"
+                value={pdfZoom}
+                onChange={(e) => setPdfZoom(parseInt(e.target.value))}
+                className="w-24 accent-teal-500 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none"
+              />
+              <span className="font-mono text-[10px] font-bold w-10 text-right">{pdfZoom}%</span>
+              <button type="button" onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
+                <Lucide.Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Main A4 Document Workspace Scroll Container */}
+          <div 
+            ref={containerRef}
+            className="flex-1 overflow-auto bg-slate-100/70 dark:bg-slate-955/20 p-4 sm:p-8 rounded-2xl border border-teal-200/30 dark:border-teal-900/30 flex items-start justify-start shadow-inner custom-scrollbar"
+            style={{ minHeight: "600px" }}
+          >
+            <div
+              className="mx-auto"
+              style={{
+                width: `${794 * currentZoomScale}px`,
+                height: `${1123 * currentZoomScale}px`,
+                position: "relative",
+                flexShrink: 0,
+              }}
+            >
+              <div 
+                className="print-area w-[794px] min-h-[1123px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 shadow-2xl p-16 rounded-sm absolute top-0 left-0 flex flex-col"
+                style={{
+                  transform: `scale(${currentZoomScale})`,
+                  transformOrigin: "top left",
+                }}
+              >
             {/* Page indicator + navigation - no-print */}
             <div className="no-print flex items-center justify-between mb-4 -mt-4 pb-2 border-b border-slate-100 dark:border-slate-800">
               <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
@@ -2656,6 +2771,8 @@ function ContentEditorContent() {
                     + Add Page
                   </button>
                 )}
+              </div>
+            </div>
               </div>
             </div>
           </div>

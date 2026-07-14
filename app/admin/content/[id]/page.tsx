@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -76,14 +76,14 @@ function splitHtmlIntoPages(html: string): string[] {
     const nodeLength = nodeText.length;
     
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 4500 : 5500;
+    const limit = isFirstPage ? 1000 : 1400;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 3500);
+      (isHeading && currentPageTextLength > 800);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -140,51 +140,96 @@ export default function ContentDetailPage() {
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfZoom, setPdfZoom] = useState(100);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !containerRef.current) return;
+    const updateScale = () => {
+      const parentWidth = containerRef.current?.getBoundingClientRect().width || 794;
+      // Subtract padding of parent (p-6 is 24px on each side, so 48px total)
+      const availableWidth = parentWidth - 48;
+      const factor = Math.min(1, availableWidth / 794);
+      setScaleFactor(factor);
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, [bodyHtml]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
+
   useEffect(() => {
     const load = async () => {
+      // 1. Fetch metadata and body directly from Neon API for this specific item first
+      if (contentId && !String(contentId).startsWith("local")) {
+        try {
+          const res = await fetch(`/api/medical-content/${contentId}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            
+            // Reconstruct the MedicalContent metadata object
+            const loadedItem: MedicalContent = {
+              id: data.id,
+              name: data.name,
+              system: data.system,
+              category: data.category,
+              type: data.type || "Document",
+              status: data.status,
+              author: data.author,
+              lastUpdated: data.lastUpdated,
+              tags: data.tags || [],
+              references: data.references?.length ?? 0,
+              pdfUrl: data.pdfUrl,
+            };
+            
+            setItem(loadedItem);
+
+            // Prefer the pre-built fullHtml; assemble from sections as fallback
+            let html = (data.fullHtml || "").trim();
+
+            if (!html && data.sections) {
+              const s = data.sections as Record<string, string>;
+              const sectionOrder = [
+                { label: "1. Overview",                   key: "overview" },
+                { label: "2. Pathophysiology",            key: "pathophysiology" },
+                { label: "3. Clinical Features",          key: "clinical_features" },
+                { label: "4. Diagnosis & Investigations", key: "diagnosis" },
+                { label: "5. Management",                 key: "management" },
+                { label: "6. Complications",              key: "complications" },
+                { label: "7. When to Refer",              key: "when_to_refer" },
+                { label: "8. Prognosis",                  key: "prognosis" },
+                { label: "9. Resources",                  key: "resources" },
+              ];
+              html = sectionOrder
+                .filter(({ key }) => s[key]?.trim())
+                .map(({ label, key }) =>
+                  `<h2 style="font-family:Georgia,serif;font-size:1.35rem;font-weight:bold;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-top:1.75rem;margin-bottom:0.75rem;line-height:1.25;">${label}</h2>${s[key]}`
+                )
+                .join("\n");
+            }
+
+            if (html) {
+              setBodyHtml(html);
+            } else {
+              setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
+            }
+            setPdfPage(1);
+            return;
+          }
+        } catch (err) {
+          console.error("Direct fetch failed:", err);
+        }
+      }
+
+      // 2. Fallback to list lookup if direct fetch fails or local ID
       const loaded = await fetchMedicalContent().catch(() => getMedicalContent());
       const found = loaded.find((c) => String(c.id) === String(contentId));
       if (found) {
         setItem(found);
-        // Load body from Neon API
-        if (!String(contentId).startsWith("local")) {
-          try {
-            const res = await fetch(`/api/medical-content/${contentId}`);
-            const json = await res.json();
-            if (json.success && json.data) {
-              const data = json.data;
-              // Prefer the pre-built fullHtml; assemble from sections as fallback
-              let html = (data.fullHtml || "").trim();
-
-              if (!html && data.sections) {
-                const s = data.sections as Record<string, string>;
-                const sectionOrder = [
-                  { label: "1. Overview",                   key: "overview" },
-                  { label: "2. Pathophysiology",            key: "pathophysiology" },
-                  { label: "3. Clinical Features",          key: "clinical_features" },
-                  { label: "4. Diagnosis & Investigations", key: "diagnosis" },
-                  { label: "5. Management",                 key: "management" },
-                  { label: "6. Complications",              key: "complications" },
-                  { label: "7. When to Refer",              key: "when_to_refer" },
-                  { label: "8. Prognosis",                  key: "prognosis" },
-                  { label: "9. Resources",                  key: "resources" },
-                ];
-                html = sectionOrder
-                  .filter(({ key }) => s[key]?.trim())
-                  .map(({ label, key }) =>
-                    `<h2 style="font-family:Georgia,serif;font-size:1.35rem;font-weight:bold;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-top:1.75rem;margin-bottom:0.75rem;line-height:1.25;">${label}</h2>${s[key]}`
-                  )
-                  .join("\n");
-              }
-
-              if (html) {
-                setBodyHtml(html);
-                setPdfPage(1);
-                return;
-              }
-            }
-          } catch {}
-        }
         setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
         setPdfPage(1);
       }
@@ -516,11 +561,15 @@ export default function ContentDetailPage() {
             </div>
           )}
 
-          <div className={`bg-slate-100 dark:bg-slate-950 border ${themeBorder} rounded-2xl p-6 shadow-sm overflow-auto max-h-[850px] flex justify-center items-start`}>
+          <div 
+            ref={containerRef}
+            className={`bg-slate-100 dark:bg-slate-950 border ${themeBorder} rounded-2xl p-6 shadow-sm overflow-auto max-h-[850px] flex items-start justify-start custom-scrollbar`}
+          >
             <div
+              className="mx-auto"
               style={{
-                width: `${794 * (pdfZoom / 100)}px`,
-                height: totalPages > 1 ? `${1123 * (pdfZoom / 100)}px` : "auto",
+                width: `${794 * currentZoomScale}px`,
+                height: totalPages > 1 ? `${1123 * currentZoomScale}px` : "auto",
                 position: "relative",
                 flexShrink: 0,
               }}
@@ -528,7 +577,7 @@ export default function ContentDetailPage() {
               <div 
                 className="bg-white text-slate-850 p-10 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area overflow-hidden"
                 style={{
-                  transform: `scale(${pdfZoom / 100})`,
+                  transform: `scale(${currentZoomScale})`,
                   transformOrigin: "top left",
                   width: "794px",
                   height: totalPages > 1 ? "1123px" : "auto",

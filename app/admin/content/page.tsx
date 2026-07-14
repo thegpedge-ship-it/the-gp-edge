@@ -45,14 +45,14 @@ function splitHtmlIntoPages(html: string): string[] {
     // Page 1 has a large header, so it has less space (limit to ~1000 chars of text).
     // Subsequent pages can hold more (limit to ~1400 chars of text).
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 4500 : 5500;
+    const limit = isFirstPage ? 2200 : 2800;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 800);
+      (isHeading && currentPageTextLength > 1800);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -968,22 +968,23 @@ export default function ContentPage() {
                                 </div>
                                 <div>
                                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Body System</label>
-                                  <select
+                                  <CustomSelect
                                     value={item.extractedData.system || "Endocrine"}
-                                    onChange={(e) => updateQueueItemMetadata(item.id, "system", e.target.value)}
-                                    className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
-                                  >
-                                    <option value="Respiratory">Respiratory</option>
-                                    <option value="Endocrine">Endocrine</option>
-                                    <option value="Psychiatry">Psychiatry</option>
-                                    <option value="Dermatology">Dermatology</option>
-                                    <option value="Women's Health">Women's Health</option>
-                                    <option value="Paediatrics">Paediatrics</option>
-                                    <option value="Cardiovascular">Cardiovascular</option>
-                                    <option value="Gastroenterology">Gastroenterology</option>
-                                    <option value="Musculoskeletal">Musculoskeletal</option>
-                                    <option value="MBS">MBS</option>
-                                  </select>
+                                    onChange={(val) => updateQueueItemMetadata(item.id, "system", val)}
+                                    options={[
+                                      { value: "Respiratory", label: "Respiratory" },
+                                      { value: "Endocrine", label: "Endocrine" },
+                                      { value: "Psychiatry", label: "Psychiatry" },
+                                      { value: "Dermatology", label: "Dermatology" },
+                                      { value: "Women's Health", label: "Women's Health" },
+                                      { value: "Paediatrics", label: "Paediatrics" },
+                                      { value: "Cardiovascular", label: "Cardiovascular" },
+                                      { value: "Gastroenterology", label: "Gastroenterology" },
+                                      { value: "Musculoskeletal", label: "Musculoskeletal" },
+                                      { value: "MBS", label: "MBS" },
+                                    ]}
+                                    triggerClassName="w-full flex items-center justify-between px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 transition-all font-medium font-sans"
+                                  />
                                 </div>
                                 <div>
                                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Category</label>

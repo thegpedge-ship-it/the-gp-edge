@@ -21,6 +21,7 @@ interface CustomSelectProps {
   className?: string;
   placeholder?: string;
   disabled?: boolean;
+  triggerClassName?: string;
 }
 
 export default function CustomSelect({
@@ -30,6 +31,7 @@ export default function CustomSelect({
   className = "",
   placeholder = "Select option...",
   disabled = false,
+  triggerClassName = "",
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,7 +54,7 @@ export default function CustomSelect({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={themeSelectTrigger}
+        className={triggerClassName || themeSelectTrigger}
       >
         <span className="truncate">
           {selectedOption ? selectedOption.label : placeholder}

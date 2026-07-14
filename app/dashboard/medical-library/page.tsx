@@ -68,14 +68,14 @@ function splitHtmlIntoPages(html: string): string[] {
     const nodeLength = nodeText.length;
     
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 1000 : 1400;
+    const limit = isFirstPage ? 2000 : 2500;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 800);
+      (isHeading && currentPageTextLength > 1600);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -1728,7 +1728,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     {/* PDF mock viewer */}
                     <div
                       ref={containerRef}
-                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-start overflow-auto max-h-[600px] w-full medical-scroll"
+                      className="border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-lg bg-slate-150/50 dark:bg-slate-955/40 p-4 flex flex-col items-start overflow-auto max-h-[600px] w-full custom-scrollbar"
                     >
                       {selectedCondition.document?.downloadUrl && 
                        selectedCondition.document.downloadUrl !== "#" && 
@@ -1743,6 +1743,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         </div>
                       ) : (
                         <div
+                          className="mx-auto"
                           style={{
                             width: `${720 * currentZoomScale}px`,
                             height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? `${940 * currentZoomScale}px` : "auto",

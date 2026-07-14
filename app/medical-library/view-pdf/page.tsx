@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
 import { mockConditions, bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
@@ -81,14 +81,14 @@ function splitHtmlIntoPages(html: string): string[] {
     const nodeLength = nodeText.length;
     
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 1000 : 1400;
+    const limit = isFirstPage ? 2000 : 2500;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 800);
+      (isHeading && currentPageTextLength > 1600);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -119,6 +119,28 @@ function PDFViewerContent() {
   const [loading, setLoading] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !containerRef.current) return;
+    const updateScale = () => {
+      const parentWidth = containerRef.current?.getBoundingClientRect().width || 720;
+      // Padding is p-8 (32px) or sm:p-12 (48px) on each side. Let's use 96px total padding.
+      const padding = window.innerWidth >= 640 ? 96 : 64;
+      const availableWidth = parentWidth - padding;
+      const factor = Math.min(1, availableWidth / 720);
+      setScaleFactor(factor);
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, [condition, customPages]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -564,11 +586,15 @@ function PDFViewerContent() {
       </header>
 
       {/* Main Canvas Scroll Area */}
-      <main className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex justify-center items-start relative medical-scroll">
+      <main 
+        ref={containerRef}
+        className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex items-start justify-start relative custom-scrollbar"
+      >
         <div
+          className="mx-auto"
           style={{
-            width: `${720 * (pdfZoom / 100)}px`,
-            height: doc.totalPages > 1 ? `${1020 * (pdfZoom / 100)}px` : "auto",
+            width: `${720 * currentZoomScale}px`,
+            height: doc.totalPages > 1 ? `${1020 * currentZoomScale}px` : "auto",
             position: "relative",
             flexShrink: 0,
           }}
@@ -577,7 +603,7 @@ function PDFViewerContent() {
             id="printable-pdf-area"
             className="bg-white text-slate-800 p-10 sm:p-12 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area overflow-hidden"
             style={{
-              transform: `scale(${pdfZoom / 100})`,
+              transform: `scale(${currentZoomScale})`,
               transformOrigin: "top left",
               width: "720px",
               height: doc.totalPages > 1 ? "1020px" : "auto",

@@ -755,8 +755,9 @@ interface ExtractedCatalog {
 
 
 async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
+  const fixedBuffer = fixZipSeparators(buffer);
   try {
-    const result = await mammoth.convertToHtml({ buffer }, {
+    const result = await mammoth.convertToHtml({ buffer: fixedBuffer }, {
       styleMap: [
         "p[style-name='Heading 1'] => h1:fresh",
         "p[style-name='Heading 2'] => h2:fresh",
@@ -771,8 +772,22 @@ async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
       ],
       convertImage: mammoth.images.imgElement(function(image) {
         return image.read("base64").then(function(imageBuffer) {
+          let contentType = image.contentType;
+          if (contentType === "application/octet-stream" || !contentType.startsWith("image/")) {
+            if (imageBuffer.startsWith("iVBORw0KGgo")) {
+              contentType = "image/png";
+            } else if (imageBuffer.startsWith("/9j/")) {
+              contentType = "image/jpeg";
+            } else if (imageBuffer.startsWith("R0lGOD")) {
+              contentType = "image/gif";
+            } else if (imageBuffer.startsWith("UklGR")) {
+              contentType = "image/webp";
+            } else {
+              contentType = "image/png"; // safe fallback
+            }
+          }
           return {
-            src: "data:" + image.contentType + ";base64," + imageBuffer
+            src: "data:" + contentType + ";base64," + imageBuffer
           };
         });
       })
@@ -1366,8 +1381,8 @@ function styleHtmlTables(html: string): string {
 function styleHtmlImages(html: string): string {
   // Preserve base64 embedded images (flowcharts, figures from DOCX), style them responsively
   return html.replace(/<img([^>]*)>/gi, (match: string, attrs: string) => {
-    // Only preserve images that have a valid src (base64 data URLs from mammoth)
-    if (attrs.includes('src=') && (attrs.includes('data:image') || attrs.includes('http'))) {
+    // Only preserve images that have a valid src (base64 data URLs from mammoth or R2 URLs)
+    if (attrs.includes('src=') && (attrs.includes('data:') || attrs.includes('http'))) {
       return `<img${attrs} style="max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);" />`;
     }
     return ''; // strip images with no valid src
@@ -1709,8 +1724,22 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
     const result = await mammoth.convertToHtml({ buffer: fixedBuffer }, {
       convertImage: mammoth.images.imgElement(function(image) {
         return image.read("base64").then(function(imageBuffer) {
+          let contentType = image.contentType;
+          if (contentType === "application/octet-stream" || !contentType.startsWith("image/")) {
+            if (imageBuffer.startsWith("iVBORw0KGgo")) {
+              contentType = "image/png";
+            } else if (imageBuffer.startsWith("/9j/")) {
+              contentType = "image/jpeg";
+            } else if (imageBuffer.startsWith("R0lGOD")) {
+              contentType = "image/gif";
+            } else if (imageBuffer.startsWith("UklGR")) {
+              contentType = "image/webp";
+            } else {
+              contentType = "image/png"; // safe fallback
+            }
+          }
           return {
-            src: "data:" + image.contentType + ";base64," + imageBuffer
+            src: "data:" + contentType + ";base64," + imageBuffer
           };
         });
       })
@@ -2075,12 +2104,12 @@ async function uploadBase64ImagesToR2(html: string): Promise<string> {
   const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
   const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
 
-  // Match all src="data:image/...;base64,<data>" (single or double quotes)
-  const dataUrlRegex = /src=(["'])(data:image\/([a-zA-Z+]+);base64,([A-Za-z0-9+/=\s]+?))\1/gi;
+  // Bulletproof regex to match data URL source strings in HTML attributes
+  const dataUrlRegex = /src=(["'])(data:image\/[^"'\s>]+?;base64,[^"']+)\1/gi;
 
   // Collect all unique data URLs first to avoid uploading the same image twice
   const seen = new Map<string, string>(); // dataUrl → r2Url
-  const matches: Array<{ full: string; dataUrl: string; mimeType: string; base64: string }> = [];
+  const matches: Array<{ full: string; dataUrl: string }> = [];
 
   let m: RegExpExecArray | null;
   const clone = new RegExp(dataUrlRegex.source, dataUrlRegex.flags);
@@ -2088,23 +2117,44 @@ async function uploadBase64ImagesToR2(html: string): Promise<string> {
     const dataUrl = m[2];
     if (!seen.has(dataUrl)) {
       seen.set(dataUrl, ""); // placeholder
-      matches.push({ full: m[0], dataUrl, mimeType: m[3], base64: m[4].replace(/\s/g, "") });
+      matches.push({ full: m[0], dataUrl });
     }
   }
 
   // Upload each unique image
   await Promise.all(
-    matches.map(async ({ dataUrl, mimeType, base64 }) => {
+    matches.map(async ({ dataUrl }) => {
       try {
-        const ext = mimeType.split("+")[0].split("/").pop() || "png";
+        const mimeMatch = dataUrl.match(/^data:image\/([^;]+);base64,/);
+        const mimeType = mimeMatch ? mimeMatch[1] : "png";
+
+        let ext = mimeType.split("+")[0].split("/").pop() || "png";
+        let contentType = `image/${ext}`;
+
+        // Normalize legacy or specific content-types
+        if (ext === "x-png") {
+          ext = "png";
+          contentType = "image/png";
+        } else if (ext === "x-jpeg" || ext === "pjpeg") {
+          ext = "jpeg";
+          contentType = "image/jpeg";
+        } else if (ext === "x-wmf" || ext === "wmf") {
+          ext = "wmf";
+          contentType = "image/wmf";
+        } else if (ext === "x-emf" || ext === "emf") {
+          ext = "emf";
+          contentType = "image/emf";
+        }
+
         const objectKey = `content-images/${crypto.randomUUID()}.${ext}`;
-        const buffer = Buffer.from(base64, "base64");
+        const base64Data = dataUrl.substring(dataUrl.indexOf(",") + 1).replace(/\s/g, "");
+        const buffer = Buffer.from(base64Data, "base64");
 
         await r2Client.send(new PutObjectCommand({
           Bucket: bucketName,
           Key: objectKey,
           Body: buffer,
-          ContentType: `image/${mimeType}`,
+          ContentType: contentType,
         }));
 
         seen.set(dataUrl, `${publicBase}/${objectKey}`);
