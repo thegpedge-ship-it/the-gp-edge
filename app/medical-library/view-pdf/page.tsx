@@ -81,14 +81,14 @@ function splitHtmlIntoPages(html: string): string[] {
     const nodeLength = nodeText.length;
     
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 2000 : 2500;
+    const limit = isFirstPage ? 3000 : 4000;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 1600);
+      (isHeading && currentPageTextLength > 2000);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -325,7 +325,7 @@ function PDFViewerContent() {
           text-transform: uppercase !important;
           letter-spacing: 0.05em !important;
           padding: 0.75rem 1rem !important;
-          background-color: #2bb09c !important;
+          background-color: #16a34a !important;
           color: #ffffff !important;
           border: 1px solid #cbd5e1 !important;
         }
@@ -342,7 +342,7 @@ function PDFViewerContent() {
           line-height: inherit !important;
         }
         .print-area tr:nth-child(even) td {
-          background-color: #f8fafc;
+          background-color: #ffffff;
         }
         .print-area tr:nth-child(odd) td {
           background-color: #ffffff;
@@ -376,22 +376,33 @@ function PDFViewerContent() {
           color: #1a5c51 !important;
         }
         .print-area .callout-block[data-variant="pearl"] {
-          background-color: #e6f7f4 !important;
-          border: 1px solid #e6f7f4 !important;
-          border-left: 5px solid #2bb09c !important;
-          color: #1a5c51 !important;
+          background-color: #f0fdf4 !important;
+          border: 1px solid #d1fae5 !important;
+          border-left: 5px solid #16a34a !important;
+          color: #14532d !important;
         }
-        .print-area .callout-block[data-variant="warning"] {
-          background-color: #fff9e6 !important;
-          border: 1px solid #fff9e6 !important;
-          border-left: 5px solid #dd6b20 !important;
-          color: #7b341e !important;
+        .print-area .callout-block[data-variant="pearl"] > div:first-child {
+          color: #15803d !important;
         }
+        .print-area .callout-block[data-variant="important"] {
+          background-color: #fefce8 !important;
+          border: 1px solid #fef08a !important;
+          border-left: 5px solid #eab308 !important;
+          color: #713f12 !important;
+        }
+        .print-area .callout-block[data-variant="important"] > div:first-child {
+          color: #854d0e !important;
+        }
+        .print-area .callout-block[data-variant="warning"],
         .print-area .callout-block[data-variant="danger"] {
           background-color: #fef2f2 !important;
           border: 1px solid #fee2e2 !important;
           border-left: 5px solid #ef4444 !important;
-          color: #991b1b !important;
+          color: #7f1d1d !important;
+        }
+        .print-area .callout-block[data-variant="warning"] > div:first-child,
+        .print-area .callout-block[data-variant="danger"] > div:first-child {
+          color: #b91c1c !important;
         }
         .print-area .callout-block[data-variant="billing"] {
           background-color: #f8fafc !important;
@@ -601,13 +612,15 @@ function PDFViewerContent() {
         >
           <div 
             id="printable-pdf-area"
-            className="bg-white text-slate-800 p-10 sm:p-12 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area overflow-hidden"
+            className="bg-white text-slate-800 p-10 sm:p-12 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
             style={{
               transform: `scale(${currentZoomScale})`,
               transformOrigin: "top left",
               width: "720px",
+              minHeight: doc.totalPages > 1 ? "1020px" : "auto",
               height: doc.totalPages > 1 ? "1020px" : "auto",
               position: doc.totalPages > 1 ? "absolute" : "relative",
+              overflowY: doc.totalPages > 1 ? "hidden" : "visible",
             }}
           >
             {/* Faint Confidential Watermark */}

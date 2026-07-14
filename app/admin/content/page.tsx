@@ -45,14 +45,14 @@ function splitHtmlIntoPages(html: string): string[] {
     // Page 1 has a large header, so it has less space (limit to ~1000 chars of text).
     // Subsequent pages can hold more (limit to ~1400 chars of text).
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 2200 : 2800;
+    const limit = isFirstPage ? 3000 : 4000;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 1800);
+      (isHeading && currentPageTextLength > 2000);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());

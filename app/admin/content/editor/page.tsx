@@ -129,9 +129,9 @@ function blocksToHtml(blocks: ContentBlock[]): string {
       }
       case "table": {
         const rows = block.content.split("\n").map(r => r.split("|"));
-        const ths = rows[0]?.map(cell => `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">${cell}</th>`).join("");
+        const ths = rows[0]?.map(cell => `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #16a34a; border: 1px solid #cbd5e1; color: #ffffff;">${cell}</th>`).join("");
         const tds = rows.slice(1).map((row, ri) => {
-          const bg = ri % 2 === 1 ? "#f8fafc" : "#ffffff";
+          const bg = "#ffffff";
           const cells = row.map((cell, ci) => `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; background-color: ${bg}; color: ${ci === 0 ? "#0f172a" : "#475569"};">${cell}</td>`).join("");
           return `<tr>${cells}</tr>`;
         }).join("");
@@ -215,14 +215,14 @@ function splitHtmlIntoPages(html: string): string[] {
     const nodeLength = nodeText.length;
     
     const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 1000 : 1400;
+    const limit = isFirstPage ? 3000 : 4000;
     
     const isHeading = node.nodeType === Node.ELEMENT_NODE && 
       ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
     
     const shouldStartNewPage = 
       (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 800);
+      (isHeading && currentPageTextLength > 2000);
       
     if (shouldStartNewPage) {
       pages.push(currentPageHtml.trim());
@@ -1146,11 +1146,11 @@ function ContentEditorContent() {
     
     let tableHtml = `<div style="overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 0.75rem; margin-bottom: 1.25rem; background-color: #ffffff;"><table style="width: 100%; border-collapse: collapse; text-align: left;"><thead><tr>`;
     for (let i = 0; i < colCount; i++) {
-      tableHtml += `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #2bb09c; border: 1px solid #cbd5e1; color: #ffffff;">Header ${i+1}</th>`;
+      tableHtml += `<th style="text-align: left; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.75rem 1rem; background-color: #16a34a; border: 1px solid #cbd5e1; color: #ffffff;">Header ${i+1}</th>`;
     }
     tableHtml += `</tr></thead><tbody>`;
     for (let r = 0; r < rowCount; r++) {
-      const bg = r % 2 === 1 ? "#f8fafc" : "#ffffff";
+      const bg = "#ffffff";
       tableHtml += `<tr>`;
       for (let c = 0; c < colCount; c++) {
         tableHtml += `<td style="padding: 0.75rem 1rem; font-size: 0.825rem; border: 1px solid #e2e8f0; background-color: ${bg}; color: #475569;">Cell</td>`;
@@ -1636,7 +1636,7 @@ function ContentEditorContent() {
           text-transform: uppercase !important;
           letter-spacing: 0.05em !important;
           padding: 0.75rem 1rem !important;
-          background-color: #2bb09c !important;
+          background-color: #16a34a !important;
           color: #ffffff !important;
           border: 1px solid #cbd5e1 !important;
         }
@@ -1653,7 +1653,7 @@ function ContentEditorContent() {
           line-height: inherit !important;
         }
         .print-area tr:nth-child(even) td {
-          background-color: #f8fafc;
+          background-color: #ffffff;
         }
         .print-area tr:nth-child(odd) td {
           background-color: #ffffff;
@@ -1687,22 +1687,33 @@ function ContentEditorContent() {
           color: #1a5c51 !important;
         }
         .print-area .callout-block[data-variant="pearl"] {
-          background-color: #e6f7f4 !important;
-          border: 1px solid #e6f7f4 !important;
-          border-left: 5px solid #2bb09c !important;
-          color: #1a5c51 !important;
+          background-color: #f0fdf4 !important;
+          border: 1px solid #d1fae5 !important;
+          border-left: 5px solid #16a34a !important;
+          color: #14532d !important;
         }
-        .print-area .callout-block[data-variant="warning"] {
-          background-color: #fff9e6 !important;
-          border: 1px solid #fff9e6 !important;
-          border-left: 5px solid #dd6b20 !important;
-          color: #7b341e !important;
+        .print-area .callout-block[data-variant="pearl"] > div:first-child {
+          color: #15803d !important;
         }
+        .print-area .callout-block[data-variant="important"] {
+          background-color: #fefce8 !important;
+          border: 1px solid #fef08a !important;
+          border-left: 5px solid #eab308 !important;
+          color: #713f12 !important;
+        }
+        .print-area .callout-block[data-variant="important"] > div:first-child {
+          color: #854d0e !important;
+        }
+        .print-area .callout-block[data-variant="warning"],
         .print-area .callout-block[data-variant="danger"] {
           background-color: #fef2f2 !important;
           border: 1px solid #fee2e2 !important;
           border-left: 5px solid #ef4444 !important;
-          color: #991b1b !important;
+          color: #7f1d1d !important;
+        }
+        .print-area .callout-block[data-variant="warning"] > div:first-child,
+        .print-area .callout-block[data-variant="danger"] > div:first-child {
+          color: #b91c1c !important;
         }
         .print-area .callout-block[data-variant="billing"] {
           background-color: #f8fafc !important;
@@ -1764,26 +1775,28 @@ function ContentEditorContent() {
           color: #2dd4bf !important;
         }
         .dark .print-area .callout-block[data-variant="pearl"] {
-          background-color: rgba(20, 184, 166, 0.1) !important;
-          border-left: 5px solid #2dd4bf !important;
-          color: #a7f3d0 !important;
+          background-color: rgba(22, 163, 74, 0.12) !important;
+          border-left: 5px solid #4ade80 !important;
+          color: #bbf7d0 !important;
         }
         .dark .print-area .callout-block[data-variant="pearl"] > div:first-child {
-          color: #2dd4bf !important;
+          color: #4ade80 !important;
         }
-        .dark .print-area .callout-block[data-variant="warning"] {
-          background-color: rgba(245, 158, 11, 0.1) !important;
-          border-left: 5px solid #fbbf24 !important;
-          color: #fde68a !important;
+        .dark .print-area .callout-block[data-variant="important"] {
+          background-color: rgba(234, 179, 8, 0.1) !important;
+          border-left: 5px solid #facc15 !important;
+          color: #fef08a !important;
         }
-        .dark .print-area .callout-block[data-variant="warning"] > div:first-child {
-          color: #fbbf24 !important;
+        .dark .print-area .callout-block[data-variant="important"] > div:first-child {
+          color: #facc15 !important;
         }
+        .dark .print-area .callout-block[data-variant="warning"],
         .dark .print-area .callout-block[data-variant="danger"] {
           background-color: rgba(239, 68, 68, 0.1) !important;
           border-left: 5px solid #f87171 !important;
           color: #fca5a5 !important;
         }
+        .dark .print-area .callout-block[data-variant="warning"] > div:first-child,
         .dark .print-area .callout-block[data-variant="danger"] > div:first-child {
           color: #f87171 !important;
         }
@@ -2438,7 +2451,7 @@ function ContentEditorContent() {
                     initial={{ opacity: 0, y: -4 }}
                     animate={{ opacity: 1, y: 4 }}
                     exit={{ opacity: 0, y: -4 }}
-                    className="absolute left-0 mt-1 w-52 rounded-xl bg-white dark:bg-slate-900 border border-teal-200/50 dark:border-teal-900/40 shadow-xl z-50 overflow-hidden"
+                    className="absolute right-0 mt-1 w-52 rounded-xl bg-white dark:bg-slate-900 border border-teal-200/50 dark:border-teal-900/40 shadow-xl z-50 overflow-hidden"
                   >
                     <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
                       <p className="text-[9px] font-bold text-teal-700 dark:text-teal-400 uppercase tracking-widest">Clinical Templates</p>

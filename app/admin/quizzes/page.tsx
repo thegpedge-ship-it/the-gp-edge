@@ -604,7 +604,7 @@ export default function QuizzesPage() {
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
                             Rationale / Explanation
                           </span>
-                          <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed">
+                          <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed whitespace-pre-line">
                             {q.rationale || "No explanation provided."}
                           </p>
                         </div>

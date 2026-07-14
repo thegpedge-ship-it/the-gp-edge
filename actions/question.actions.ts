@@ -96,8 +96,9 @@ export async function importQuestionsAction(questionsList: any[]) {
         }
       }
 
-      // 3. Upload image to R2 if present, return just the public URL (no DB file row needed)
+      // 3. Upload image to R2 if present, and insert a row in files table
       let imageUrl: string | null = null;
+      let imageFileId: string | null = null;
 
       if (q.image) {
         if (q.image.startsWith("data:image/")) {
@@ -119,11 +120,34 @@ export async function importQuestionsAction(questionsList: any[]) {
             );
             const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
             imageUrl = `${publicBase}/${objectKey}`;
+
+            // Create row in files table
+            const fileRow = await queryOne<{ id: string }>(
+              `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
+               VALUES ($1, $2, $3, $4, $5, 'uploaded')
+               RETURNING id`,
+              [bucketName, objectKey, `extracted_question_image.${ext}`, mimeType, buffer.length]
+            );
+            if (fileRow) {
+              imageFileId = fileRow.id;
+            }
           } catch (uploadErr) {
             console.error("R2 image upload failed:", uploadErr);
           }
         } else if (q.image.startsWith("http")) {
           imageUrl = q.image;
+          // Look up existing file by object key in R2 URL
+          const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+          if (imageUrl.startsWith(publicBase)) {
+            const objectKey = imageUrl.replace(publicBase, "").replace(/^\//, "");
+            const existingFile = await queryOne<{ id: string }>(
+              `SELECT id FROM files WHERE object_key = $1 LIMIT 1`,
+              [objectKey]
+            );
+            if (existingFile) {
+              imageFileId = existingFile.id;
+            }
+          }
         }
       }
 
@@ -141,17 +165,17 @@ export async function importQuestionsAction(questionsList: any[]) {
           `UPDATE questions
              SET rationale = $1, difficulty = $2, status = $3,
                  exam_type_code = $4, subject_id = $5, subtopic_id = $6,
-                 updated_at = NOW()
-           WHERE id = $7`,
-          [q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, questionId]
+                 image_file_id = $7, updated_at = NOW()
+           WHERE id = $8`,
+          [q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
         );
       } else {
         const newQ = await queryOne<{ id: string }>(
           `INSERT INTO questions
-             (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+             (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id, image_file_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id`,
-          [q.text, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId]
+          [q.text, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
         );
         questionId = newQ!.id;
       }

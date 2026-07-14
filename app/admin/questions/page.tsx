@@ -809,7 +809,7 @@ export default function QuestionsPage() {
                     </svg>
                     Correct Answer Rationale
                   </div>
-                  <p className="font-normal leading-relaxed text-teal-900/70 dark:text-teal-300/80">{previewQuestion.rationale}</p>
+                  <p className="font-normal leading-relaxed text-teal-900/70 dark:text-teal-300/80 whitespace-pre-line">{previewQuestion.rationale}</p>
                 </div>
               </div>
             </motion.div>

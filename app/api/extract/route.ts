@@ -295,7 +295,7 @@ async function extractPdfViaSubprocess(buffer: Buffer): Promise<{
  * Extract plain text from a PDF buffer.
  * Tries subprocess first, then in-process PDFParse, then byte-scan fallback.
  */
-async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Try subprocess first
   try {
     const subResult = await extractPdfViaSubprocess(buffer);
@@ -317,6 +317,26 @@ async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
   }
 
   return extractTextFromPdfBufferFallback(buffer);
+}
+
+/**
+ * Associate images with catalog / clinical document text by distributing them
+ * across page boundaries. Unlike the question-bank heuristic this does not
+ * require "Question N" markers — it simply inserts each image at a paragraph
+ * break roughly proportional to where it appeared in the original PDF.
+ */
+function associateCatalogImagesWithText(pageTexts: string[], pageImages: string[][]): string {
+  const parts: string[] = [];
+  for (let i = 0; i < pageTexts.length; i++) {
+    const pageText = pageTexts[i].trim();
+    if (pageText) parts.push(pageText);
+    // Append images found on this page immediately after the page text
+    const imgs = pageImages[i] || [];
+    for (const url of imgs) {
+      parts.push(`[IMAGE: ${url}]`);
+    }
+  }
+  return parts.join("\n\n");
 }
 
 /**
@@ -584,7 +604,7 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
  *   3. Fall back to text-only extraction
  *   4. Last resort: byte-scan fallback with base64 filtering + image carving
  */
-async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
+export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Carve images from raw binary once (used as fallback when pdf-parse finds 0 images)
   let carvedImageUrls: string[] | null = null;
   function getCarvedImages(): string[] {
@@ -601,20 +621,43 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
   try {
     const subResult = await extractPdfViaSubprocess(buffer);
     if (subResult && subResult.pages.length > 0) {
-      const combinedText = subResult.pages.map((p) => p.text || "").join("\n\n").trim();
+      const pageTexts = subResult.pages.map((p) => p.text || "");
+      const combinedText = pageTexts.join("\n\n").trim();
       if (combinedText.length > 20) {
-        // Collect images from subprocess
-        let allImageUrls = subResult.images.map((img) => img.dataUrl);
+        // Build per-page image map
+        const pageImageMap: string[][] = pageTexts.map(() => []);
+        let allImageUrls: string[] = [];
 
-        // If subprocess found no images, carve from binary
+        for (const img of subResult.images) {
+          const pgIdx = (img.pageNumber || 1) - 1;
+          const safeIdx = Math.max(0, Math.min(pgIdx, pageImageMap.length - 1));
+          pageImageMap[safeIdx].push(img.dataUrl);
+          allImageUrls.push(img.dataUrl);
+        }
+
+        // If subprocess found no images, carve from binary and distribute equally
         if (allImageUrls.length === 0) {
           allImageUrls = getCarvedImages();
+          // Evenly spread carved images across pages
+          if (allImageUrls.length > 0) {
+            allImageUrls.forEach((url, i) => {
+              const pgIdx = Math.floor((i / allImageUrls.length) * pageImageMap.length);
+              pageImageMap[pgIdx].push(url);
+            });
+          }
         }
 
         console.log(`PDF extracted via subprocess: ${subResult.pages.length} pages, ${allImageUrls.length} images`);
 
         if (allImageUrls.length > 0) {
-          return associateImagesWithText(combinedText, allImageUrls);
+          // If the text looks like a question bank, use the specialized regex association
+          // to pair images with specific question numbers/options.
+          const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(combinedText) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(combinedText);
+          if (isQuestionText) {
+            return associateImagesWithText(combinedText, allImageUrls);
+          }
+          // Otherwise, use page-aware catalog association (no question-bank heuristic needed)
+          return associateCatalogImagesWithText(pageTexts, pageImageMap);
         }
         return combinedText;
       }
@@ -664,7 +707,18 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
     if (combinedText.length > 20) {
       console.log(`PDF extracted via in-process PDFParse: ${textResult.pages.length} pages, ${allImageUrls.length} images`);
       if (allImageUrls.length > 0) {
-        return associateImagesWithText(combinedText, allImageUrls);
+        const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(combinedText) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(combinedText);
+        if (isQuestionText) {
+          return associateImagesWithText(combinedText, allImageUrls);
+        }
+        // For catalogs, distribute images evenly across pages
+        const pageTexts = textResult.pages.map((p: any) => p.text || "");
+        const pageImageMap: string[][] = pageTexts.map(() => []);
+        allImageUrls.forEach((url, i) => {
+          const pgIdx = Math.floor((i / allImageUrls.length) * pageImageMap.length);
+          pageImageMap[pgIdx].push(url);
+        });
+        return associateCatalogImagesWithText(pageTexts, pageImageMap);
       }
       return combinedText;
     }
@@ -683,7 +737,18 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
     if (text.trim().length > 20) {
       const images = getCarvedImages();
       if (images.length > 0) {
-        return associateImagesWithText(text, images);
+        const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(text) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(text);
+        if (isQuestionText) {
+          return associateImagesWithText(text, images);
+        }
+        // For catalogs, distribute images evenly across pages
+        const pageTexts = textResult.pages.map((p: any) => p.text || "");
+        const pageImageMap: string[][] = pageTexts.map(() => []);
+        images.forEach((url, i) => {
+          const pgIdx = Math.floor((i / images.length) * pageImageMap.length);
+          pageImageMap[pgIdx].push(url);
+        });
+        return associateCatalogImagesWithText(pageTexts, pageImageMap);
       }
       return text;
     }
@@ -862,6 +927,18 @@ function convertPlainTextToHtml(text: string): string {
   
   for (const line of lines) {
     if (!line) continue;
+    
+    // ── IMAGE marker: [IMAGE: data:image/png;base64,...] ─────────────────────
+    // Use [^\]]+ (greedy, "anything but ]") instead of .+? (lazy) to safely
+    // match very long base64 data URLs without risking catastrophic backtracking.
+    if (/^\[IMAGE:\s*[^\]]+\]$/i.test(line)) {
+      const match = line.match(/^\[IMAGE:\s*([^\]]+)\]$/i);
+      if (match) {
+        const src = match[1].trim();
+        html += `<figure style="margin:1.25rem 0;text-align:center;"><img src="${src}" alt="Clinical image" loading="lazy" style="max-width:100%;height:auto;border-radius:0.5rem;box-shadow:0 1px 6px rgba(0,0,0,0.12);display:inline-block;" /></figure>\n`;
+        continue;
+      }
+    }
     
     const cleanLine = line.toLowerCase();
     const isHeader = 
@@ -1083,76 +1160,84 @@ function highlightWarningText(html: string): string {
 }
 
 function convertTextCallouts(html: string): string {
-  let processed = html;
-  
-  // Match paragraphs that have warning keywords or are colored/styled
-  processed = processed.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (match: string, attrs: string, content: string) => {
-    const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
-    
-    // Only turn into a callout if it starts with warning tags or has warning highlights/indicators at the beginning
-    const isRedFlag = /^\s*[^a-z0-9]*(?:⚠️|red\s*flag|important)/i.test(plainText);
-    const isWarning = /^\s*[^a-z0-9]*(?:⚡|warning|caution)/i.test(plainText);
-    const isMbs = /^\s*[^a-z0-9]*(?:📋|mbs|billing)/i.test(plainText);
-    const isPearl = /^\s*[^a-z0-9]*(?:☑|✅|key\s*point|pearl|clinical\s*pearl)/i.test(plainText);
-    
-    if (!isRedFlag && !isWarning && !isMbs && !isPearl) {
-      return match;
+  type CalloutInfo = { variant: string; bg: string; border: string; color: string; titleColor: string; label: string; };
+  const calloutMap: Record<number, CalloutInfo> = {};
+  let idx = 0;
+
+  // ── PASS 1: Detect callout header tags → replace with a unique null-byte marker ──
+  let processed = html.replace(/<(p|h[1-6])([^>]*)>([\s\S]*?)<\/\1>/gi,
+    (match: string, _tag: string, _attrs: string, content: string) => {
+      const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
+
+      const isPearl   = /(?:key\s*point|pearl|clinical\s*pearl)/i.test(plainText);
+      const isWarning = /(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert)/i.test(plainText) && !isPearl;
+      const isImportant = /(?:important|key\s*diagnostic\s*rule|key\s*rule|diagnostic\s*rule|attention|note\s*:)/i.test(plainText) && !isPearl && !isWarning;
+      const isMbs     = /(?:billing|mbs)/i.test(plainText);
+
+      if (!isPearl && !isWarning && !isImportant && !isMbs) return match;
+
+      // Use the document's own header text as the label (strip HTML tags + leading symbols only)
+      const rawLabel = content.replace(/<[^>]+>/g, "").replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "").replace(/[-—:\s]+$/, "").trim();
+
+      let variant = "info", bg = "#e6f7f4", border = "#2bb09c", color = "#1a5c51", titleColor = "#2bb09c";
+      let label = rawLabel;
+
+      if (isWarning) {
+        variant = "warning"; bg = "#fef2f2"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
+        label = rawLabel || (plainText.includes("red flag") ? "Red Flags" : "Warning");
+      } else if (isImportant) {
+        variant = "important"; bg = "#fefce8"; border = "#eab308"; titleColor = "#854d0e"; color = "#713f12";
+        label = rawLabel || "Important";
+      } else if (isPearl) {
+        variant = "pearl"; bg = "#f0fdf4"; border = "#16a34a"; titleColor = "#15803d"; color = "#14532d";
+        label = rawLabel || "Key Points";
+      } else if (isMbs) {
+        variant = "billing"; bg = "#f8fafc"; border = "#64748b"; titleColor = "#475569"; color = "#334155";
+        label = "MBS Billing Info";
+      }
+      if (!label) label = isWarning ? "Warning" : isImportant ? "Important" : isPearl ? "Key Points" : "Info";
+
+      // Strip all emojis from the label itself
+      label = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
+
+      const id = idx++;
+      calloutMap[id] = { variant, bg, border, color, titleColor, label };
+      return `\x00CALLOUT${id}\x00`;
     }
-    
-    let variant = "info";
-    let bg = "#e6f7f4";
-    let border = "#2bb09c";
-    let color = "#1a5c51";
-    let titleColor = "#2bb09c";
-    let label = "Guideline";
-    let icon = "";
-    
-    if (isRedFlag) {
-      variant = "danger";
-      bg = "#fef2f2";
-      border = "#ef4444";
-      titleColor = "#dc2626";
-      color = "#991b1b";
-      label = plainText.includes("important") ? "Important" : "Red Flags";
-      icon = "";
-    } else if (isWarning) {
-      variant = "warning";
-      bg = "#fff9e6";
-      border = "#dd6b20";
-      titleColor = "#dd6b20";
-      color = "#7b341e";
-      label = "Warning / Caution";
-      icon = "";
-    } else if (isMbs) {
-      variant = "billing";
-      bg = "#f8fafc";
-      border = "#64748b";
-      titleColor = "#475569";
-      color = "#334155";
-      label = "MBS Billing Info";
-      icon = "";
-    } else if (isPearl) {
-      variant = "pearl";
-      bg = "#e6f7f4";
-      border = "#2bb09c";
-      titleColor = "#2bb09c";
-      color = "#1a5c51";
-      label = "Key Points";
-      icon = "";
+  );
+
+  // ── PASS 2: For each marker, greedily consume following lists → build callout div ──
+  processed = processed.replace(
+    /\x00CALLOUT(\d+)\x00((?:\s*(?:<ul[^>]*>[\s\S]*?<\/ul>|<ol[^>]*>[\s\S]*?<\/ol>|<p[^>]*>\s*[•\-\*\u2022][\s\S]*?<\/p>))*)/g,
+    (_m: string, idStr: string, followRaw: string) => {
+      const info = calloutMap[parseInt(idStr, 10)];
+      if (!info) return "";
+      const { variant, bg, border, color, titleColor, label } = info;
+
+      let bodyHtml = "";
+      if (followRaw.trim()) {
+        // Strip ALL existing attributes (including pre-applied inline styles) and apply callout-specific styles
+        let body = followRaw;
+        body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+        body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+        body = body.replace(/<li[^>]*>/gi,  `<li style="margin-bottom:0.4rem;font-size:0.875rem;color:inherit;line-height:1.65;">`);
+        body = body.replace(/<p[^>]*>/gi,   `<p style="margin:0.3rem 0;font-size:0.875rem;color:inherit;line-height:1.65;">`);
+        bodyHtml = body;
+      }
+
+      return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg};border-left:4px solid ${border};border-radius:0.5rem;padding:0.85rem 1rem;margin-bottom:1.25rem;color:${color};">
+<div style="font-weight:700;font-size:0.85rem;margin-bottom:${bodyHtml.trim() ? "0.5rem" : "0"};color:${titleColor};">${label}</div>${bodyHtml.trim() ? `
+<div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;">${bodyHtml}</div>` : ""}
+</div>`;
     }
-    
-    const cleanContent = content.replace(/^\s*(?:\[RED\s*FLAG\]|⚠️|\[WARNING\]|⚡|\[CAUTION\]|\[IMPORTANT\]|\[MBS\]|\[BILLING\]|✅|☑|red\s*flag\s*:|warning\s*:|caution\s*:|key\s*points?\s*:)\s*/gi, "");
-    
-    return `
-      <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${bg}; border-left: 5px solid ${border}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
-        <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: ${titleColor};">${icon} ${label}</div>
-        <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">${cleanContent}</div>
-      </div>
-    `;
-  });
-  
+  );
+
+  // Clean up any orphaned markers (callout header with no following list)
+  processed = processed.replace(/\x00CALLOUT\d+\x00/g, "");
+
   return processed;
 }
+
 
 function styleHtmlCallouts(html: string): string {
   return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (tableMatch: string, tableBody: string) => {
@@ -1194,133 +1279,106 @@ function styleHtmlCallouts(html: string): string {
         let color = "#1a5c51";
         let titleColor = "#2bb09c";
         let label = "Guideline";
-        let icon = "";
         
-        if (
-          plainText.includes("red flag") || 
-          plainText.includes("contraindication") || 
-          plainText.includes("danger") || 
-          plainText.includes("critical") ||
-          plainText.includes("alert") ||
-          plainText.includes("urgently") ||
-          plainText.includes("important") ||
-          plainText.includes("urgent") ||
-          plainText.includes("attention")
-        ) {
-          variant = "danger";
+        // Raw label: first cell text, stripped of emoji/symbols
+        const firstCellRaw = cellContents[0].replace(/<[^>]+>/g, "").trim();
+        const rawLabelFromDoc = firstCellRaw
+          .replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "")
+          .replace(/[-—:\s]+$/, "")
+          .trim();
+        
+        // Detect type — same priority as convertTextCallouts
+        // 1. Key Points (GREEN)
+        const isPearl = /(?:key\s*point|pearl|clinical\s*pearl|☑|✅)/i.test(plainText);
+        // 2. Warning / Urgent / Immediate (RED) 
+        const isWarning = /(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert|⚠)/i.test(plainText) && !isPearl;
+        // 3. Important (YELLOW)
+        const isImportant = /(?:important|attention|note)/i.test(plainText) && !isPearl && !isWarning;
+        // 4. Billing (SLATE)
+        const isBilling = /(?:billing|mbs)/i.test(plainText);
+        
+        if (!isPearl && !isWarning && !isImportant && !isBilling) {
+          return tableMatch;
+        }
+        
+        if (isWarning) {
+          variant = "warning";
           bg = "#fef2f2";
           border = "#ef4444";
-          titleColor = "#dc2626";
-          color = "#991b1b";
-          label = "Red Flags";
-          icon = "";
-        } else if (
-          plainText.includes("warning") || 
-          plainText.includes("caution")
-        ) {
-          variant = "warning";
-          bg = "#fff9e6";
-          border = "#dd6b20";
-          titleColor = "#dd6b20";
-          color = "#7b341e";
-          label = "Warning / Caution";
-          icon = "";
-        } else if (
-          plainText.includes("key point") || 
-          plainText.includes("pearl") || 
-          plainText.includes("clinical pearl") ||
-          plainText.includes("✅") ||
-          plainText.includes("☑")
-        ) {
+          titleColor = "#b91c1c";
+          color = "#7f1d1d";
+          label = rawLabelFromDoc || (plainText.includes("red flag") ? "Red Flags" : "Warning");
+        } else if (isImportant) {
+          variant = "important";
+          bg = "#fefce8";
+          border = "#eab308";
+          titleColor = "#854d0e";
+          color = "#713f12";
+          label = rawLabelFromDoc || "Important";
+        } else if (isPearl) {
           variant = "pearl";
-          bg = "#e6f7f4";
-          border = "#2bb09c";
-          titleColor = "#2bb09c";
-          color = "#1a5c51";
-          label = "Key Points";
-          icon = "";
-        } else if (
-          plainText.includes("billing") || 
-          plainText.includes("mbs")
-        ) {
+          bg = "#f0fdf4";
+          border = "#16a34a";
+          titleColor = "#15803d";
+          color = "#14532d";
+          label = rawLabelFromDoc || "Key Points";
+        } else if (isBilling) {
           variant = "billing";
           bg = "#f8fafc";
           border = "#64748b";
           titleColor = "#475569";
           color = "#334155";
-          label = "Billing";
-          icon = "";
+          label = "MBS Billing Info";
         }
         
-        let headerText = label;
+        // Build body: if first cell is a short header and there are more cells, use rest as body
+        let headerText = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
         let bodyHtml = "";
         
-        const firstCellPlain = cellContents[0].replace(/<[^>]+>/g, "").trim();
-        if (cellContents.length > 1 && firstCellPlain.length < 80) {
-          headerText = firstCellPlain;
-          if (headerText.endsWith(":")) {
-            headerText = headerText.substring(0, headerText.length - 1).trim();
-          }
+        if (cellContents.length > 1 && firstCellRaw.length < 120) {
+          // First cell = header, rest = body content
+          headerText = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
           bodyHtml = cellContents.slice(1).join("\n");
         } else {
+          // Single cell — header IS the label, body is everything after the header line in the cell
           bodyHtml = cellContents.join("\n");
         }
         
-        return `
-          <div class="callout-block" data-variant="${variant}" style="background-color: ${bg}; border: 1px solid ${bg}; border-left: 5px solid ${border}; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: ${color};">
-            <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; color: ${titleColor};">${icon} ${headerText}</div>
-            <div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">
-              ${bodyHtml}
-            </div>
-          </div>
-        `;
+        // Style lists inside body
+        bodyHtml = bodyHtml.replace(/<li([^>]*)>/gi, `<li style="margin-bottom:0.4rem;font-size:0.875rem;color:inherit;line-height:1.65;">`);
+        bodyHtml = bodyHtml.replace(/<ul([^>]*)>/gi, `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+        bodyHtml = bodyHtml.replace(/<ol([^>]*)>/gi, `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+        
+        return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg};border-left:4px solid ${border};border-radius:0.5rem;padding:0.85rem 1rem;margin-bottom:1.25rem;color:${color};">
+  <div style="font-weight:700;font-size:0.85rem;margin-bottom:${bodyHtml.trim() ? "0.5rem" : "0"};color:${titleColor};">${headerText}</div>${bodyHtml.trim() ? `
+  <div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;">${bodyHtml}</div>` : ""}
+</div>`;
       }
     }
     return tableMatch;
   });
 }
 
+
 function styleHtmlTables(html: string): string {
   return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match: string, tableBody: string) => {
     let styledBody = tableBody;
     
-    // Style headers
+    // Style <th> header cells (always green header background, white text)
     styledBody = styledBody.replace(/<th([^>]*)>([\s\S]*?)<\/th>/gi, (m: string, attrs: string, cellContent: string) => {
-      const mergedStyle = mergeStyles(attrs, {
-        "text-align": "left",
-        "font-weight": "600",
-        "font-size": "0.75rem",
-        "text-transform": "uppercase",
-        "letter-spacing": "0.05em",
-        "padding": "0.75rem 1rem",
-        "background-color": "#2bb09c",
-        "border": "1px solid #cbd5e1",
-        "color": "#ffffff"
-      });
-      const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
-      return `<th ${cleanAttrs} style="${mergedStyle}">${cellContent.trim()}</th>`;
+      const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
+      return `<th ${cleanAttrs} style="text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;">${cellContent.trim()}</th>`;
     });
     
-    // If no TH, style the first row cells as headers
+    // If no TH, promote first row's TD cells to TH (header)
     if (!tableBody.toLowerCase().includes("<th")) {
       let isFirstRow = true;
       styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
         if (isFirstRow) {
           isFirstRow = false;
-          const headerContent = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdAttrs: string, tdContent: string) => {
-            const mergedStyle = mergeStyles(tdAttrs, {
-              "text-align": "left",
-              "font-weight": "600",
-              "font-size": "0.75rem",
-              "text-transform": "uppercase",
-              "letter-spacing": "0.05em",
-              "padding": "0.75rem 1rem",
-              "background-color": "#2bb09c",
-              "border": "1px solid #cbd5e1",
-              "color": "#ffffff"
-            });
-            const cleanAttrs = tdAttrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
-            return `<th ${cleanAttrs} style="${mergedStyle}">${tdContent.trim()}</th>`;
+          const headerContent = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (_tdMatch: string, tdAttrs: string, tdContent: string) => {
+            const cleanAttrs = tdAttrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
+            return `<th ${cleanAttrs} style="text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;">${tdContent.trim()}</th>`;
           });
           return `<tr ${trAttrs.trim()}>${headerContent}</tr>`;
         }
@@ -1328,49 +1386,54 @@ function styleHtmlTables(html: string): string {
       });
     }
     
-    let rowIndex = 0;
+    // Style data rows — enforce clean white rows
     styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
       if (trContent.toLowerCase().includes("<th")) {
-        return trMatch;
+        return trMatch; // skip header rows
       }
       
-      const bg = rowIndex % 2 === 1 ? "#f8fafc" : "#ffffff";
-      rowIndex++;
+      const bg = "#ffffff"; // Always white background for data cells
       
       let cellIndex = 0;
-      const styledCells = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (tdMatch: string, tdAttrs: string, tdContent: string) => {
-        const color = cellIndex === 0 ? "#0f172a" : "#475569";
+      const styledCells = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (_tdMatch: string, tdAttrs: string, tdContent: string) => {
+        const textColor = "#334155";
         cellIndex++;
         
-        // Strip inline background and color styles to ensure data cells default to white background with dark text
-        let filteredAttrs = tdAttrs;
-        const styleMatch = tdAttrs.match(/style=["']([^"']*)["']/i);
+        let preservedStyle = "";
+        const styleMatch = tdAttrs.match(/style=["']([^"']*)['"]/i);
         if (styleMatch && styleMatch[1]) {
-          const declarations = styleMatch[1].split(";");
-          const filteredDecls = declarations.filter(decl => {
+          const kept = styleMatch[1].split(";").filter((decl: string) => {
             const prop = decl.split(":")[0].trim().toLowerCase();
-            return false; // preserve all original inline styles for flowcharts/colored tables
+            return prop === "width" || prop === "min-width" || prop === "max-width" || prop === "vertical-align";
           });
-          filteredAttrs = tdAttrs.replace(/style=["']([^"']*)["']/i, `style="${filteredDecls.join(";")}"`);
+          preservedStyle = kept.join(";");
         }
         
-        const mergedStyle = mergeStyles(filteredAttrs, {
-          "padding": "0.75rem 1rem",
-          "font-size": "0.825rem",
-          "border": "1px solid #e2e8f0",
-          "background-color": bg,
-          "color": color
-        });
-        const cleanAttrs = filteredAttrs.replace(/\bstyle=["']([^"']*)["']/gi, "").replace(/\bbgcolor=["']([^"']*)["']/gi, "").trim();
-        return `<td ${cleanAttrs} style="${mergedStyle}">${tdContent.trim()}</td>`;
+        const cleanAttrs = tdAttrs
+          .replace(/\bstyle=["']([^"']*)['"]/gi, "")
+          .replace(/\bbgcolor=["']([^"']*)['"]/gi, "")
+          .trim();
+        
+        const finalStyle = [
+          preservedStyle,
+          "padding:0.75rem 1rem",
+          "font-size:0.825rem",
+          "border:1px solid #e2e8f0",
+          `background-color:${bg}`,
+          `color:${textColor}`,
+          "word-break:break-word",
+          "white-space:normal",
+        ].filter(Boolean).join(";");
+        
+        return `<td ${cleanAttrs} style="${finalStyle}">${tdContent.trim()}</td>`;
       });
       
       return `<tr ${trAttrs.trim()}>${styledCells}</tr>`;
     });
     
     return `
-      <div style="overflow-x: auto; border: 1px solid #cbd5e1; border-radius: 0.75rem; margin-bottom: 1.25rem; background-color: #ffffff;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+      <div style="overflow-x:auto;max-width:100%;border:1px solid #cbd5e1;border-radius:0.75rem;margin-bottom:1.25rem;background-color:#ffffff;">
+        <table style="width:100%;min-width:400px;border-collapse:collapse;text-align:left;">
           ${styledBody}
         </table>
       </div>
@@ -1379,13 +1442,14 @@ function styleHtmlTables(html: string): string {
 }
 
 function styleHtmlImages(html: string): string {
-  // Preserve base64 embedded images (flowcharts, figures from DOCX), style them responsively
+  // Style all <img> tags that have a valid src (base64 data URLs or http/https URLs)
   return html.replace(/<img([^>]*)>/gi, (match: string, attrs: string) => {
-    // Only preserve images that have a valid src (base64 data URLs from mammoth or R2 URLs)
     if (attrs.includes('src=') && (attrs.includes('data:') || attrs.includes('http'))) {
-      return `<img${attrs} style="max-width: 100%; height: auto; display: block; margin: 1rem auto; border-radius: 0.5rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1);" />`;
+      // Don't double-wrap already styled images; just ensure the style is applied
+      const cleanAttrs = attrs.replace(/\bstyle=["'][^"']*["']/gi, "").trim();
+      return `<img ${cleanAttrs} loading="lazy" style="max-width:100%;height:auto;display:block;margin:1rem auto;border-radius:0.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.1);" />`;
     }
-    return ''; // strip images with no valid src
+    return ''; // strip images with no valid src (broken references)
   });
 }
 
@@ -1401,13 +1465,13 @@ function formatSectionHtml(html: string): string {
   // Also remove bold paragraph variants: <p><strong>1. OVERVIEW</strong></p>
   formatted = formatted.replace(/^\s*<p[^>]*>\s*<strong>\s*(?:\d+\.?\s*)?(?:overview|pathophysiology|clinical\s+features|diagnosis|management|complications|when\s+to\s+refer|prognosis|resources|references)\s*<\/strong>\s*<\/p>/i, "");
 
-  formatted = styleHtmlCallouts(formatted);
-  formatted = convertTextCallouts(formatted);
-  formatted = highlightWarningText(formatted);
+  // ── STEP 1: Table and image styling (no interaction with callouts) ──────────
   formatted = styleHtmlTables(formatted);
   formatted = styleHtmlImages(formatted);
-  
-  // Replace <p> open tags ONLY if they don't wrap images (preserve figure paragraphs)
+
+  // ── STEP 2: Apply global p/ul/li base styles BEFORE callout detection ───────
+  // This way convertTextCallouts sees clean <p> tags and can override styles
+  // for content inside callout blocks without the global styles clobbering them.
   formatted = formatted.replace(/<p([^>]*)>/gi, (_m: string, attrs: string) => {
     if (attrs.includes('data:image') || attrs.includes('src=')) return `<p${attrs}>`;
     return '<p style="font-family: \'DM Sans\', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">';
@@ -1415,9 +1479,21 @@ function formatSectionHtml(html: string): string {
   formatted = formatted.replace(/<ul[^>]*>/gi, '<ul style="list-style-type: disc; padding-left: 1.25rem; font-family: \'DM Sans\', sans-serif; margin-bottom: 1rem;">');
   formatted = formatted.replace(/<ol[^>]*>/gi, '<ol style="list-style-type: decimal; padding-left: 1.25rem; font-family: \'DM Sans\', sans-serif; margin-bottom: 1rem;">');
   formatted = formatted.replace(/<li[^>]*>/gi, '<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">');
-  
-  // Strip all emojis from final output
-  formatted = formatted.replace(/⚠️|⚡|✅|☑|📋|ℹ️|ℹ/g, "");
+
+  // ── STEP 3: Strip emojis from text content BEFORE callout detection ─────────
+  // Strip all emojis/symbols (except warning markers ⚠️ and ⚠ so they can trigger warnings)
+  formatted = formatted.replace(/(?![⚠️⚠])\p{Extended_Pictographic}/gu, "");
+
+  // ── STEP 4: Callout detection & styling (runs on clean, pre-styled HTML) ────
+  // convertTextCallouts wraps matching sections in colored divs with their own
+  // styles — these must run AFTER base styles so the div overrides take effect.
+  formatted = styleHtmlCallouts(formatted);
+  formatted = convertTextCallouts(formatted);
+  formatted = highlightWarningText(formatted);
+
+  // ── STEP 5: Strip remaining emojis (⚠ may remain in text content) ──────────
+  // Strip all remaining emojis/pictographs from the output completely
+  formatted = formatted.replace(/\p{Extended_Pictographic}/gu, "");
   
   return formatted.trim();
 }
@@ -2286,7 +2362,7 @@ export async function POST(req: NextRequest) {
     // ── Extract HTML and Raw Text ─────────────────────────────────────────────
     let catalogHtml = "";
     if (ext === "pdf") {
-      const pdfText = await extractTextFromPdfBuffer(buffer);
+      const pdfText = await extractTextAndImagesFromPdfBuffer(buffer);
       catalogHtml = convertPlainTextToHtml(pdfText);
     } else if (ext === "doc") {
       const docText = await extractTextAndImagesFromDocBuffer(buffer);
