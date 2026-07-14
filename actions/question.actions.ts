@@ -138,7 +138,7 @@ export async function importQuestionsAction(questionsList: any[]) {
           imageUrl = q.image;
           // Look up existing file by object key in R2 URL
           const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
-          if (imageUrl.startsWith(publicBase)) {
+          if (imageUrl && imageUrl.startsWith(publicBase)) {
             const objectKey = imageUrl.replace(publicBase, "").replace(/^\//, "");
             const existingFile = await queryOne<{ id: string }>(
               `SELECT id FROM files WHERE object_key = $1 LIMIT 1`,
