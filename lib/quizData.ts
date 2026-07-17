@@ -30,6 +30,7 @@ export interface Question {
   status: "draft" | "review" | "published";
   tags: string[];
   image?: string;
+  dbId?: string;
 }
 
 export type QuestionBankItem = Question;
