@@ -224,9 +224,12 @@ export default function QuestionsPage() {
     // Duplicate check
     if (!editingQuestion) {
       const cleanedText = newQuestionText.trim().toLowerCase();
-      const isDuplicate = questions.some((q) => q.text.trim().toLowerCase() === cleanedText);
-      if (isDuplicate) {
-        showAlert("This question already exists. Add different questions.", "Question Already Exists", "warning");
+      const existingQuestion = questions.find((q) => q.text.trim().toLowerCase() === cleanedText);
+      if (existingQuestion) {
+        setShowAddModal(false);
+        resetAddForm();
+        setSearchQuery(existingQuestion.id.toString());
+        showAlert(`This question already exists in the Question Bank (ID: #${existingQuestion.id}). We have filtered the view to show it.`, "Question Already Exists", "info");
         return;
       }
     }
@@ -449,10 +452,14 @@ export default function QuestionsPage() {
 
     if (duplicates.length > 0) {
       if (uniqueQuestionsToImport.length === 0) {
-        showAlert("This question already exists. Add different questions.", "Question Already Exists", "warning");
+        setShowUploadModal(false);
+        setUploadState("idle");
+        setExtractionState("idle");
+        setExtractedQuestions([]);
+        showAlert(`All ${duplicates.length} question(s) in this file already exist in the Question Bank. No duplicates were added.`, "All Questions Already Exist", "info");
         return;
       } else {
-        showAlert(`Skipped ${duplicates.length} question(s) that already exist in the database. Importing the remaining ${uniqueQuestionsToImport.length} new question(s).`, "Duplicate Questions Skipped", "warning");
+        showAlert(`Skipped ${duplicates.length} question(s) that already exist in the Question Bank. Imported the remaining ${uniqueQuestionsToImport.length} new question(s).`, "Duplicate Questions Skipped", "info");
       }
     }
     
