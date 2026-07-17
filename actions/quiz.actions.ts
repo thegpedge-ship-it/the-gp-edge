@@ -12,6 +12,7 @@ export interface SyncQuizInput {
   randomize: boolean;
   status: "draft" | "active" | "archived";
   examType: "AKT" | "KFP";
+  questionLimit?: number;
 }
 
 /**
@@ -52,8 +53,8 @@ export async function syncQuizToDbAction(
         `UPDATE quizzes
            SET description = $1, time_limit_min = $2, passing_score = $3,
                randomize = $4, status = $5, exam_type_code = $6,
-               created_by = $7, updated_at = NOW()
-         WHERE id = $8`,
+               created_by = $7, question_limit = $8, updated_at = NOW()
+         WHERE id = $9`,
         [
           quiz.description || "",
           quiz.timeLimit,
@@ -62,6 +63,7 @@ export async function syncQuizToDbAction(
           dbStatus,
           examTypeCode,
           creatorId,
+          quiz.questionLimit ?? 50,
           dbQuiz.id,
         ]
       );
@@ -70,8 +72,8 @@ export async function syncQuizToDbAction(
       dbQuiz = await queryOne<{ id: string }>(
         `INSERT INTO quizzes
            (name, description, time_limit_min, passing_score, randomize,
-            status, exam_type_code, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            status, exam_type_code, created_by, question_limit)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING id`,
         [
           quiz.name,
@@ -82,6 +84,7 @@ export async function syncQuizToDbAction(
           dbStatus,
           examTypeCode,
           creatorId,
+          quiz.questionLimit ?? 50,
         ]
       );
     }

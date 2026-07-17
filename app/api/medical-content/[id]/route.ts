@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -104,8 +105,9 @@ export async function PATCH(
       vals
     );
 
-    // Upsert full_html
+    // Upsert full_html (sanitized before storing)
     if (fullHtml !== undefined) {
+      const cleanHtml = sanitizeHtml(fullHtml);
       const existing = await queryOne<{ id: string }>(
         `SELECT id FROM condition_items WHERE condition_id = $1 AND item_kind = 'full_html' LIMIT 1`,
         [id]
@@ -113,7 +115,7 @@ export async function PATCH(
       if (existing) {
         await execute(
           `UPDATE condition_items SET content = $1 WHERE id = $2`,
-          [fullHtml, existing.id]
+          [cleanHtml, existing.id]
         );
       } else {
         const maxPos = await queryOne<{ max: number }>(
@@ -122,7 +124,7 @@ export async function PATCH(
         );
         await execute(
           `INSERT INTO condition_items (condition_id, item_kind, content, position) VALUES ($1,'full_html',$2,$3)`,
-          [id, fullHtml, (maxPos?.max ?? 0) + 1]
+          [id, cleanHtml, (maxPos?.max ?? 0) + 1]
         );
       }
     }

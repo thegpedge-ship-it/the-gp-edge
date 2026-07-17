@@ -6,6 +6,7 @@ import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
 import { getMedicalContent, getApproachCards, saveApproachCards, MedicalContent, ApproachCard } from "@/lib/quizData";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 
@@ -1815,7 +1816,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                               </div>
                               <div
                                 className="text-slate-700 select-text pb-12 flex-1 text-left"
-                                dangerouslySetInnerHTML={{ __html: selectedCondition.document?.pages?.[pdfPage - 1] || selectedCondition.clinicalNotes || "" }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedCondition.document?.pages?.[pdfPage - 1] || selectedCondition.clinicalNotes || "") }}
                               />
                             </div>
                           ) : (

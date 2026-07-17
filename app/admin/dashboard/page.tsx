@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { DashboardKPIs } from "@/components/admin/DashboardKPIs";
 import { DashboardAnalytics } from "@/components/admin/DashboardAnalytics";
 import { DashboardIntelligence } from "@/components/admin/DashboardIntelligence";
 import { Calendar } from "lucide-react";
+import { getDashboardDataAction, getMonthlyAnalyticsAction, DashboardStats, MonthlyStats } from "@/actions/dashboard.actions";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -32,6 +33,22 @@ const itemVariants = {
 
 export default function DashboardPage() {
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "90d">("30d");
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([getDashboardDataAction(), getMonthlyAnalyticsAction()])
+      .then(([data, monthly]) => {
+        setStats(data);
+        setMonthlyStats(monthly);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load dashboard data:", err);
+        setLoading(false);
+      });
+  }, []);
 
   return (
     <motion.div 
@@ -95,8 +112,13 @@ export default function DashboardPage() {
           <h2 className="font-serif text-lg font-semibold text-slate-800 dark:text-slate-100">
             Core Metrics Overview
           </h2>
+          {loading && (
+            <span className="text-xs text-slate-400 dark:text-slate-505 animate-pulse font-medium">
+              Synchronizing live data...
+            </span>
+          )}
         </div>
-        <DashboardKPIs timeframe={timeframe} />
+        <DashboardKPIs timeframe={timeframe} stats={stats} />
       </motion.section>
 
       {/* SECTION 2: Advanced Analytics & Subscriber Distribution */}
@@ -106,7 +128,13 @@ export default function DashboardPage() {
             Business Growth & Analytics
           </h2>
         </div>
-        <DashboardAnalytics />
+        <DashboardAnalytics 
+          monthlyStats={monthlyStats} 
+          planDistribution={stats?.planDistribution} 
+          dauCount={stats?.dauCount}
+          mauCount={stats?.mauCount}
+          avgSessionMinutes={stats?.avgSessionMinutes}
+        />
       </motion.section>
 
       {/* SECTION 3: Admin Intelligence, Operations, & Actions Queue */}
@@ -116,7 +144,7 @@ export default function DashboardPage() {
             Operations Center & Action Queue
           </h2>
         </div>
-        <DashboardIntelligence />
+        <DashboardIntelligence stats={stats} />
       </motion.section>
 
     </motion.div>

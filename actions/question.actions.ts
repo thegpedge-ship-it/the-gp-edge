@@ -202,13 +202,19 @@ export async function importQuestionsAction(questionsList: any[]) {
         questionId = newQ!.id;
       }
 
-      // 5. Replace options (delete + insert to avoid unique constraint on (question_id, position))
+      // 5. Replace options (using ON CONFLICT to avoid unique constraint race conditions)
       if (q.options && q.options.length > 0) {
-        await execute(`DELETE FROM question_options WHERE question_id = $1`, [questionId]);
+        await execute(
+          `DELETE FROM question_options 
+            WHERE question_id = $1 AND position > $2`,
+          [questionId, q.options.length]
+        );
         for (let i = 0; i < q.options.length; i++) {
           await execute(
             `INSERT INTO question_options (question_id, label, position, is_correct)
-             VALUES ($1, $2, $3, $4)`,
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (question_id, position)
+             DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct`,
             [
               questionId,
               q.options[i] || `Option ${String.fromCharCode(65 + i)}`,
@@ -265,10 +271,15 @@ export async function importQuestionsAction(questionsList: any[]) {
 /**
  * Deletes a question from the database by stem text.
  */
-export async function deleteQuestionAction(text: string) {
+export async function deleteQuestionAction(idOrText: string) {
   try {
-    if (!text?.trim()) return { success: false, error: "Empty stem" };
-    await execute(`DELETE FROM questions WHERE stem = $1`, [text]);
+    if (!idOrText?.trim()) return { success: false, error: "Empty identifier" };
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(idOrText)) {
+      await execute(`DELETE FROM questions WHERE id = $1`, [idOrText]);
+    } else {
+      await execute(`DELETE FROM questions WHERE stem = $1`, [idOrText]);
+    }
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting question:", error);

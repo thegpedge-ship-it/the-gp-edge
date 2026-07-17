@@ -13,6 +13,7 @@ import {
   saveMedicalContentItem,
   updateMedicalContentItem,
   MedicalContent, 
+  fetchQuestions,
   getQuestions, 
   createQuiz,
   Question
@@ -603,7 +604,9 @@ function ContentEditorContent() {
         setLinkedQuestionIds([]);
       }
 
-      setAllQuestions(getQuestions());
+      fetchQuestions().then((list) => {
+        setAllQuestions(list);
+      });
     };
     loadContent();
   }, [id]);
@@ -1537,7 +1540,7 @@ function ContentEditorContent() {
   };
 
   const handleGenerateQuiz = () => {
-    const bank = getQuestions();
+    const bank = allQuestions;
     // Filter questions by system name matches
     const related = bank.filter(q => 
       q.topic.toLowerCase().includes(selectedSystem.toLowerCase()) ||

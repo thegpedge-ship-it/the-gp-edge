@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
 import { mockConditions, bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
 import { getMedicalContent } from "@/lib/quizData";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 function normalizeSystemName(sys: string): string {
   const s = (sys || "").trim().toLowerCase();
@@ -673,7 +674,7 @@ function PDFViewerContent() {
                 </div>
                 <div 
                   className="prose prose-sm text-slate-700 max-w-none select-text pb-12 flex-1 text-left"
-                  dangerouslySetInnerHTML={{ __html: customPages[pdfPage - 1] || "" }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(customPages[pdfPage - 1] || "") }}
                 />
               </div>
             ) : (

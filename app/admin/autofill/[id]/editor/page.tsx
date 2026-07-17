@@ -12,6 +12,7 @@ import {
   getAutofillTemplates,
   saveAutofillTemplates,
   AutofillTemplate,
+  fetchQuestions,
   getQuestions,
   createQuiz,
   Question,
@@ -478,7 +479,9 @@ function TemplateEditorContent() {
     else if (item.references) setDocReferences([{ id: 1, text: item.references, url: "#" }]);
     const rawLinks = localStorage.getItem(`gpedge_template_links_${templateId}`);
     if (rawLinks) { try { setLinkedQuestionIds(JSON.parse(rawLinks)); } catch {} }
-    setAllQuestions(getQuestions());
+    fetchQuestions().then((list) => {
+      setAllQuestions(list);
+    });
   }, [templateId]);
 
   // ── Keyboard shortcuts ──
@@ -1114,7 +1117,7 @@ function TemplateEditorContent() {
 
   const handleGenerateQuiz = () => {
     if (isReadOnly) return;
-    const bank = getQuestions();
+    const bank = allQuestions;
     const rel = bank.filter(q => q.topic.toLowerCase().includes(selectedSystem.toLowerCase()));
     const qqs = rel.slice(0, 8); if (qqs.length === 0) qqs.push(...bank.slice(0, 5));
     const nq = createQuiz({ name: `Quiz: ${docTitle}`, description: `Auto-generated from "${docTitle}"`, timeLimit: qqs.length * 2, passingScore: 70, randomize: true, status: "active", examType: "AKT", questionIds: qqs.map(q => q.id), topics: [selectedSystem] });

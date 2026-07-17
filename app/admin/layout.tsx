@@ -19,6 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const segments = pathname.split("/").filter(Boolean);
   const currentSection = segments[1] || "dashboard";
 
+  // --- All hooks must be declared before any early returns ---
   const [currentAdmin, setCurrentAdmin] = useState({
     id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
     name: "Siddhant Udavant",
@@ -29,6 +30,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [collapsed, setCollapsed] = useState(true); // Default to collapsed for hover UX
+  const [isHovered, setIsHovered] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -137,14 +142,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [pathname, router]);
 
+  // Clean up hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (leaveTimeoutRef.current) {
+        clearTimeout(leaveTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const sectionKeys = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
   const isGatedSection = sectionKeys.includes(currentSection);
   const hasPermission = !isGatedSection || currentAdmin.permissions.includes(currentSection);
-
-  const [collapsed, setCollapsed] = useState(true); // Default to collapsed for hover UX
-  const [isHovered, setIsHovered] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
     if (leaveTimeoutRef.current) {
@@ -159,15 +168,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setIsHovered(false);
     }, 350);
   };
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (leaveTimeoutRef.current) {
-        clearTimeout(leaveTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const isExpanded = !collapsed || isHovered;
 

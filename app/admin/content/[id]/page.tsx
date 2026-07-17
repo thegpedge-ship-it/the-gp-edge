@@ -8,6 +8,7 @@ import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { getMedicalContent, fetchMedicalContent, MedicalContent } from "@/lib/quizData";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import {
   themeBorder,
   themeBtnGhost,
@@ -622,7 +623,7 @@ export default function ContentDetailPage() {
                 
                 <div 
                   className="text-slate-700 select-text pb-12 text-left"
-                  dangerouslySetInnerHTML={{ __html: pages[pdfPage - 1] || "" }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(pages[pdfPage - 1] || "") }}
                 />
               </div>
             </div>

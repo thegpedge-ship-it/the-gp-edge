@@ -23,7 +23,7 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
-import { Question, getQuestions, saveQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction, deleteQuestionAction } from "@/actions/question.actions";
 
@@ -91,6 +91,27 @@ export default function QuestionsPage() {
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (message: string, title = "Notification", type: "success" | "error" | "warning" | "info" = "info") => {
+    setAlertConfig({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
+
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
@@ -104,13 +125,13 @@ export default function QuestionsPage() {
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize questions from localStorage and sync to Neon PostgreSQL in the background
+  // Load questions from Neon (no localStorage — Neon is source of truth)
   useEffect(() => {
-    const list = getQuestions();
-    setQuestions(list);
-    if (list.length > 0) {
-      importQuestionsAction(list);
-    }
+    // Clear old oversized localStorage key that caused quota errors
+    try { localStorage.removeItem("gpedge_admin_questions"); } catch {}
+    fetchQuestions().then((list) => {
+      setQuestions(list);
+    });
   }, []);
 
   // Handle optional question pre-viewing via query parameter (e.g. from Search page)
@@ -179,7 +200,6 @@ export default function QuestionsPage() {
     const targetQ = questions.find((q) => q.id === id);
     const updated = questions.map((q) => (q.id === id ? { ...q, status: newStatus } : q));
     setQuestions(updated);
-    saveQuestions(updated);
     if (targetQ) {
       await importQuestionsAction([{ ...targetQ, status: newStatus }]);
     }
@@ -190,17 +210,25 @@ export default function QuestionsPage() {
     const targetQ = questions.find((q) => q.id === id);
     const updated = questions.filter((q) => q.id !== id);
     setQuestions(updated);
-    saveQuestions(updated);
     if (targetQ) {
-      await deleteQuestionAction(targetQ.text);
+      await deleteQuestionAction(targetQ.dbId || targetQ.text);
     }
   };
 
   const handleCreateQuestion = async () => {
     if (isReadOnly) return;
     if (!newQuestionText.trim()) {
-      alert("Please enter the question text.");
+      showAlert("Please enter the question text.", "Validation Error", "error");
       return;
+    }
+    // Duplicate check
+    if (!editingQuestion) {
+      const cleanedText = newQuestionText.trim().toLowerCase();
+      const isDuplicate = questions.some((q) => q.text.trim().toLowerCase() === cleanedText);
+      if (isDuplicate) {
+        showAlert("This question already exists. Add different questions.", "Question Already Exists", "warning");
+        return;
+      }
     }
     const correctIndex = Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1);
 
@@ -226,7 +254,6 @@ export default function QuestionsPage() {
         return q;
       });
       setQuestions(updated);
-      saveQuestions(updated);
       if (updatedQ) {
         await importQuestionsAction([updatedQ]);
       }
@@ -252,7 +279,6 @@ export default function QuestionsPage() {
     };
     const updated = [newQuestion, ...questions];
     setQuestions(updated);
-    saveQuestions(updated);
     await importQuestionsAction([newQuestion]);
     setShowAddModal(false);
     resetAddForm();
@@ -405,8 +431,33 @@ export default function QuestionsPage() {
   const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
+    // Filter out questions that already exist (by text matching case-insensitive)
+    const duplicates = extractedQuestions.filter((eq) =>
+      questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
+    );
+    const nonDuplicates = extractedQuestions.filter((eq) =>
+      !questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
+    );
+
+    // Deduplicate non-duplicates themselves
+    const uniqueQuestionsToImport: any[] = [];
+    nonDuplicates.forEach((eq) => {
+      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+        uniqueQuestionsToImport.push(eq);
+      }
+    });
+
+    if (duplicates.length > 0) {
+      if (uniqueQuestionsToImport.length === 0) {
+        showAlert("This question already exists. Add different questions.", "Question Already Exists", "warning");
+        return;
+      } else {
+        showAlert(`Skipped ${duplicates.length} question(s) that already exist in the database. Importing the remaining ${uniqueQuestionsToImport.length} new question(s).`, "Duplicate Questions Skipped", "warning");
+      }
+    }
+    
     let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
-    const newQs = extractedQuestions.map((q: any) => {
+    const newQs = uniqueQuestionsToImport.map((q: any) => {
       const cleanedTags = q.tags
         ? q.tags.map((t: string) => t.trim()).filter(Boolean)
         : ["General"];
@@ -424,7 +475,6 @@ export default function QuestionsPage() {
 
     const updated = [...newQs, ...questions];
     setQuestions(updated);
-    saveQuestions(updated);
     await importQuestionsAction(newQs);
     
     addUserNotification(
@@ -439,7 +489,7 @@ export default function QuestionsPage() {
     setExtractionState("idle");
     setExtractedQuestions([]);
     
-    alert(`Successfully imported ${newQs.length} questions as published!`);
+    showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -1046,7 +1096,7 @@ export default function QuestionsPage() {
                                 setNewImage(fileUrl);
                               } catch (err: any) {
                                 console.error("Upload to R2 failed:", err);
-                                alert("Failed to upload image to Cloudflare R2.");
+                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
                               }
                             };
                             reader.readAsDataURL(file);
@@ -1590,7 +1640,7 @@ export default function QuestionsPage() {
                                                 handleUpdateExtractedQuestion(qidx, "image", fileUrl);
                                               } catch (err: any) {
                                                 console.error("Upload to R2 failed:", err);
-                                                alert("Failed to upload image to Cloudflare R2.");
+                                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
                                               }
                                             };
                                             reader.readAsDataURL(file);
@@ -1673,6 +1723,73 @@ export default function QuestionsPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Custom Alert Modal */}
+      <AnimatePresence>
+        {alertConfig.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9998]"
+              onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className={`fixed inset-x-4 top-[20%] mx-auto w-full max-w-md bg-white dark:bg-slate-900 border rounded-2xl z-[9999] shadow-2xl p-6 overflow-hidden ${themeBorder}`}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-full shrink-0 ${
+                  alertConfig.type === "success" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-450" :
+                  alertConfig.type === "error" ? "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450" :
+                  alertConfig.type === "warning" ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-450" :
+                  "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-450"
+                }`}>
+                  {alertConfig.type === "success" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "error" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "warning" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "info" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className={`font-serif text-lg font-semibold ${themeText}`}>{alertConfig.title}</h3>
+                  <p className={`mt-2 text-sm leading-relaxed ${themeMuted}`}>{alertConfig.message}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                  className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${themeBtnPrimary}`}
+                >
+                  OK
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </motion.div>

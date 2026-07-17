@@ -14,6 +14,7 @@ export interface Quiz {
   status: QuizStatus;
   examType: "AKT" | "KFP" | "Mixed";
   randomize: boolean;
+  questionLimit: number;
   updatedAt: string;
 }
 
@@ -55,74 +56,50 @@ export const DEFAULT_QUESTIONS: Question[] = [
   { id: 2854, text: "What is the recommended first-line treatment for uncomplicated lower UTI in a non-pregnant woman?", options: ["Amoxicillin 500mg TDS for 7 days", "Trimethoprim 300mg daily for 3 days", "Ciprofloxacin 500mg BD for 5 days", "Nitrofurantoin 100mg QID for 14 days"], correctIndex: 1, rationale: "Trimethoprim 300mg daily for 3 days is first-line for uncomplicated UTI in Australia.", topic: "Infectious Disease", difficulty: "Easy", examType: "AKT", status: "published", tags: ["UTI", "Antibiotics", "Women's Health"] },
 ];
 
-const QUESTIONS_STORAGE_KEY = "gpedge_admin_questions";
+// ─── Questions: Neon is the source of truth ──────────────────────────────────
+// localStorage is NO LONGER used for questions to avoid quota errors.
+// All writes go through importQuestionsAction (server action → Neon + R2).
+// All reads go through fetchQuestions() below (async, from /api/questions).
 
+/**
+ * Sync fallback — returns the hardcoded default questions.
+ * Use this only for SSR or when the async fetch hasn't resolved yet.
+ * Do NOT use for the main questions list on the admin page.
+ */
 export function getQuestions(): Question[] {
-  if (typeof window === "undefined") return DEFAULT_QUESTIONS;
+  return DEFAULT_QUESTIONS;
+}
+
+/**
+ * Async fetch from Neon via /api/questions.
+ * This is the primary way to load questions in the admin page.
+ */
+export async function fetchQuestions(): Promise<Question[]> {
   try {
-    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_QUESTIONS));
-      return DEFAULT_QUESTIONS;
+    const res = await fetch("/api/questions", { cache: "no-store" });
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      // Update in-memory bank for quiz builder / legacy sync callers
+      QUESTION_BANK.length = 0;
+      QUESTION_BANK.push(...DEFAULT_QUESTIONS, ...json.data);
+      return [...DEFAULT_QUESTIONS, ...json.data] as Question[];
     }
-    const parsed = JSON.parse(raw) as Question[];
-    let updated = false;
-    const migrated = parsed.map((q) => {
-      let image = q.image;
-      let status = q.status;
-      let changed = false;
-
-      const defaultQ = DEFAULT_QUESTIONS.find((dq) => dq.id === q.id);
-      if (defaultQ && defaultQ.image && !image) {
-        image = defaultQ.image;
-        changed = true;
-      }
-
-      // Normalize relative static paths to prevent browser 404s relative to admin route
-      if (image && !image.startsWith("data:") && !image.startsWith("/")) {
-        changed = true;
-        if (image.startsWith("assets/")) {
-          image = "/" + image;
-        } else {
-          image = "/assets/" + image;
-        }
-      }
-
-      if (status === "draft" || status === "review") {
-        status = "published";
-        changed = true;
-      }
-
-      if (changed) {
-        updated = true;
-        return { ...q, image, status };
-      }
-      return q;
-    });
-    if (updated) {
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
-    }
-    return parsed;
-  } catch (error) {
-    return DEFAULT_QUESTIONS;
+  } catch (err) {
+    console.error("fetchQuestions error:", err);
   }
+  return DEFAULT_QUESTIONS;
 }
 
-export function saveQuestions(questions: Question[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(questions));
-  // Mutate QUESTION_BANK in-place to keep imports updated
-  QUESTION_BANK.length = 0;
-  QUESTION_BANK.push(...questions);
+/**
+ * saveQuestions is intentionally a no-op.
+ * Data is persisted via importQuestionsAction (server action) which writes
+ * directly to Neon and uploads images to R2. No localStorage writes.
+ */
+export function saveQuestions(_questions: Question[]): void {
+  // No-op: localStorage removed. Use importQuestionsAction to persist.
 }
 
-export const QUESTION_BANK: Question[] = [];
-if (typeof window !== "undefined") {
-  QUESTION_BANK.push(...getQuestions());
-} else {
-  QUESTION_BANK.push(...DEFAULT_QUESTIONS);
-}
+export const QUESTION_BANK: Question[] = [...DEFAULT_QUESTIONS];
 
 const STORAGE_KEY = "gpedge_admin_quizzes";
 
@@ -141,6 +118,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "AKT",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-28T10:00:00.000Z",
   },
   {
@@ -157,6 +135,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: false,
+    questionLimit: 50,
     updatedAt: "2026-05-25T14:30:00.000Z",
   },
   {
@@ -173,6 +152,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-20T09:15:00.000Z",
   },
   {
@@ -189,6 +169,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "AKT",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-18T11:00:00.000Z",
   },
   {
@@ -205,6 +186,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: false,
+    questionLimit: 50,
     updatedAt: "2026-05-15T16:45:00.000Z",
   },
   {
@@ -221,6 +203,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-10T08:00:00.000Z",
   },
 ];
@@ -252,9 +235,20 @@ export function getQuizzes(): Quiz[] {
     const parsed = JSON.parse(raw) as Quiz[];
     let updated = false;
     const migrated = parsed.map((q) => {
+      let changed = false;
+      let statusVal = q.status;
       if (q.status === "draft" || q.status === "suspended") {
+        changed = true;
+        statusVal = "active" as const;
+      }
+      let limitVal = q.questionLimit;
+      if (limitVal === undefined) {
+        changed = true;
+        limitVal = 50;
+      }
+      if (changed) {
         updated = true;
-        return { ...q, status: "active" as const };
+        return { ...q, status: statusVal, questionLimit: limitVal };
       }
       return q;
     });
@@ -297,6 +291,7 @@ export function createQuiz(
     status: partial.status ?? "active",
     examType: partial.examType ?? "AKT",
     randomize: partial.randomize ?? true,
+    questionLimit: partial.questionLimit ?? 50,
     updatedAt: new Date().toISOString(),
   });
   saveQuizzes([newQuiz, ...quizzes]);

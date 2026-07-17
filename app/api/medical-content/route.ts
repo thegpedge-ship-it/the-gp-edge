@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 // Increase body size limit to handle large HTML payloads with embedded images
 export const maxDuration = 60;
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     // Store full_html first — always insert it so the viewer always has content to show.
     // We insert even when the string is empty so that a later PATCH can update it in-place.
-    const fullHtmlValue = (fullHtml ?? "").trim();
+    const fullHtmlValue = sanitizeHtml((fullHtml ?? "").trim());
     await execute(
       `INSERT INTO condition_items (condition_id, item_kind, content, position)
        VALUES ($1, 'full_html', $2, 0)`,

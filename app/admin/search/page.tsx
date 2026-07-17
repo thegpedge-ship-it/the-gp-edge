@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import {
   getQuestions,
+  fetchQuestions,
   saveQuestions,
   Question,
   getTopics,
@@ -84,7 +85,9 @@ export default function SearchPage() {
   };
 
   useEffect(() => {
-    setQuestions(getQuestions());
+    fetchQuestions().then((list) => {
+      setQuestions(list);
+    });
     setTopicsList(getTopics());
     setCustomTags(getCustomTags());
     setUsersList(getAdminUsers());

@@ -23,7 +23,7 @@ import {
   themeProgressFill,
   themeText,
 } from "@/lib/adminTheme";
-import { Quiz, Question, createQuiz, getQuizzes, deleteQuiz, getQuestions } from "@/lib/quizData";
+import { Quiz, Question, createQuiz, getQuizzes, deleteQuiz, fetchQuestions, getQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
 import { syncQuizToDbAction, deleteQuizFromDbAction } from "@/actions/quiz.actions";
 
@@ -56,6 +56,7 @@ export default function QuizzesPage() {
   const [visibleCount, setVisibleCount] = useState(9);
 
   const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
 
   const sortedQuizzes = useMemo(() => {
     return [...quizzes].sort((a, b) => {
@@ -77,18 +78,20 @@ export default function QuizzesPage() {
     setQuizzes(list);
     
     // Proactively sync all mock exams to Neon PostgreSQL in the background
-    const allQuestions = getQuestions();
-    list.forEach((quiz) => {
-      const questionsOfQuiz = quiz.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
-      syncQuizToDbAction({
-        name: quiz.name,
-        description: quiz.description,
-        timeLimit: quiz.timeLimit,
-        passingScore: quiz.passingScore,
-        randomize: quiz.randomize,
-        status: quiz.status as any,
-        examType: quiz.examType as any,
-      }, questionsOfQuiz, currentAdmin?.id);
+    fetchQuestions().then((listQs) => {
+      setAllQuestions(listQs);
+      list.forEach((quiz) => {
+        const questionsOfQuiz = quiz.questionIds.map(id => listQs.find(q => q.id === id)).filter(Boolean) as any[];
+        syncQuizToDbAction({
+          name: quiz.name,
+          description: quiz.description,
+          timeLimit: quiz.timeLimit,
+          passingScore: quiz.passingScore,
+          randomize: quiz.randomize,
+          status: quiz.status as any,
+          examType: quiz.examType as any,
+        }, questionsOfQuiz, currentAdmin?.id);
+      });
     });
   }, [currentAdmin]);
 
@@ -420,6 +423,7 @@ export default function QuizzesPage() {
                           randomize: quizRandomize,
                           status: "active",
                           examType: "AKT",
+                          questionLimit: quizLimit || 50,
                         });
                         
                         syncQuizToDbAction({
@@ -430,6 +434,7 @@ export default function QuizzesPage() {
                           randomize: newQuiz.randomize,
                           status: newQuiz.status as any,
                           examType: newQuiz.examType as any,
+                          questionLimit: newQuiz.questionLimit,
                         }, [], currentAdmin?.id);
 
                         setQuizzes(getQuizzes());
@@ -522,9 +527,8 @@ export default function QuizzesPage() {
                 {/* Questions List */}
                 <div className="space-y-6">
                   {(() => {
-                    const allQs = getQuestions();
                     const previewQuestions = previewQuiz.questionIds
-                      .map((id) => allQs.find((q) => q.id === id))
+                      .map((id) => allQuestions.find((q) => q.id === id))
                       .filter(Boolean) as Question[];
 
                     if (previewQuestions.length === 0) {
@@ -537,7 +541,7 @@ export default function QuizzesPage() {
 
                     return previewQuestions.map((q, idx) => (
                       <div
-                        key={q.id}
+                        key={`${q.id}-${idx}`}
                         className={`p-5 rounded-2xl border ${themeBorder} ${themePanel} space-y-4 shadow-sm text-slate-900 dark:text-slate-100`}
                       >
                         {/* Question Header */}
