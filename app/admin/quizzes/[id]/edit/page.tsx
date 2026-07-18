@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import CustomSelect from "@/components/admin/CustomSelect";
@@ -12,19 +13,13 @@ import {
   Quiz,
   QuizStatus,
   Question,
-  deleteQuiz,
-  duplicateQuiz,
-  getQuizById,
-  updateQuiz,
-  saveQuestions,
   fetchQuestions,
-  getQuestions,
   getTopics,
   getCustomTags,
 } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction } from "@/actions/question.actions";
-import { syncQuizToDbAction, deleteQuizFromDbAction } from "@/actions/quiz.actions";
+import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizByDbIdAction } from "@/actions/quiz.actions";
 import {
   themeBadge,
   themeBadgeSm,
@@ -86,7 +81,7 @@ export default function EditQuizPage() {
   const { currentAdmin, isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
-  const quizId = Number(params.id);
+  const quizId = params.id as string; // DB UUID
 
   const [activeTab, setActiveTab] = useState<Tab>("settings");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -107,6 +102,7 @@ export default function EditQuizPage() {
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
   const [questionLimit, setQuestionLimit] = useState(50);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ count: number; onConfirm: (overwrite: boolean) => void } | null>(null);
 
   const [alertConfig, setAlertConfig] = useState<{
     isOpen: boolean;
@@ -163,28 +159,37 @@ export default function EditQuizPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const quiz = getQuizById(quizId);
-    if (!quiz) {
-      setNotFound(true);
+    // Load quiz from Neon DB by UUID
+    fetchQuizByDbIdAction(quizId).then(async (dbQuiz) => {
+      if (!dbQuiz) {
+        setNotFound(true);
+        setLoaded(true);
+        return;
+      }
+      setName(dbQuiz.name);
+      setDescription(dbQuiz.description);
+      setTopics([]);
+      setQuestionLimit(dbQuiz.questionLimit);
+      setTimeLimit(dbQuiz.timeLimit);
+      setPassingScore(dbQuiz.passingScore);
+      setStatus("active");
+      setExamType(dbQuiz.examType as any);
+      setRandomize(dbQuiz.randomize);
+      setAttempts(0);
+      setAvgScore(0);
+      setNotFound(false);
+
+      // Load all questions from DB, then map quiz question DB UUIDs → numeric ids
+      const allQs = await fetchQuestions();
+      setAllQuestions(allQs);
+
+      const dbIdToNumeric = new Map(allQs.map((q) => [q.dbId, q.id]));
+      const numericIds = dbQuiz.questionDbIds
+        .map((dbId) => dbIdToNumeric.get(dbId))
+        .filter((id): id is number => id !== undefined);
+      setQuestionIds(Array.from(new Set(numericIds)));
+
       setLoaded(true);
-      return;
-    }
-    setName(quiz.name);
-    setDescription(quiz.description);
-    setTopics(quiz.topics);
-    setQuestionIds(Array.from(new Set(quiz.questionIds)));
-    setQuestionLimit(quiz.questionLimit ?? 50);
-    setTimeLimit(quiz.timeLimit);
-    setPassingScore(quiz.passingScore);
-    setStatus("active");
-    setExamType(quiz.examType);
-    setRandomize(quiz.randomize);
-    setAttempts(quiz.attempts);
-    setAvgScore(quiz.avgScore);
-    setNotFound(false);
-    setLoaded(true);
-    fetchQuestions().then((list) => {
-      setAllQuestions(list);
     });
   }, [quizId]);
 
@@ -252,18 +257,26 @@ export default function EditQuizPage() {
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
-    const updated = [newQuestion, ...allQuestions];
-    setAllQuestions(updated);
-    saveQuestions(updated);
 
-    // Add the new question to the current quiz
-    setQuestionIds([...questionIds, nextId]);
+    // Save to Neon DB, then refresh the question bank to get the DB-assigned dbId
+    importQuestionsAction([newQuestion]).then(() => {
+      fetchQuestions().then((list) => {
+        setAllQuestions(list);
+        const dbQuestion = list.find(q => q.text.trim() === newQuestion.text.trim());
+        if (dbQuestion) {
+          setQuestionIds(prev => [...prev, dbQuestion.id]);
+        } else {
+          setQuestionIds(prev => [...prev, nextId]);
+        }
+      });
+    });
 
     setShowAddQuestionModal(false);
     resetAddQuestionForm();
     setSaveMessage("New question created and added to quiz.");
     setTimeout(() => setSaveMessage(null), 3000);
   };
+
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -398,25 +411,56 @@ export default function EditQuizPage() {
   const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
 
-    const toAssignIds: number[] = [];
-    const newQsToInsert: any[] = [];
-    let duplicatesFetchedCount = 0;
+    // Deduplicate the extracted list itself by question text (case-insensitive)
+    const uniqueQuestionsToImport: any[] = [];
+    extractedQuestions.forEach((eq) => {
+      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+        uniqueQuestionsToImport.push(eq);
+      }
+    });
 
-    let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
+    const duplicates = uniqueQuestionsToImport.filter((eq) =>
+      allQuestions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
+    );
 
-    for (const eq of extractedQuestions) {
-      const cleanedText = eq.text.trim().toLowerCase();
-      const existingQuestion = allQuestions.find((aq) => aq.text.trim().toLowerCase() === cleanedText);
-      
-      if (existingQuestion) {
-        if (!toAssignIds.includes(existingQuestion.id) && !questionIds.includes(existingQuestion.id)) {
-          toAssignIds.push(existingQuestion.id);
-        }
-        duplicatesFetchedCount++;
-      } else {
-        const isAlreadyAddedInBatch = newQsToInsert.some((u) => u.text.trim().toLowerCase() === cleanedText);
-        if (!isAlreadyAddedInBatch) {
-          const questionId = nextId++;
+    const proceedWithImport = async (overwrite: boolean) => {
+      const toAssignIds: number[] = [];
+      const newQsToInsert: any[] = [];
+
+      let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
+
+      for (const eq of uniqueQuestionsToImport) {
+        const cleanedText = eq.text.trim().toLowerCase();
+        const existingQuestion = allQuestions.find((aq) => aq.text.trim().toLowerCase() === cleanedText);
+        
+        const questionId = existingQuestion ? existingQuestion.id : nextId++;
+        
+        if (existingQuestion) {
+          // If it exists in the question bank, and we want to OVERWRITE
+          if (overwrite) {
+            const cleanedTags = eq.tags
+              ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
+              : existingQuestion.tags;
+            const updatedQ = {
+              ...existingQuestion,
+              text: eq.text,
+              options: eq.options,
+              correctIndex: eq.correctIndex,
+              rationale: eq.rationale || existingQuestion.rationale,
+              topic: eq.topic ? eq.topic.trim() : existingQuestion.topic,
+              difficulty: eq.difficulty || existingQuestion.difficulty,
+              tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
+              image: eq.image || existingQuestion.image,
+              status: "published" as const
+            };
+            newQsToInsert.push(updatedQ);
+          }
+          
+          if (!toAssignIds.includes(questionId) && !questionIds.includes(questionId)) {
+            toAssignIds.push(questionId);
+          }
+        } else {
+          // If it's a new question, insert it into the question bank
           const cleanedTags = eq.tags
             ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
             : ["General"];
@@ -430,54 +474,132 @@ export default function EditQuizPage() {
             status: "published" as const
           };
           newQsToInsert.push(newQ);
-          toAssignIds.push(questionId);
+          
+          if (!toAssignIds.includes(questionId) && !questionIds.includes(questionId)) {
+            toAssignIds.push(questionId);
+          }
         }
       }
-    }
 
-    const totalToAssignCount = toAssignIds.length;
-    const spaceLeft = Math.max(0, questionLimit - questionIds.length);
-    
-    if (spaceLeft === 0) {
-      showAlert(`Cannot import questions. This mock test is already at its limit of ${questionLimit} questions.`, "Import Blocked", "warning");
-      return;
-    }
-
-    let finalAssignIds = toAssignIds;
-    let finalNewQsToInsert = newQsToInsert;
-
-    if (totalToAssignCount > spaceLeft) {
-      showAlert(`The uploaded file contains ${totalToAssignCount} questions to add, but this mock test only has space for ${spaceLeft} more questions (limit: ${questionLimit}). Only the first ${spaceLeft} questions will be added/imported.`, "Import Partially Limited", "warning");
-      finalAssignIds = toAssignIds.slice(0, spaceLeft);
-      finalNewQsToInsert = newQsToInsert.filter(q => finalAssignIds.includes(q.id));
-    }
-
-    if (finalNewQsToInsert.length > 0) {
-      const updated = [...finalNewQsToInsert, ...allQuestions];
-      setAllQuestions(updated);
-      saveQuestions(updated);
-      await importQuestionsAction(finalNewQsToInsert);
+      const totalToAssignCount = toAssignIds.length;
+      const spaceLeft = Math.max(0, questionLimit - questionIds.length);
       
-      addUserNotification(
-        `${finalNewQsToInsert.length} Questions Imported`,
-        `Successfully imported ${finalNewQsToInsert.length} new questions from document template.`,
-        finalNewQsToInsert.length,
-        "new-questions"
-      );
+      if (spaceLeft === 0) {
+        showAlert(`Cannot import questions. This mock test is already at its limit of ${questionLimit} questions.`, "Import Blocked", "warning");
+        return;
+      }
+
+      let finalAssignIds = toAssignIds;
+      let finalNewQsToInsert = newQsToInsert;
+
+      if (totalToAssignCount > spaceLeft) {
+        showAlert(`The uploaded file contains ${totalToAssignCount} questions to add, but this mock test only has space for ${spaceLeft} more questions (limit: ${questionLimit}). Only the first ${spaceLeft} questions will be added/imported.`, "Import Partially Limited", "warning");
+        finalAssignIds = toAssignIds.slice(0, spaceLeft);
+        // Only insert new questions that are in finalAssignIds
+        finalNewQsToInsert = newQsToInsert.filter(q => finalAssignIds.includes(q.id));
+      }
+      
+      let latestAllQuestions: any[] = allQuestions;
+
+      if (finalNewQsToInsert.length > 0) {
+        setUploadState("uploading");
+        const uploadedNewQs = await Promise.all(
+          finalNewQsToInsert.map(async (q) => {
+            if (q.image && q.image.startsWith("data:image/")) {
+              try {
+                const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+                return { ...q, image: fileUrl };
+              } catch (err) {
+                console.error("Client image upload failed:", err);
+              }
+            }
+            return q;
+          })
+        );
+
+        // Update local state without introducing duplicate elements
+        const filteredAllQuestions = allQuestions.filter(
+          (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+        );
+        let updated = [...uploadedNewQs, ...filteredAllQuestions];
+        setAllQuestions(updated);
+        
+        const res = await importQuestionsAction(uploadedNewQs);
+        if (res?.success && res.results) {
+          const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+          updated = updated.map((q) => {
+            const dbId = resultsMap.get(q.text.trim().toLowerCase());
+            return dbId ? { ...q, dbId } : q;
+          });
+          setAllQuestions(updated);
+        }
+        latestAllQuestions = updated;
+        
+        addUserNotification(
+          `${finalNewQsToInsert.length} Questions Imported/Updated`,
+          `Successfully processed ${finalNewQsToInsert.length} questions from document template.`,
+          finalNewQsToInsert.length,
+          "new-questions"
+        );
+      }
+
+      setQuestionIds((prev) => [...prev, ...finalAssignIds]);
+
+      // Save the quiz to DB so the question assignments persist
+      const topicCounts: Record<string, number> = {};
+      const topicQuestionDbIds: Record<string, string[]> = {};
+      
+      for (const qId of [...questionIds, ...finalAssignIds]) {
+        const fullQ = latestAllQuestions.find((q: any) => q.id === qId);
+        if (fullQ) {
+          const t = fullQ.topic || "General";
+          topicCounts[t] = (topicCounts[t] || 0) + 1;
+          if (fullQ.dbId) {
+            if (!topicQuestionDbIds[t]) topicQuestionDbIds[t] = [];
+            topicQuestionDbIds[t].push(fullQ.dbId);
+          }
+        }
+      }
+
+      const activeTopics = Object.keys(topicCounts).filter((t) => topicCounts[t] > 0);
+      
+      await syncQuizToDbAction({
+        name: name.trim(),
+        description: description.trim(),
+        timeLimit,
+        passingScore,
+        randomize,
+        status: status as any,
+        examType: examType as any,
+        questionLimit,
+      }, [...questionIds, ...finalAssignIds].map(id => latestAllQuestions.find((q: any) => q.id === id)).filter(Boolean) as any[], currentAdmin?.id);
+
+      setShowUploadModal(false);
+      setUploadState("idle");
+      setExtractionState("idle");
+      setExtractedQuestions([]);
+      setDuplicatePrompt(null);
+
+      const duplicateCount = finalAssignIds.length - finalNewQsToInsert.length;
+      let successMsg = `Successfully added ${finalAssignIds.length} question(s) to this quiz!`;
+      if (duplicateCount > 0 && !overwrite) {
+        successMsg += ` (${duplicateCount} question(s) already existed in your question bank and were linked without duplicating database entries.)`;
+      } else if (duplicateCount > 0 && overwrite) {
+        successMsg += ` (${duplicateCount} question(s) already existed in your question bank and were updated and linked.)`;
+      }
+      showAlert(successMsg, "Import Successful", "success");
+    };
+
+    if (duplicates.length > 0) {
+      setDuplicatePrompt({
+        count: duplicates.length,
+        onConfirm: (overwrite) => {
+          proceedWithImport(overwrite);
+        }
+      });
+    } else {
+      proceedWithImport(true);
     }
-
-    setQuestionIds((prev) => [...prev, ...finalAssignIds]);
-
-    setShowUploadModal(false);
-    setUploadState("idle");
-    setExtractionState("idle");
-    setExtractedQuestions([]);
-
-    let successMsg = `Successfully added ${finalAssignIds.length} question(s) to this quiz!`;
-    if (duplicatesFetchedCount > 0) {
-      successMsg += ` (Fetched ${duplicatesFetchedCount} existing question(s) from your question bank without duplicating database entries.)`;
-    }
-    showAlert(successMsg, "Import Successful", "success");
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -548,36 +670,16 @@ export default function EditQuizPage() {
       return;
     }
 
-    const updated = updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status,
-      examType,
       randomize,
+      status: status as any,
+      examType: examType as any,
       questionLimit,
-    });
-
-    if (!updated) {
-      showAlert("Quiz not found.", "Error", "error");
-      router.push("/admin/quizzes");
-      return;
-    }
-
-    // Sync updated quiz configuration and questions mapping to database
-    const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
-    syncQuizToDbAction({
-      name: updated.name,
-      description: updated.description,
-      timeLimit: updated.timeLimit,
-      passingScore: updated.passingScore,
-      randomize: updated.randomize,
-      status: updated.status as any,
-      examType: updated.examType as any,
-      questionLimit: updated.questionLimit,
     }, questionsOfQuiz, currentAdmin?.id);
 
     setSaveMessage("Changes saved successfully.");
@@ -595,30 +697,16 @@ export default function EditQuizPage() {
       return;
     }
     setStatus("active");
-    const updated = updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status: "active",
-      examType,
       randomize,
-    });
-
-    if (updated) {
-      const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
-      syncQuizToDbAction({
-        name: updated.name,
-        description: updated.description,
-        timeLimit: updated.timeLimit,
-        passingScore: updated.passingScore,
-        randomize: updated.randomize,
-        status: updated.status as any,
-        examType: updated.examType as any,
-      }, questionsOfQuiz, currentAdmin?.id);
-    }
+      status: "active",
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
 
     addUserNotification(
       `Quiz Updated: ${name}`,
@@ -633,60 +721,46 @@ export default function EditQuizPage() {
   const handleSuspend = () => {
     if (isReadOnly) return;
     setStatus("suspended");
-    const updated = updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status: "suspended",
-      examType,
       randomize,
-    });
-
-    if (updated) {
-      const questionsOfQuiz = updated.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
-      syncQuizToDbAction({
-        name: updated.name,
-        description: updated.description,
-        timeLimit: updated.timeLimit,
-        passingScore: updated.passingScore,
-        randomize: updated.randomize,
-        status: updated.status as any,
-        examType: updated.examType as any,
-      }, questionsOfQuiz, currentAdmin?.id);
-    }
+      status: "suspended" as any,
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
 
     setSaveMessage("Quiz suspended.");
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const handleDuplicate = () => {
+  const handleDuplicate = async () => {
     if (isReadOnly) return;
-    const copy = duplicateQuiz(quizId);
-    if (copy) {
-      const questionsOfQuiz = copy.questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
-      syncQuizToDbAction({
-        name: copy.name,
-        description: copy.description,
-        timeLimit: copy.timeLimit,
-        passingScore: copy.passingScore,
-        randomize: copy.randomize,
-        status: copy.status as any,
-        examType: copy.examType as any,
-      }, questionsOfQuiz, currentAdmin?.id);
-      router.push(`/admin/quizzes/${copy.id}/edit`);
+    const copyName = `${name} (Copy)`;
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    const result = await syncQuizToDbAction({
+      name: copyName,
+      description,
+      timeLimit,
+      passingScore,
+      randomize,
+      status: "active",
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
+    if (result.success && result.dbId) {
+      router.push(`/admin/quizzes/${result.dbId}/edit`);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (isReadOnly) return;
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    deleteQuiz(quizId);
-    deleteQuizFromDbAction(name);
+    await deleteQuizFromDbAction(name);
     router.push("/admin/quizzes");
   };
+
 
   if (!loaded) {
     return (
@@ -1958,6 +2032,62 @@ export default function EditQuizPage() {
                 </button>
               </div>
             </motion.div>
+          </>
+        )}
+
+        {duplicatePrompt && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm"
+              onClick={() => setDuplicatePrompt(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Duplicate Questions Found</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  <strong>{duplicatePrompt.count} question(s)</strong> in this file already exist in the Question Bank.
+                </p>
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 border border-slate-100 dark:border-slate-800/30">
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Overwrite & Replace</span>: Updates existing records with the new document version (text, options, rationale).</p>
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Skip Updating</span>: Leaves existing bank records untouched (questions will still be linked to this quiz).</p>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(false);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Skip Updating
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(true);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
+                  >
+                    Overwrite & Replace
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>

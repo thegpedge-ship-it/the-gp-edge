@@ -35,15 +35,19 @@ function mapRowToApproachCard(row: any): ApproachCard {
     keyPoints: extra.keyPoints || [],
     redFlags: extra.redFlags || [],
     references: extra.references || [],
+    fullHtml: row.full_html || "",
   };
 }
 
 export async function getApproachCardsFromDbAction(): Promise<ApproachCard[]> {
   try {
     const rows = await query(
-      `SELECT * FROM medical_conditions
-        WHERE kind = 'Approach' AND deleted_at IS NULL
-        ORDER BY updated_at DESC`
+      `SELECT mc.*, ci.content AS full_html
+         FROM medical_conditions mc
+         LEFT JOIN condition_items ci
+           ON ci.condition_id = mc.id AND ci.item_kind = 'full_html'
+        WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL
+        ORDER BY mc.updated_at DESC`
     );
     return rows.map(mapRowToApproachCard);
   } catch (error) {
@@ -81,8 +85,31 @@ export async function saveApproachCardToDbAction(card: ApproachCard): Promise<bo
          clinical_notes = EXCLUDED.clinical_notes,
          author = EXCLUDED.author,
          updated_at = NOW()`,
-      [dbId, slug, card.title, card.category, statusVal, card.isPremium, extraJson, card.author]
+      [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, extraJson, card.author || "GP Edge Admin"]
     );
+
+    // Store fullHtml in condition_items so the approach viewer renders callouts
+    // using the same pipeline as medical content.
+    if (card.fullHtml) {
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM condition_items WHERE condition_id = $1 AND item_kind = 'full_html' LIMIT 1`,
+        [dbId]
+      );
+      if (existing) {
+        await execute(
+          `UPDATE condition_items SET content = $1 WHERE id = $2`,
+          [card.fullHtml, existing.id]
+        );
+      } else {
+        await execute(
+          `INSERT INTO condition_items (condition_id, item_kind, content, position)
+           VALUES ($1, 'full_html', $2, 0)
+           ON CONFLICT DO NOTHING`,
+          [dbId, card.fullHtml]
+        );
+      }
+    }
+
     return true;
   } catch (error) {
     console.error("Error saving approach card to DB:", error);

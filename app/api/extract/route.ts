@@ -8,6 +8,7 @@ import { PDFParse } from "pdf-parse";
 import { execFileSync } from "child_process";
 import crypto from "crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import Tesseract from "tesseract.js";
 
 // Next.js App Router route segment config — allow large uploads (images in DOCX/PDF)
 export const maxDuration = 60; // seconds
@@ -1618,6 +1619,18 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   
   // Keep overview content strictly within its parsed section (do NOT prepend header metadata/description)
   let overviewContent = sectionsMap.OVERVIEW;
+
+  // Fallback: If no section splits were found, treat the entire document text as overview
+  let hasAnySection = false;
+  for (const k of Object.keys(sectionsMap)) {
+    if (sectionsMap[k].trim()) {
+      hasAnySection = true;
+      break;
+    }
+  }
+  if (!hasAnySection && cleanHeaderHtml) {
+    overviewContent = cleanHeaderHtml;
+  }
   
   catalog.sections.overview = formatSectionHtml(overviewContent);
   catalog.sections.pathophysiology = formatSectionHtml(sectionsMap.PATHOPHYSIOLOGY);
@@ -1629,7 +1642,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   catalog.sections.prognosis = formatSectionHtml(sectionsMap.PROGNOSIS);
   catalog.sections.resources = formatSectionHtml(sectionsMap.RESOURCES);
   
-  const firstOverviewP = sectionsMap.OVERVIEW.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  const firstOverviewP = overviewContent.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
   if (firstOverviewP) {
     catalog.definition = firstOverviewP[1].replace(/<[^>]+>/g, "").trim();
   }
@@ -1924,58 +1937,84 @@ export function parseTextToQuestions(text: string): any[] {
   // Normalize line endings
   const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   
-  // Extract and replace all [IMAGE: ...] tags with placeholders to prevent
-  // base64 image data (which frequently contains 'Q' + digits or numeric sequences)
-  // from triggering false split points in the regex.
+  // Extract and replace all [IMAGE: ...] tags with placeholders so base64 data
+  // doesn't interfere with the question-number detection below.
   const imageUrls: string[] = [];
-  const textWithPlaceholders = normalizedText.replace(/\[IMAGE:\s*([^\]]+)\]/gi, (match, url) => {
+  const textWithPlaceholders = normalizedText.replace(/\[IMAGE:\s*([^\]]+)\]/gi, (_match, url) => {
     imageUrls.push(url.trim());
     return `[IMAGE_PLACEHOLDER_${imageUrls.length - 1}]`;
   });
-  
-  // Split by Question/Q followed by number (only when starting at a new line)
-  let blocks = textWithPlaceholders.split(/(?:\n|^)\s*(?:Question|Q)\s*\d+\s*[:.]?/i);
-  if (blocks.length <= 1) {
-    // Fallback: split by numeric lines (e.g. "\n1. " or "\n1) ")
-    blocks = textWithPlaceholders.split(/(?:\n|^)\s*\d+[\.\)]\s+/);
+
+  // ── STEP 1: Split into lines and group them into per-question blocks ──────
+  //
+  // A "question-start line" is one that matches ANY of:
+  //   • "Question 1", "Q1", "Q 1", "Q.1", "Question.1"  (with optional colon/period after)
+  //   • "1.", "1)", "1-" at the very beginning of a trimmed line
+  //
+  // We also handle the case where the question number is embedded mid-line
+  // after sentence-ending punctuation (e.g. "... answer. 2. A 45-year-old...")
+  // by pre-splitting such inline runs before grouping.
+
+  // Pre-process: insert newlines before inline question numbers so they become
+  // their own lines.  Pattern: ". 2. " or "! Q2." in running text.
+  const preProcessed = textWithPlaceholders
+    .replace(/([\.\?!])\s+(?=(?:Question|Q\.?)\s*\d+\s*[:.]?\s)/gi, "$1\n")
+    .replace(/([\.\?!])\s+(?=\d{1,3}[\.\)]\s+[A-Z])/g, "$1\n");
+
+  const allLines = preProcessed.split("\n");
+
+  // Regex that identifies a line as the start of a new question
+  const QUESTION_START = /^(?:(?:Question|Q\.?)\s*\d+\s*[:.]?\s*|\d{1,3}[\.\)]\s+)/i;
+
+  // Group lines into blocks
+  const rawBlocks: string[][] = [];
+  let current: string[] | null = null;
+
+  for (const rawLine of allLines) {
+    const trimmed = rawLine.trim();
+    if (QUESTION_START.test(trimmed)) {
+      if (current && current.length > 0) rawBlocks.push(current);
+      // Strip the question-number prefix so we don't include it in the stem
+      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?)\s*\d+\s*[:.]?\s*|\d{1,3}[\.\)]\s+)/i, "").trim();
+      current = stripped ? [stripped] : [];
+    } else {
+      if (current !== null) {
+        if (trimmed) current.push(trimmed);
+      }
+      // Lines before the first question are discarded (title, instructions, etc.)
+    }
   }
-  
-  for (let i = 1; i < blocks.length; i++) {
-    const block = blocks[i].trim();
-    if (!block) continue;
+  if (current && current.length > 0) rawBlocks.push(current);
+
+  // ── STEP 2: Parse each block for stem / options / metadata ───────────────
+  for (const blockLines of rawBlocks) {
+    if (blockLines.length === 0) continue;
     
-    // Find the placeholder tag if any and map it back to the original image data URL/URL
+    // Recover image placeholder from this block
     let image: string | undefined = undefined;
-    const placeholderMatch = block.match(/\[IMAGE_PLACEHOLDER_(\d+)\]/i);
+    const blockText = blockLines.join("\n");
+    const placeholderMatch = blockText.match(/\[IMAGE_PLACEHOLDER_(\d+)\]/i);
     if (placeholderMatch) {
       const imgIdx = parseInt(placeholderMatch[1]);
       if (imgIdx >= 0 && imgIdx < imageUrls.length) {
-        const matchedImage = imageUrls[imgIdx];
-        // Only keep the image if it is not a tiny decorative icon (e.g. data URL length >= 4000 or filename)
-        let isDecorative = false;
-        if (matchedImage.startsWith("data:") && matchedImage.length < 4000) {
-          isDecorative = true;
-        }
+        const candidate = imageUrls[imgIdx];
+        const isDecorative = candidate.startsWith("data:") && candidate.length < 4000;
         if (!isDecorative) {
-          image = matchedImage;
-          // Normalize relative static paths to prevent browser 404s relative to admin route
+          image = candidate;
           if (!image.startsWith("data:") && !image.startsWith("/")) {
-            if (image.startsWith("assets/")) {
-              image = "/" + image;
-            } else {
-              image = "/assets/" + image;
-            }
+            image = image.startsWith("assets/") ? "/" + image : "/assets/" + image;
           }
         }
       }
     }
 
-    // Remove all [IMAGE_PLACEHOLDER_N] tags from the block text
-    const cleanedBlock = block.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim();
-    
-    const lines = cleanedBlock.split("\n").map(l => l.trim());
-    // Safety: filter out any lines that are raw base64 data (no spaces, 90%+ base64 chars)
-    const filteredLines = lines.filter(l => !looksLikeBase64OrBinary(l));
+    // Strip all image placeholders from lines before line-by-line parsing
+    const filteredLines = blockLines
+      .map(l => l.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim())
+      .filter(l => l && !looksLikeBase64OrBinary(l));
+
+    if (filteredLines.length === 0) continue;
+
     let questionTextLines: string[] = [];
     const options: string[] = [];
     let correctIndex = 0;
@@ -1984,231 +2023,155 @@ export function parseTextToQuestions(text: string): any[] {
     let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
     let subtopic = "";
     let tags: string[] = [];
-    
+
     let parsingState: "question" | "options" | "metadata" = "question";
     let parsingRationale = false;
-    
+
     for (let j = 0; j < filteredLines.length; j++) {
-      let line = filteredLines[j];
+      const line = filteredLines[j];
       if (!line) continue;
-      
-      const lowerLine = line.toLowerCase();
-      
-      // State Machine Transitions and parsing:
-      
-      // 1. Question Text state: check for transition to options
-      if (parsingState === "question") {
-        if (lowerLine === "options:" || line.match(/^A[\.\)\-]\s+/i)) {
-          parsingState = "options";
-          if (lowerLine === "options:") {
-            continue;
-          }
-        } else {
-          questionTextLines.push(line);
-          continue;
-        }
-      }
-      
-      // 2. Metadata Matches (only checked once we leave the question text state)
-      // 2. Metadata Matches (only checked once we leave the question text state)
-      // Check for Correct Answer (only if we are not already parsing rationale, or it matches strictly)
+
+      // ── Correct Answer ──────────────────────────────────────────────────
       const correctMatch = line.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-]\s*(.*)$/i);
       const isRealCorrect = correctMatch && isStrictMetadataMatch(correctMatch[1], "correct", parsingRationale);
       if (isRealCorrect && correctMatch) {
         parsingState = "metadata";
         parsingRationale = false;
         let ansVal = correctMatch[1].trim();
-        if (ansVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine)) {
-              ansVal = nextLine;
-              j = nextIdx;
-            }
-          }
+        if (!ansVal && j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (next && !isMetadataLine(next)) { ansVal = next; j++; }
         }
-        const ansChar = ansVal.toUpperCase();
-        if (ansChar.length > 0) {
-          const match = ansChar.match(/[A-H]/);
-          if (match) {
-            correctIndex = match[0].charCodeAt(0) - 65; // A -> 0, B -> 1, etc.
-          }
-          if (isNaN(correctIndex) || correctIndex < 0 || correctIndex > 10) {
-            correctIndex = 0;
-          }
+        const m = ansVal.toUpperCase().match(/[A-H]/);
+        if (m) {
+          const idx = m[0].charCodeAt(0) - 65;
+          correctIndex = (isNaN(idx) || idx < 0 || idx > 10) ? 0 : idx;
         }
         continue;
       }
-      
-      // Check for Topic (only if not in rationale, or matches strictly)
+
+      // ── Topic ───────────────────────────────────────────────────────────
       const topicMatch = line.match(/^(?:topic|category|subject)s?\s*[:\-]\s*(.*)$/i);
-      const isRealTopic = topicMatch && isStrictMetadataMatch(topicMatch[1], "topic", parsingRationale);
-      if (isRealTopic && topicMatch) {
-        parsingState = "metadata";
-        parsingRationale = false;
-        let topicVal = topicMatch[1].trim();
-        if (topicVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine)) {
-              topicVal = nextLine;
-              j = nextIdx;
-            }
-          }
+      if (topicMatch && isStrictMetadataMatch(topicMatch[1], "topic", parsingRationale)) {
+        parsingState = "metadata"; parsingRationale = false;
+        let v = topicMatch[1].trim();
+        if (!v && j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        topic = topicVal || "General";
+        topic = v || "General";
         continue;
       }
-      
-      // Check for Subtopic (only if not in rationale, or matches strictly)
+
+      // ── Subtopic ────────────────────────────────────────────────────────
       const subtopicMatch = line.match(/^sub[- ]?topics?\s*[:\-]\s*(.*)$/i);
-      const isRealSubtopic = subtopicMatch && isStrictMetadataMatch(subtopicMatch[1], "subtopic", parsingRationale);
-      if (isRealSubtopic && subtopicMatch) {
-        parsingState = "metadata";
-        parsingRationale = false;
-        let subtopicVal = subtopicMatch[1].trim();
-        if (subtopicVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine)) {
-              subtopicVal = nextLine;
-              j = nextIdx;
-            }
-          }
+      if (subtopicMatch && isStrictMetadataMatch(subtopicMatch[1], "subtopic", parsingRationale)) {
+        parsingState = "metadata"; parsingRationale = false;
+        let v = subtopicMatch[1].trim();
+        if (!v && j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        subtopic = subtopicVal;
+        subtopic = v;
         continue;
       }
-      
-      // Check for Difficulty (only if not in rationale, or matches strictly)
-      const difficultyMatch = line.match(/^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]\s*(.*)$/i);
-      const isRealDifficulty = difficultyMatch && isStrictMetadataMatch(difficultyMatch[1], "difficulty", parsingRationale);
-      if (isRealDifficulty && difficultyMatch) {
-        parsingState = "metadata";
-        parsingRationale = false;
-        let diffVal = difficultyMatch[1].trim();
-        if (diffVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine)) {
-              diffVal = nextLine;
-              j = nextIdx;
-            }
-          }
+
+      // ── Difficulty ──────────────────────────────────────────────────────
+      const diffMatch = line.match(/^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]\s*(.*)$/i);
+      if (diffMatch && isStrictMetadataMatch(diffMatch[1], "difficulty", parsingRationale)) {
+        parsingState = "metadata"; parsingRationale = false;
+        let v = diffMatch[1].trim();
+        if (!v && j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        const diff = diffVal.toLowerCase();
-        if (diff.includes("easy")) difficulty = "Easy";
-        else if (diff.includes("hard")) difficulty = "Hard";
+        if (/easy/i.test(v)) difficulty = "Easy";
+        else if (/hard/i.test(v)) difficulty = "Hard";
         else difficulty = "Medium";
         continue;
       }
-      
-      // Check for Tags (only if not in rationale, or matches strictly)
-      const tagsMatch = line.match(/^(?:tags?|keywords?)\s*[:\-]\s*(.*)$/i);
-      const isRealTags = tagsMatch && isStrictMetadataMatch(tagsMatch[1], "tags", parsingRationale);
-      if (isRealTags && tagsMatch) {
-        parsingState = "metadata";
-        parsingRationale = false;
-        let tagsVal = tagsMatch[1].trim();
-        if (tagsVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine)) {
-              tagsVal = nextLine;
-              j = nextIdx;
-            }
-          }
+
+      // ── Tags ────────────────────────────────────────────────────────────
+      const tagMatch = line.match(/^(?:tags?|keywords?)\s*[:\-]\s*(.*)$/i);
+      if (tagMatch && isStrictMetadataMatch(tagMatch[1], "tags", parsingRationale)) {
+        parsingState = "metadata"; parsingRationale = false;
+        let v = tagMatch[1].trim();
+        if (!v && j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        tags = tagsVal.split(",").map(t => t.trim()).filter(Boolean);
+        if (v) tags = v.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
         continue;
       }
-      
-      // Check for Rationale (only if we are not already parsing rationale)
-      const rationaleMatch = !parsingRationale ? line.match(/^(?:rationale|high-yield\s*rationale|explanation|explaination)\s*[:\-]\s*(.*)$/i) : null;
+
+      // ── Rationale ───────────────────────────────────────────────────────
+      const rationaleMatch = line.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination)\s*[:\-]\s*(.*)$/i);
       if (rationaleMatch) {
-        parsingState = "metadata";
-        parsingRationale = true;
-        let ratVal = rationaleMatch[1].trim();
-        if (ratVal === "" && j + 1 < lines.length) {
-          let nextIdx = j + 1;
-          while (nextIdx < lines.length && !lines[nextIdx].trim()) {
-            nextIdx++;
-          }
-          if (nextIdx < lines.length) {
-            const nextLine = lines[nextIdx].trim();
-            if (!isMetadataLine(nextLine) && !nextLine.match(/^([A-H])[\.\)\-]/i)) {
-              ratVal = nextLine;
-              j = nextIdx;
-            }
-          }
-        }
-        rationale = ratVal;
+        parsingState = "metadata"; parsingRationale = true;
+        const v = rationaleMatch[1].trim();
+        if (v) rationale = v;
         continue;
       }
-      
-      // 3. Option parsing state
-      if (parsingState === "options") {
-        const optionMatch = line.match(/^([A-H])[\.\)\-]\s*(.*)$/i);
-        if (optionMatch) {
-          const letter = optionMatch[1].toUpperCase();
-          const idx = letter.charCodeAt(0) - 65;
-          options[idx] = optionMatch[2].trim();
-        } else if (options.length > 0) {
-          // Multi-line option text
-          const lastIdx = options.length - 1;
-          options[lastIdx] += " " + line;
+
+      // ── Option lines (A. B. C. D. or (A) etc.) ─────────────────────────
+      // Only try to parse options once we leave the question state, OR if we
+      // detect a clear option-A marker while still reading the stem.
+      const optionMatch = line.match(/^\(?([A-H])[.\/):\-]\s*(.+)$/i);
+      if (optionMatch) {
+        const letter = optionMatch[1].toUpperCase();
+        const optText = optionMatch[2].trim();
+        // Avoid treating "A 45-year-old..." as option A — require at least 2 chars after the delimiter
+        const looksRealOption = optText.length >= 1 && !/^\d/.test(optText.substring(0, 1) === " " ? optText.substring(1) : "");
+        if (parsingState === "question") {
+          // Transition to options only if this is a clear A. or (A) pattern (not "A word word...")
+          const isUnambiguousOptionA = /^\(?A[.\/):\-]\s*/i.test(line) && letter === "A";
+          if (isUnambiguousOptionA) {
+            parsingState = "options";
+            options.push(optText);
+            continue;
+          }
+        } else if (parsingState === "options" && looksRealOption) {
+          options.push(optText);
+          continue;
+        } else if (parsingState === "metadata" && !parsingRationale && looksRealOption) {
+          // Sometimes options appear after metadata (unusual format)
+          options.push(optText);
+          continue;
         }
+      }
+
+      // ── Plain "Options:" header ─────────────────────────────────────────
+      if (/^options?\s*:?\s*$/i.test(line)) {
+        if (parsingState === "question") parsingState = "options";
         continue;
       }
-      
-      // 4. Metadata state (rationale accumulation)
-      if (parsingState === "metadata" && parsingRationale) {
+
+      // ── Default: append to current state ───────────────────────────────
+      if (parsingState === "question") {
+        questionTextLines.push(line);
+      } else if (parsingState === "options") {
+        // Plain option text with no letter prefix (some docs list options bare)
+        options.push(line);
+      } else if (parsingState === "metadata" && parsingRationale) {
         rationale += "\n" + line;
-        continue;
       }
     }
-    
+
     const finalQuestionText = questionTextLines.join("\n").trim();
-    
-    // Skip empty placeholder question templates
-    if (finalQuestionText.includes("[Enter question text here]") || finalQuestionText === "") {
-      continue;
-    }
-    
-    // Skip false-positive blocks that don't have any parsed options (e.g. lists inside rationales)
-    if (options.length === 0) {
-      continue;
-    }
-    
-    // Default to A, B, C, D options if fewer options parsed
-    const finalOptions = [];
+
+    // Skip empty or placeholder blocks
+    if (!finalQuestionText || finalQuestionText.includes("[Enter question text here]")) continue;
+    // Skip blocks with no options (likely a preamble / instructions block)
+    if (options.length === 0) continue;
+
+    const finalOptions: string[] = [];
     const numOptions = Math.max(4, options.length);
     for (let k = 0; k < numOptions; k++) {
       finalOptions.push(options[k] || `Option ${String.fromCharCode(65 + k)}`);
     }
-    
+
     questions.push({
-      text: finalQuestionText || "Practice Question Placeholder",
+      text: finalQuestionText,
       options: finalOptions,
       correctIndex,
       rationale: rationale.trim() || "No explanation provided.",
@@ -2216,12 +2179,13 @@ export function parseTextToQuestions(text: string): any[] {
       subtopic,
       difficulty,
       tags: tags.length > 0 ? tags : ["General"],
-      image
+      image,
     });
   }
-  
+
   return questions;
 }
+
 
 // ── R2 image uploader ──────────────────────────────────────────────────────────
 
@@ -2335,9 +2299,9 @@ export async function POST(req: NextRequest) {
     const fileName = file.name || "uploaded_file";
     const ext = fileName.split(".").pop()?.toLowerCase();
 
-    if (!["pdf", "docx", "doc"].includes(ext || "")) {
+    if (!["pdf", "docx", "doc", "png", "jpg", "jpeg", "webp"].includes(ext || "")) {
       return NextResponse.json(
-        { error: "Only PDF, DOC, and DOCX files are supported." },
+        { error: "Only PDF, DOC, DOCX, and image files (PNG, JPG, JPEG, WEBP) are supported." },
         { status: 400 }
       );
     }
@@ -2360,6 +2324,9 @@ export async function POST(req: NextRequest) {
         rawText = await extractTextFromPdfBuffer(buffer);
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
+      } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
+        const { data } = await Tesseract.recognize(buffer, "eng");
+        rawText = data.text || "";
       } else {
         const result = await mammoth.extractRawText({ buffer });
         rawText = result.value.trim() || await extractTextFromPdfBuffer(buffer);
@@ -2373,6 +2340,26 @@ export async function POST(req: NextRequest) {
 
       const title = inferTitle(fileName, rawText);
 
+      // Parse SOAP sections if present
+      let subjective = "";
+      let objective = "";
+      let assessment = "";
+      let plan = "";
+
+      const sMatch = rawText.match(/(?:subjective|s\b)\s*:\s*([\s\S]*?)(?=(?:\n|\r|\s)(?:objective|o\b|assessment|a\b|plan|p\b)\s*:|$)/i);
+      const oMatch = rawText.match(/(?:objective|o\b)\s*:\s*([\s\S]*?)(?=(?:\n|\r|\s)(?:subjective|s\b|assessment|a\b|plan|p\b)\s*:|$)/i);
+      const aMatch = rawText.match(/(?:assessment|a\b)\s*:\s*([\s\S]*?)(?=(?:\n|\r|\s)(?:subjective|s\b|objective|o\b|plan|p\b)\s*:|$)/i);
+      const pMatch = rawText.match(/(?:plan|p\b)\s*:\s*([\s\S]*?)(?=(?:\n|\r|\s)(?:subjective|s\b|objective|o\b|assessment|a\b)\s*:|$)/i);
+
+      if (sMatch || oMatch || aMatch || pMatch) {
+        if (sMatch) subjective = sMatch[1].trim();
+        if (oMatch) objective = oMatch[1].trim();
+        if (aMatch) assessment = aMatch[1].trim();
+        if (pMatch) plan = pMatch[1].trim();
+      } else {
+        assessment = rawText;
+      }
+
       return NextResponse.json({
         success: true,
         type: "autofill",
@@ -2380,10 +2367,10 @@ export async function POST(req: NextRequest) {
         system: "General",
         category: "General",
         content: rawText,
-        subjective: "",
-        objective: "",
-        assessment: rawText, // backward compatibility
-        plan: "",
+        subjective,
+        objective,
+        assessment,
+        plan,
         doctorSummary: "",
         patientResources: "",
         references: [],
@@ -2404,6 +2391,9 @@ export async function POST(req: NextRequest) {
         rawText = await extractTextAndImagesFromPdfBuffer(buffer);
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
+      } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
+        const { data } = await Tesseract.recognize(buffer, "eng");
+        rawText = data.text || "";
       } else {
         rawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }
@@ -2434,6 +2424,9 @@ export async function POST(req: NextRequest) {
         rawText = await extractTextAndImagesFromPdfBuffer(buffer);
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
+      } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
+        const { data } = await Tesseract.recognize(buffer, "eng");
+        rawText = data.text || "";
       } else {
         const result = await mammoth.extractRawText({ buffer });
         rawText = result.value.trim() || await extractTextAndImagesFromPdfBuffer(buffer);
@@ -2543,7 +2536,29 @@ export async function POST(req: NextRequest) {
           checklistItems: ["Check vital signs", "Confirm history"]
         });
       }
-      
+
+      // ── Build fullHtml for the approach (same pipeline as medical content) ──
+      // Re-use the same HTML polishing + callout detection functions so that
+      // callout blocks (Key Points, Warning, Important, MBS Billing) are
+      // rendered correctly in the approach viewer just like in medical content.
+      let approachFullHtml = "";
+      try {
+        if (ext === "docx") {
+          const rawHtml = await extractHtmlFromDocxBuffer(buffer);
+          approachFullHtml = polishDocxHtml(rawHtml);
+        } else {
+          // PDF / DOC: convert the already-extracted raw text to HTML then run
+          // the full catalog pipeline so callouts are detected and styled.
+          const approachCatalogHtml = convertPlainTextToHtml(rawText);
+          const approachCatalog = parseHtmlToCatalog(approachCatalogHtml, fileName);
+          approachFullHtml = generateCatalogHtml(approachCatalog, system, category);
+        }
+        // Upload any embedded base64 images to R2 (keeps stored JSON small)
+        approachFullHtml = await uploadBase64ImagesToR2(approachFullHtml);
+      } catch (htmlErr) {
+        console.warn("Approach fullHtml generation failed (non-fatal):", htmlErr);
+      }
+
       return NextResponse.json({
         success: true,
         type: "approach",
@@ -2557,7 +2572,8 @@ export async function POST(req: NextRequest) {
           steps,
           keyPoints: keyPoints.length > 0 ? keyPoints : ["Patient education & follow-up"],
           redFlags: redFlags.length > 0 ? redFlags : ["Immediate referral if red flags present"],
-          references: references.length > 0 ? references : [{ id: 1, text: "GP Reference Guide" }]
+          references: references.length > 0 ? references : [{ id: 1, text: "GP Reference Guide" }],
+          fullHtml: approachFullHtml,
         },
         fileName
       });

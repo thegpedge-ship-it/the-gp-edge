@@ -175,7 +175,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 
       // 5. Quick-access badge counts (library size + this user's saved items).
       Promise.all([
-        prisma.mbs_items.count(),
+        prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int as count FROM mbs_items`.then(r => Number(r[0]?.count ?? 0)),
         prisma.medical_conditions.count(),
         prisma.user_saved_templates.count({ where: { user_id: dbUser.id } }),
         prisma.user_question_bookmarks.count({ where: { user_id: dbUser.id } }),

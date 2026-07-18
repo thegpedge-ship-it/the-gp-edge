@@ -14,10 +14,10 @@ import {
   AutofillTemplate,
   fetchQuestions,
   getQuestions,
-  createQuiz,
   Question,
 } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { syncQuizToDbAction } from "@/actions/quiz.actions";
 
 // ─────────────────────────────────────────────────────────────
 // SOAP → HTML seed
@@ -115,7 +115,7 @@ function RibbonGroup({ label, children }: { label: string; children: React.React
 // Main editor
 // ─────────────────────────────────────────────────────────────
 function TemplateEditorContent() {
-  const { isReadOnly } = useAdminRole();
+  const { isReadOnly, currentAdmin } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const templateId = Number(params.id);
@@ -135,6 +135,14 @@ function TemplateEditorContent() {
 
   // Content
   const [templateContent, setTemplateContent] = useState("");
+
+  // SOAP fields
+  const [subjective, setSubjective] = useState("");
+  const [objective, setObjective] = useState("");
+  const [assessment, setAssessment] = useState("");
+  const [plan, setPlan] = useState("");
+  const [doctorSummary, setDoctorSummary] = useState("");
+  const [patientResources, setPatientResources] = useState("");
 
   // Layout
   const [ribbonTab, setRibbonTab] = useState<"home" | "insert" | "layout">("home");
@@ -331,6 +339,12 @@ function TemplateEditorContent() {
       setSelectedSystem(system);
       setSelectedCategory(category);
       setTemplateContent(content);
+      setSubjective(subjective);
+      setObjective(objective);
+      setAssessment(assessment);
+      setPlan(plan);
+      setDoctorSummary(doctorSummary);
+      setPatientResources(patientResources);
 
       if (references && references.length > 0) {
         setDocReferences(references.map((refText: string, i: number) => ({
@@ -459,6 +473,12 @@ function TemplateEditorContent() {
     setAuthor(item.author);
     setTags(item.tags || []);
     setTemplateContent(item.content || [item.subjective, item.objective, item.assessment, item.plan, item.doctorSummary, item.patientResources].filter(Boolean).join("\n\n"));
+    setSubjective(item.subjective || "");
+    setObjective(item.objective || "");
+    setAssessment(item.assessment || "");
+    setPlan(item.plan || "");
+    setDoctorSummary(item.doctorSummary || "");
+    setPatientResources(item.patientResources || "");
 
     let savedHtml = localStorage.getItem(`gpedge_template_body_${templateId}`);
     if (!savedHtml) savedHtml = soapToHtml(item);
@@ -1089,6 +1109,12 @@ function TemplateEditorContent() {
         author,
         tags,
         content: templateContent,
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
       } : t);
       
       setTemplates(up);
@@ -1096,7 +1122,7 @@ function TemplateEditorContent() {
     }, 1000); // 1-second debounce
 
     return () => clearTimeout(timer);
-  }, [docTitle, selectedSystem, selectedCategory, docReferences, tags, templateContent, editTriggerCount, activePage]);
+  }, [docTitle, selectedSystem, selectedCategory, docReferences, tags, templateContent, subjective, objective, assessment, plan, doctorSummary, patientResources, editTriggerCount, activePage]);
 
   // ── Image ──
   const insertImageUrl = () => {
@@ -1132,6 +1158,12 @@ function TemplateEditorContent() {
       ...t, name: docTitle.trim(), system: selectedSystem, category: selectedCategory,
       status: templateStatus as AutofillTemplate["status"], author, tags,
       content: templateContent,
+      subjective,
+      objective,
+      assessment,
+      plan,
+      doctorSummary,
+      patientResources,
     } : t);
     setTemplates(up); saveAutofillTemplates(up);
     addUserNotification("Template Saved", `Saved changes to "${docTitle}".`, 1, "custom");
@@ -1148,14 +1180,26 @@ function TemplateEditorContent() {
     router.push(`/admin/autofill/${nextId}/editor`);
   };
 
-  const handleGenerateQuiz = () => {
+  const handleGenerateQuiz = async () => {
     if (isReadOnly) return;
     const bank = allQuestions;
     const rel = bank.filter(q => q.topic.toLowerCase().includes(selectedSystem.toLowerCase()));
     const qqs = rel.slice(0, 8); if (qqs.length === 0) qqs.push(...bank.slice(0, 5));
-    const nq = createQuiz({ name: `Quiz: ${docTitle}`, description: `Auto-generated from "${docTitle}"`, timeLimit: qqs.length * 2, passingScore: 70, randomize: true, status: "active", examType: "AKT", questionIds: qqs.map(q => q.id), topics: [selectedSystem] });
-    addUserNotification("Quiz Generated & Published", `Generated and published quiz "${nq.name}".`, qqs.length, "quiz");
-    router.push(`/admin/quizzes/${nq.id}/edit`);
+    const quizName = `Quiz: ${docTitle}`;
+    const result = await syncQuizToDbAction({
+      name: quizName,
+      description: `Auto-generated from "${docTitle}"`,
+      timeLimit: qqs.length * 2,
+      passingScore: 70,
+      randomize: true,
+      status: "active",
+      examType: "AKT",
+    }, qqs, currentAdmin?.id);
+
+    if (result.success && result.dbId) {
+      addUserNotification("Quiz Generated & Published", `Generated and published quiz "${quizName}".`, qqs.length, "quiz");
+      router.push(`/admin/quizzes/${result.dbId}/edit`);
+    }
   };
 
   const handleAddRef = () => {

@@ -144,7 +144,7 @@ export async function embedTexts(
       contents: texts,
       config: { outputDimensionality: EMBED_DIM, taskType },
     }),
-  );
+  ) as any;
 
   const embeddings = response.embeddings ?? [];
   if (embeddings.length !== texts.length) {
@@ -154,7 +154,7 @@ export async function embedTexts(
     );
   }
 
-  return embeddings.map((e, i) => {
+  return embeddings.map((e: any, i: number) => {
     const values = e.values ?? [];
     if (values.length !== EMBED_DIM) {
       throw new Error(

@@ -535,9 +535,26 @@ export default function AutofillPage() {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-sm text-slate-400">No templates found matching your criteria.</p>
-        </div>
+        <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
+          <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
+          <p className="text-sm font-medium">No autofill templates found.</p>
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                if (isReadOnly) return;
+                setEditingTemplateId(null);
+                setNewName("");
+                setNewSystem("Respiratory");
+                setNewCategory("Acute");
+                setTempFields([]);
+                setShowEditor(true);
+              }}
+              className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Create your first autofill template →
+            </button>
+          )}
+        </motion.div>
       )}
 
       {/* Template builder modal */}

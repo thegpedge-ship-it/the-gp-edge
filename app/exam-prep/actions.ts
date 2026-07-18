@@ -136,12 +136,11 @@ const DIFFICULTY_LABEL: Record<difficulty_level, UiDifficulty> = {
 };
 
 /** Map a free-text exam target ("AKT — Aug 2026") to an exam_types.code. */
-function examCodeFromTarget(target: string | null | undefined): string | null {
-  if (!target) return null;
+function examCodeFromTarget(target: string | null | undefined): string {
+  if (!target) return "AKT";
   const t = target.toUpperCase();
   if (t.includes("KFP")) return "KFP";
-  if (t.includes("AKT")) return "AKT";
-  return null;
+  return "AKT";
 }
 
 /** Most common difficulty among a set, defaulting to medium. */
@@ -772,9 +771,13 @@ export interface UiMockTest {
 
 export async function getMockTests(): Promise<UiMockTest[]> {
   const dbUser = await ensureDbUser();
+  const examCode = examCodeFromTarget(dbUser?.exam_target);
 
   const tests = await prisma.mock_tests.findMany({
-    where: { deleted_at: null },
+    where: {
+      deleted_at: null,
+      ...(examCode ? { exam_type_code: examCode } : {}),
+    },
     orderBy: { sort_order: "asc" },
     select: {
       id: true,

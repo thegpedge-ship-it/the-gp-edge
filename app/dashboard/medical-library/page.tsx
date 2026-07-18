@@ -4,8 +4,8 @@ import { useState, useMemo, useCallback, useRef, useEffect, Suspense } from "rea
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { bodySystems, mockConditions, MedicalCondition } from "@/app/medical-library/libraryData";
-import { getMedicalContent, getApproachCards, saveApproachCards, MedicalContent, ApproachCard } from "@/lib/quizData";
+import { bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
+import { fetchMedicalContent, getApproachCards, saveApproachCards, MedicalContent, ApproachCard } from "@/lib/quizData";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
@@ -316,6 +316,17 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
             <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
               Approach
             </span>
+            {condition.isPremium ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
+                <Lucide.Lock className="w-2.5 h-2.5" />
+                Paid Only
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
+                <Lucide.Unlock className="w-2.5 h-2.5" />
+                Free Access
+              </span>
+            )}
           </div>
           <button
             onClick={(e) => toggleFavorite(e, condition.id)}
@@ -330,15 +341,30 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
           {condition.name}
         </h4>
 
-        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4 line-clamp-3">
-          {condition.clinicalNotes || condition.document?.summary || "Diagnostic and management framework."}
-        </p>
+        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
+          <span>{condition.system}</span>
+          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
+          <span>{condition.category}</span>
+        </div>
+
+        <div className="space-y-1 mb-4">
+          {(condition.symptoms || []).slice(0, 2).map((rf, i) => (
+            <p key={i} className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
+              <span className="text-teal-600 dark:text-teal-500 font-bold">•</span>
+              <span className="truncate">{rf}</span>
+            </p>
+          ))}
+        </div>
       </div>
 
       <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
         <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer group/footer">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors">{condition.system}</span>
+        </div>
+        <div className="flex flex-col text-right">
+          <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+          <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
         </div>
       </div>
     </motion.div>
@@ -427,91 +453,57 @@ function MedicalLibraryContent() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const adminContent = getMedicalContent();
-      const mapped: MedicalCondition[] = adminContent.map((item) => {
-        const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
-        let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
-        if (referencesRaw) {
-          try { refs = JSON.parse(referencesRaw); } catch { }
-        }
+      // Load standard medical content from Neon DB (no mock data)
+      fetchMedicalContent().then((adminContent) => {
+        const mapped: MedicalCondition[] = adminContent.map((item) => {
+          const normalizedType: "Condition" | "Guideline" | "Document" | "Note" =
+            item.type === "Condition" ? "Condition" :
+              item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
+                item.type === "Note" ? "Note" : "Document";
 
-        const normalizedType: "Condition" | "Guideline" | "Document" | "Note" =
-          item.type === "Condition" ? "Condition" :
-            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
-              item.type === "Note" ? "Note" : "Document";
+          const customItem = item as MedicalContent & { pdfUrl?: string; pdfSize?: string };
 
-        const customItem = item as MedicalContent & { pdfUrl?: string; pdfSize?: string };
-        const savedHtml = typeof window !== "undefined" ? (localStorage.getItem(`gpedge_content_body_${item.id}`) || "") : "";
-        const cleanedHtml = cleanTableHtmlStyles(savedHtml);
-        
-        let parsedPages: string[] = [];
-        const savedPagesRaw = typeof window !== "undefined" ? localStorage.getItem(`gpedge_content_pages_${item.id}`) : null;
-        if (savedPagesRaw) {
-          try { parsedPages = JSON.parse(savedPagesRaw); } catch {}
-        }
-        if (parsedPages.length <= 1) {
-          parsedPages = splitHtmlIntoPages(cleanedHtml || "");
-        } else {
-          parsedPages = parsedPages.map(pageHtml => cleanTableHtmlStyles(pageHtml));
-        }
+          return {
+            id: `CUSTOM-${item.id}`,
+            name: item.name,
+            system: normalizeSystemName(item.system) as any,
+            category: item.category,
+            type: normalizedType,
+            lastUpdated: item.lastUpdated,
+            author: item.author,
+            isPremium: item.isPremium,
+            symptoms: [],
+            diagnosisCriteria: [],
+            treatmentOptions: [],
+            clinicalNotes: "",
+            references: [],
+            document: {
+              filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
+              fileSize: customItem.pdfSize || "",
+              totalPages: 1,
+              downloadUrl: customItem.pdfUrl || "#",
+              summary: item.name,
+              pages: []
+            }
+          };
+        });
 
-        return {
-          id: `CUSTOM-${item.id}`,
-          name: item.name,
-          system: normalizeSystemName(item.system) as any,
-          category: item.category,
-          type: normalizedType,
-          lastUpdated: item.lastUpdated,
-          author: item.author,
-          symptoms: [],
-          diagnosisCriteria: [],
-          treatmentOptions: [],
-          clinicalNotes: cleanedHtml,
-          references: refs,
-          document: {
-            filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
-            fileSize: customItem.pdfSize || "1.2 MB",
-            totalPages: parsedPages.length,
-            downloadUrl: customItem.pdfUrl || "#",
-            summary: item.name,
-            pages: parsedPages
-          }
-        };
-      });
+        setCustomConditions((prev) => {
+          // Keep existing approaches, replace medical conditions
+          const approaches = prev.filter((c) => c.id.startsWith("CUSTOM-APPROACH-"));
+          return [...mapped, ...approaches];
+        });
+      }).catch(console.error);
 
-      const localApproaches = getApproachCards();
-      const mappedApproaches: MedicalCondition[] = localApproaches.map((card) => {
-        return {
-          id: `CUSTOM-APPROACH-${card.id}`,
-          name: card.title,
-          system: normalizeSystemName(card.system) as any,
-          category: card.category,
-          type: "Approach" as const,
-          isPremium: card.isPremium,
-          lastUpdated: card.lastUpdated,
-          author: card.author,
-          symptoms: card.redFlags || [],
-          diagnosisCriteria: (card.steps || []).map(s => `${s.title}: ${s.description}`),
-          treatmentOptions: card.keyPoints || [],
-          clinicalNotes: card.overview || "",
-          references: (card.references || []).map((r, idx) => ({ id: r.id || idx + 1, text: r.text, url: r.url })),
-          document: {
-            filename: `${card.title.replace(/\s+/g, "_")}.pdf`,
-            fileSize: "1.2 MB",
-            totalPages: 1,
-            downloadUrl: "#",
-            summary: card.subtitle || card.overview || ""
-          }
-        };
-      });
-
-      setCustomConditions([...mapped, ...mappedApproaches]);
+      setCustomConditions([]);
 
       // Fetch fresh approaches from DB in background
       getApproachCardsFromDbAction().then(dbCards => {
         if (dbCards && dbCards.length > 0) {
           saveApproachCards(dbCards);
           const mappedDb: MedicalCondition[] = dbCards.map((card) => {
+            const cleanedHtml = cleanTableHtmlStyles(card.fullHtml || "");
+            const parsedPages = splitHtmlIntoPages(cleanedHtml);
             return {
               id: `CUSTOM-APPROACH-${card.id}`,
               name: card.title,
@@ -524,14 +516,15 @@ function MedicalLibraryContent() {
               symptoms: card.redFlags || [],
               diagnosisCriteria: (card.steps || []).map(s => `${s.title}: ${s.description}`),
               treatmentOptions: card.keyPoints || [],
-              clinicalNotes: card.overview || "",
+              clinicalNotes: cleanedHtml || card.overview || "",
               references: (card.references || []).map((r, idx) => ({ id: r.id || idx + 1, text: r.text, url: r.url })),
               document: {
                 filename: `${card.title.replace(/\s+/g, "_")}.pdf`,
                 fileSize: "1.2 MB",
-                totalPages: 1,
+                totalPages: parsedPages.length || 1,
                 downloadUrl: "#",
-                summary: card.subtitle || card.overview || ""
+                summary: card.subtitle || card.overview || "",
+                pages: parsedPages
               }
             };
           });
@@ -555,11 +548,11 @@ function MedicalLibraryContent() {
   const selectedConditionId = searchParams.get("id");
 
   useEffect(() => {
-    if (!selectedConditionId || !selectedConditionId.startsWith("CUSTOM-") || selectedConditionId.startsWith("CUSTOM-APPROACH-")) {
+    if (!selectedConditionId || !selectedConditionId.startsWith("CUSTOM-")) {
       setDbConditionData(null);
       return;
     }
-    const cleanId = selectedConditionId.replace("CUSTOM-", "");
+    const cleanId = selectedConditionId.replace("CUSTOM-APPROACH-", "").replace("CUSTOM-", "");
     setDbLoading(true);
     fetch(`/api/medical-content/${cleanId}`)
       .then(res => res.json())
@@ -599,7 +592,7 @@ function MedicalLibraryContent() {
       return isNaN(d) ? 0 : d;
     };
 
-    return [...mockConditions, ...customConditions].sort((a, b) => {
+    return [...customConditions].sort((a, b) => {
       return parseDate(b.lastUpdated) - parseDate(a.lastUpdated);
     });
   }, [customConditions]);
@@ -1172,49 +1165,13 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   </div>
 
                   {/* Rest of Clinical Details */}
-                  {selectedCondition.id.startsWith("CUSTOM-APPROACH-") && selectedApproachCard ? (
-                    <div className="space-y-6">
-                      {/* Key Points */}
-                      {selectedApproachCard.keyPoints && selectedApproachCard.keyPoints.length > 0 && (
-                        <div className="space-y-3">
-                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none flex items-center gap-2">
-                            <Lucide.Lightbulb className="w-4 h-4 text-amber-500" />
-                            Key Points & Pearls
-                          </h4>
-                          <div className="space-y-2">
-                            {selectedApproachCard.keyPoints.map((kp, i) => (
-                              <div key={i} className="flex gap-2.5 font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300 bg-white/40 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-200/10 dark:border-slate-800/15 animate-fade-in">
-                                <span className="text-amber-500 font-bold">•</span>
-                                <span>{kp}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Red Flags */}
-                      {selectedApproachCard.redFlags && selectedApproachCard.redFlags.length > 0 && (
-                        <div className="space-y-3">
-                          <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none flex items-center gap-2">
-                            <Lucide.AlertTriangle className="w-4 h-4 text-rose-500 animate-pulse" />
-                            Red Flags
-                          </h4>
-                          <div className="space-y-2">
-                            {selectedApproachCard.redFlags.map((rf, i) => (
-                              <div key={i} className="flex gap-2.5 font-sans text-xs md:text-sm font-normal leading-relaxed text-rose-705 dark:text-rose-400 bg-rose-50/10 dark:bg-rose-950/10 p-3 rounded-xl border border-rose-200/20 dark:border-rose-900/20">
-                                <span className="text-rose-500 font-bold">•</span>
-                                <span>{rf}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : !selectedCondition.id.startsWith("CUSTOM-") ? (
+                  {!selectedCondition.id.startsWith("CUSTOM-") || selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? (
                     <>
                       {/* Symptoms Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Clinical Signs & Symptoms</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? "Clinical Red Flags" : "Clinical Signs & Symptoms"}
+                        </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                           {selectedCondition.symptoms.map((symptom, i) => (
                             <div
@@ -1230,7 +1187,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                       {/* Diagnosis Steps Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Diagnosis & Assessment Criteria</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? "Clinical Steps & Framework" : "Diagnosis & Assessment Criteria"}
+                        </h4>
                         <div className="space-y-2.5">
                           {selectedCondition.diagnosisCriteria.map((crit, i) => (
                             <div key={i} className="bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl flex items-start gap-3">
@@ -1245,7 +1204,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
                       {/* Treatment & Management Section */}
                       <div className="space-y-3">
-                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">Management & Treatment Regimen</h4>
+                        <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? "Management & Key Points" : "Management & Treatment Regimen"}
+                        </h4>
                         <div className="space-y-2.5">
                           {selectedCondition.treatmentOptions.map((opt, i) => {
                             const sys = getSystem(selectedCondition.system);
@@ -1322,7 +1283,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
               {/* Right Column: PDF Viewer or Placeholder */}
               <div className="xl:col-span-5 space-y-5 min-w-0">
-                {selectedCondition.type === "Approach" ? (
+                {selectedCondition.type === "Approach" && (!selectedCondition.document?.pages || selectedCondition.document.pages.length === 0) ? (
                   (() => {
                     const sys = getSystem(selectedCondition.system);
                     return (

@@ -61,6 +61,7 @@ export default function ContentDetailPage() {
   const [bodyHtml, setBodyHtml] = useState("");
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfZoom, setPdfZoom] = useState(100);
+  const [isLoading, setIsLoading] = useState(true);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -85,6 +86,10 @@ export default function ContentDetailPage() {
 
   useEffect(() => {
     const load = async () => {
+      setIsLoading(true);
+      setItem(null);
+      setBodyHtml("");
+
       // 1. Fetch metadata and body directly from Neon API for this specific item first
       if (contentId && !String(contentId).startsWith("local")) {
         try {
@@ -140,6 +145,7 @@ export default function ContentDetailPage() {
               setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
             }
             setPdfPage(1);
+            setIsLoading(false);
             return;
           }
         } catch (err) {
@@ -154,7 +160,11 @@ export default function ContentDetailPage() {
         setItem(found);
         setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
         setPdfPage(1);
+        setIsLoading(false);
+        return;
       }
+
+      setIsLoading(false);
     };
     load();
   }, [contentId]);
@@ -168,15 +178,19 @@ export default function ContentDetailPage() {
 
   const totalPages = pages.length;
 
-  if (!item) {
+  if (isLoading) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-slate-500 dark:text-slate-400">Clinical Content not found.</p>
-        <button onClick={() => router.push("/admin/content")} className={`mt-4 ${themeBtnPrimary} px-4 py-2 text-sm`}>
-          Back to Content List
-        </button>
+      <div className="min-h-[60vh] flex items-center justify-center p-8 text-center">
+        <div>
+          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-teal-200 border-t-teal-700" />
+          <p className="text-slate-500 dark:text-slate-400">Loading clinical content...</p>
+        </div>
       </div>
     );
+  }
+
+  if (!item) {
+    return null;
   }
 
   return (

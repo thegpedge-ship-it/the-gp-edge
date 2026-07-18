@@ -27,5 +27,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const dbUser = await ensureDbUser();
 
-  return <DashboardShell profile={toDbProfile(dbUser)}>{children}</DashboardShell>;
+  return <DashboardShell profile={toDbProfile(dbUser)} showSidebar>{children}</DashboardShell>;
 }

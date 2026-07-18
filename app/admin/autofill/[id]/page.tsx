@@ -160,6 +160,12 @@ export default function AutofillDetailPage() {
             category: category,
             fields: 0,
             content,
+            subjective,
+            objective,
+            assessment,
+            plan,
+            doctorSummary,
+            patientResources,
             sampleFields: []
           };
           templatesList = templatesList.map(t => t.id === template.id ? updatedTemplate : t);
@@ -278,6 +284,12 @@ export default function AutofillDetailPage() {
         category: category,
         fields: 0,
         content,
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
         sampleFields: []
       };
 

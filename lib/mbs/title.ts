@@ -151,7 +151,7 @@ export async function generateTitles(items: TitleInput[]): Promise<Map<number, s
         temperature: 0.2,
       },
     }),
-  );
+  ) as any;
 
   const text = response.text;
   if (!text) throw new Error("Title model returned an empty response.");

@@ -46,18 +46,7 @@ function PDFViewerContent() {
   const [scaleFactor, setScaleFactor] = useState(1);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !containerRef.current) return;
-    const updateScale = () => {
-      const parentWidth = containerRef.current?.getBoundingClientRect().width || 794;
-      // Padding is p-8 (32px) or sm:p-12 (48px) on each side. Let's use 96px total padding.
-      const padding = window.innerWidth >= 640 ? 96 : 64;
-      const availableWidth = parentWidth - padding;
-      const factor = Math.min(1, availableWidth / 794);
-      setScaleFactor(factor);
-    };
-    updateScale();
-    window.addEventListener("resize", updateScale);
-    return () => window.removeEventListener("resize", updateScale);
+    setScaleFactor(1);
   }, [condition, customPages]);
 
   const currentZoomScale = useMemo(() => {
@@ -82,7 +71,7 @@ function PDFViewerContent() {
       let found = mockConditions.find((c) => c.id === id) || null;
       if (!found && id && id.startsWith("CUSTOM-")) {
         const adminContent = getMedicalContent();
-        const cleanId = id.replace("CUSTOM-", "");
+        const cleanId = id.replace("CUSTOM-APPROACH-", "").replace("CUSTOM-", "");
         const item = adminContent.find((c) => String(c.id) === cleanId);
         
         try {

@@ -23,6 +23,7 @@ const typeColors: Record<string, string> = {
   Pathway: "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:border-slate-700/70",
   Document: "bg-teal-50/40 text-teal-700 border-teal-100 dark:bg-teal-950/10 dark:text-teal-400 dark:border-teal-900/30",
   Note: "bg-teal-50/30 text-teal-800 border-teal-100/70 dark:bg-teal-950/15 dark:text-teal-400 dark:border-teal-900/20",
+  Approach: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-700",
 };
 
 import { splitHtmlIntoPages } from "@/utils/pdfPagination";
@@ -344,8 +345,13 @@ export default function ContentPage() {
             },
           });
 
+          const localId = savedId || `local-${Date.now()}`;
+          if (typeof window !== "undefined" && contentHtml) {
+            localStorage.setItem(`gpedge_content_body_${localId}`, contentHtml.trim());
+          }
+
           const newItem: MedicalContent = {
-            id: savedId || `local-${Date.now()}`,
+            id: localId,
             name: ext.title || "Extracted Document",
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
@@ -572,6 +578,7 @@ export default function ContentPage() {
             { value: "Pathway", label: "Pathway" },
             { value: "Document", label: "Document" },
             { value: "Note", label: "Note" },
+            { value: "Approach", label: "Clinical Approach" },
           ]}
           className="w-48"
         />
@@ -625,6 +632,21 @@ export default function ContentPage() {
           </motion.div>
         ))}
       </motion.div>
+
+      {displayedContent.length === 0 && (
+        <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
+          <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
+          <p className="text-sm font-medium">No medical content found.</p>
+          {!isReadOnly && (
+            <button
+              onClick={() => { if (isReadOnly) return; resetForm(); setShowAddModal(true); }}
+              className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Create your first medical content →
+            </button>
+          )}
+        </motion.div>
+      )}
 
       {sortedContent.length > visibleCount && (
         <div className="flex justify-center pt-2">

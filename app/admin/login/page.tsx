@@ -45,24 +45,6 @@ const FALLBACK_USERS: CredentialUser[] = [
     forgotPasswordEnabled: true,
     password: "admin123",
   },
-  {
-    id: "d7c92b23-1c32-4f8a-9a99-8cb142646202",
-    name: "Jessica Park",
-    username: "jessica_mod",
-    role: "Moderator",
-    email: "moderator@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "moderator123",
-  },
-  {
-    id: "fa0c92d5-89db-4848-8df0-7d72dfa64303",
-    name: "Sarah Connor",
-    username: "sarah_view",
-    role: "Viewer",
-    email: "viewer@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "viewer123",
-  },
 ];
 
 export default function AdminLoginPage() {

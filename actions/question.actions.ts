@@ -12,6 +12,7 @@ import crypto from "crypto";
  */
 export async function importQuestionsAction(questionsList: any[]) {
   try {
+    const results: { text: string; dbId: string }[] = [];
     for (const q of questionsList) {
       if (!q.text || !q.text.trim()) continue;
 
@@ -146,7 +147,7 @@ export async function importQuestionsAction(questionsList: any[]) {
             // Create row in files table
             const fileRow = await queryOne<{ id: string }>(
               `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
-               VALUES ($1, $2, $3, $4, $5, 'uploaded')
+               VALUES ($1, $2, $3, $4, $5, 'active')
                RETURNING id`,
               [bucketName, objectKey, `extracted_question_image.${ext}`, mimeType, buffer.length]
             );
@@ -168,16 +169,39 @@ export async function importQuestionsAction(questionsList: any[]) {
             );
             if (existingFile) {
               imageFileId = existingFile.id;
+            } else {
+              // Create a row in the files table for the client-side uploaded image
+              const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
+              const mimeType = "image/jpeg"; // Default fallback
+              const fileRow = await queryOne<{ id: string }>(
+                `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
+                 VALUES ($1, $2, $3, $4, $5, 'active')
+                 RETURNING id`,
+                [bucketName, objectKey, "uploaded_question_image.jpg", mimeType, 0]
+              );
+              if (fileRow) {
+                imageFileId = fileRow.id;
+              }
             }
           }
         }
       }
 
-      // 4. Upsert the question row (match by stem)
-      const existingQ = await queryOne<{ id: string }>(
-        `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
-        [q.text]
-      );
+      // 4. Upsert the question row (match by dbId first, then by stem)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let existingQ = null;
+      if (q.dbId && uuidRegex.test(q.dbId)) {
+        existingQ = await queryOne<{ id: string }>(
+          `SELECT id FROM questions WHERE id = $1 LIMIT 1`,
+          [q.dbId]
+        );
+      }
+      if (!existingQ) {
+        existingQ = await queryOne<{ id: string }>(
+          `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
+          [q.text]
+        );
+      }
 
       let questionId: string;
 
@@ -185,11 +209,11 @@ export async function importQuestionsAction(questionsList: any[]) {
         questionId = existingQ.id;
         await execute(
           `UPDATE questions
-             SET rationale = $1, difficulty = $2, status = $3,
-                 exam_type_code = $4, subject_id = $5, subtopic_id = $6,
-                 image_file_id = $7, updated_at = NOW()
-           WHERE id = $8`,
-          [q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
+             SET stem = $1, rationale = $2, difficulty = $3, status = $4,
+                 exam_type_code = $5, subject_id = $6, subtopic_id = $7,
+                 image_file_id = $8, updated_at = NOW()
+           WHERE id = $9`,
+          [q.text, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
         );
       } else {
         const newQ = await queryOne<{ id: string }>(
@@ -260,13 +284,16 @@ export async function importQuestionsAction(questionsList: any[]) {
           }
         }
       }
+
+      results.push({ text: q.text, dbId: questionId });
     }
-    return { success: true };
+    return { success: true, results };
   } catch (error: any) {
     console.error("Error importing questions:", error);
     return { success: false, error: error.message };
   }
 }
+
 
 /**
  * Deletes a question from the database by stem text.

@@ -27,7 +27,7 @@ export async function GET() {
        LEFT JOIN subjects s ON s.id = mc.subject_id
        LEFT JOIN condition_documents cd ON cd.condition_id = mc.id
        LEFT JOIN files f ON f.id = cd.file_id
-       WHERE mc.deleted_at IS NULL
+       WHERE mc.deleted_at IS NULL AND mc.kind != 'Approach'
        ORDER BY mc.created_at DESC`
     );
 

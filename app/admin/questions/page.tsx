@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
@@ -90,6 +91,7 @@ export default function QuestionsPage() {
   const [newImage, setNewImage] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ count: number; onConfirm: (overwrite: boolean) => void } | null>(null);
 
   const [alertConfig, setAlertConfig] = useState<{
     isOpen: boolean;
@@ -258,7 +260,14 @@ export default function QuestionsPage() {
       });
       setQuestions(updated);
       if (updatedQ) {
-        await importQuestionsAction([updatedQ]);
+        importQuestionsAction([updatedQ]).then((res) => {
+          if (res?.success && res.results && res.results[0]) {
+            const dbId = res.results[0].dbId;
+            setQuestions((prev) =>
+              prev.map((q) => (q.id === updatedQ.id ? { ...q, dbId } : q))
+            );
+          }
+        });
       }
       setShowAddModal(false);
       setEditingQuestion(null);
@@ -282,7 +291,14 @@ export default function QuestionsPage() {
     };
     const updated = [newQuestion, ...questions];
     setQuestions(updated);
-    await importQuestionsAction([newQuestion]);
+    importQuestionsAction([newQuestion]).then((res) => {
+      if (res?.success && res.results && res.results[0]) {
+        const dbId = res.results[0].dbId;
+        setQuestions((prev) =>
+          prev.map((q) => (q.id === newQuestion.id ? { ...q, dbId } : q))
+        );
+      }
+    });
     setShowAddModal(false);
     resetAddForm();
 
@@ -434,69 +450,101 @@ export default function QuestionsPage() {
   const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
-    // Filter out questions that already exist (by text matching case-insensitive)
-    const duplicates = extractedQuestions.filter((eq) =>
-      questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
-    );
-    const nonDuplicates = extractedQuestions.filter((eq) =>
-      !questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
-    );
-
-    // Deduplicate non-duplicates themselves
+    // Deduplicate the extracted list itself by question text (case-insensitive)
     const uniqueQuestionsToImport: any[] = [];
-    nonDuplicates.forEach((eq) => {
+    extractedQuestions.forEach((eq) => {
       if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
         uniqueQuestionsToImport.push(eq);
       }
     });
 
-    if (duplicates.length > 0) {
-      if (uniqueQuestionsToImport.length === 0) {
-        setShowUploadModal(false);
-        setUploadState("idle");
-        setExtractionState("idle");
-        setExtractedQuestions([]);
-        showAlert(`All ${duplicates.length} question(s) in this file already exist in the Question Bank. No duplicates were added.`, "All Questions Already Exist", "info");
-        return;
-      } else {
-        showAlert(`Skipped ${duplicates.length} question(s) that already exist in the Question Bank. Imported the remaining ${uniqueQuestionsToImport.length} new question(s).`, "Duplicate Questions Skipped", "info");
-      }
-    }
-    
-    let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
-    const newQs = uniqueQuestionsToImport.map((q: any) => {
-      const cleanedTags = q.tags
-        ? q.tags.map((t: string) => t.trim()).filter(Boolean)
-        : ["General"];
-      const newQ = {
-        ...q,
-        id: nextId++,
-        topic: q.topic ? q.topic.trim() : "General",
-        difficulty: q.difficulty || "Medium",
-        examType: q.examType || "AKT",
-        tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-        status: "published" as const
-      };
-      return newQ;
-    });
-
-    const updated = [...newQs, ...questions];
-    setQuestions(updated);
-    await importQuestionsAction(newQs);
-    
-    addUserNotification(
-      `${newQs.length} Questions Imported`,
-      `Successfully imported ${newQs.length} questions from document template.`,
-      newQs.length,
-      "new-questions"
+    const duplicates = uniqueQuestionsToImport.filter((eq) =>
+      questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
     );
 
-    setShowUploadModal(false);
-    setUploadState("idle");
-    setExtractionState("idle");
-    setExtractedQuestions([]);
-    
-    showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
+    const proceedWithImport = async (overwrite: boolean) => {
+      let finalImportList = uniqueQuestionsToImport;
+      if (!overwrite) {
+        finalImportList = uniqueQuestionsToImport.filter(
+          (u) => !questions.some((aq) => aq.text.trim().toLowerCase() === u.text.trim().toLowerCase())
+        );
+      }
+      
+      let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
+      const newQs = finalImportList.map((q: any) => {
+        const cleanedTags = q.tags
+          ? q.tags.map((t: string) => t.trim()).filter(Boolean)
+          : ["General"];
+        const newQ = {
+          ...q,
+          id: nextId++,
+          topic: q.topic ? q.topic.trim() : "General",
+          difficulty: q.difficulty || "Medium",
+          examType: q.examType || "AKT",
+          tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
+          status: "published" as const
+        };
+        return newQ;
+      });
+
+      setUploadState("uploading");
+
+      const uploadedNewQs = await Promise.all(
+        newQs.map(async (q) => {
+          if (q.image && q.image.startsWith("data:image/")) {
+            try {
+              const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+              return { ...q, image: fileUrl };
+            } catch (err) {
+              console.error("Client image upload failed:", err);
+            }
+          }
+          return q;
+        })
+      );
+
+      const filteredExisting = questions.filter(
+        (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+      );
+      const updated = [...uploadedNewQs, ...filteredExisting];
+      setQuestions(updated);
+      const res = await importQuestionsAction(uploadedNewQs);
+      if (res?.success && res.results) {
+        const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+        setQuestions((prev) =>
+          prev.map((q) => {
+            const dbId = resultsMap.get(q.text.trim().toLowerCase());
+            return dbId ? { ...q, dbId } : q;
+          })
+        );
+      }
+      
+      addUserNotification(
+        `${newQs.length} Questions Imported`,
+        `Successfully imported ${newQs.length} questions from document template.`,
+        newQs.length,
+        "new-questions"
+      );
+
+      setShowUploadModal(false);
+      setUploadState("idle");
+      setExtractionState("idle");
+      setExtractedQuestions([]);
+      setDuplicatePrompt(null);
+      
+      showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
+    };
+
+    if (duplicates.length > 0) {
+      setDuplicatePrompt({
+        count: duplicates.length,
+        onConfirm: (overwrite) => {
+          proceedWithImport(overwrite);
+        }
+      });
+    } else {
+      proceedWithImport(true);
+    }
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -1796,6 +1844,62 @@ export default function QuestionsPage() {
                 </button>
               </div>
             </motion.div>
+          </>
+        )}
+
+        {duplicatePrompt && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm"
+              onClick={() => setDuplicatePrompt(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Duplicate Questions Found</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  <strong>{duplicatePrompt.count} question(s)</strong> in this file already exist in the Question Bank.
+                </p>
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 border border-slate-100 dark:border-slate-800/30">
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Overwrite & Replace</span>: Updates existing records with the new document version (text, options, rationale).</p>
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Skip Duplicates</span>: Leaves existing bank records untouched and only imports brand new questions.</p>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(false);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Skip Duplicates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(true);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
+                  >
+                    Overwrite & Replace
+                  </button>
+                </div>
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>

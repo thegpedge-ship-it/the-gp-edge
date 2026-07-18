@@ -16,11 +16,12 @@ import {
   MedicalContent, 
   fetchQuestions,
   getQuestions, 
-  createQuiz,
   Question
 } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
 import { uploadToR2 } from "@/lib/r2Client";
+import { useAdminRole } from "@/hooks/useAdminRole";
+import { syncQuizToDbAction } from "@/actions/quiz.actions";
 
 // ─────────────────────────────────────────────────────────────
 // Ribbon button helpers
@@ -236,6 +237,7 @@ function cleanTableHtmlStyles(html: string): string {
 }
 
 function ContentEditorContent() {
+  const { currentAdmin } = useAdminRole();
   const router = useRouter();
   const searchParams = useSearchParams();
   const idStr = searchParams.get("id");
@@ -888,21 +890,32 @@ function ContentEditorContent() {
 
       // 2. If direct load failed or it is a local template, use list lookup
       if (!hasLoadedDirectly) {
-        const list = await fetchMedicalContent().catch(() => getMedicalContent());
-        setMedicalContents(list);
-        const foundItem = list.find((c) => String(c.id) === String(id)) || list[0] || {
-          id: "local",
-          name: "New Document",
-          category: "Clinical Reference",
-          system: "General",
-          type: "Document" as const,
-          status: "draft" as const,
-          lastUpdated: new Date().toISOString().split("T")[0],
-          author: "GP Edge Admin",
-          references: 0,
-        };
+        const localList = getMedicalContent();
+        let foundItem = localList.find((c) => String(c.id) === String(id));
+        if (!foundItem) {
+          const list = await fetchMedicalContent().catch(() => getMedicalContent());
+          setMedicalContents(list);
+          foundItem = list.find((c) => String(c.id) === String(id)) || list[0] || {
+            id: "local",
+            name: "New Document",
+            category: "Clinical Reference",
+            system: "General",
+            type: "Document" as const,
+            status: "draft" as const,
+            lastUpdated: new Date().toISOString().split("T")[0],
+            author: "GP Edge Admin",
+            references: 0,
+          };
+        } else {
+          setMedicalContents(localList);
+        }
         item = foundItem;
         setDocReferences(initialReferences);
+
+        const localBody = typeof window !== "undefined" ? localStorage.getItem(`gpedge_content_body_${id}`) : null;
+        if (localBody) {
+          savedHtml = localBody;
+        }
       }
 
       // 3. Set metadata states
@@ -917,12 +930,505 @@ function ContentEditorContent() {
       }
 
       if (!savedHtml && item) {
-        const customizedBlocks = initialBlocks.map((block, idx) =>
-          idx === 0 && block.type === "heading"
-            ? { ...block, content: `${decodeHtml(item!.name)} in General Practice` }
-            : block
-        );
-        savedHtml = blocksToHtml(customizedBlocks);
+        if (item.type === "Approach") {
+          const lowerName = item.name.toLowerCase();
+          if (lowerName.includes("headache")) {
+            savedHtml = `
+<div style="background-color: #0f766e; color: #ffffff; padding: 1.5rem; border-radius: 0.75rem 0.75rem 0 0; margin-bottom: 1.5rem; text-align: center;">
+  <h1 style="font-family: Georgia, serif; font-size: 2.25rem; font-weight: bold; margin: 0; color: #ffffff;">Approach to Headache</h1>
+  <div style="background-color: #2bb09c; color: #ffffff; display: inline-block; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; margin-top: 0.5rem; margin-bottom: 0.5rem;">Approach to a Presentation</div>
+  <p style="font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-style: italic; color: #e6f7f4; margin: 0; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5;">A structured GP framework for the assessment, classification, and initial management of headache — with a focus on identifying red flags, differentiating primary from secondary headache, and guiding appropriate investigation and referral.</p>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">1. OVERVIEW</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Headache is one of the most common presentations in general practice and a leading cause of disability worldwide. The GP's primary role in the assessment of a new or changed headache is to distinguish primary headache disorders (migraine, tension-type, cluster, others) from secondary headaches caused by an underlying structural, vascular, infectious, or metabolic condition. A systematic approach to history, examination, and targeted investigation is essential.</p>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">The International Classification of Headache Disorders, 3rd edition (ICHD-3) classifies headaches into three broad groups: primary headaches, secondary headaches, and painful cranial neuropathies. Most headaches seen in general practice are primary — but secondary causes must be actively excluded, particularly in any new or changed headache pattern.</p>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">A headache diary is an invaluable tool — it establishes frequency, identifies triggers, quantifies analgesic use, and is essential before specialist referral. Recommend completing it from the first consultation.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">2. KEY QUESTIONS TO ASK</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">A structured headache history should cover the following domains. The history alone will establish the diagnosis in the majority of primary headache presentations.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Headache Characteristics</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Onset:</strong> Sudden/thunderclap (peak intensity within seconds → subarachnoid haemorrhage until proven otherwise) vs gradual onset</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Location:</strong> Unilateral or bilateral? Side-locked (always same side = cluster headache feature) or shifting? Periorbital? Occipital?</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Severity:</strong> Mild/moderate/severe; impact on ADLs (work, social, family, exercise, sleep)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Character:</strong> Pulsating/throbbing (migraine), pressure/tightness (TTH), stabbing/shock-like (neuralgia, TAC), excruciating (cluster)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Duration:</strong> Seconds (neuralgia, SUNCT), minutes (TAC subtypes), hours (migraine, cluster), days (TTH, migraine)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Frequency and pattern:</strong> Same time each day/month? Episodic with remission (cluster)? Daily/near-daily (MOH, chronic migraine)?</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Associated and Exacerbating Features</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Nausea, vomiting, photophobia, phonophobia, osmophobia → migraine</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Aura — focal neurological symptoms preceding headache: visual (flashing lights, zigzags, visual loss), sensory, speech → migraine with aura</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Ipsilateral autonomic features: tearing, conjunctival injection, nasal stuffiness, ptosis, miosis, periorbital oedema → TAC</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Agitation and restlessness during attack (cannot lie still) → cluster headache; contrast with migraine (wants to lie still in dark)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Neck stiffness, fever, rash → meningitis / subarachnoid haemorrhage</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worse lying down, improved upright → raised ICP / posterior fossa lesion / IIH</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worse upright, improved lying flat → low CSF pressure / intracranial hypotension</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worsened by movement, neck palpation, limited neck range of motion → cervicogenic headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Triggered by exertion, sexual activity, Valsalva → primary exertional/sexual headache or secondary cause</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Medication and Analgesic History</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">All current and recent medications — particularly analgesics, triptans, opioids, OCP/HRT, antihypertensives</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Frequency of analgesic use: &gt;10–15 days/month = medication overuse headache risk — ask specifically</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Previously trialled headache treatments: drug, dose, response, frequency of use</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Review medications that can cause or worsen headache: nitrates, PDE5 inhibitors, vasodilators, oral contraceptives</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Additional History</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Family history of headache — migraine and cluster headache can be familial</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Head or neck trauma — even mild; may precede cervicogenic headache, subdural haematoma, or arterial dissection</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Relevant comorbidities: HIV, cancer (active or previous), pregnancy/postpartum, immunosuppression</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Psychosocial history: stress, anxiety, depression — major contributors to headache frequency and disability</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Cognitive change, visual disturbance, or other neurological symptoms — may indicate secondary cause</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">3. RED FLAGS</h2>
+<div class="callout-block" style="background-color: #fff1f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Red Flags — Require Urgent Investigation and/or Emergency Referral</div>
+  <div style="font-size: 0.875rem; line-height: 1.6; margin-bottom: 0.75rem;">The following red flags require urgent neuroimaging (CT/MRI), lumbar puncture, and/or emergency department review:</div>
+  <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #fec2c2; background-color: #ffffff; border-radius: 0.5rem; overflow: hidden;">
+    <thead>
+      <tr style="background-color: #fee2e2; color: #991b1b;">
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Red Flag</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Possible Diagnoses</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Action</th>
+      </tr>
+    </thead>
+    <tbody style="color: #374151;">
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Thunderclap headache — severe explosive headache reaching peak intensity within seconds</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Subarachnoid haemorrhage, pituitary apoplexy, haemorrhage into mass lesion, arterial dissection, RCVS</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department — urgent CT head; if CT negative, lumbar puncture</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache with focal neurological signs, confusion, or drowsiness</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Stroke, venous sinus thrombosis, RCVS, meningitis, encephalitis, arterial dissection</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department urgently</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache type or first headache in patient ≥50 years</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Giant cell arteritis, space-occupying lesion, stroke</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent investigation — ESR/CRP, neuroimaging; same-day if GCA suspected</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache onset after head trauma</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Subdural/epidural haemorrhage, arterial dissection</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent CT head</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache frequency/severity progressively worsens weeks to months + focal neurology</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, cerebral venous sinus thrombosis, subdural haematoma, MOH, subacute meningitis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache in HIV, cancer, or immunosuppression</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Meningitis (incl. TB), abscess, metastasis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent specialist review and neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Signs of systemic illness or meningism (fever, rash, neck stiffness)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Systemic infection/meningitis, TB meningitis, encephalitis, vasculitis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Papilloedema</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, malignant hypertension, IIH, cerebral venous sinus thrombosis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent ophthalmology/neurology; emergency if vision threatened</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Positional headache (worse lying down, cough, valsalva; especially if prolonged)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, posterior fossa lesion, Chiari malformation, IIH</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Positional headache (worse upright, better lying flat)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Intracranial hypotension (low CSF pressure headache)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Neuroimaging (brain MRI with gadolinium)</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache during pregnancy or postpartum</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Pre-eclampsia, CVST, pituitary apoplexy, RCVS, PRES/RCVS</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department or urgent obstetric review</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout-block" style="background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #d97706; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #78350f;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b45309;">Important</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;"><strong>Thunderclap headache = subarachnoid haemorrhage until proven otherwise</strong> — a normal CT does NOT exclude SAH; lumbar puncture is required if CT is negative.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;"><strong>New headache or changed headache pattern in a patient &gt;50 years</strong> warrants urgent investigation — always consider giant cell arteritis (ESR/CRP same day) and space-occupying lesion.</li>
+  </ul>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">4. EXAMINATION FINDINGS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Physical examination is guided by the history. A focused neurological examination is essential for all patients with new or changed headache. The key aim is to detect signs that would indicate a secondary cause.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">General and Vital Signs</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Blood pressure:</strong> hypertensive emergency can cause headache; malignant hypertension may cause papilloedema</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Temperature:</strong> fever with headache raises concern for meningitis or encephalitis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>BMI:</strong> obesity is associated with IIH</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Neurological Examination</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Level of consciousness and cognition:</strong> confusion or drowsiness warrants urgent assessment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Cranial nerve examination:</strong> focal deficits suggest structural or vascular cause</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Fundoscopy:</strong> assess for papilloedema — if unable to perform adequately, refer for urgent ophthalmological assessment (optical coherence tomography)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Motor and sensory examination:</strong> focal neurological signs require urgent neuroimaging</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Meningism:</strong> neck stiffness, Kernig's and Brudzinski's signs — assess in all patients with fever and headache</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Headache-Specific Examination</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Pericranial tenderness:</strong> tender muscle palpation of the head and neck — present in tension-type headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Neck range of movement and cervical palpation:</strong> limited ROM and tenderness at specific cervical levels → cervicogenic headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Temporal artery tenderness or thickening:</strong> pulselessness in &gt;50 years → giant cell arteritis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Periorbital/ocular examination:</strong> red eye, reduced vision, pupil abnormality → acute angle-closure glaucoma, uveitis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Ipsilateral autonomic features:</strong> tearing, ptosis, miosis, nasal stuffiness → TAC</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Triggerpoint examination:</strong> touching specific facial/scalp areas triggers pain → trigeminal neuralgia, greater occipital neuralgia</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">5. INVESTIGATIONS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Neuroimaging is generally NOT indicated for new-onset headache unless a neurological abnormality is detected on examination or a red flag is present. Over-investigation with CT scanning exposes patients to unnecessary radiation and false positives. Investigations should be targeted.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">First-Line Blood Tests (Guided by History)</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>ESR and CRP:</strong> mandatory in any new headache in a patient &gt;50 years — to exclude giant cell arteritis; if GCA suspected, start steroids before imaging results</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Full blood count, EUC, LFTs, glucose:</strong> systemic illness, metabolic cause, or baseline before starting prophylaxis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Thyroid function:</strong> hypothyroidism and hyperthyroidism can cause headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Blood pressure measurement:</strong> at every headache consultation</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Urinalysis and urine protein/creatinine ratio:</strong> if pre-eclampsia considered in pregnancy</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Neuroimaging</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>CT head (non-contrast):</strong> first-line for suspected SAH, acute stroke, trauma, haemorrhage — fast and widely available</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>MRI brain:</strong> superior for posterior fossa lesions, white matter, venous sinus thrombosis, low CSF pressure, Chiari malformation, structural causes of TACs, trigeminal neuralgia neurovascular compression</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>CT or MR angiography:</strong> if vascular cause suspected (dissection, aneurysm, RCVS, vasculitis)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>MRI with gadolinium:</strong> preferred for low CSF pressure headache (pachymeningeal enhancement)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Imaging NOT routinely indicated for: classic migraine, tension-type headache, medication overuse headache, or established cluster headache with no change in pattern</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Lumbar Puncture</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Indicated after negative CT in suspected SAH — xanthochromia or elevated red cells at &gt;12 hours from headache onset</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Also indicated for suspected meningitis/encephalitis, IIH (opening pressure measurement), and low CSF pressure syndromes</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">6. DIFFERENTIAL DIAGNOSIS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">The following table summarises the key distinguishing features of the most common headache types encountered in general practice. Refer to individual Synapse notes for detailed management of each condition.</p>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; overflow: hidden;">
+  <thead>
+    <tr style="background-color: #0d9488; color: #ffffff;">
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Diagnosis</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Duration</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Location &amp; Character</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Key Features</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Distinguishing Pearls</th>
+    </tr>
+  </thead>
+  <tbody style="color: #475569; font-size: 0.75rem;">
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Migraine</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">4–72 hours</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral (not side-locked), pulsating; moderate-severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Nausea, vomit, photophob, phonophob; aggravated by activity; ± aura</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">3 screening questions: nausea? lightsensitivity? impact on ADLs?</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Tension-type headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">30 min – 7 days</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Bilateral, pressure/tightness; mild-moderate</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">No nausea; not aggravated by activity; ± photo or phonophobia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Most common headache type; diagnosis of exclusion from migraine</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cluster headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">15–180 min</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, periorbital, side-locked, excruciating; severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Ipsilateral autonomic features, restlessness, agitation</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Patient cannot lie still — opposite of migraine; urgent specialist referral required</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Paroxysmal hemicrania</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">2–30 min per attack</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, side-locked, severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Multiple attacks/day; ipsilateral autonomic features</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Absolute indomethacin response is diagnostic</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Hemicrania continua</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Continuous</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, continuous, variable severity</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Exacerbations with autonomic features; may have migraine features</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Absolute indomethacin response is diagnostic</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">SUNCT</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">5 sec – 4 min</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, brief, severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Up to 200+ attacks/day; prominent tearing/conjunctival injection; cutaneous triggers</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Very rare; no indomethacin response; expert management required</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Medication overuse headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">≥15 days/month</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Variable</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Headache on ≥15 days/month with escalating analgesic use</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Always ask analgesic frequency; daily essential; migraine/TTH more susceptible than cluster</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cervicogenic headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Variable</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, from neck to head</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Reduced neck ROM; worsened by neck movement/palpation; onset with cervical lesion</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Physiotherapy first-line; imaging usually not helpful initially</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Primary exertional / sexual</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">&lt;48 hours (exertional); variable (sexual)</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Bilateral (exertional); severe at orgasm</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Thunderclap at orgasm = exclude SAH; exclude structural causes first</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Perform imaging for all new presentations; propranolol or indomethacin prophylaxis</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Trigeminal neuralgia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Seconds–minutes</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, shock-like, V2/V3</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Triggered by touch, eating, speaking; brief refractory period after attack</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Always image to exclude structural causes; carbamazepine first-line</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Giant cell arteritis</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Persistent/progressive</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral or bilateral temporal</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Age &gt;50; temporal artery tenderness; jaw claudication, visual changes; elevated ESR/CRP</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Medical emergency; if visual symptoms start, prednisone immediately</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">SAH</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Sudden onset, persistent</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Diffuse 'worst headache of life'</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Thunderclap onset; meningism; loss of consciousness possible</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Emergency! If CT negative, lumbar puncture; emergency department immediately</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">7. MANAGEMENT PRINCIPLES</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Management depends on the headache diagnosis. For all primary headaches, the GP approach includes: confirming diagnosis, excluding secondary causes, initiating appropriate acute treatment, considering prophylaxis where indicated, managing lifestyle factors, and monitoring for medication overuse.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">General Principles — All Headache Types</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Provide the diagnosis clearly</strong> — many patients fear their headache represents a sinister cause. Address concerns explicitly.</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Recommend a headache diary</strong> — establishes frequency, triggers, analgesic use, and response to treatment. Essential before specialist referral.</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Identify and address medication overuse:</strong> limit nonopioid analgesics to &lt;15 days/month and triptans/opioids to &lt;10 days/month (eTG)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Lifestyle optimisation for all primary headaches:</strong> regular sleep, adequate hydration (1.5–2 L water/day), regular meals, limit caffeine (&lt;200 mg/day), regular aerobic exercise, stress management</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Address psychological comorbidities</strong> — anxiety and depression are common in patients with frequent headache and worsen outcomes if untreated</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Acute Treatment — By Diagnosis (Summary)</h3>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Refer to individual Synapse notes for complete dosing tables. The following summarises first-line acute approaches:</p>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; overflow: hidden;">
+  <thead>
+    <tr style="background-color: #0d9488; color: #ffffff;">
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Header Type</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">First-Line Acute Treatment</th>
+    </tr>
+  </thead>
+  <tbody style="color: #475569; font-size: 0.75rem;">
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Migraine</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">NSAIDs (ibuprofen 400–600 mg, naproxen, aspirin 900–1000 mg, diclofenac) ± antiemetic (metoclopramide, prochlorperazine). Triptan if NSAIDs insufficient. Start at symptom onset.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Tension-type headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">NSAIDs (aspirin 600–900 mg, ibuprofen 400 mg, naproxen, diclofenac 50 mg) or paracetamol 1 g. Avoid regular use (&gt;15 days/month).</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cluster headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">SC sumatriptan 6 mg + high-flow Oxygen 100% at 15 L/min via non-rebreathing mask for 15–20 min. Refer urgently to specialist.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Paroxysmal hemicrania / Hemicrania continua</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Indomethacin titration trial: 25 → 50 → 75 mg TDS, 3 days each step. Absolute response is diagnostic.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Primary exertional / sexual headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Indomethacin 25–50 mg orally 2 hours before activity (prophylactic). Propranolol 40–80 mg BD for 1 month if regular prophylaxis needed.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cervicogenic headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Physiotherapy and exercises (first-line despite initial worsening), NSAIDs or paracetamol for symptom relief.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Medication overuse headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Analgesic withdrawal (graded or abrupt with bridging therapy). bridging: naproxen MRI 750–1000 mg daily reducing over 3 weeks. OR prednisolone 50 mg daily for 5 days then taper. Start prophylaxis before withdrawal.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Trigeminal neuralgia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Carbamazepine MR 100 mg BD titrated to 400 mg BD. Oxcarbazepine or pregabalin if intolerant.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">When to Consider Prophylaxis</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Migraine:</strong> ≥4 migraine days/month, or fewer if severe or significantly impacting quality of life, or acute treatment ineffective/poorly tolerated</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Tension-type headache:</strong> frequent TTH not adequately controlled by acute treatment — amitriptyline or nortriptyline first-line</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Cluster headache:</strong> all patients with episodic or chronic cluster headache — verapamil first-line (specialist-initiated with ECG monitoring)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Primary exertional/sexual headache:</strong> if frequent — propranolol 10–40 mg BD for 1 month, then review</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">8. WHEN TO REFER / ESCALATE</h2>
+
+<div class="callout-block" style="background-color: #fff1f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Emergency Referral — Send to ED Immediately</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Thunderclap headache — any sudden severe headache reaching peak intensity within seconds</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Headache with focal neurological signs, confusion, or drowsiness</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Signs of meningism with fever and headache</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">New headache with visual obscuration or visual loss — possible IIH or raised ICP emergency</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Headache in pregnancy with hypertension or proteinuria — possible pre-eclampsia</li>
+  </ul>
+</div>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Urgent (Same-Day or Within Days)</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>New headache in patient &gt;50 years</strong> — giant cell arteritis must be excluded urgently (ESR/CRP; if suspected, start prednisolone before waiting for results)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Suspected cluster headache</strong> — requires urgent specialist review to confirm diagnosis, arrange MRI brain, and optimise treatment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Papilloedema found on examination</strong> — urgent ophthalmology and neurology referral</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Non-Urgent Neurology Referral</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Migraine:</strong> inadequate control after several trials of acute and prophylactic therapy; consideration of CGRP-targeted therapies or botulinum toxin A</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Diagnostic uncertainty</strong> — headache not clearly fitting a primary headache type after thorough GP workup</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Trigeminal neuralgia:</strong> loss of drug efficacy, intolerance, or consideration of surgical/interventional therapy</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>TACs:</strong> all paroxysmal hemicrania and hemicrania continua cases for specialist confirmation; SUNCT always requires expert management</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Children with frequent or disabling headache</strong> — paediatric neurology referral for prophylaxis decisions</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">9. SAFETY NETTING &amp; FOLLOW-UP</h2>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Advise all patients to return promptly if:</strong> headache becomes thunderclap, character changes significantly, new neurological symptoms develop, or any red flag emerges</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Document baseline headache frequency and character</strong> — this is the reference point for monitoring and detecting deterioration</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Review headache diary at 4–6 weeks</strong> — assess frequency, triggers, analgesic use, and response to initial treatment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>If prophylaxis started: review at 8–12 weeks</strong> for response and tolerability; titrate dose; effective prophylaxis = 30–50% reduction in headache days</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Screen for medication overuse at every review</strong> — ask specifically about analgesic frequency</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Screen for depression and anxiety</strong> — common comorbidities that worsen headache outcomes</li>
+</ul>
+
+<div class="callout-block" style="background-color: #f0fdfa; border: 1px solid #ccfbf1; border-left: 5px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #115e59;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #0f766e;">Key Points</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Neuroimaging is NOT routinely needed for primary headaches — investigate only if red flags are present or examination is abnormal.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Thunderclap headache = SAH until proven otherwise — CT then LP; send to ED immediately.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Always ask about analgesic frequency — medication overuse headache is common, underrecognised, and worsens prognosis of the primary headache disorder.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">A headache diary is essential for establishing diagnosis, monitoring treatment, and preparing for specialist referral.</li>
+  </ul>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">10. RESOURCES</h2>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">For Health Professionals</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Therapeutic Guidelines — Neurology (eTG, December 2025)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">UpToDate — Headache (uptodate.com)</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">For Patients</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Headache diary — Children (RCH)</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Headache diary — Adults</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine &amp; Headache Australia</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">healthdirect — Headache</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine Monitor (app)</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine Buddy (app)</a></li>
+</ul>
+<div style="font-size: 0.75rem; color: #94a3b8; text-align: right; margin-top: 2rem;">End of document ■</div>
+`;
+          } else {
+            savedHtml = `
+<div style="background-color: #0f766e; color: #ffffff; padding: 1.5rem; border-radius: 0.75rem 0.75rem 0 0; margin-bottom: 1.5rem; text-align: center;">
+  <h1 style="font-family: Georgia, serif; font-size: 2.25rem; font-weight: bold; margin: 0; color: #ffffff;">${decodeHtml(item.name)}</h1>
+  <div style="background-color: #2bb09c; color: #ffffff; display: inline-block; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; margin-top: 0.5rem; margin-bottom: 0.5rem;">Approach to a Presentation</div>
+  <p style="font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-style: italic; color: #e6f7f4; margin: 0; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5;">A structured GP framework for the assessment, classification, and initial management of this presentation — with a focus on identifying red flags, differentiating primary from secondary causes, and guiding appropriate investigation and referral.</p>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">1. OVERVIEW</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Provide a brief clinical overview of this approach, including when it should be used and the key clinical context.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">2. KEY QUESTIONS TO ASK</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Describe key history-taking points and questions relevant to this presentation.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Characteristics</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Onset:</strong> [Describe onset characteristics]</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Location:</strong> [Describe location details]</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">3. RED FLAGS</h2>
+<div class="callout-block" style="background-color: #fff1f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Red Flags — Require Urgent Investigation and/or Emergency Referral</div>
+  <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #fec2c2; background-color: #ffffff; border-radius: 0.5rem; overflow: hidden;">
+    <thead>
+      <tr style="background-color: #fee2e2; color: #991b1b;">
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Red Flag</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Possible Diagnoses</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Action</th>
+      </tr>
+    </thead>
+    <tbody style="color: #374151;">
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">[Red Flag 1]</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">[Diagnosis]</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">[Action]</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">4. EXAMINATION FINDINGS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Describe key examination findings and checks to perform.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">5. INVESTIGATIONS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">List recommended first-line and second-line investigations.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">6. DIFFERENTIAL DIAGNOSIS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Summarise differential diagnoses in a comparative table.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">7. MANAGEMENT PRINCIPLES</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Outline the key principles of management and treatment pathways.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">8. WHEN TO REFER / ESCALATE</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Detail referral thresholds and emergency pathways.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">9. SAFETY NETTING &amp; FOLLOW-UP</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Safety netting instructions and follow-up timeline.</p>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">10. RESOURCES</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Add relevant guidelines and patient information resources.</p>
+<div style="font-size: 0.75rem; color: #94a3b8; text-align: right; margin-top: 2rem;">End of document ■</div>
+`;
+          }
+        } else {
+          const customizedBlocks = initialBlocks.map((block, idx) =>
+            idx === 0 && block.type === "heading"
+              ? { ...block, content: `${decodeHtml(item!.name)} in General Practice` }
+              : block
+          );
+          savedHtml = blocksToHtml(customizedBlocks);
+        }
       }
 
       const cleanedHtml = cleanTableHtmlStyles(savedHtml);
@@ -1730,44 +2236,428 @@ function ContentEditorContent() {
   const insertClinicalProtocolTemplate = (variant: "approach" | "guideline" | "protocol") => {
     const templates: Record<string, string> = {
       approach: `
-<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Clinical Overview</h2>
-<p style="font-size: 0.875rem; color: #334155; line-height: 1.7;">Provide a brief clinical overview of this approach, including when it should be used and the key clinical context.</p>
-
-<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
-<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 1: Initial Assessment</p>
-<p style="font-size: 0.875rem; color: #134e4a;">Describe the first clinical step. What must the clinician assess, check, or perform immediately?</p>
+<div style="background-color: #0f766e; color: #ffffff; padding: 1.5rem; border-radius: 0.75rem 0.75rem 0 0; margin-bottom: 1.5rem; text-align: center;">
+  <h1 style="font-family: Georgia, serif; font-size: 2.25rem; font-weight: bold; margin: 0; color: #ffffff;">Approach to Headache</h1>
+  <div style="background-color: #2bb09c; color: #ffffff; display: inline-block; font-size: 0.75rem; font-weight: bold; padding: 0.25rem 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 9999px; margin-top: 0.5rem; margin-bottom: 0.5rem;">Approach to a Presentation</div>
+  <p style="font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-style: italic; color: #e6f7f4; margin: 0; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.5;">A structured GP framework for the assessment, classification, and initial management of headache — with a focus on identifying red flags, differentiating primary from secondary headache, and guiding appropriate investigation and referral.</p>
 </div>
 
-<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
-<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 2: History &amp; Examination</p>
-<p style="font-size: 0.875rem; color: #134e4a;">Describe key history-taking points and examination findings relevant to this approach.</p>
-</div>
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">1. OVERVIEW</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Headache is one of the most common presentations in general practice and a leading cause of disability worldwide. The GP's primary role in the assessment of a new or changed headache is to distinguish primary headache disorders (migraine, tension-type, cluster, others) from secondary headaches caused by an underlying structural, vascular, infectious, or metabolic condition. A systematic approach to history, examination, and targeted investigation is essential.</p>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">The International Classification of Headache Disorders, 3rd edition (ICHD-3) classifies headaches into three broad groups: primary headaches, secondary headaches, and painful cranial neuropathies. Most headaches seen in general practice are primary — but secondary causes must be actively excluded, particularly in any new or changed headache pattern.</p>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">A headache diary is an invaluable tool — it establishes frequency, identifies triggers, quantifies analgesic use, and is essential before specialist referral. Recommend completing it from the first consultation.</p>
 
-<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
-<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 3: Investigations</p>
-<p style="font-size: 0.875rem; color: #134e4a;">List the key investigations ordered based on clinical probability and urgency.</p>
-</div>
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">2. KEY QUESTIONS TO ASK</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">A structured headache history should cover the following domains. The history alone will establish the diagnosis in the majority of primary headache presentations.</p>
 
-<div class="callout-block" style="background: #f0fdfa; border-left: 4px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
-<p style="font-size: 0.875rem; font-weight: 600; color: #115e59; margin-bottom: 0.25rem;">Step 4: Management Decision</p>
-<p style="font-size: 0.875rem; color: #134e4a;">Describe the management pathway based on diagnosis or clinical probability.</p>
-</div>
-
-<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Key Clinical Points</h2>
-<ul style="padding-left: 1.25rem; margin-bottom: 1rem;">
-  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 1: Add important clinical pearl here</li>
-  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 2: Add important clinical pearl here</li>
-  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem;">Key point 3: Add important clinical pearl here</li>
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Headache Characteristics</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Onset:</strong> Sudden/thunderclap (peak intensity within seconds → subarachnoid haemorrhage until proven otherwise) vs gradual onset</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Location:</strong> Unilateral or bilateral? Side-locked (always same side = cluster headache feature) or shifting? Periorbital? Occipital?</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Severity:</strong> Mild/moderate/severe; impact on ADLs (work, social, family, exercise, sleep)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Character:</strong> Pulsating/throbbing (migraine), pressure/tightness (TTH), stabbing/shock-like (neuralgia, TAC), excruciating (cluster)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Duration:</strong> Seconds (neuralgia, SUNCT), minutes (TAC subtypes), hours (migraine, cluster), days (TTH, migraine)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Frequency and pattern:</strong> Same time each day/month? Episodic with remission (cluster)? Daily/near-daily (MOH, chronic migraine)?</li>
 </ul>
 
-<div class="callout-block" style="background: #fff1f2; border-left: 4px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem;">
-<p style="font-size: 0.875rem; font-weight: 600; color: #991b1b; margin-bottom: 0.5rem;">Red Flags — Refer or Escalate Urgently If:</p>
-<ul style="padding-left: 1.25rem; margin: 0;">
-  <li style="font-size: 0.875rem; color: #7f1d1d; margin-bottom: 0.25rem;">Red flag finding 1</li>
-  <li style="font-size: 0.875rem; color: #7f1d1d; margin-bottom: 0.25rem;">Red flag finding 2</li>
-  <li style="font-size: 0.875rem; color: #7f1d1d;">Red flag finding 3</li>
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Associated and Exacerbating Features</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Nausea, vomiting, photophobia, phonophobia, osmophobia → migraine</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Aura — focal neurological symptoms preceding headache: visual (flashing lights, zigzags, visual loss), sensory, speech → migraine with aura</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Ipsilateral autonomic features: tearing, conjunctival injection, nasal stuffiness, ptosis, miosis, periorbital oedema → TAC</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Agitation and restlessness during attack (cannot lie still) → cluster headache; contrast with migraine (wants to lie still in dark)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Neck stiffness, fever, rash → meningitis / subarachnoid haemorrhage</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worse lying down, improved upright → raised ICP / posterior fossa lesion / IIH</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worse upright, improved lying flat → low CSF pressure / intracranial hypotension</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Worsened by movement, neck palpation, limited neck range of motion → cervicogenic headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Triggered by exertion, sexual activity, Valsalva → primary exertional/sexual headache or secondary cause</li>
 </ul>
-</div>`,
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Medication and Analgesic History</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">All current and recent medications — particularly analgesics, triptans, opioids, OCP/HRT, antihypertensives</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Frequency of analgesic use: &gt;10–15 days/month = medication overuse headache risk — ask specifically</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Previously trialled headache treatments: drug, dose, response, frequency of use</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Review medications that can cause or worsen headache: nitrates, PDE5 inhibitors, vasodilators, oral contraceptives</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Additional History</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Family history of headache — migraine and cluster headache can be familial</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Head or neck trauma — even mild; may precede cervicogenic headache, subdural haematoma, or arterial dissection</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Relevant comorbidities: HIV, cancer (active or previous), pregnancy/postpartum, immunosuppression</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Psychosocial history: stress, anxiety, depression — major contributors to headache frequency and disability</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Cognitive change, visual disturbance, or other neurological symptoms — may indicate secondary cause</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">3. RED FLAGS</h2>
+<div class="callout-block" style="background-color: #fff1f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Red Flags — Require Urgent Investigation and/or Emergency Referral</div>
+  <div style="font-size: 0.875rem; line-height: 1.6; margin-bottom: 0.75rem;">The following red flags require urgent neuroimaging (CT/MRI), lumbar puncture, and/or emergency department review:</div>
+  <table style="width: 100%; border-collapse: collapse; margin-top: 0.5rem; border: 1px solid #fec2c2; background-color: #ffffff; border-radius: 0.5rem; overflow: hidden;">
+    <thead>
+      <tr style="background-color: #fee2e2; color: #991b1b;">
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Red Flag</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Possible Diagnoses</th>
+        <th style="padding: 0.5rem; border: 1px solid #fec2c2; font-size: 0.75rem; text-align: left;">Action</th>
+      </tr>
+    </thead>
+    <tbody style="color: #374151;">
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Thunderclap headache — severe explosive headache reaching peak intensity within seconds</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Subarachnoid haemorrhage, pituitary apoplexy, haemorrhage into mass lesion, arterial dissection, RCVS</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department — urgent CT head; if CT negative, lumbar puncture</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache with focal neurological signs, confusion, or drowsiness</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Stroke, venous sinus thrombosis, RCVS, meningitis, encephalitis, arterial dissection</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department urgently</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache type or first headache in patient ≥50 years</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Giant cell arteritis, space-occupying lesion, stroke</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent investigation — ESR/CRP, neuroimaging; same-day if GCA suspected</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache onset after head trauma</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Subdural/epidural haemorrhage, arterial dissection</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent CT head</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache frequency/severity progressively worsens weeks to months + focal neurology</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, cerebral venous sinus thrombosis, subdural haematoma, MOH, subacute meningitis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">New headache in HIV, cancer, or immunosuppression</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Meningitis (incl. TB), abscess, metastasis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent specialist review and neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Signs of systemic illness or meningism (fever, rash, neck stiffness)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Systemic infection/meningitis, TB meningitis, encephalitis, vasculitis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Papilloedema</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, malignant hypertension, IIH, cerebral venous sinus thrombosis</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Urgent ophthalmology/neurology; emergency if vision threatened</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Positional headache (worse lying down, cough, valsalva; especially if prolonged)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Space-occupying lesion, posterior fossa lesion, Chiari malformation, IIH</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Neuroimaging</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Positional headache (worse upright, better lying flat)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Intracranial hypotension (low CSF pressure headache)</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Neuroimaging (brain MRI with gadolinium)</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Headache during pregnancy or postpartum</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem;">Pre-eclampsia, CVST, pituitary apoplexy, RCVS, PRES/RCVS</td>
+        <td style="padding: 0.5rem; border: 1px solid #fee2e2; font-size: 0.75rem; font-weight: bold;">Emergency department or urgent obstetric review</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout-block" style="background-color: #fffbeb; border: 1px solid #fef3c7; border-left: 5px solid #d97706; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #78350f;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b45309;">Important</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;"><strong>Thunderclap headache = subarachnoid haemorrhage until proven otherwise</strong> — a normal CT does NOT exclude SAH; lumbar puncture is required if CT is negative.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;"><strong>New headache or changed headache pattern in a patient &gt;50 years</strong> warrants urgent investigation — always consider giant cell arteritis (ESR/CRP same day) and space-occupying lesion.</li>
+  </ul>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">4. EXAMINATION FINDINGS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Physical examination is guided by the history. A focused neurological examination is essential for all patients with new or changed headache. The key aim is to detect signs that would indicate a secondary cause.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">General and Vital Signs</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Blood pressure:</strong> hypertensive emergency can cause headache; malignant hypertension may cause papilloedema</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Temperature:</strong> fever with headache raises concern for meningitis or encephalitis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>BMI:</strong> obesity is associated with IIH</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Neurological Examination</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Level of consciousness and cognition:</strong> confusion or drowsiness warrants urgent assessment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Cranial nerve examination:</strong> focal deficits suggest structural or vascular cause</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Fundoscopy:</strong> assess for papilloedema — if unable to perform adequately, refer for urgent ophthalmological assessment (optical coherence tomography)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Motor and sensory examination:</strong> focal neurological signs require urgent neuroimaging</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Meningism:</strong> neck stiffness, Kernig's and Brudzinski's signs — assess in all patients with fever and headache</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Headache-Specific Examination</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Pericranial tenderness:</strong> tender muscle palpation of the head and neck — present in tension-type headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Neck range of movement and cervical palpation:</strong> limited ROM and tenderness at specific cervical levels → cervicogenic headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Temporal artery tenderness or thickening:</strong> pulselessness in &gt;50 years → giant cell arteritis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Periorbital/ocular examination:</strong> red eye, reduced vision, pupil abnormality → acute angle-closure glaucoma, uveitis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Ipsilateral autonomic features:</strong> tearing, ptosis, miosis, nasal stuffiness → TAC</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Triggerpoint examination:</strong> touching specific facial/scalp areas triggers pain → trigeminal neuralgia, greater occipital neuralgia</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">5. INVESTIGATIONS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Neuroimaging is generally NOT indicated for new-onset headache unless a neurological abnormality is detected on examination or a red flag is present. Over-investigation with CT scanning exposes patients to unnecessary radiation and false positives. Investigations should be targeted.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">First-Line Blood Tests (Guided by History)</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>ESR and CRP:</strong> mandatory in any new headache in a patient &gt;50 years — to exclude giant cell arteritis; if GCA suspected, start steroids before imaging results</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Full blood count, EUC, LFTs, glucose:</strong> systemic illness, metabolic cause, or baseline before starting prophylaxis</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Thyroid function:</strong> hypothyroidism and hyperthyroidism can cause headache</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Blood pressure measurement:</strong> at every headache consultation</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Urinalysis and urine protein/creatinine ratio:</strong> if pre-eclampsia considered in pregnancy</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Neuroimaging</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>CT head (non-contrast):</strong> first-line for suspected SAH, acute stroke, trauma, haemorrhage — fast and widely available</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>MRI brain:</strong> superior for posterior fossa lesions, white matter, venous sinus thrombosis, low CSF pressure, Chiari malformation, structural causes of TACs, trigeminal neuralgia neurovascular compression</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>CT or MR angiography:</strong> if vascular cause suspected (dissection, aneurysm, RCVS, vasculitis)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>MRI with gadolinium:</strong> preferred for low CSF pressure headache (pachymeningeal enhancement)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Imaging NOT routinely indicated for: classic migraine, tension-type headache, medication overuse headache, or established cluster headache with no change in pattern</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Lumbar Puncture</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Indicated after negative CT in suspected SAH — xanthochromia or elevated red cells at &gt;12 hours from headache onset</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Also indicated for suspected meningitis/encephalitis, IIH (opening pressure measurement), and low CSF pressure syndromes</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">6. DIFFERENTIAL DIAGNOSIS</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">The following table summarises the key distinguishing features of the most common headache types encountered in general practice. Refer to individual Synapse notes for detailed management of each condition.</p>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; overflow: hidden;">
+  <thead>
+    <tr style="background-color: #0d9488; color: #ffffff;">
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Diagnosis</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Duration</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Location &amp; Character</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Key Features</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Distinguishing Pearls</th>
+    </tr>
+  </thead>
+  <tbody style="color: #475569; font-size: 0.75rem;">
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Migraine</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">4–72 hours</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral (not side-locked), pulsating; moderate-severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Nausea, vomit, photophob, phonophob; aggravated by activity; ± aura</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">3 screening questions: nausea? lightsensitivity? impact on ADLs?</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Tension-type headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">30 min – 7 days</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Bilateral, pressure/tightness; mild-moderate</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">No nausea; not aggravated by activity; ± photo or phonophobia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Most common headache type; diagnosis of exclusion from migraine</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cluster headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">15–180 min</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, periorbital, side-locked, excruciating; severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Ipsilateral autonomic features, restlessness, agitation</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Patient cannot lie still — opposite of migraine; urgent specialist referral required</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Paroxysmal hemicrania</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">2–30 min per attack</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, side-locked, severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Multiple attacks/day; ipsilateral autonomic features</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Absolute indomethacin response is diagnostic</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Hemicrania continua</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Continuous</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, continuous, variable severity</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Exacerbations with autonomic features; may have migraine features</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Absolute indomethacin response is diagnostic</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">SUNCT</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">5 sec – 4 min</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, brief, severe</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Up to 200+ attacks/day; prominent tearing/conjunctival injection; cutaneous triggers</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Very rare; no indomethacin response; expert management required</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Medication overuse headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">≥15 days/month</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Variable</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Headache on ≥15 days/month with escalating analgesic use</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Always ask analgesic frequency; daily essential; migraine/TTH more susceptible than cluster</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cervicogenic headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Variable</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, from neck to head</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Reduced neck ROM; worsened by neck movement/palpation; onset with cervical lesion</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Physiotherapy first-line; imaging usually not helpful initially</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Primary exertional / sexual</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">&lt;48 hours (exertional); variable (sexual)</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Bilateral (exertional); severe at orgasm</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Thunderclap at orgasm = exclude SAH; exclude structural causes first</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Perform imaging for all new presentations; propranolol or indomethacin prophylaxis</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Trigeminal neuralgia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Seconds–minutes</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral, shock-like, V2/V3</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Triggered by touch, eating, speaking; brief refractory period after attack</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Always image to exclude structural causes; carbamazepine first-line</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Giant cell arteritis</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Persistent/progressive</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Unilateral or bilateral temporal</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Age &gt;50; temporal artery tenderness; jaw claudication, visual changes; elevated ESR/CRP</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Medical emergency; if visual symptoms start, prednisone immediately</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">SAH</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Sudden onset, persistent</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Diffuse 'worst headache of life'</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Thunderclap onset; meningism; loss of consciousness possible</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Emergency! If CT negative, lumbar puncture; emergency department immediately</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">7. MANAGEMENT PRINCIPLES</h2>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Management depends on the headache diagnosis. For all primary headaches, the GP approach includes: confirming diagnosis, excluding secondary causes, initiating appropriate acute treatment, considering prophylaxis where indicated, managing lifestyle factors, and monitoring for medication overuse.</p>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">General Principles — All Headache Types</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Provide the diagnosis clearly</strong> — many patients fear their headache represents a sinister cause. Address concerns explicitly.</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Recommend a headache diary</strong> — establishes frequency, triggers, analgesic use, and response to treatment. Essential before specialist referral.</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Identify and address medication overuse:</strong> limit nonopioid analgesics to &lt;15 days/month and triptans/opioids to &lt;10 days/month (eTG)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Lifestyle optimisation for all primary headaches:</strong> regular sleep, adequate hydration (1.5–2 L water/day), regular meals, limit caffeine (&lt;200 mg/day), regular aerobic exercise, stress management</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Address psychological comorbidities</strong> — anxiety and depression are common in patients with frequent headache and worsen outcomes if untreated</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Acute Treatment — By Diagnosis (Summary)</h3>
+<p style="font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Refer to individual Synapse notes for complete dosing tables. The following summarises first-line acute approaches:</p>
+<table style="width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; border: 1px solid #cbd5e1; border-radius: 0.75rem; overflow: hidden;">
+  <thead>
+    <tr style="background-color: #0d9488; color: #ffffff;">
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">Header Type</th>
+      <th style="padding: 0.6rem; border: 1px solid #cbd5e1; font-size: 0.75rem; text-align: left;">First-Line Acute Treatment</th>
+    </tr>
+  </thead>
+  <tbody style="color: #475569; font-size: 0.75rem;">
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Migraine</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">NSAIDs (ibuprofen 400–600 mg, naproxen, aspirin 900–1000 mg, diclofenac) ± antiemetic (metoclopramide, prochlorperazine). Triptan if NSAIDs insufficient. Start at symptom onset.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Tension-type headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">NSAIDs (aspirin 600–900 mg, ibuprofen 400 mg, naproxen, diclofenac 50 mg) or paracetamol 1 g. Avoid regular use (&gt;15 days/month).</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cluster headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">SC sumatriptan 6 mg + high-flow Oxygen 100% at 15 L/min via non-rebreathing mask for 15–20 min. Refer urgently to specialist.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Paroxysmal hemicrania / Hemicrania continua</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Indomethacin titration trial: 25 → 50 → 75 mg TDS, 3 days each step. Absolute response is diagnostic.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Primary exertional / sexual headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Indomethacin 25–50 mg orally 2 hours before activity (prophylactic). Propranolol 40–80 mg BD for 1 month if regular prophylaxis needed.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Cervicogenic headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Physiotherapy and exercises (first-line despite initial worsening), NSAIDs or paracetamol for symptom relief.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Medication overuse headache</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Analgesic withdrawal (graded or abrupt with bridging therapy). bridging: naproxen MRI 750–1000 mg daily reducing over 3 weeks. OR prednisolone 50 mg daily for 5 days then taper. Start prophylaxis before withdrawal.</td>
+    </tr>
+    <tr>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1; font-weight: bold; color: #1e293b;">Trigeminal neuralgia</td>
+      <td style="padding: 0.6rem; border: 1px solid #cbd5e1;">Carbamazepine MR 100 mg BD titrated to 400 mg BD. Oxcarbazepine or pregabalin if intolerant.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">When to Consider Prophylaxis</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Migraine:</strong> ≥4 migraine days/month, or fewer if severe or significantly impacting quality of life, or acute treatment ineffective/poorly tolerated</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Tension-type headache:</strong> frequent TTH not adequately controlled by acute treatment — amitriptyline or nortriptyline first-line</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Cluster headache:</strong> all patients with episodic or chronic cluster headache — verapamil first-line (specialist-initiated with ECG monitoring)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Primary exertional/sexual headache:</strong> if frequent — propranolol 10–40 mg BD for 1 month, then review</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">8. WHEN TO REFER / ESCALATE</h2>
+
+<div class="callout-block" style="background-color: #fff1f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Emergency Referral — Send to ED Immediately</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Thunderclap headache — any sudden severe headache reaching peak intensity within seconds</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Headache with focal neurological signs, confusion, or drowsiness</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Signs of meningism with fever and headache</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">New headache with visual obscuration or visual loss — possible IIH or raised ICP emergency</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Headache in pregnancy with hypertension or proteinuria — possible pre-eclampsia</li>
+  </ul>
+</div>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Urgent (Same-Day or Within Days)</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>New headache in patient &gt;50 years</strong> — giant cell arteritis must be excluded urgently (ESR/CRP; if suspected, start prednisolone before waiting for results)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Suspected cluster headache</strong> — requires urgent specialist review to confirm diagnosis, arrange MRI brain, and optimise treatment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Papilloedema found on examination</strong> — urgent ophthalmology and neurology referral</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">Non-Urgent Neurology Referral</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Migraine:</strong> inadequate control after several trials of acute and prophylactic therapy; consideration of CGRP-targeted therapies or botulinum toxin A</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Diagnostic uncertainty</strong> — headache not clearly fitting a primary headache type after thorough GP workup</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Trigeminal neuralgia:</strong> loss of drug efficacy, intolerance, or consideration of surgical/interventional therapy</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>TACs:</strong> all paroxysmal hemicrania and hemicrania continua cases for specialist confirmation; SUNCT always requires expert management</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Children with frequent or disabling headache</strong> — paediatric neurology referral for prophylaxis decisions</li>
+</ul>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">9. SAFETY NETTING &amp; FOLLOW-UP</h2>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Advise all patients to return promptly if:</strong> headache becomes thunderclap, character changes significantly, new neurological symptoms develop, or any red flag emerges</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Document baseline headache frequency and character</strong> — this is the reference point for monitoring and detecting deterioration</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Review headache diary at 4–6 weeks</strong> — assess frequency, triggers, analgesic use, and response to initial treatment</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>If prophylaxis started: review at 8–12 weeks</strong> for response and tolerability; titrate dose; effective prophylaxis = 30–50% reduction in headache days</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Screen for medication overuse at every review</strong> — ask specifically about analgesic frequency</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><strong>Screen for depression and anxiety</strong> — common comorbidities that worsen headache outcomes</li>
+</ul>
+
+<div class="callout-block" style="background-color: #f0fdfa; border: 1px solid #ccfbf1; border-left: 5px solid #0d9488; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #115e59;">
+  <div style="font-weight: bold; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #0f766e;">Key Points</div>
+  <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Neuroimaging is NOT routinely needed for primary headaches — investigate only if red flags are present or examination is abnormal.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Thunderclap headache = SAH until proven otherwise — CT then LP; send to ED immediately.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">Always ask about analgesic frequency — medication overuse headache is common, underrecognised, and worsens prognosis of the primary headache disorder.</li>
+    <li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">A headache diary is essential for establishing diagnosis, monitoring treatment, and preparing for specialist referral.</li>
+  </ul>
+</div>
+
+<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; border-bottom: 1px solid #cbd5e1; padding-bottom: 0.25rem;">10. RESOURCES</h2>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">For Health Professionals</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">Therapeutic Guidelines — Neurology (eTG, December 2025)</li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;">UpToDate — Headache (uptodate.com)</li>
+</ul>
+
+<h3 style="font-family: 'DM Sans', sans-serif; font-size: 1.05rem; font-weight: bold; color: #0f766e; margin-top: 1.25rem; margin-bottom: 0.5rem;">For Patients</h3>
+<ul style="padding-left: 1.25rem; margin-bottom: 1.25rem;">
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Headache diary — Children (RCH)</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Headache diary — Adults</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine &amp; Headache Australia</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">healthdirect — Headache</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine Monitor (app)</a></li>
+  <li style="font-size: 0.875rem; color: #334155; margin-bottom: 0.5rem; line-height: 1.6;"><a href="#" style="color: #0f766e;">Migraine Buddy (app)</a></li>
+</ul>
+<div style="font-size: 0.75rem; color: #94a3b8; text-align: right; margin-top: 2rem;">End of document ■</div>`,
 
       guideline: `
 <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem;">Background &amp; Rationale</h2>
@@ -1982,7 +2872,7 @@ function ContentEditorContent() {
     localStorage.setItem(`gpedge_content_links_${id}`, JSON.stringify(newLinks));
   };
 
-  const handleGenerateQuiz = () => {
+  const handleGenerateQuiz = async () => {
     const bank = allQuestions;
     // Filter questions by system name matches
     const related = bank.filter(q => 
@@ -1996,27 +2886,28 @@ function ContentEditorContent() {
       quizQuestions.push(...bank.slice(0, 5));
     }
 
-    const newQuiz = createQuiz({
-      name: `Quiz: ${docTitle}`,
+    const quizName = `Quiz: ${docTitle}`;
+    const result = await syncQuizToDbAction({
+      name: quizName,
       description: `Auto-generated practice quiz based on the clinical content "${docTitle}".`,
       timeLimit: quizQuestions.length * 2,
       passingScore: 70,
       randomize: true,
       status: "draft",
       examType: "AKT",
-      questionIds: quizQuestions.map(q => q.id),
-      topics: [selectedSystem],
-    });
+    }, quizQuestions, currentAdmin?.id);
 
-    addUserNotification(
-      "Quiz Generated",
-      `Successfully generated practice quiz "${newQuiz.name}" with ${quizQuestions.length} related questions.`,
-      quizQuestions.length,
-      "quiz"
-    );
+    if (result.success && result.dbId) {
+      addUserNotification(
+        "Quiz Generated",
+        `Successfully generated practice quiz "${quizName}" with ${quizQuestions.length} related questions.`,
+        quizQuestions.length,
+        "quiz"
+      );
 
-    alert(`Practice quiz generated successfully! Redirecting to quiz settings...`);
-    router.push(`/admin/quizzes/${newQuiz.id}/edit`);
+      alert(`Practice quiz generated successfully! Redirecting to quiz settings...`);
+      router.push(`/admin/quizzes/${result.dbId}/edit`);
+    }
   };
 
   // Filter questions for linking modal
@@ -2831,7 +3722,9 @@ function ContentEditorContent() {
           {/* Top title line & auto-save indicators */}
           <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-xs font-semibold">
-              <Link href="/admin/content" className="text-slate-400 hover:text-teal-600 transition-colors">Content</Link>
+              <Link href={contentItem?.type === "Approach" ? "/admin/approaches" : "/admin/content"} className="text-slate-400 hover:text-teal-600 transition-colors">
+                {contentItem?.type === "Approach" ? "Approaches" : "Content"}
+              </Link>
               <svg className="w-3.5 h-3.5 text-slate-350" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               <span className="text-slate-700 dark:text-slate-200 font-bold">{docTitle || "Untitled Document"}</span>
             </div>
@@ -2849,7 +3742,7 @@ function ContentEditorContent() {
               </button>
 
               <a
-                href="/templates/medical_content_template.docx" download
+                href={contentItem?.type === "Approach" ? "/templates/clinical_approach_template.docx" : "/templates/medical_content_template.docx"} download
                 className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-355 dark:border-slate-700 hover:border-teal-355 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm"
               >
                 <Lucide.Download className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
@@ -2862,11 +3755,11 @@ function ContentEditorContent() {
               </div>
 
               <Link
-                href="/admin/content"
+                href={contentItem?.type === "Approach" ? "/admin/approaches" : "/admin/content"}
                 className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-800 text-white hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5 border-none cursor-pointer"
               >
                 <Lucide.ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Content</span>
+                <span>Back to {contentItem?.type === "Approach" ? "Approaches" : "Content"}</span>
               </Link>
             </div>
           </div>

@@ -58,9 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
           const defaultCreds = [
             { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
-            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
-            { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", username: "jessica_mod", role: "Moderator", email: "moderator@gpedge.com", lastChanged: "Yesterday", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "moderator123" },
-            { id: "fa0c92d5-89db-4848-8df0-7d72dfa64303", name: "Sarah Connor", username: "sarah_view", role: "Viewer", email: "viewer@gpedge.com", lastChanged: "Never", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "viewer123" }
+            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" }
           ];
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(defaultCreds));
           credsList = defaultCreds;

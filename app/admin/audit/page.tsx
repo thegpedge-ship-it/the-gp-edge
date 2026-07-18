@@ -59,7 +59,7 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "Super Admin" | "Admin" | "Moderator" | "Viewer";
+  role: "Super Admin" | "Admin";
   permissions: string[];
   lastLogin: string;
   status: "active" | "inactive";
@@ -77,7 +77,7 @@ const auditLogs = [
   { timestamp: "28 May 2026, 9:25 PM", admin: "Jessica Park", action: "Published new Cardiology approach — Hypertension Management", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review queue", category: "Questions", severity: "info" },
   { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Published new Respiratory autofill template", category: "Content", severity: "info" },
-  { timestamp: "28 May 2026, 5:10 PM", admin: "Arun Mehta", action: "Created draft approach card 'Approach to Dyspnoea'", category: "Approaches", severity: "info" },
+  { timestamp: "28 May 2026, 5:10 PM", admin: "Arun Mehta", action: "Created draft approach 'Approach to Dyspnoea'", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 4:00 PM", admin: "Arun Mehta", action: "Deleted Question #2839 — duplicate entry", category: "Questions", severity: "warning" },
   { timestamp: "27 May 2026, 11:00 PM", admin: "Siddhant Udavant", action: "Enabled maintenance mode for 30 minutes", category: "System", severity: "warning" },
   { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 — policy criteria met", category: "Billing", severity: "info" },
@@ -110,6 +110,7 @@ export default function AuditPage() {
   /* Modal state */
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [adminToDelete, setAdminToDelete] = useState<AdminUser | null>(null);
 
   /* Edit form state */
   const [editName, setEditName] = useState("");
@@ -117,7 +118,7 @@ export default function AuditPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
-  const [editRole, setEditRole] = useState<"Super Admin" | "Admin" | "Moderator" | "Viewer">("Admin");
+  const [editRole, setEditRole] = useState<"Super Admin" | "Admin">("Admin");
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editForgotPassword, setEditForgotPassword] = useState(true);
   const [editOauth, setEditOauth] = useState(false);
@@ -129,8 +130,8 @@ export default function AuditPage() {
   const [addUsername, setAddUsername] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [showAddPassword, setShowAddPassword] = useState(false);
-  const [addRole, setAddRole] = useState<"Super Admin" | "Admin" | "Moderator" | "Viewer">("Admin");
-  const [addPermissions, setAddPermissions] = useState<string[]>([]);
+  const [addRole, setAddRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [addPermissions, setAddPermissions] = useState<string[]>([...ALL_FEATURE_KEYS]);
   const [addForgotPassword, setAddForgotPassword] = useState(true);
   const [addOauth, setAddOauth] = useState(false);
   const [addMfa, setAddMfa] = useState(false);
@@ -345,13 +346,17 @@ export default function AuditPage() {
     syncAdminsFromStorage();
   }
 
-  async function removeAdmin(id: string, name: string) {
+  function requestDeleteAdmin(admin: AdminUser) {
     if (isReadOnly) return;
-    if (id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00") {
+    if (admin.id === "1") {
       alert("Cannot delete primary Super Admin account.");
       return;
     }
-    if (!confirm(`Are you sure you want to delete administrator "${name}"?`)) return;
+    setAdminToDelete(admin);
+  }
+
+  async function removeAdmin(id: string, name: string) {
+    if (isReadOnly) return;
 
     try {
       await deleteAdminFromDbAction(id);
@@ -363,6 +368,13 @@ export default function AuditPage() {
       console.error("Failed to delete admin from DB:", err);
     }
     syncAdminsFromStorage();
+  }
+
+  async function confirmDeleteAdmin() {
+    if (!adminToDelete) return;
+    const { id, name } = adminToDelete;
+    setAdminToDelete(null);
+    await removeAdmin(id, name);
   }
 
   function togglePermission(perms: string[], key: string, setter: (v: string[]) => void) {
@@ -619,7 +631,7 @@ export default function AuditPage() {
                             </button>
                             {a.id !== "1" && (
                               <button
-                                onClick={() => isSuperAdmin && removeAdmin(a.id, a.name)}
+                                onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
                                 disabled={!isSuperAdmin || isReadOnly}
                                 className={`p-1.5 rounded-lg transition-all ${
                                   isSuperAdmin && !isReadOnly
@@ -1183,6 +1195,69 @@ export default function AuditPage() {
                     Add Admin
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {adminToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 backdrop-blur-sm p-4"
+            onClick={() => setAdminToDelete(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className={`w-full max-w-lg overflow-hidden rounded-3xl border ${themeBorder} ${themePanel} shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-100/80 dark:border-slate-800/80 bg-gradient-to-r from-rose-50/80 via-white to-teal-50/40 dark:from-rose-950/20 dark:via-slate-900 dark:to-teal-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/40">
+                    <Lucide.Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Delete administrator?</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This action removes the account and its access credentials from the admin list.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Are you sure you want to delete administrator <span className="font-semibold text-slate-900 dark:text-slate-50">"{adminToDelete.name}"</span>?
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">This cannot be undone. The account will be removed from the admin roster immediately.</p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Lucide.Info className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span>Super Admin accounts are protected and cannot be removed.</span>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-950/30 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setAdminToDelete(null)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-xl border ${themeBtnGhost}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAdmin}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-600/15 hover:from-rose-500 hover:to-rose-400 transition-all active:scale-[0.98]"
+                >
+                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                  Delete Admin
+                </button>
               </div>
             </motion.div>
           </motion.div>

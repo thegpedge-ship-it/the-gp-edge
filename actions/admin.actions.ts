@@ -36,15 +36,11 @@ function mapRowToCredentialUser(row: any): CredentialUser {
     permissions = ["dashboard"];
   }
 
-  let role: "Super Admin" | "Admin" | "Moderator" | "Viewer" = "Admin";
+  let role: "Super Admin" | "Admin" = "Admin";
   if (row.role_id === 1) {
     role = "Super Admin";
   } else if (permissions.includes("billing")) {
     role = "Admin";
-  } else if (permissions.includes("content") || permissions.includes("approaches")) {
-    role = "Moderator";
-  } else {
-    role = "Viewer";
   }
 
   return {

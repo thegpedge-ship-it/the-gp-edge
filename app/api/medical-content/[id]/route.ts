@@ -5,6 +5,47 @@ import { sanitizeHtml } from "@/utils/sanitizeHtml";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
+function buildFallbackHtml(card: any): string {
+  const lines: string[] = [];
+
+  if (card.overview) {
+    lines.push(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">Overview</h2>`);
+    lines.push(`<p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${card.overview}</p>`);
+  }
+
+  if (card.steps?.length) {
+    lines.push(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">Clinical Steps</h2>`);
+    card.steps.forEach((step: any, idx: number) => {
+      lines.push(`<div class="callout-block" data-variant="info" style="background-color: #e6f7f4; border: 1px solid #e6f7f4; border-left: 5px solid #2bb09c; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #1a5c51;">
+        <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #2bb09c;">Step ${idx + 1}: ${step.title || ""}</div>
+        ${step.description ? `<div style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; line-height: 1.6;">${step.description}</div>` : ""}
+        ${step.checklistItems?.length ? `<ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-top: 0.5rem; margin-bottom: 0;">${step.checklistItems.map((c: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">${c}</li>`).join("")}</ul>` : ""}
+      </div>`);
+    });
+  }
+
+  if (card.keyPoints?.length) {
+    lines.push(`<div class="callout-block" data-variant="pearl" style="background-color: #f0fdf4; border: 1px solid #d1fae5; border-left: 5px solid #16a34a; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #14532d;">
+      <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #15803d;">Key Points</div>
+      <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">${card.keyPoints.map((k: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">${k}</li>`).join("")}</ul>
+    </div>`);
+  }
+
+  if (card.redFlags?.length) {
+    lines.push(`<div class="callout-block" data-variant="warning" style="background-color: #fef2f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.25rem; color: #7f1d1d;">
+      <div style="font-weight: bold; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; color: #b91c1c;">Red Flags</div>
+      <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 0;">${card.redFlags.map((r: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: inherit;">${r}</li>`).join("")}</ul>
+    </div>`);
+  }
+
+  if (card.references?.length) {
+    lines.push(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">References</h2>`);
+    lines.push(`<ol style="padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">${card.references.map((r: any) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${r.text || r}${r.url && r.url !== "#" ? ` — <a href="${r.url}" style="color: #0f766e;">${r.url}</a>` : ""}</li>`).join("")}</ol>`);
+  }
+
+  return lines.join("\n");
+}
+
 // GET /api/medical-content/[id]
 export async function GET(
   _req: NextRequest,
@@ -54,6 +95,37 @@ export async function GET(
       }
     }
 
+    // If it's an Approach and fullHtml is empty, build it from clinical_notes
+    if (condition.kind === "Approach" && (!fullHtml || !fullHtml.trim())) {
+      let extra: any = {};
+      if (condition.clinical_notes) {
+        try {
+          extra = JSON.parse(condition.clinical_notes);
+        } catch {
+          extra = { overview: condition.clinical_notes };
+        }
+      }
+      fullHtml = buildFallbackHtml(extra);
+    }
+
+    // Retrieve references from clinical_notes if condition_references is empty
+    let referencesData = refs.map((r: any) => ({ id: r.id, text: r.text, url: r.url ?? "#" }));
+    if (referencesData.length === 0 && condition.kind === "Approach") {
+      let extra: any = {};
+      if (condition.clinical_notes) {
+        try {
+          extra = JSON.parse(condition.clinical_notes);
+        } catch {}
+      }
+      if (extra.references?.length) {
+        referencesData = extra.references.map((r: any, idx: number) => ({
+          id: r.id || idx + 1,
+          text: r.text || r,
+          url: r.url ?? "#"
+        }));
+      }
+    }
+
     const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? "").replace(/\/$/, "");
 
     return NextResponse.json({
@@ -68,7 +140,7 @@ export async function GET(
         author: condition.author ?? "GP Edge Admin",
         lastUpdated: new Date(condition.updated_at).toISOString().split("T")[0],
         tags: tagRows.map((r: any) => r.label),
-        references: refs.map((r: any) => ({ id: r.id, text: r.text, url: r.url ?? "#" })),
+        references: referencesData,
         pdfUrl: docRow?.object_key ? `${publicBase}/${docRow.object_key}` : "",
         fullHtml,
         sections,
@@ -89,6 +161,15 @@ export async function PATCH(
     const { id } = await params;
     const body = await req.json();
     const { name, category, type, status, author, fullHtml, sections } = body;
+
+    // Verify condition exists
+    const exists = await queryOne<{ id: string }>(
+      `SELECT id FROM medical_conditions WHERE id = $1`,
+      [id]
+    );
+    if (!exists) {
+      return NextResponse.json({ success: false, error: "Condition not found" }, { status: 404 });
+    }
 
     // Update metadata fields that were provided
     const updates: string[] = ["updated_at = NOW()"];

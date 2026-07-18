@@ -9,6 +9,7 @@ import CustomSelect from "@/components/admin/CustomSelect";
 import { getApproachCards, saveApproachCards, ApproachCard, ApproachStep } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { uploadToR2 } from "@/lib/r2Client";
 import {
   getApproachCardsFromDbAction,
   saveApproachCardToDbAction,
@@ -105,90 +106,75 @@ export default function ApproachesPage() {
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
+  // New Queue States
+  const [uploadQueue, setUploadQueue] = useState<{ file: File; id: string }[]>([]);
+  const [queueIdx, setQueueIdx] = useState(0);
+  const [currentPreviewCard, setCurrentPreviewCard] = useState<any | null>(null);
+
+  const processQueueItem = async (fileList: File[], idx: number) => {
+    if (idx >= fileList.length) {
+      // All done
+      setUploadState("idle");
+      setCurrentPreviewCard(null);
+      setShowUploadModal(false);
+      return;
+    }
+    const file = fileList[idx];
+    setUploadedFileName(file.name);
+    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
+    setUploadProgress(0);
+    setUploadState("uploading");
+    setCurrentPreviewCard(null);
+    setExtractionState("idle");
+
+    // Progress animation
+    const progressTimer = setInterval(() => {
+      setUploadProgress(prev => Math.min(85, prev + Math.random() * 15));
+    }, 200);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "approach");
+      const res = await fetch("/api/extract", { method: "POST", body: formData });
+      clearInterval(progressTimer);
+      setUploadProgress(100);
+      const result = await res.json();
+      if (result.success && result.type === "approach" && result.card) {
+        let r2Url = "";
+        try {
+          r2Url = await uploadToR2(file, file.name, file.type);
+        } catch {}
+        runExtractionAnim({ ...result.card, sourceFileUrl: r2Url });
+      } else {
+        alert(`Failed to extract "${file.name}": ${result.error || "Unknown error"}`);
+        // Skip failed file, move to next
+        const nextIdx = idx + 1;
+        setQueueIdx(nextIdx);
+        processQueueItem(fileList, nextIdx);
+      }
+    } catch (err: any) {
+      clearInterval(progressTimer);
+      alert(`Error extracting "${file.name}": ${err.message}`);
+      const nextIdx = idx + 1;
+      setQueueIdx(nextIdx);
+      processQueueItem(fileList, nextIdx);
+    }
+  };
+
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isReadOnly) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     const fileList = Array.from(files);
-    setExtractionState("idle");
-    setExtractedCards([]);
-
-    // Initialize batch tracking for all files
-    const initialBatch: { id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[] = fileList.map((f, i) => ({
-      id: `file-${Date.now()}-${i}`,
-      name: f.name,
-      size: (f.size / (1024 * 1024)).toFixed(2) + " MB",
-      progress: 0,
-      status: "idle",
-    }));
-    setBatchFiles(initialBatch);
-    setUploadState("uploading");
-    setUploadProgress(0);
-    setUploadedFileName(fileList.length === 1 ? fileList[0].name : `${fileList.length} files`);
-    setUploadedFileSize(
-      (fileList.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2) + " MB"
-    );
-
-    const allExtracted: any[] = [];
-    let completedCount = 0;
-
-    const updateBatchFile = (idx: number, updates: Partial<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }>) => {
-      setBatchFiles(prev => prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf));
-    };
-
-    await Promise.allSettled(
-      fileList.map(async (file, idx) => {
-        updateBatchFile(idx, { status: "uploading", progress: 10 });
-
-        const progressTimer = setInterval(() => {
-          updateBatchFile(idx, { progress: Math.min(90, 10 + Math.random() * 50) });
-        }, 200);
-
-        try {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "approach");
-
-          updateBatchFile(idx, { status: "extracting", progress: 40 });
-
-          const res = await fetch("/api/extract", {
-            method: "POST",
-            body: formData,
-          });
-
-          clearInterval(progressTimer);
-
-          const result = await res.json();
-          if (result.success && result.type === "approach" && result.card) {
-            allExtracted.push(result.card);
-            updateBatchFile(idx, { status: "success", progress: 100 });
-          } else {
-            updateBatchFile(idx, {
-              status: "error",
-              progress: 100,
-              error: result.error || "Failed to extract approach from this file.",
-            });
-          }
-        } catch (err: any) {
-          clearInterval(progressTimer);
-          updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
-        }
-
-        completedCount++;
-        setUploadProgress(Math.round((completedCount / fileList.length) * 100));
-      })
-    );
-
-    setUploadProgress(100);
-    setExtractedCards(allExtracted);
-    setUploadState("success");
-    runExtractionAnim(allExtracted);
-
+    setUploadQueue(fileList.map((f, i) => ({ file: f, id: `q-${Date.now()}-${i}` })));
+    setQueueIdx(0);
+    setCurrentPreviewCard(null);
     if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
+    processQueueItem(fileList, 0);
   };
 
-  const runExtractionAnim = (parsedCards: any[]) => {
+  const runExtractionAnim = (card: any) => {
     setExtractionState("extracting");
     setExtractionProgress(0);
     setExtractionLog("Opening document stream...");
@@ -207,41 +193,49 @@ export default function ApproachesPage() {
       setExtractionProgress(100);
       setExtractionState("success");
       setExtractionLog("Extraction complete!");
+      setCurrentPreviewCard(card);
+      setUploadState("success");
     }, 900);
   };
 
-  const handleSaveImportedCards = async () => {
-    if (!extractedCards || extractedCards.length === 0) return;
-
-    let updatedCards = [...cards];
-    for (const card of extractedCards) {
-      const newId = crypto.randomUUID();
-      const targetCard = {
-        ...card,
-        id: newId,
-        lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
-        status: "draft" as const
-      };
-      updatedCards = [targetCard, ...updatedCards];
-      await saveApproachCardToDbAction(targetCard);
-    }
-
+  const handlePublishCurrent = async () => {
+    if (!currentPreviewCard) return;
+    const newId = crypto.randomUUID();
+    const targetCard = {
+      ...currentPreviewCard,
+      id: newId,
+      lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+      status: "draft" as const
+    };
+    
+    const updatedCards = [targetCard, ...cards];
     setCards(updatedCards);
     saveApproachCards(updatedCards);
-
+    await saveApproachCardToDbAction(targetCard);
+    
     addUserNotification(
-      `${extractedCards.length} Approaches Imported`,
-      `Successfully imported ${extractedCards.length} clinical approaches from document templates.`,
-      extractedCards.length,
+      "Approach Imported",
+      `Successfully imported "${targetCard.title}" from document template.`,
+      1,
       "custom"
     );
 
-    setShowUploadModal(false);
-    setUploadState("idle");
-    setExtractionState("idle");
-    setExtractedCards([]);
-    alert(`Successfully imported ${extractedCards.length} clinical approach card(s) as drafts!`);
+    // Go to next
+    const nextIdx = queueIdx + 1;
+    setQueueIdx(nextIdx);
+    setCurrentPreviewCard(null);
+    processQueueItem(uploadQueue.map(q => q.file), nextIdx);
   };
+
+  const handleCancelCurrent = () => {
+    // Skip / discard
+    const nextIdx = queueIdx + 1;
+    setQueueIdx(nextIdx);
+    setCurrentPreviewCard(null);
+    processQueueItem(uploadQueue.map(q => q.file), nextIdx);
+  };
+
+  const handleSaveImportedCards = handlePublishCurrent;
 
   // Preview mode
   const [previewCard, setPreviewCard] = useState<ApproachCard | null>(null);
@@ -1207,7 +1201,7 @@ export default function ApproachesPage() {
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-[#090d16] text-white">
                 <div>
                   <h3 className="font-serif text-lg font-bold">Import Clinical Approaches</h3>
-                  <p className="text-xs text-slate-400">Upload a DOCX or PDF guideline to extract structured clinical approach flows</p>
+                  <p className="text-xs text-slate-400">Upload guidelines to extract structured clinical approach flows</p>
                 </div>
                 <button
                   onClick={() => setShowUploadModal(false)}
@@ -1219,48 +1213,77 @@ export default function ApproachesPage() {
 
               {/* Body */}
               <div className="p-6 space-y-4">
-                {uploadState === "idle" && (
-                  <div
-                    onClick={() => uploadFileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-8 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center min-h-[160px]"
-                  >
-                    <input
-                      type="file"
-                      ref={uploadFileInputRef}
-                      onChange={handleUploadFile}
-                      accept=".docx,.pdf"
-                      multiple
-                      className="hidden"
-                    />
-                    <Lucide.Upload className="w-10 h-10 text-slate-400 mb-2" />
-                    <p className="text-xs font-bold text-slate-700 dark:text-slate-350">Drag & Drop DOCX or PDF here</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">Click to choose files from your system (Max 10MB)</p>
-                  </div>
-                )}
-
-                {uploadState === "uploading" && (
-                  <div className="space-y-3">
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-850/20 shadow-sm">
-                      <div className="flex items-center justify-between text-xs font-bold px-1 mb-2 text-slate-700 dark:text-slate-350">
-                        <span className="truncate max-w-[240px]">Processing {uploadedFileName}</span>
-                        <span className="text-teal-600 dark:text-teal-400 font-mono">{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
-                      </div>
-                      <p className="text-[10px] text-slate-450 pt-1.5">Total size: {uploadedFileSize} · Extracting approach cards...</p>
+                {/* Queue progress strip */}
+                {uploadQueue.length > 1 && (uploadState === "uploading" || uploadState === "success") && (
+                  <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <Lucide.Layers className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                    <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                      Document {Math.min(queueIdx + 1, uploadQueue.length)} of {uploadQueue.length}
+                    </span>
+                    <div className="flex gap-1 ml-auto">
+                      {uploadQueue.map((_, i) => (
+                        <div key={i} className={`h-1.5 w-6 rounded-full transition-all ${i < queueIdx ? "bg-teal-500" : i === queueIdx ? "bg-teal-400 animate-pulse" : "bg-slate-200 dark:bg-slate-700"}`} />
+                      ))}
                     </div>
                   </div>
                 )}
 
+                {/* Idle: file picker */}
+                {uploadState === "idle" && (
+                  <>
+                    <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
+                      <span className="text-[11px] text-slate-450 dark:text-slate-400">Download clinical approach Word template:</span>
+                      <a href="/templates/clinical_approach_template.docx" download className="px-2.5 py-1.5 bg-slate-800 text-white rounded-lg text-[10px] font-semibold hover:bg-slate-900 shadow transition flex items-center gap-1 shrink-0">
+                        <Lucide.Download className="w-3 h-3 text-teal-400" />
+                        Download Template
+                      </a>
+                    </div>
+
+                    <div
+                      onClick={() => uploadFileInputRef.current?.click()}
+                      className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-400 rounded-2xl p-8 text-center cursor-pointer bg-slate-50 dark:bg-slate-800 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center min-h-[160px]"
+                    >
+                      <input
+                        type="file"
+                        ref={uploadFileInputRef}
+                        onChange={handleUploadFile}
+                        accept=".docx,.pdf,.png,.jpg,.jpeg,.webp"
+                        multiple
+                        className="hidden"
+                      />
+                      <Lucide.Upload className="w-10 h-10 text-slate-400 mb-2" />
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-355">Drag &amp; Drop DOCX, PDF, or Image here</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Click to choose files · Each will be previewed before saving</p>
+                    </div>
+                  </>
+                )}
+
+                {/* Uploading */}
+                {uploadState === "uploading" && (
+                  <div className="space-y-3">
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-850/20 shadow-sm space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Lucide.Loader2 className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{uploadedFileName}</span>
+                        <span className="ml-auto text-teal-600 dark:text-teal-400 font-mono text-xs">{Math.round(uploadProgress)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <p className="text-[10px] text-slate-400">{uploadedFileSize} · Extracting clinical approach...</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success: show extraction animation then card preview */}
                 {uploadState === "success" && (
                   <div className="space-y-4">
                     {extractionState === "extracting" && (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50 dark:bg-slate-850/20 space-y-5 shadow-sm text-center">
-                        <div className="flex items-center justify-between text-xs font-bold px-1 text-slate-700 dark:text-slate-350">
+                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-6 bg-slate-50 dark:bg-slate-850/20 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
                           <span className="flex items-center gap-2">
-                            <Lucide.Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
-                            <span>{extractionLog}</span>
+                            <Lucide.Loader2 className="w-4 h-4 text-teal-600 animate-spin shrink-0" />
+                            {extractionLog}
                           </span>
                           <span className="font-mono text-teal-600 dark:text-teal-400">{extractionProgress}%</span>
                         </div>
@@ -1270,36 +1293,81 @@ export default function ApproachesPage() {
                       </div>
                     )}
 
-                    {extractionState === "success" && (
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Extracted Approach Cards ({extractedCards.length})</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {extractedCards.map((card, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                              <div>
-                                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{card.title}</span>
-                                <span className="block text-[9px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-1.5 py-0.2 rounded-full w-fit mt-1">{card.system} · {card.category}</span>
-                              </div>
-                              <span className="text-xs font-medium text-slate-400">{card.steps.length} steps</span>
+                    {extractionState === "success" && currentPreviewCard && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-3"
+                      >
+                        {/* Card Preview */}
+                        <div className="border border-teal-200 dark:border-teal-800/60 rounded-2xl overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
+                          {/* Preview Header */}
+                          <div className="px-5 py-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-teal-700/60 text-teal-200 border border-teal-600/40">{currentPreviewCard.system}</span>
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-300 border border-slate-600/40">{currentPreviewCard.category}</span>
                             </div>
-                          ))}
+                            <h4 className="font-serif text-base font-bold text-white">{currentPreviewCard.title}</h4>
+                            <p className="text-xs text-slate-400 mt-0.5">{currentPreviewCard.subtitle}</p>
+                          </div>
+
+                          {/* Overview */}
+                          <div className="px-5 pt-4 pb-2">
+                            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-3">{currentPreviewCard.overview}</p>
+                          </div>
+
+                          {/* Steps preview (first 3) */}
+                          {(currentPreviewCard.steps || []).length > 0 && (
+                            <div className="px-5 pb-4 space-y-1.5">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                                {(currentPreviewCard.steps || []).length} Clinical Steps
+                              </p>
+                              {(currentPreviewCard.steps || []).slice(0, 3).map((step: any, i: number) => (
+                                <div key={i} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
+                                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-600 text-white text-[10px] font-bold flex items-center justify-center">{i + 1}</div>
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{step.title}</p>
+                                    <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1">{step.description}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              {(currentPreviewCard.steps || []).length > 3 && (
+                                <p className="text-[10px] text-slate-400 text-center pt-1">+{(currentPreviewCard.steps || []).length - 3} more steps</p>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Tags */}
+                          {(currentPreviewCard.tags || []).length > 0 && (
+                            <div className="px-5 pb-4 flex flex-wrap gap-1">
+                              {(currentPreviewCard.tags || []).slice(0, 5).map((tag: string) => (
+                                <span key={tag} className="text-[9px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">{tag}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+
+                        {/* Publish / Cancel / Skip */}
+                        <div className="flex items-center justify-between gap-3 pt-1">
                           <button
-                            onClick={() => { setUploadState("idle"); setExtractionState("idle"); }}
-                            className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-455 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer bg-transparent"
+                            onClick={handleCancelCurrent}
+                            className="flex items-center gap-1.5 px-4 py-2 border border-red-200 dark:border-red-800/50 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20 transition cursor-pointer bg-transparent"
                           >
-                            Reset / Reupload
+                            <Lucide.X className="w-3.5 h-3.5" />
+                            {queueIdx + 1 < uploadQueue.length ? "Skip to Next" : "Discard"}
                           </button>
-                          <button
-                            onClick={handleSaveImportedCards}
-                            className="px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer border-none"
-                          >
-                            Save and Import
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-400 hidden sm:block">Will be saved as draft</span>
+                            <button
+                              onClick={handlePublishCurrent}
+                              className="flex items-center gap-1.5 px-5 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer border-none"
+                            >
+                              <Lucide.Check className="w-3.5 h-3.5" />
+                              {queueIdx + 1 < uploadQueue.length ? "Save & Next →" : "Save & Finish"}
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 )}
