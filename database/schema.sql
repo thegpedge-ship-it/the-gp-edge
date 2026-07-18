@@ -38,9 +38,10 @@
 --   Brief §6  Directory  -> content_kind gains 'Approach'; FTS search_vector so
 --                           Condition Search & Approach Search drop in with no
 --                           rebuild; proper search instead of exact match.
---   Brief §7  MBS        -> mbs_sync_runs logs every government pull;
---                           mbs_item_fee_history keeps fee history (no overwrite);
---                           mbs_items records last_synced_at + source.
+--   Brief §7  MBS        -> superseded 2026-07-18: mbs_items is now a semantic
+--                           search index over the government XML (vector
+--                           embedding + on-demand detail_json), not a
+--                           hand-maintained billing model.
 --   Brief §8  Subs       -> features.is_premium flag (add premium features with
 --                           no schema change); trials, refunds, promo codes.
 --   Brief §9  Badges     -> user_badge_progress shows progress ("4 of 7").
@@ -81,7 +82,6 @@ CREATE TYPE account_status      AS ENUM ('active','suspended','deleted');
 CREATE TYPE content_format      AS ENUM ('plaintext','html','markdown');   -- Brief §5 formatting
 CREATE TYPE subject_strength    AS ENUM ('weak','developing','strong');    -- Brief §2/§4 drills
 CREATE TYPE discount_type       AS ENUM ('percent','fixed_amount');        -- Brief §8 promo codes
-CREATE TYPE mbs_sync_status     AS ENUM ('running','success','partial','failed'); -- Brief §7
 CREATE TYPE refund_status       AS ENUM ('pending','succeeded','failed');  -- Brief §8 refunds
 
 -- ============================================================================
@@ -781,120 +781,61 @@ CREATE TABLE condition_questions (
 );
 
 -- ============================================================================
--- 8. MBS BILLING REFERENCE
---    Brief §7: this data comes from the OFFICIAL government MBS source, never
---    admin uploads. We track when it was last pulled, keep fee history, and log
---    every sync run.
+-- 8. MBS SEMANTIC SEARCH
+--    Rebuilt 2026-07-18 (database/2026-07-18_mbs_semantic_search.sql).
+--
+--    Everything here is derived from the government's official monthly XML dump
+--    (database/MBS-XML-2026-07-01.XML) — nothing is admin-authored. The old
+--    ten-table billing model (curated titles, categories, fee history,
+--    scenarios) was dropped: we no longer hand-maintain clinical content.
+--
+--    Doctors search by MEANING, not keywords. The descriptor is embedded into a
+--    vector so "lung scan for smoker" matches "computed tomography of chest ..."
+--    despite sharing no words. Full item detail (fees, associated notes, rules)
+--    is built on demand from the MBS item page into detail_json, because the
+--    XML carries neither a short title nor any explanatory-note text.
 -- ============================================================================
 
-CREATE TABLE mbs_categories (
-    id    SERIAL PRIMARY KEY,
-    name  TEXT UNIQUE NOT NULL            -- Standard Consults, Mental Health ...
-);
-
--- A sync run = one pull from the government source. The latest success row tells
--- us "when data was last pulled". (Brief §7)
-CREATE TABLE mbs_sync_runs (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_url    TEXT NOT NULL,                 -- gov endpoint / file pulled
-    source_label  TEXT,                          -- e.g. 'MBS XML 2026-05'
-    status        mbs_sync_status NOT NULL DEFAULT 'running',
-    items_added   INT NOT NULL DEFAULT 0,
-    items_updated INT NOT NULL DEFAULT 0,
-    items_removed INT NOT NULL DEFAULT 0,
-    error_text    TEXT,                          -- populated on partial/failed
-    started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at  TIMESTAMPTZ
-);
-CREATE INDEX idx_mbs_sync_completed ON mbs_sync_runs(completed_at DESC);
+-- Supplies the VECTOR column type and the HNSW index method.
+CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE mbs_items (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_number     TEXT UNIQUE NOT NULL,           -- '23', '721', '2713'
-    human_title     TEXT NOT NULL,
-    official_title  TEXT NOT NULL,
-    category_id     INT  REFERENCES mbs_categories(id) ON DELETE SET NULL,
-    time_min        SMALLINT,
-    time_max        SMALLINT,
-    complexity      complexity_level,
-    schedule_fee    NUMERIC(10,2) NOT NULL CHECK (schedule_fee    >= 0),  -- current fee
-    medicare_rebate NUMERIC(10,2) NOT NULL CHECK (medicare_rebate >= 0),  -- current rebate
-    bulk_billable   BOOLEAN NOT NULL DEFAULT true,
-    plain_english   TEXT,
-    comparison_item_id UUID REFERENCES mbs_items(id) ON DELETE SET NULL,  -- self-ref
-    effective_from  DATE,
-    source          TEXT,                          -- Brief §7: which gov dataset
-    last_synced_at  TIMESTAMPTZ,                   -- Brief §7: when last pulled
-    last_sync_id    UUID REFERENCES mbs_sync_runs(id) ON DELETE SET NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    deleted_at      TIMESTAMPTZ                     -- Brief §11 soft delete (gov item retired)
+    -- <ItemNum> from the XML, e.g. 3, 23, 721. The government's identifier is
+    -- already unique, so it is the primary key — a search result carries
+    -- everything needed to hydrate its detail page, with no surrogate lookup.
+    item_num     INTEGER PRIMARY KEY,
+
+    -- <Description>: the full official descriptor, and the only clinical prose
+    -- the XML provides. This is the text that gets embedded.
+    description  TEXT NOT NULL,
+
+    -- Embedding of description from Gemini gemini-embedding-001, requested at
+    -- 768 of its available dimensions. NOT 3072: pgvector cannot build an HNSW
+    -- index above 2000 dimensions, so a larger vector would force every search
+    -- into a sequential scan. Changing model or dimension count means altering
+    -- this column and re-embedding every row.
+    -- Nullable so the XML parser can insert rows before the slower,
+    -- rate-limited embedding pass fills them in.
+    embedding    VECTOR(768),
+
+    -- Full item detail as structured JSON, assembled from the MBS item page at
+    -- view time. JSONB rather than columns because the shape varies by category
+    -- and we never query into it.
+    detail_json  JSONB
 );
 
--- Brief §7: keep a HISTORY of fee/rebate changes — never overwrite old numbers.
--- A new row is inserted each time a sync detects the fee changed; effective_to
--- on the prior row is closed off.
-CREATE TABLE mbs_item_fee_history (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id         UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    schedule_fee    NUMERIC(10,2) NOT NULL CHECK (schedule_fee    >= 0),
-    medicare_rebate NUMERIC(10,2) NOT NULL CHECK (medicare_rebate >= 0),
-    effective_from  DATE NOT NULL,
-    effective_to    DATE,                          -- NULL = currently in effect
-    sync_id         UUID REFERENCES mbs_sync_runs(id) ON DELETE SET NULL,
-    recorded_at     TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX idx_mbs_fee_history_item ON mbs_item_fee_history(item_id, effective_from DESC);
--- Only one "current" (open-ended) fee row per item.
-CREATE UNIQUE INDEX uq_mbs_fee_current
-    ON mbs_item_fee_history(item_id) WHERE effective_to IS NULL;
+-- Cosine HNSW: the search path embeds the query and takes nearest neighbours,
+-- so ORDER BY embedding <=> $1 LIMIT n must not degrade to a sequential scan.
+CREATE INDEX idx_mbs_items_embedding
+    ON mbs_items USING hnsw (embedding vector_cosine_ops);
 
-CREATE TABLE mbs_item_common_uses (
-    id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id   UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    text      TEXT NOT NULL,
-    position  SMALLINT NOT NULL,
-    UNIQUE (item_id, position)
-);
-
-CREATE TABLE mbs_item_restrictions (
-    id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id   UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    text      TEXT NOT NULL,
-    position  SMALLINT NOT NULL,
-    UNIQUE (item_id, position)
-);
-
-CREATE TABLE mbs_item_notes (
-    id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id   UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    text      TEXT NOT NULL,
-    position  SMALLINT NOT NULL,
-    UNIQUE (item_id, position)
-);
-
--- Search keywords reuse the global tag vocabulary
-CREATE TABLE mbs_item_tags (
-    item_id UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    tag_id  UUID NOT NULL REFERENCES tags(id)      ON DELETE CASCADE,
-    PRIMARY KEY (item_id, tag_id)
-);
-
-CREATE TABLE mbs_scenarios (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id         UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
-    presentation    TEXT NOT NULL,
-    time_label      TEXT,
-    complexity      complexity_level,
-    correct_item_id UUID REFERENCES mbs_items(id) ON DELETE SET NULL,
-    reasoning       TEXT
-);
-
+-- Survived the 2026-07-18 rebuild. Previously keyed by the old UUID
+-- mbs_items.id; now stores the government item number directly.
 CREATE TABLE user_favourite_mbs_items (
-    user_id    UUID NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
-    item_id    UUID NOT NULL REFERENCES mbs_items(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_num   INTEGER NOT NULL REFERENCES mbs_items(item_num) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (user_id, item_id)
+    PRIMARY KEY (user_id, item_num)
 );
 
 -- ============================================================================
@@ -1135,8 +1076,6 @@ CREATE TRIGGER trg_mock_tests_updated BEFORE UPDATE ON mock_tests
 CREATE TRIGGER trg_templates_updated  BEFORE UPDATE ON autofill_templates
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_conditions_updated BEFORE UPDATE ON medical_conditions
-    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-CREATE TRIGGER trg_mbs_items_updated  BEFORE UPDATE ON mbs_items
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 CREATE TRIGGER trg_plans_updated      BEFORE UPDATE ON plans
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
