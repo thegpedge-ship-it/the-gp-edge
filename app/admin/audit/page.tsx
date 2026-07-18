@@ -136,7 +136,18 @@ export default function AuditPage() {
   const [addOauth, setAddOauth] = useState(false);
   const [addMfa, setAddMfa] = useState(false);
 
-  const syncAdminsFromStorage = () => {
+  const syncAdminsFromStorage = async () => {
+    try {
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch admins from DB:", e);
+    }
+
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("gpedge_admin_credentials_list");
       if (stored) {
@@ -276,18 +287,22 @@ export default function AuditPage() {
       status: editingAdmin.status,
     };
 
-    setEditingAdmin(null);
-
     try {
-      await saveAdminToDbAction(updatedUser);
+      const res = await saveAdminToDbAction(updatedUser);
+      if (!res.success) {
+        alert(res.error || "Failed to update admin.");
+        return;
+      }
+      setEditingAdmin(null);
       const dbAdmins = await getAdminsFromDbAction();
       if (dbAdmins && dbAdmins.length > 0) {
         localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin Updated", `Successfully updated details for "${editName}".`, 1, "custom");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save admin to DB:", err);
+      alert(err.message || "An unexpected error occurred.");
     }
     syncAdminsFromStorage();
   }
@@ -330,18 +345,22 @@ export default function AuditPage() {
       status: "active",
     };
 
-    setShowAddModal(false);
-
     try {
-      await saveAdminToDbAction(newCred);
+      const res = await saveAdminToDbAction(newCred);
+      if (!res.success) {
+        alert(res.error || "Failed to create admin.");
+        return;
+      }
+      setShowAddModal(false);
       const dbAdmins = await getAdminsFromDbAction();
       if (dbAdmins && dbAdmins.length > 0) {
         localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to add admin to DB:", err);
+      alert(err.message || "An unexpected error occurred.");
     }
     syncAdminsFromStorage();
   }

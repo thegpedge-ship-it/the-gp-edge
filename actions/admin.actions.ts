@@ -77,7 +77,7 @@ export async function getAdminsFromDbAction(): Promise<CredentialUser[]> {
   }
 }
 
-export async function saveAdminToDbAction(user: CredentialUser): Promise<boolean> {
+export async function saveAdminToDbAction(user: CredentialUser): Promise<{ success: boolean; error?: string }> {
   try {
     const roleId = user.role === "Super Admin" ? 1 : 2;
     const isNew = !user.id || user.id.length < 20;
@@ -140,10 +140,22 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<boolean
       );
     }
 
-    return true;
-  } catch (error) {
+    return { success: true };
+  } catch (error: any) {
     console.error("Error saving admin to DB:", error);
-    return false;
+    if (error.code === "23505") {
+      if (error.constraint === "admin_users_email_key") {
+        return { success: false, error: "An administrator with this email already exists." };
+      }
+      if (error.constraint === "admin_users_username_key") {
+        return { success: false, error: "An administrator with this username already exists." };
+      }
+      if (error.constraint === "one_super_admin") {
+        return { success: false, error: "Only one Super Admin account can exist." };
+      }
+      return { success: false, error: `Unique key violation: ${error.detail || error.message}` };
+    }
+    return { success: false, error: error.message || "Failed to save admin to database." };
   }
 }
 

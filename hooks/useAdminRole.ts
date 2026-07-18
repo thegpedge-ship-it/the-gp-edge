@@ -53,13 +53,15 @@ export function useAdminRole() {
         }
         const foundUser = credsList.find((u: any) => u.id === storedId);
         if (foundUser) {
-          let permissions: string[] = [];
-          if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
-          } else if (foundUser.role === "Admin") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
-          } else if (foundUser.role === "Moderator") {
-            permissions = ["dashboard", "questions", "content", "approaches"];
+          let permissions: string[] = foundUser.permissions || [];
+          if (foundUser.role === "Super Admin" || permissions.length === 0) {
+            if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+            } else if (foundUser.role === "Admin") {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
+            } else if (foundUser.role === "Moderator") {
+              permissions = ["dashboard", "questions", "content", "approaches"];
+            }
           }
 
           setCurrentAdmin({
