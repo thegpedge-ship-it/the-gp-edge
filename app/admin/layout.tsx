@@ -8,8 +8,8 @@ import AdminTopbar from "@/components/admin/AdminTopbar";
 import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
 
 const ADMIN_PROFILES = [
-  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"] },
-  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"] },
+  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
+  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"] },
   { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches"] },
 ];
 
@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"]
+    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
   });
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [loading, setLoading] = useState(true);
@@ -69,9 +69,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         if (foundUser) {
           let permissions: string[] = [];
           if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
           } else if (foundUser.role === "Admin") {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
           } else if (foundUser.role === "Moderator") {
             permissions = ["dashboard", "questions", "content", "approaches"];
           }
@@ -104,13 +104,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             let permissions: string[] = found.permissions || [];
             if (found.role === "Super Admin" || permissions.length === 0) {
               if (found.role === "Super Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
               } else if (found.role === "Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
               } else if (found.role === "Moderator") {
                 permissions = ["dashboard", "questions", "content", "approaches"];
               } else {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
               }
             }
             setCurrentAdmin({
@@ -151,7 +151,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
   const isGatedSection = sectionKeys.includes(currentSection);
   const hasPermission = !isGatedSection || currentAdmin.permissions.includes(currentSection);
 
@@ -179,6 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     approaches: "Clinical Approaches",
     autofill: "Clinical Autofills",
     users: "Subscriber Management",
+    mbs: "MBS Data Update",
     notifications: "System Notifications",
     billing: "Revenue & Subscriptions",
     audit: "Audit & Security Logs",

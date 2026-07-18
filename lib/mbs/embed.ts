@@ -1,0 +1,130 @@
+/**
+ * Gemini embeddings for MBS semantic search.
+ *
+ * Server-only: reads GEMINI_API_KEY, so never import this from a client
+ * component. The admin page reaches it through actions/mbs.actions.ts.
+ */
+import { GoogleGenAI } from "@google/genai";
+
+export const EMBED_MODEL = "gemini-embedding-001";
+
+/**
+ * Must match VECTOR(768) in the mbs_items table. Deliberately not 3072:
+ * pgvector cannot build an HNSW index above 2000 dimensions, so a larger vector
+ * would silently turn every search into a sequential scan.
+ */
+export const EMBED_DIM = 768;
+
+/** Gemini caps a single batchEmbed call at 100 inputs. */
+export const EMBED_BATCH_SIZE = 100;
+
+export type EmbedTaskType = "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY";
+
+let client: GoogleGenAI | null = null;
+
+function getClient(): GoogleGenAI {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "GEMINI_API_KEY is not set. Add it to .env — the same key covers both " +
+        "embeddings and the detail-page extraction.",
+    );
+  }
+  client ??= new GoogleGenAI({ apiKey });
+  return client;
+}
+
+/**
+ * Gemini only returns unit-length vectors at its full 3072 dimensions; any
+ * truncated (MRL) size comes back unnormalised, so we normalise here. Cosine
+ * distance would rescale anyway, but storing unit vectors keeps `1 - (a <=> b)`
+ * a true cosine similarity in [0,1] and makes stored vectors comparable.
+ */
+function normalise(values: number[]): number[] {
+  let sumSquares = 0;
+  for (const v of values) sumSquares += v * v;
+  const magnitude = Math.sqrt(sumSquares);
+  return magnitude > 0 ? values.map((v) => v / magnitude) : values;
+}
+
+const RETRYABLE = /\b(429|500|502|503|504|RESOURCE_EXHAUSTED|UNAVAILABLE)\b/i;
+
+/**
+ * A full ingest is ~61 sequential calls, long enough to meet a transient rate
+ * limit. Retries with exponential backoff; a non-retryable error (bad key, bad
+ * request) throws immediately rather than burning three attempts on it.
+ */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (!RETRYABLE.test(String(err)) || attempt === attempts - 1) throw err;
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Embed a batch of texts in ONE request. Batching is purely a transport
+ * optimisation — each text is embedded independently and the vectors are
+ * identical to embedding them one at a time.
+ *
+ * Returns vectors positionally aligned with `texts`. The length assertion below
+ * is the important one: if the API ever returned a short or reordered list, the
+ * caller would zip vectors onto the wrong item numbers and searches would return
+ * confidently wrong results with no error anywhere.
+ */
+export async function embedTexts(
+  texts: string[],
+  taskType: EmbedTaskType = "RETRIEVAL_DOCUMENT",
+): Promise<number[][]> {
+  if (texts.length === 0) return [];
+  if (texts.length > EMBED_BATCH_SIZE) {
+    throw new Error(
+      `embedTexts received ${texts.length} texts; max is ${EMBED_BATCH_SIZE}.`,
+    );
+  }
+
+  const ai = getClient();
+  const response = await withRetry(() =>
+    ai.models.embedContent({
+      model: EMBED_MODEL,
+      contents: texts,
+      config: { outputDimensionality: EMBED_DIM, taskType },
+    }),
+  );
+
+  const embeddings = response.embeddings ?? [];
+  if (embeddings.length !== texts.length) {
+    throw new Error(
+      `Embedding count mismatch: sent ${texts.length}, received ${embeddings.length}. ` +
+        "Refusing to write potentially misaligned vectors.",
+    );
+  }
+
+  return embeddings.map((e, i) => {
+    const values = e.values ?? [];
+    if (values.length !== EMBED_DIM) {
+      throw new Error(
+        `Embedding ${i} has ${values.length} dimensions, expected ${EMBED_DIM}.`,
+      );
+    }
+    return normalise(values);
+  });
+}
+
+/** Render a vector in the literal form pgvector accepts: '[0.1,0.2,...]'. */
+export function toVectorLiteral(values: number[]): string {
+  return `[${values.join(",")}]`;
+}
+
+/** Embed a doctor's search query. RETRIEVAL_QUERY is asymmetric with
+ *  RETRIEVAL_DOCUMENT — using the wrong one measurably degrades match quality. */
+export async function embedQuery(text: string): Promise<number[]> {
+  const [vector] = await embedTexts([text], "RETRIEVAL_QUERY");
+  return vector;
+}

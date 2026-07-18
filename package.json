@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "mbs:ingest": "tsx scripts/mbs-ingest.ts",
+    "mbs:embed": "tsx scripts/mbs-embed.ts",
     "db:pull": "prisma db pull",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
@@ -16,9 +18,11 @@
     "@aws-sdk/client-s3": "^3.1068.0",
     "@aws-sdk/s3-request-presigner": "^3.1068.0",
     "@clerk/nextjs": "^7.5.2",
+    "@google/genai": "^2.12.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/pdfkit": "^0.17.6",
+    "fast-xml-parser": "^5.10.1",
     "framer-motion": "^11.2.10",
     "jspdf": "^2.5.2",
     "lucide-react": "^1.16.0",
@@ -43,6 +47,7 @@
     "postcss": "^8.4.38",
     "prisma": "^7.8.0",
     "tailwindcss": "^3.4.3",
+    "tsx": "^4.23.1",
     "typescript": "^5.9.3"
   }
 }

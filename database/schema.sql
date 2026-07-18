@@ -821,13 +821,22 @@ CREATE TABLE mbs_items (
     -- Full item detail as structured JSON, assembled from the MBS item page at
     -- view time. JSONB rather than columns because the shape varies by category
     -- and we never query into it.
-    detail_json  JSONB
+    detail_json  JSONB,
+
+    -- NULL = currently listed by the government; set = date we first saw the
+    -- item absent from an uploaded XML. Withdrawn items are retired rather than
+    -- deleted: favourites cascade on delete, and a retired row must still
+    -- resolve for historical lookups while being kept out of search.
+    retired_at   TIMESTAMPTZ
 );
 
--- Cosine HNSW: the search path embeds the query and takes nearest neighbours,
--- so ORDER BY embedding <=> $1 LIMIT n must not degrade to a sequential scan.
-CREATE INDEX idx_mbs_items_embedding
-    ON mbs_items USING hnsw (embedding vector_cosine_ops);
+-- Cosine HNSW over LIVE items only. Partial by design: filtering a full index
+-- with `WHERE retired_at IS NULL` post-filters after the index has picked its
+-- neighbours, so LIMIT 20 could return fewer than 20 once retired rows are
+-- dropped. Indexing only live rows keeps the result count honest.
+CREATE INDEX idx_mbs_items_embedding_active
+    ON mbs_items USING hnsw (embedding vector_cosine_ops)
+    WHERE retired_at IS NULL;
 
 -- Survived the 2026-07-18 rebuild. Previously keyed by the old UUID
 -- mbs_items.id; now stores the government item number directly.

@@ -349,9 +349,10 @@ model mbs_items {
   description              String
   embedding                Unsupported("vector")?
   detail_json              Json?
+  retired_at               DateTime?                  @db.Timestamptz(6)
   user_favourite_mbs_items user_favourite_mbs_items[]
 
-  @@index([embedding], map: "idx_mbs_items_embedding")
+  @@index([embedding], map: "idx_mbs_items_embedding_active", where: raw("(retired_at IS NULL)"))
 }
 
 model medical_conditions {
