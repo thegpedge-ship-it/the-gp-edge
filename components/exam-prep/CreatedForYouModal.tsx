@@ -7,6 +7,7 @@ import { X, Sparkles, ArrowRight } from "lucide-react";
 import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 /* ─── "Created for You" modal ─────────────────────────────────────────────
    A ready-made mixed quiz drawn live from the whole published bank (no topic
@@ -61,6 +62,8 @@ export default function CreatedForYouModal({
   };
 
   return (
+    <>
+      {starting && <FullScreenLoader message="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -164,5 +167,6 @@ export default function CreatedForYouModal({
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }

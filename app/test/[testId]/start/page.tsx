@@ -12,6 +12,7 @@ import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
 import { generateReportBlob } from "@/lib/report/generateReport";
 import { saveReport } from "@/lib/report/reportStore";
 import TestNotFound from "@/components/test/TestNotFound";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 type QuestionStatus = "answered" | "not-answered" | "not-visited";
 
@@ -389,18 +390,13 @@ export default function TestPage() {
   const notVisitedCount = questions.length - visited.size;
 
   /* ─── Resolving / unknown test ───────────────────────────────────── */
-  if (config === undefined) return null;
+  // Resolving and fetching are one continuous wait to the user, so both show
+  // the same screen — previously this returned null and flashed blank first.
+  if (config === undefined) return <FullScreenLoader message="Preparing your test" />;
   if (config === null) return <TestNotFound />;
 
   /* ─── Loading state ──────────────────────────────────────────────── */
-  if (loading) {
-    return (
-      <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center gap-4">
-        <div className="w-12 h-12 rounded-full border-4 border-emerald-100 dark:border-emerald-900/40 border-t-emerald-500 animate-spin" />
-        <p className="text-[13px] font-semibold text-slate-500 dark:text-slate-400">Fetching your questions&hellip;</p>
-      </div>
-    );
-  }
+  if (loading) return <FullScreenLoader message="Fetching your questions" />;
 
   /* ─── Result screen after submission ─────────────────────────────── */
   if (submitted) {

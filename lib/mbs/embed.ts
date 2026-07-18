@@ -50,6 +50,24 @@ function normalise(values: number[]): number[] {
 const RETRYABLE = /\b(429|500|502|503|504|RESOURCE_EXHAUSTED|UNAVAILABLE)\b/i;
 
 /**
+ * A per-DAY quota, as opposed to a per-minute rate limit.
+ *
+ * The distinction decides whether retrying is useful at all. A per-minute limit
+ * clears in seconds; a daily allowance does not come back until it resets, so
+ * retrying only burns more of an allowance that is already gone — and failed
+ * requests still count against it. Treating the two the same turned one
+ * exhausted quota into five wasted requests and a 3-minute hang.
+ */
+const DAILY_QUOTA = /PerDay|RequestsPerDay/i;
+
+export class DailyQuotaError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DailyQuotaError";
+  }
+}
+
+/**
  * Gemini returns the exact wait it wants on a rate limit, e.g.
  *   "retryDelay":"7s"   /   "Please retry in 7.245923113s"
  * Honouring that beats guessing: a blind exponential backoff that tops out
@@ -72,13 +90,24 @@ function retryDelayMs(err: unknown): number | null {
  * exponential backoff when it does not say. A non-retryable error (bad key, bad
  * request) throws immediately rather than burning every attempt on it.
  */
-async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
+
+      // Fail immediately rather than spending more of an allowance that is
+      // already exhausted.
+      if (DAILY_QUOTA.test(String(err))) {
+        throw new DailyQuotaError(
+          "Gemini daily embedding quota exhausted (free tier allows 1,000 requests per day). " +
+            "It resets at midnight US Pacific time. Descriptions are already saved — " +
+            "re-run then and it will resume from where it stopped.",
+        );
+      }
+
       if (!RETRYABLE.test(String(err)) || attempt === attempts - 1) throw err;
       const wait = retryDelayMs(err) ?? Math.min(1000 * 2 ** attempt, 30_000);
       await new Promise((r) => setTimeout(r, wait));

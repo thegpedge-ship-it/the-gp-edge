@@ -4,8 +4,19 @@
  * Server-only: reads GEMINI_API_KEY. The same key covers this and embeddings.
  */
 import { GoogleGenAI } from "@google/genai";
+import { DailyQuotaError } from "./embed";
 
-export const TITLE_MODEL = "gemini-2.5-flash";
+/**
+ * Writing a short title from a description is a simple, high-volume task, so
+ * the cheapest current Flash-tier model is the right fit rather than a
+ * reasoning model.
+ *
+ * Overridable by env var because Google retires these faster than its own
+ * published schedule — gemini-2.5-flash started returning 404 in July 2026,
+ * months ahead of its announced October shutdown. When that happens again, the
+ * fix should be a .env change, not a code change and redeploy.
+ */
+export const TITLE_MODEL = process.env.GEMINI_TITLE_MODEL ?? "gemini-3.1-flash-lite";
 
 /**
  * Items per request.
@@ -70,6 +81,9 @@ function getClient(): GoogleGenAI {
 
 const RETRYABLE = /\b(429|500|502|503|504|RESOURCE_EXHAUSTED|UNAVAILABLE)\b/i;
 
+/** See lib/mbs/embed.ts — a daily allowance does not refill on a retry timer. */
+const DAILY_QUOTA = /PerDay|RequestsPerDay/i;
+
 /** Gemini states the wait it wants on a rate limit; honour it rather than guess. */
 function retryDelayMs(err: unknown): number | null {
   const raw = String(err);
@@ -80,13 +94,21 @@ function retryDelayMs(err: unknown): number | null {
   return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) + 500 : null;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
+
+      if (DAILY_QUOTA.test(String(err))) {
+        throw new DailyQuotaError(
+          "Gemini daily generation quota exhausted. It resets at midnight US Pacific time. " +
+            "Titles already generated are saved — re-run then and it will resume.",
+        );
+      }
+
       if (!RETRYABLE.test(String(err)) || attempt === attempts - 1) throw err;
       const wait = retryDelayMs(err) ?? Math.min(1000 * 2 ** attempt, 30_000);
       await new Promise((r) => setTimeout(r, wait));

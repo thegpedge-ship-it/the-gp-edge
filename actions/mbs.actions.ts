@@ -18,6 +18,9 @@ export interface EmbedBatchResult {
 
 export interface MbsStats {
   total: number;
+  /** Rows holding descriptor text. Should always equal total — a drift here
+   *  means the parser wrote a row it should have skipped. */
+  descriptions: number;
   embedded: number;
   /** Live items still needing a description vector — retired ones excluded. */
   pending: number;
@@ -133,8 +136,12 @@ export async function embedPendingBatchAction(): Promise<EmbedBatchResult> {
 /** Row counts backing the admin page's progress and final verification. */
 export async function getMbsStatsAction(): Promise<MbsStats> {
   const row = await queryOne<Record<string, string>>(
+    // Every count except `total` and `descriptions` is scoped to live items:
+    // retired rows are deliberately never embedded, so counting them would make
+    // 100% unreachable and the completion figure meaningless.
     `SELECT count(*)::text AS total,
-            count(embedding)::text AS embedded,
+            count(description)::text AS descriptions,
+            count(*) FILTER (WHERE embedding IS NOT NULL AND retired_at IS NULL)::text AS embedded,
             count(*) FILTER (WHERE embedding IS NULL AND retired_at IS NULL)::text AS pending,
             count(*) FILTER (WHERE retired_at IS NOT NULL)::text AS retired,
             count(*) FILTER (WHERE title IS NOT NULL AND retired_at IS NULL)::text AS titled,
@@ -147,6 +154,7 @@ export async function getMbsStatsAction(): Promise<MbsStats> {
   );
   return {
     total: Number(row?.total ?? 0),
+    descriptions: Number(row?.descriptions ?? 0),
     embedded: Number(row?.embedded ?? 0),
     pending: Number(row?.pending ?? 0),
     retired: Number(row?.retired ?? 0),

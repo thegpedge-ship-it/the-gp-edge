@@ -8,6 +8,7 @@ import type { UiMockTest } from "@/app/exam-prep/actions";
 import { cachedMockTestQuestionIds } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 /* ─── Single mock-test card (roomy grid tile, minimal meta) ───────────────── */
 function TestCard({
@@ -171,6 +172,10 @@ export default function MockTestsModal({
   };
 
   return (
+    <>
+      {/* The question fetch runs before navigation begins, so without this the
+          modal just sits there looking idle. */}
+      {startingId && <FullScreenLoader message="Preparing your test" />}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -258,5 +263,6 @@ export default function MockTestsModal({
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }

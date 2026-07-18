@@ -55,6 +55,11 @@ const TITLE_PAUSE_MS = 6000;
  */
 function friendlyError(err: unknown): string {
   const raw = String(err);
+  // A daily allowance and a per-minute rate limit are both 429s but need
+  // opposite advice: come back tomorrow vs wait sixty seconds.
+  if (/daily .*quota|PerDay|RequestsPerDay/i.test(raw)) {
+    return "Gemini daily quota exhausted — the free tier allows 1,000 embedding requests per day. It resets at midnight US Pacific time. Everything completed so far is saved; re-run then and it resumes from where it stopped.";
+  }
   if (/\b429\b|RESOURCE_EXHAUSTED|exceeded your current quota/i.test(raw)) {
     return "Gemini rate limit reached — the free tier allows 100 embedding requests per minute. Wait a minute and run again; everything already embedded is kept.";
   }
@@ -131,6 +136,23 @@ export default function UpdateMbsPage() {
   const logEndRef = useRef<HTMLDivElement>(null);
 
   /**
+   * Cooperative cancellation for the long-running passes.
+   *
+   * A ref rather than state because the loops read it between iterations and a
+   * state value would be captured stale in the running closure.
+   *
+   * Cancellation happens BETWEEN batches — a request already in flight is left
+   * to finish rather than being torn down. Aborting mid-write could leave rows
+   * embedded but uncounted, and every pass is resumable anyway, so letting the
+   * current batch land is both safer and simpler.
+   */
+  const abortRef = useRef(false);
+
+  /** Mirrors abortRef purely so the button can re-render — a ref change alone
+   *  does not trigger one, and the loops must not read a stale state value. */
+  const [aborting, setAborting] = useState(false);
+
+  /**
    * A full run is minutes of work behind two progress bars. The log is what
    * makes it inspectable — which batch is in flight, what the counts were, and
    * where it stopped if something fails.
@@ -139,6 +161,19 @@ export default function UpdateMbsPage() {
     const time = new Date().toLocaleTimeString("en-AU", { hour12: false });
     setLogs((prev) => [...prev, { time, level, msg }]);
   }, []);
+
+  const requestAbort = useCallback(() => {
+    abortRef.current = true;
+    setAborting(true);
+    addLog("Abort requested — stopping after the current batch.", "warn");
+  }, [addLog]);
+
+  /** Log and flag the stop. Callers break out of their loop on a true return. */
+  const checkAbort = useCallback(() => {
+    if (!abortRef.current) return false;
+    addLog("Stopped by admin. Completed work is saved.", "warn");
+    return true;
+  }, [addLog]);
 
   // Follow the tail as new lines arrive.
   useEffect(() => {
@@ -170,6 +205,26 @@ export default function UpdateMbsPage() {
     () => (embedTotal ? Math.round((embedDone / embedTotal) * 100) : 0),
     [embedDone, embedTotal],
   );
+
+  /**
+   * Overall build progress.
+   *
+   * Each live item needs three derived values — a description vector, a title,
+   * and a title vector — so the denominator is live items × 3. Retired items are
+   * excluded from both sides: they are deliberately never embedded, so counting
+   * them would cap the figure below 100% forever.
+   */
+  const { completionDone, completionTotal, completionPct } = useMemo(() => {
+    const live = (dbStats?.total ?? 0) - (dbStats?.retired ?? 0);
+    const done =
+      (dbStats?.embedded ?? 0) + (dbStats?.titled ?? 0) + (dbStats?.titleEmbedded ?? 0);
+    const target = live * 3;
+    return {
+      completionDone: done,
+      completionTotal: target,
+      completionPct: target > 0 ? Math.round((done / target) * 100) : 0,
+    };
+  }, [dbStats]);
 
   const reset = useCallback(() => {
     setPhase("idle");
@@ -230,6 +285,7 @@ export default function UpdateMbsPage() {
     async (list: MbsXmlItem[], track: boolean): Promise<Totals> => {
       const acc: Totals = { inserted: 0, updated: 0, unchanged: 0 };
       for (let i = 0; i < list.length; i += SYNC_BATCH) {
+        if (checkAbort()) break;
         const batch = list.slice(i, i + SYNC_BATCH);
         const r = await syncMbsBatchAction(batch);
         acc.inserted += r.inserted;
@@ -270,6 +326,7 @@ export default function UpdateMbsPage() {
 
       let done = 0;
       for (;;) {
+        if (checkAbort()) break;
         const r = await embedPendingBatchAction();
         if (r.embedded === 0) break;
         done += r.embedded;
@@ -279,7 +336,7 @@ export default function UpdateMbsPage() {
         await new Promise((resolve) => setTimeout(resolve, EMBED_PAUSE_MS));
       }
     },
-    [addLog],
+    [addLog, checkAbort],
   );
 
   /**
@@ -292,6 +349,8 @@ export default function UpdateMbsPage() {
    */
   const handleGenerateTitles = useCallback(async () => {
     setMode("titles");
+    abortRef.current = false;
+    setAborting(false);
     setError(null);
     setLogs([]);
     setCelebrating(false);
@@ -315,9 +374,10 @@ export default function UpdateMbsPage() {
       if (stats.titlePending === 0) {
         addLog(`Every live item already has a title.`, "ok");
       } else {
-        addLog(`Generating titles with gemini-2.5-flash in batches of 40…`);
+        addLog(`Generating titles in batches of 40…`);
         let done = 0;
         for (;;) {
+          if (checkAbort()) break;
           const r = await generateTitlesBatchAction();
           if (r.generated === 0) break;
           done += r.generated;
@@ -336,7 +396,7 @@ export default function UpdateMbsPage() {
       setDbStats(final);
       addLog(`Done. ${final.titled} item(s) have titles.`, "ok");
       setPhase("done");
-      if (stats.titlePending > 0) setCelebrating(true);
+      if (stats.titlePending > 0 && !abortRef.current) setCelebrating(true);
     } catch (err) {
       addLog(String(err), "err");
       const message = friendlyError(err);
@@ -350,6 +410,8 @@ export default function UpdateMbsPage() {
   /** Embed the generated titles into their own vector column. */
   const handleEmbedTitles = useCallback(async () => {
     setMode("titleVectors");
+    abortRef.current = false;
+    setAborting(false);
     setError(null);
     setLogs([]);
     setCelebrating(false);
@@ -379,6 +441,7 @@ export default function UpdateMbsPage() {
         );
         let done = 0;
         for (;;) {
+          if (checkAbort()) break;
           const r = await embedTitlesBatchAction();
           if (r.embedded === 0) break;
           done += r.embedded;
@@ -394,7 +457,7 @@ export default function UpdateMbsPage() {
       setDbStats(final);
       addLog(`Done. ${final.titleEmbedded} title vector(s) stored.`, "ok");
       setPhase("done");
-      if (stats.titleEmbedPending > 0) setCelebrating(true);
+      if (stats.titleEmbedPending > 0 && !abortRef.current) setCelebrating(true);
     } catch (err) {
       addLog(String(err), "err");
       const message = friendlyError(err);
@@ -412,6 +475,8 @@ export default function UpdateMbsPage() {
    */
   const handleGenerateMissing = useCallback(async () => {
     setMode("embed");
+    abortRef.current = false;
+    setAborting(false);
     setError(null);
     setLogs([]);
     setCelebrating(false);
@@ -436,7 +501,7 @@ export default function UpdateMbsPage() {
       setDbStats(final);
       addLog(`Done. ${final.embedded}/${final.total} items have vectors.`, "ok");
       setPhase("done");
-      if (stats.pending > 0) setCelebrating(true);
+      if (stats.pending > 0 && !abortRef.current) setCelebrating(true);
     } catch (err) {
       // Full provider payload to the log for diagnosis; a readable one-liner on
       // screen. Showing the raw 429 JSON told the admin nothing actionable.
@@ -452,6 +517,8 @@ export default function UpdateMbsPage() {
   const handleRun = useCallback(async () => {
     if (!items) return;
     setMode("upload");
+    abortRef.current = false;
+    setAborting(false);
     setError(null);
 
     try {
@@ -527,7 +594,7 @@ export default function UpdateMbsPage() {
         "ok",
       );
       setPhase("done");
-      setCelebrating(true);
+      if (!abortRef.current) setCelebrating(true);
     } catch (err) {
       addLog(String(err), "err");
       const message = friendlyError(err);
@@ -539,7 +606,7 @@ export default function UpdateMbsPage() {
   }, [items, runSyncPass, addLog, runEmbedLoop, refreshStats]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* ── Celebration ────────────────────────────────────────────────────── */}
       <AnimatePresence>
         {celebrating && finalStats && (
@@ -586,17 +653,33 @@ export default function UpdateMbsPage() {
         ) : dbStats ? (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <Tile label="Items" value={dbStats.total} />
-              <Tile label="Retired" value={dbStats.retired} />
+              <Tile label="Total items" value={dbStats.total} />
+              <Tile label="Descriptions" value={dbStats.descriptions} />
               <Tile label="Description vectors" value={dbStats.embedded} accent />
+              <Tile label="Completed" value={`${completionPct}%`} accent />
               <Tile label="Titles" value={dbStats.titled} accent />
               <Tile label="Title vectors" value={dbStats.titleEmbedded} accent />
-              <Tile label="Missing description vectors" value={dbStats.pending} />
+            </div>
+
+            {/* The three derived columns are the only real work, so progress is
+                their combined fill against three per live item. */}
+            <div className="mt-3">
+              <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-teal-600 rounded-full transition-[width] duration-500"
+                  style={{ width: `${completionPct}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-slate-400 dark:text-slate-500 tabular-nums">
+                {completionDone.toLocaleString()} of {completionTotal.toLocaleString()} derived
+                values built
+                {dbStats.retired > 0 && ` · ${dbStats.retired.toLocaleString()} retired, excluded`}
+              </p>
             </div>
 
             {/* Each stage reports only when it has outstanding work, so a fully
                 built index shows a single confirmation instead of three. */}
-            <div className="mt-5 space-y-5">
+            <div className="mt-5 space-y-3">
               <Stage
                 pending={dbStats.pending}
                 noun="search vector"
@@ -622,7 +705,14 @@ export default function UpdateMbsPage() {
               <Stage
                 pending={dbStats.titleEmbedPending}
                 noun="title vector"
-                explanation="Titles are embedded into their own vector so search can match a short query against the title and a detailed one against the descriptor, taking whichever scores better."
+                explanation={
+                  <>
+                    Titles are embedded into their own vector so search can match a short query
+                    against the title and a detailed one against the descriptor,
+                    <br />
+                    taking whichever scores better.
+                  </>
+                }
                 buttonLabel={`Generate ${dbStats.titleEmbedPending.toLocaleString()} title vector(s)`}
                 busyLabel="Embedding titles…"
                 busy={busy}
@@ -819,18 +909,32 @@ export default function UpdateMbsPage() {
                 {logs.length} line{logs.length === 1 ? "" : "s"}
               </span>
             </span>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  logs.map((l) => `[${l.time}] ${l.msg}`).join("\n"),
-                );
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1500);
-              }}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              {copied ? "Copied" : "Copy"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    logs.map((l) => `[${l.time}] ${l.msg}`).join("\n"),
+                  );
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+
+              {/* Only while work is running — an abort with nothing to stop is
+                  just a dead control. */}
+              {busy && (
+                <button
+                  onClick={requestAbort}
+                  disabled={aborting}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {aborting ? "Stopping…" : "ABORT"}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-slate-950 max-h-80 overflow-y-auto px-5 py-4 font-mono text-xs leading-relaxed">
@@ -1036,7 +1140,15 @@ function Celebration({
   );
 }
 
-function Tile({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+function Tile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number | string;
+  accent?: boolean;
+}) {
   return (
     <div
       className={`rounded-xl border px-4 py-3 ${
@@ -1055,7 +1167,7 @@ function Tile({ label, value, accent }: { label: string; value: number; accent?:
             : "text-slate-700 dark:text-slate-200"
         }`}
       >
-        {value.toLocaleString()}
+        {typeof value === "number" ? value.toLocaleString() : value}
       </div>
     </div>
   );
@@ -1076,7 +1188,7 @@ function Stage({
 }: {
   pending: number;
   noun: string;
-  explanation: string;
+  explanation: React.ReactNode;
   buttonLabel: string;
   busyLabel: string;
   busy: boolean;
@@ -1085,17 +1197,25 @@ function Stage({
 }) {
   if (pending === 0) return null;
   return (
-    <div>
-      <p className="text-sm font-semibold text-red-600 dark:text-red-400">
-        {pending.toLocaleString()} item(s) have no {noun}
-      </p>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-2xl">
-        {explanation}
-      </p>
+    // Bordered so three stacked stages read as three separate pieces of work
+    // rather than one run-on block of red text.
+    // Flex lives on the panel itself, not on an inner row, so the button
+    // centres against the full text block (heading + explanation) rather than
+    // against the explanation alone.
+    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20 p-4 flex items-center justify-between gap-6">
+      <div>
+        <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+          {pending.toLocaleString()} item(s) have no {noun}
+        </p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mt-1.5">
+          {explanation}
+        </p>
+      </div>
+      {/* shrink-0 keeps the label on one line — it carries a count and gets long. */}
       <button
         onClick={onRun}
         disabled={busy}
-        className="mt-3 px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+        className="shrink-0 px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
       >
         {busy && active ? busyLabel : buttonLabel}
       </button>

@@ -8,6 +8,7 @@ import type { ExamTreeSubject } from "@/app/exam-prep/actions";
 import { cachedExamTree } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 /* Default question count when the modal opens — the user can change it,
    but it is always clamped to the pool of selected subtopics. */
@@ -152,6 +153,8 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
   };
 
   return (
+    <>
+      {starting && <FullScreenLoader message="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -407,5 +410,6 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }

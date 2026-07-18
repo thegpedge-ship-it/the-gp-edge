@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { authorizeTestStart, loadTestPlan, planToConfig } from "@/lib/testSession";
 import type { TestConfig } from "@/lib/testSession";
 import TestNotFound from "@/components/test/TestNotFound";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 // Shown only for timed tests (mock tests).
 const TIMER_INSTRUCTION =
@@ -38,7 +39,9 @@ export default function InstructionsPage() {
     setConfig(plan ? planToConfig(plan) : null);
   }, [testId]);
 
-  if (config === undefined) return null;
+  // Never render nothing here: this is the first frame after "Start", and a
+  // blank screen reads as a broken button.
+  if (config === undefined) return <FullScreenLoader message="Preparing your test" />;
   if (config === null) return <TestNotFound />;
 
   const instructions = config.timed ? [TIMER_INSTRUCTION, ...INSTRUCTIONS] : INSTRUCTIONS;
