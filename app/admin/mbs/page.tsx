@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload,
   FileCode2,
@@ -27,6 +27,7 @@ import {
   Terminal,
   Copy,
   Check,
+  PartyPopper,
 } from "lucide-react";
 import { parseMbsXml, type MbsXmlItem } from "@/lib/mbs/parseMbsXml";
 import {
@@ -86,6 +87,7 @@ export default function UpdateMbsPage() {
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [copied, setCopied] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
 
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -129,6 +131,7 @@ export default function UpdateMbsPage() {
     setFinalStats(null);
     setError(null);
     setLogs([]);
+    setCelebrating(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }, []);
 
@@ -282,6 +285,7 @@ export default function UpdateMbsPage() {
         "ok",
       );
       setPhase("done");
+      setCelebrating(true);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       addLog(message, "err");
@@ -293,6 +297,18 @@ export default function UpdateMbsPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* ── Celebration ────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {celebrating && finalStats && (
+          <Celebration
+            fileName={fileName}
+            stats={finalStats}
+            totals={totals}
+            onDismiss={() => setCelebrating(false)}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
@@ -527,6 +543,186 @@ export default function UpdateMbsPage() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Celebration overlay ────────────────────────────────────────────────── */
+
+const CONFETTI_COLOURS = [
+  "#0d9488", // teal-600
+  "#14b8a6", // teal-500
+  "#5eead4", // teal-300
+  "#f59e0b", // amber-500
+  "#fbbf24", // amber-400
+  "#38bdf8", // sky-400
+  "#a78bfa", // violet-400
+];
+
+/**
+ * Full-screen confirmation that the run finished.
+ *
+ * A full ingest is a few minutes behind two progress bars, long enough that an
+ * admin will have switched tabs. This makes the finish unmissable and puts the
+ * headline numbers in front of them without reading the log.
+ *
+ * Confetti geometry is randomised once on mount rather than per render — this
+ * component only mounts after the run completes, so there is no SSR pass to
+ * mismatch against.
+ */
+function Celebration({
+  fileName,
+  stats,
+  totals,
+  onDismiss,
+}: {
+  fileName: string | null;
+  stats: { total: number; embedded: number; retired: number };
+  totals: Totals;
+  onDismiss: () => void;
+}) {
+  // Honour the OS "reduce motion" setting: show the card, skip the confetti.
+  const reduceMotion = useMemo(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    [],
+  );
+
+  const pieces = useMemo(
+    () =>
+      reduceMotion
+        ? []
+        : Array.from({ length: 90 }, (_, i) => ({
+            id: i,
+            left: Math.random() * 100,
+            delay: Math.random() * 0.8,
+            duration: 2.4 + Math.random() * 2.2,
+            drift: (Math.random() - 0.5) * 160,
+            spin: (Math.random() - 0.5) * 900,
+            size: 6 + Math.random() * 8,
+            colour: CONFETTI_COLOURS[i % CONFETTI_COLOURS.length],
+            round: i % 3 === 0,
+          })),
+    [reduceMotion],
+  );
+
+  // Escape closes it, matching every other dismissible overlay.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onDismiss();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-sm"
+      onClick={onDismiss}
+    >
+      {/* Confetti — pointer-events-none so it never blocks the dismiss click */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {pieces.map((p) => (
+          <motion.div
+            key={p.id}
+            initial={{ y: "-10vh", x: 0, rotate: 0, opacity: 1 }}
+            animate={{ y: "110vh", x: p.drift, rotate: p.spin, opacity: [1, 1, 0.9, 0] }}
+            transition={{ duration: p.duration, delay: p.delay, ease: "easeIn" }}
+            style={{
+              position: "absolute",
+              left: `${p.left}%`,
+              width: p.size,
+              height: p.round ? p.size : p.size * 0.45,
+              backgroundColor: p.colour,
+              borderRadius: p.round ? "9999px" : "2px",
+            }}
+          />
+        ))}
+      </div>
+
+      <motion.div
+        initial={{ scale: 0.9, y: 16, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 260, damping: 22 }}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 p-8 text-center"
+      >
+        <button
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 16, delay: 0.12 }}
+          className="w-20 h-20 mx-auto rounded-3xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-900/40 flex items-center justify-center"
+        >
+          <PartyPopper className="w-10 h-10 text-teal-600 dark:text-teal-400" />
+        </motion.div>
+
+        <h2 className="mt-5 text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+          MBS database updated
+        </h2>
+        <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+          {fileName ? (
+            <>
+              <span className="font-semibold text-slate-600 dark:text-slate-300">{fileName}</span>{" "}
+              is loaded and searchable.
+            </>
+          ) : (
+            "All items are loaded and searchable."
+          )}
+        </p>
+
+        <div className="mt-6 grid grid-cols-2 gap-3 text-left">
+          <Tile label="Items in database" value={stats.total} accent />
+          <Tile label="Search vectors built" value={stats.embedded} accent />
+          <Tile label="Added" value={totals.inserted} />
+          <Tile label="Updated" value={totals.updated} />
+          {stats.retired > 0 && <Tile label="Retired" value={stats.retired} />}
+          <Tile label="Unchanged" value={totals.unchanged} />
+        </div>
+
+        <button
+          onClick={onDismiss}
+          className="mt-7 w-full px-4 py-3 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-sm font-semibold transition-colors"
+        >
+          Done
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function Tile({ label, value, accent }: { label: string; value: number; accent?: boolean }) {
+  return (
+    <div
+      className={`rounded-xl border px-4 py-3 ${
+        accent
+          ? "bg-teal-50/60 dark:bg-teal-950/20 border-teal-200/60 dark:border-teal-900/40"
+          : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700"
+      }`}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 text-xl font-bold tabular-nums ${
+          accent
+            ? "text-teal-700 dark:text-teal-300"
+            : "text-slate-700 dark:text-slate-200"
+        }`}
+      >
+        {value.toLocaleString()}
+      </div>
     </div>
   );
 }
