@@ -827,7 +827,18 @@ CREATE TABLE mbs_items (
     -- item absent from an uploaded XML. Withdrawn items are retired rather than
     -- deleted: favourites cascade on delete, and a retired row must still
     -- resolve for historical lookups while being kept out of search.
-    retired_at   TIMESTAMPTZ
+    retired_at   TIMESTAMPTZ,
+
+    -- Short clinical title, LLM-generated from description (the XML has none).
+    -- NULL = not generated yet.
+    title            TEXT,
+
+    -- Vector of `title` alone, same model and dimensions as `embedding` so the
+    -- two are comparable in one query. Kept separate rather than concatenated:
+    -- embedding models pool across tokens, so a six-word title folded into a
+    -- hundred-word descriptor contributes a few percent of the signal and gets
+    -- diluted exactly on the short queries it exists to serve.
+    title_embedding  VECTOR(768)
 );
 
 -- Cosine HNSW over LIVE items only. Partial by design: filtering a full index
@@ -836,6 +847,10 @@ CREATE TABLE mbs_items (
 -- dropped. Indexing only live rows keeps the result count honest.
 CREATE INDEX idx_mbs_items_embedding_active
     ON mbs_items USING hnsw (embedding vector_cosine_ops)
+    WHERE retired_at IS NULL;
+
+CREATE INDEX idx_mbs_items_title_embedding_active
+    ON mbs_items USING hnsw (title_embedding vector_cosine_ops)
     WHERE retired_at IS NULL;
 
 -- Survived the 2026-07-18 rebuild. Previously keyed by the old UUID

@@ -50,11 +50,29 @@ function normalise(values: number[]): number[] {
 const RETRYABLE = /\b(429|500|502|503|504|RESOURCE_EXHAUSTED|UNAVAILABLE)\b/i;
 
 /**
- * A full ingest is ~61 sequential calls, long enough to meet a transient rate
- * limit. Retries with exponential backoff; a non-retryable error (bad key, bad
- * request) throws immediately rather than burning three attempts on it.
+ * Gemini returns the exact wait it wants on a rate limit, e.g.
+ *   "retryDelay":"7s"   /   "Please retry in 7.245923113s"
+ * Honouring that beats guessing: a blind exponential backoff that tops out
+ * below the requested delay just burns every attempt and fails anyway.
  */
-async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
+function retryDelayMs(err: unknown): number | null {
+  const raw = String(err);
+  const match =
+    raw.match(/"retryDelay"\s*:\s*"([\d.]+)s"/) ??
+    raw.match(/retry in ([\d.]+)s/i);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) + 500 : null;
+}
+
+/**
+ * A full ingest is ~61 sequential calls against a free tier that allows 100
+ * embedding requests per minute, so hitting a limit mid-run is expected rather
+ * than exceptional. Waits for however long the API asks, falling back to
+ * exponential backoff when it does not say. A non-retryable error (bad key, bad
+ * request) throws immediately rather than burning every attempt on it.
+ */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 5): Promise<T> {
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -62,7 +80,8 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 4): Promise<T> {
     } catch (err) {
       lastError = err;
       if (!RETRYABLE.test(String(err)) || attempt === attempts - 1) throw err;
-      await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+      const wait = retryDelayMs(err) ?? Math.min(1000 * 2 ** attempt, 30_000);
+      await new Promise((r) => setTimeout(r, wait));
     }
   }
   throw lastError;

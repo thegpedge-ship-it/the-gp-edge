@@ -2,6 +2,7 @@
 
 import { query, queryOne } from "@/lib/db";
 import { embedTexts, toVectorLiteral, EMBED_BATCH_SIZE } from "@/lib/mbs/embed";
+import { generateTitles, TITLE_BATCH_SIZE } from "@/lib/mbs/title";
 import type { MbsXmlItem } from "@/lib/mbs/parseMbsXml";
 
 export interface SyncBatchResult {
@@ -18,9 +19,24 @@ export interface EmbedBatchResult {
 export interface MbsStats {
   total: number;
   embedded: number;
-  /** Live items still needing a vector — retired ones are not counted. */
+  /** Live items still needing a description vector — retired ones excluded. */
   pending: number;
   retired: number;
+  /** Live items that have a generated title. */
+  titled: number;
+  /** Live items still needing a title. */
+  titlePending: number;
+  /** Live items whose title has been embedded. */
+  titleEmbedded: number;
+  /** Live titled items still needing a title vector. */
+  titleEmbedPending: number;
+}
+
+export interface TitleBatchResult {
+  generated: number;
+  remaining: number;
+  /** A few freshly written titles, so the admin can eyeball the quality. */
+  sample: { itemNum: number; title: string }[];
 }
 
 /**
@@ -31,10 +47,11 @@ export interface MbsStats {
  * existing vector and cost nothing to re-embed. Only genuinely changed rows are
  * touched.
  *
- * Setting embedding = NULL on a description change is the correctness point —
- * without it a row would keep the vector of its OLD text and quietly answer
- * searches with a stale meaning. NULLing it re-queues the row for the embed
- * pass, which selects exactly `WHERE embedding IS NULL`.
+ * Clearing the derived columns on a description change is the correctness point.
+ * The vector, the generated title and the title's vector are all products of the
+ * OLD text; keeping any of them would leave the row answering searches with a
+ * meaning it no longer has. NULLing them re-queues the row for each pass, which
+ * select exactly on those NULLs.
  *
  * `xmax = 0` distinguishes an inserted row from an updated one, so the admin
  * page can report added vs changed without a second query.
@@ -51,8 +68,10 @@ export async function syncMbsBatchAction(
     `INSERT INTO mbs_items (item_num, description)
      SELECT * FROM UNNEST($1::int[], $2::text[])
      ON CONFLICT (item_num) DO UPDATE
-        SET description = EXCLUDED.description,
-            embedding   = NULL
+        SET description     = EXCLUDED.description,
+            embedding       = NULL,
+            title           = NULL,
+            title_embedding = NULL
       WHERE mbs_items.description IS DISTINCT FROM EXCLUDED.description
      RETURNING (xmax = 0) AS inserted`,
     [itemNums, descriptions],
@@ -113,16 +132,17 @@ export async function embedPendingBatchAction(): Promise<EmbedBatchResult> {
 
 /** Row counts backing the admin page's progress and final verification. */
 export async function getMbsStatsAction(): Promise<MbsStats> {
-  const row = await queryOne<{
-    total: string;
-    embedded: string;
-    pending: string;
-    retired: string;
-  }>(
+  const row = await queryOne<Record<string, string>>(
     `SELECT count(*)::text AS total,
             count(embedding)::text AS embedded,
             count(*) FILTER (WHERE embedding IS NULL AND retired_at IS NULL)::text AS pending,
-            count(*) FILTER (WHERE retired_at IS NOT NULL)::text AS retired
+            count(*) FILTER (WHERE retired_at IS NOT NULL)::text AS retired,
+            count(*) FILTER (WHERE title IS NOT NULL AND retired_at IS NULL)::text AS titled,
+            count(*) FILTER (WHERE title IS NULL AND retired_at IS NULL)::text AS title_pending,
+            count(*) FILTER (WHERE title_embedding IS NOT NULL AND retired_at IS NULL)::text AS title_embedded,
+            count(*) FILTER (WHERE title IS NOT NULL
+                               AND title_embedding IS NULL
+                               AND retired_at IS NULL)::text AS title_embed_pending
        FROM mbs_items`,
   );
   return {
@@ -130,7 +150,109 @@ export async function getMbsStatsAction(): Promise<MbsStats> {
     embedded: Number(row?.embedded ?? 0),
     pending: Number(row?.pending ?? 0),
     retired: Number(row?.retired ?? 0),
+    titled: Number(row?.titled ?? 0),
+    titlePending: Number(row?.title_pending ?? 0),
+    titleEmbedded: Number(row?.title_embedded ?? 0),
+    titleEmbedPending: Number(row?.title_embed_pending ?? 0),
   };
+}
+
+/**
+ * Title one batch of items that have none yet.
+ *
+ * Selected by `title IS NULL` so the pass is resumable in the same way as
+ * embedding — generation is the most rate-limited step in the pipeline and will
+ * routinely be interrupted, so partial progress must always be safe to keep.
+ *
+ * Writes are keyed by the item number the model echoed back, not by position,
+ * and only rows still missing a title are updated, so a retry can never
+ * overwrite a good title with a later one.
+ */
+export async function generateTitlesBatchAction(): Promise<TitleBatchResult> {
+  const pending = await query<{ item_num: number; description: string }>(
+    `SELECT item_num, description
+       FROM mbs_items
+      WHERE title IS NULL
+        AND retired_at IS NULL
+      ORDER BY item_num
+      LIMIT $1`,
+    [TITLE_BATCH_SIZE],
+  );
+
+  if (pending.length === 0) return { generated: 0, remaining: 0, sample: [] };
+
+  const titles = await generateTitles(
+    pending.map((r) => ({ itemNum: r.item_num, description: r.description })),
+  );
+
+  const itemNums = [...titles.keys()];
+  const values = itemNums.map((n) => titles.get(n)!);
+
+  if (itemNums.length > 0) {
+    await query(
+      `UPDATE mbs_items AS m
+          SET title = v.title
+         FROM UNNEST($1::int[], $2::text[]) AS v(item_num, title)
+        WHERE m.item_num = v.item_num
+          AND m.title IS NULL`,
+      [itemNums, values],
+    );
+  }
+
+  const remaining = await queryOne<{ count: string }>(
+    `SELECT count(*)::text AS count
+       FROM mbs_items
+      WHERE title IS NULL AND retired_at IS NULL`,
+  );
+
+  return {
+    generated: itemNums.length,
+    remaining: Number(remaining?.count ?? 0),
+    sample: itemNums.slice(0, 3).map((n) => ({ itemNum: n, title: titles.get(n)! })),
+  };
+}
+
+/**
+ * Embed one batch of titles.
+ *
+ * Separate from the description pass and stored in its own column: a title
+ * folded into the description text would contribute only a few percent of the
+ * pooled signal, which is precisely the short-query case it exists to serve.
+ */
+export async function embedTitlesBatchAction(): Promise<EmbedBatchResult> {
+  const pending = await query<{ item_num: number; title: string }>(
+    `SELECT item_num, title
+       FROM mbs_items
+      WHERE title IS NOT NULL
+        AND title_embedding IS NULL
+        AND retired_at IS NULL
+      ORDER BY item_num
+      LIMIT $1`,
+    [EMBED_BATCH_SIZE],
+  );
+
+  if (pending.length === 0) return { embedded: 0, remaining: 0 };
+
+  const vectors = await embedTexts(
+    pending.map((r) => r.title),
+    "RETRIEVAL_DOCUMENT",
+  );
+
+  await query(
+    `UPDATE mbs_items AS m
+        SET title_embedding = v.embedding::vector
+       FROM UNNEST($1::int[], $2::text[]) AS v(item_num, embedding)
+      WHERE m.item_num = v.item_num`,
+    [pending.map((r) => r.item_num), vectors.map(toVectorLiteral)],
+  );
+
+  const remaining = await queryOne<{ count: string }>(
+    `SELECT count(*)::text AS count
+       FROM mbs_items
+      WHERE title IS NOT NULL AND title_embedding IS NULL AND retired_at IS NULL`,
+  );
+
+  return { embedded: pending.length, remaining: Number(remaining?.count ?? 0) };
 }
 
 export interface RetireResult {
