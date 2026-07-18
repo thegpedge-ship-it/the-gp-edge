@@ -36,6 +36,7 @@ import {
   getMbsStatsAction,
   retireMissingMbsItemsAction,
   type RetireResult,
+  type MbsStats,
 } from "@/actions/mbs.actions";
 
 /** Upserts are cheap, so a larger batch means fewer round trips. */
@@ -89,6 +90,20 @@ export default function UpdateMbsPage() {
   const [copied, setCopied] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
 
+  /**
+   * Live table state, independent of any upload.
+   *
+   * An ingest writes rows first and embeds second, so closing the tab midway
+   * leaves items in the table with no vector — invisible to search, with nothing
+   * on screen to say so. Showing the counts on load makes that state obvious and
+   * gives somewhere to fix it from.
+   */
+  const [dbStats, setDbStats] = useState<MbsStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  /** Which flow produced the current progress/result panels. */
+  const [mode, setMode] = useState<"upload" | "embed">("upload");
+
   const logEndRef = useRef<HTMLDivElement>(null);
 
   /**
@@ -105,6 +120,21 @@ export default function UpdateMbsPage() {
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ block: "nearest" });
   }, [logs]);
+
+  const refreshStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      setDbStats(await getMbsStatsAction());
+    } catch {
+      setDbStats(null);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshStats();
+  }, [refreshStats]);
 
   const busy = phase === "parsing" || phase === "syncing" || phase === "embedding" || phase === "verifying";
 
@@ -192,8 +222,85 @@ export default function UpdateMbsPage() {
     [addLog],
   );
 
+  /**
+   * Drain every row still missing a vector.
+   *
+   * Each iteration re-queries `WHERE embedding IS NULL` rather than working from
+   * a list captured up front, so the loop is inherently resumable: whatever was
+   * already embedded is simply not selected again.
+   */
+  const runEmbedLoop = useCallback(
+    async (pendingCount: number) => {
+      setEmbedTotal(pendingCount);
+      setEmbedDone(0);
+
+      if (pendingCount === 0) {
+        addLog(`Every live item already has a vector — nothing to embed.`, "ok");
+        return;
+      }
+      addLog(
+        `${pendingCount} item(s) to embed via gemini-embedding-001 @ 768d — ` +
+          `${Math.ceil(pendingCount / 100)} batched request(s).`,
+      );
+
+      let done = 0;
+      for (;;) {
+        const r = await embedPendingBatchAction();
+        if (r.embedded === 0) break;
+        done += r.embedded;
+        setEmbedDone(done);
+        addLog(`embedded ${done}/${pendingCount}  (${r.remaining} remaining)`);
+        if (r.remaining === 0) break;
+      }
+    },
+    [addLog],
+  );
+
+  /**
+   * Recovery path for an ingest whose embedding half never finished — the tab
+   * was closed, the quota ran out, the network dropped. Needs no file: the rows
+   * are already in the table, only their vectors are missing.
+   */
+  const handleGenerateMissing = useCallback(async () => {
+    setMode("embed");
+    setError(null);
+    setLogs([]);
+    setCelebrating(false);
+    setReconciled(false);
+    setRetireResult(null);
+    setTotals({ inserted: 0, updated: 0, unchanged: 0 });
+
+    try {
+      setPhase("verifying");
+      addLog(`Scanning for items without a search vector…`);
+      const stats = await getMbsStatsAction();
+      addLog(
+        `${stats.pending} of ${stats.total} live item(s) are missing a vector.`,
+        stats.pending > 0 ? "warn" : "ok",
+      );
+
+      setPhase("embedding");
+      await runEmbedLoop(stats.pending);
+
+      const final = await getMbsStatsAction();
+      setFinalStats(final);
+      setDbStats(final);
+      addLog(`Done. ${final.embedded}/${final.total} items have vectors.`, "ok");
+      setPhase("done");
+      if (stats.pending > 0) setCelebrating(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      addLog(message, "err");
+      addLog(`Re-run — rows already embedded are kept and skipped.`, "warn");
+      setError(message);
+      setPhase("error");
+      void refreshStats();
+    }
+  }, [addLog, runEmbedLoop, refreshStats]);
+
   const handleRun = useCallback(async () => {
     if (!items) return;
+    setMode("upload");
     setError(null);
 
     try {
@@ -258,27 +365,11 @@ export default function UpdateMbsPage() {
       setEmbedTotal(stats.pending);
       setEmbedDone(0);
 
-      if (stats.pending === 0) {
-        addLog(`Every live item already has a vector — nothing to embed.`, "ok");
-      } else {
-        addLog(
-          `${stats.pending} item(s) to embed via gemini-embedding-001 @ 768d — ` +
-            `${Math.ceil(stats.pending / 100)} batched request(s).`,
-        );
-      }
-
-      let done = 0;
-      for (;;) {
-        const r = await embedPendingBatchAction();
-        if (r.embedded === 0) break;
-        done += r.embedded;
-        setEmbedDone(done);
-        addLog(`embedded ${done}/${stats.pending}  (${r.remaining} remaining)`);
-        if (r.remaining === 0) break;
-      }
+      await runEmbedLoop(stats.pending);
 
       const final = await getMbsStatsAction();
       setFinalStats(final);
+      setDbStats(final);
       addLog(
         `Done. ${final.embedded}/${final.total} items have vectors` +
           (final.retired ? `, ${final.retired} retired.` : `.`),
@@ -292,8 +383,9 @@ export default function UpdateMbsPage() {
       addLog(`Re-run with the same file — completed rows are kept and skipped.`, "warn");
       setError(message);
       setPhase("error");
+      void refreshStats();
     }
-  }, [items, runSyncPass, addLog]);
+  }, [items, runSyncPass, addLog, runEmbedLoop, refreshStats]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -301,6 +393,7 @@ export default function UpdateMbsPage() {
       <AnimatePresence>
         {celebrating && finalStats && (
           <Celebration
+            mode={mode}
             fileName={fileName}
             stats={finalStats}
             totals={totals}
@@ -320,6 +413,74 @@ export default function UpdateMbsPage() {
           New items are added, changed descriptions are updated, and search vectors are rebuilt for
           anything that changed.
         </p>
+      </div>
+
+      {/* ── Database status ────────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <span className="inline-flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-200">
+            <Database className="w-4 h-4 text-slate-400" />
+            Database status
+          </span>
+          <button
+            onClick={() => void refreshStats()}
+            disabled={busy || statsLoading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${statsLoading ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
+
+        {statsLoading && !dbStats ? (
+          <p className="text-sm text-slate-400">Loading…</p>
+        ) : dbStats ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Tile label="Items" value={dbStats.total} />
+              <Tile label="With vectors" value={dbStats.embedded} accent />
+              <Tile label="Missing vectors" value={dbStats.pending} />
+              <Tile label="Retired" value={dbStats.retired} />
+            </div>
+
+            {dbStats.pending > 0 ? (
+              <div className="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30">
+                <p className="text-sm font-bold text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  {dbStats.pending.toLocaleString()} item(s) have no search vector
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-400/90 mt-1 leading-relaxed">
+                  These items exist in the database but cannot be found by search. This usually means
+                  an earlier run was interrupted before embedding finished. No re-upload needed — the
+                  descriptions are already stored.
+                </p>
+                <button
+                  onClick={handleGenerateMissing}
+                  disabled={busy}
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+                >
+                  {busy && mode === "embed" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {busy && mode === "embed"
+                    ? "Generating…"
+                    : `Generate ${dbStats.pending.toLocaleString()} missing embedding(s)`}
+                </button>
+              </div>
+            ) : (
+              dbStats.total > 0 && (
+                <p className="mt-4 text-sm text-teal-700 dark:text-teal-400 inline-flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Every live item has a search vector.
+                </p>
+              )
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-red-600 dark:text-red-400">Could not read database status.</p>
+        )}
       </div>
 
       {/* ── File picker ────────────────────────────────────────────────────── */}
@@ -390,13 +551,16 @@ export default function UpdateMbsPage() {
       {/* ── Progress ───────────────────────────────────────────────────────── */}
       {(phase === "syncing" || phase === "verifying" || phase === "embedding" || phase === "done") && (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-5">
-          <Progress
-            icon={Database}
-            title={reconciled ? "Syncing items (reconciliation pass)" : "Syncing items"}
-            pct={phase === "syncing" ? syncPct : 100}
-            detail={`${syncDone.toLocaleString()} / ${(items?.length ?? 0).toLocaleString()}`}
-            active={phase === "syncing"}
-          />
+          {/* Embed-only runs never touch the table, so no sync bar for them. */}
+          {mode === "upload" && (
+            <Progress
+              icon={Database}
+              title={reconciled ? "Syncing items (reconciliation pass)" : "Syncing items"}
+              pct={phase === "syncing" ? syncPct : 100}
+              detail={`${syncDone.toLocaleString()} / ${(items?.length ?? 0).toLocaleString()}`}
+              active={phase === "syncing"}
+            />
+          )}
           <Progress
             icon={Sparkles}
             title="Building search vectors"
@@ -409,11 +573,13 @@ export default function UpdateMbsPage() {
             active={phase === "embedding"}
           />
 
-          <div className="flex flex-wrap gap-3 pt-1">
-            <Stat icon={CheckCircle2} label="Added" value={totals.inserted.toLocaleString()} />
-            <Stat icon={RefreshCw} label="Updated" value={totals.updated.toLocaleString()} />
-            <Stat icon={CheckCircle2} label="Unchanged" value={totals.unchanged.toLocaleString()} />
-          </div>
+          {mode === "upload" && (
+            <div className="flex flex-wrap gap-3 pt-1">
+              <Stat icon={CheckCircle2} label="Added" value={totals.inserted.toLocaleString()} />
+              <Stat icon={RefreshCw} label="Updated" value={totals.updated.toLocaleString()} />
+              <Stat icon={CheckCircle2} label="Unchanged" value={totals.unchanged.toLocaleString()} />
+            </div>
+          )}
         </div>
       )}
 
@@ -571,11 +737,13 @@ const CONFETTI_COLOURS = [
  * mismatch against.
  */
 function Celebration({
+  mode,
   fileName,
   stats,
   totals,
   onDismiss,
 }: {
+  mode: "upload" | "embed";
   fileName: string | null;
   stats: { total: number; embedded: number; retired: number };
   totals: Totals;
@@ -669,10 +837,12 @@ function Celebration({
         </motion.div>
 
         <h2 className="mt-5 text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
-          MBS database updated
+          {mode === "embed" ? "Embeddings complete" : "MBS database updated"}
         </h2>
         <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-          {fileName ? (
+          {mode === "embed" ? (
+            "Every live item now has a search vector."
+          ) : fileName ? (
             <>
               <span className="font-semibold text-slate-600 dark:text-slate-300">{fileName}</span>{" "}
               is loaded and searchable.
@@ -685,10 +855,14 @@ function Celebration({
         <div className="mt-6 grid grid-cols-2 gap-3 text-left">
           <Tile label="Items in database" value={stats.total} accent />
           <Tile label="Search vectors built" value={stats.embedded} accent />
-          <Tile label="Added" value={totals.inserted} />
-          <Tile label="Updated" value={totals.updated} />
+          {mode === "upload" && (
+            <>
+              <Tile label="Added" value={totals.inserted} />
+              <Tile label="Updated" value={totals.updated} />
+              <Tile label="Unchanged" value={totals.unchanged} />
+            </>
+          )}
           {stats.retired > 0 && <Tile label="Retired" value={stats.retired} />}
-          <Tile label="Unchanged" value={totals.unchanged} />
         </div>
 
         <button

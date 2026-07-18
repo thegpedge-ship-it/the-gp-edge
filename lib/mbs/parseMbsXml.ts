@@ -1,10 +1,9 @@
 /**
  * Parser for the government MBS XML dump (e.g. MBS-XML-2026-07-01.XML).
  *
- * Shared by the admin "Update MBS" page and scripts/mbs-ingest.ts so both agree
- * on exactly what counts as an item — the admin page compares the XML item count
- * against the row count afterwards, and that check is meaningless if the two
- * paths disagree about which elements to keep.
+ * Defines exactly what counts as an item, which the admin "Update MBS" page
+ * relies on when it compares the XML item count against the row count to decide
+ * whether a reconciliation pass is needed.
  *
  * Pure JS with no Node APIs: the admin page parses the upload in the BROWSER so
  * an 8MB file never crosses the network, and only small batches are posted to
