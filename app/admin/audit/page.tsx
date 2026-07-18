@@ -298,7 +298,7 @@ export default function AuditPage() {
     setAddUsername("");
     setAddPassword("");
     setAddRole("Admin");
-    setAddPermissions(["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"]);
+    setAddPermissions([...ALL_FEATURE_KEYS]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);
