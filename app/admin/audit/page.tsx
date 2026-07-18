@@ -37,6 +37,7 @@ const ALL_FEATURES = [
   { key: "approaches", label: "Clinical Approaches", desc: "Manage clinical approach guidelines" },
   { key: "autofill", label: "Autofill Templates", desc: "Create & edit autofill templates" },
   { key: "users", label: "Users", desc: "View & manage user accounts" },
+  { key: "mbs", label: "Update MBS", desc: "Upload government MBS data & rebuild search" },
   { key: "notifications", label: "Notifications", desc: "Send system notifications" },
   { key: "billing", label: "Billing", desc: "View revenue & manage subscriptions" },
   { key: "audit", label: "Audit & Security", desc: "View audit logs & manage roles" },
@@ -49,7 +50,7 @@ const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 /* ── Role presets ── */
 const ROLE_PRESETS: Record<string, string[]> = {
   "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"],
+  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
   Moderator: ["dashboard", "questions", "content", "approaches"],
   Viewer: ["dashboard"],
 };
@@ -144,9 +145,9 @@ export default function AuditPage() {
             let permissions = u.permissions || [];
             if (permissions.length === 0) {
               if (u.role === "Super Admin" || u.role === "Viewer") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
               } else if (u.role === "Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
               } else if (u.role === "Moderator") {
                 permissions = ["dashboard", "questions", "content", "approaches"];
               }
@@ -296,7 +297,7 @@ export default function AuditPage() {
     setAddUsername("");
     setAddPassword("");
     setAddRole("Admin");
-    setAddPermissions(["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing"]);
+    setAddPermissions(["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);

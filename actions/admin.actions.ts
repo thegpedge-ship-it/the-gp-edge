@@ -29,7 +29,7 @@ function mapRowToCredentialUser(row: any): CredentialUser {
   let permissions: string[];
   if (row.role_id === 1) {
     // Super Admin gets everything regardless of the permissions table
-    permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+    permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
   } else if (dbPermissions.length > 0) {
     permissions = dbPermissions;
   } else {
