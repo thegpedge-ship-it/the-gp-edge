@@ -80,7 +80,12 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
     let mrr = 0;
     try {
       const mrrResult = await queryOne<{ sum: string }>(
-        `SELECT SUM(p.price) as sum 
+        `SELECT SUM(
+          CASE 
+            WHEN s.cycle = 'annual' THEN p.price_annual / 12.0
+            ELSE p.price_monthly
+          END
+         ) as sum 
          FROM subscriptions s 
          JOIN plans p ON s.plan_id = p.id 
          WHERE s.status = 'active'`
@@ -123,7 +128,12 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
     let planDistribution: PlanBreakdown[] = [];
     try {
       const plansBreakdownResult = await query<any>(`
-        SELECT p.name, COUNT(*) as count, SUM(p.price) as mrr_impact
+        SELECT p.name, COUNT(*) as count, SUM(
+          CASE 
+            WHEN s.cycle = 'annual' THEN p.price_annual / 12.0
+            ELSE p.price_monthly
+          END
+        ) as mrr_impact
         FROM subscriptions s
         JOIN plans p ON s.plan_id = p.id
         WHERE s.status = 'active'
@@ -220,10 +230,10 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
     const newUsersChange = newUsersPrev > 0 ? ((newUsersCurr - newUsersPrev) * 100) / newUsersPrev : 0;
 
     const attemptsCurrResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM test_attempts WHERE created_at >= NOW() - INTERVAL '30 days'"
+      "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '30 days'"
     );
     const attemptsPrevResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM test_attempts WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
+      "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '60 days' AND started_at < NOW() - INTERVAL '30 days'"
     );
     const attemptsCurr = parseInt(attemptsCurrResult?.count || "0", 10);
     const attemptsPrev = parseInt(attemptsPrevResult?.count || "0", 10);
@@ -309,7 +319,7 @@ export async function getMonthlyAnalyticsAction(): Promise<MonthlyStats[]> {
       SELECT 
         m.month_name as month,
         (SELECT COUNT(*) FROM users u WHERE u.created_at <= m.month_start + INTERVAL '1 month') as total_users,
-        (SELECT COUNT(*) FROM test_attempts ta WHERE ta.created_at >= m.month_start AND ta.created_at < m.month_start + INTERVAL '1 month') as attempts,
+        (SELECT COUNT(*) FROM test_attempts ta WHERE ta.started_at >= m.month_start AND ta.started_at < m.month_start + INTERVAL '1 month') as attempts,
         (SELECT COUNT(*) FROM subscriptions s WHERE s.status = 'active' AND s.created_at <= m.month_start + INTERVAL '1 month') as subscribers
       FROM months m
       ORDER BY m.month_start ASC

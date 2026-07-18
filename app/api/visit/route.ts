@@ -20,11 +20,20 @@ export async function POST() {
   const now = new Date();
   const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-  await prisma.user_active_days.upsert({
-    where: { user_id_active_date: { user_id: dbUser.id, active_date: today } },
-    create: { user_id: dbUser.id, active_date: today },
-    update: {},
-  });
+  try {
+    await prisma.user_active_days.upsert({
+      where: { user_id_active_date: { user_id: dbUser.id, active_date: today } },
+      create: { user_id: dbUser.id, active_date: today },
+      update: {},
+    });
+  } catch (error: any) {
+    // If concurrent requests attempt to upsert the same user/date combination,
+    // a unique constraint conflict (P2002) might be thrown, which we can safely ignore
+    // since the record already exists.
+    if (error.code !== "P2002") {
+      throw error;
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

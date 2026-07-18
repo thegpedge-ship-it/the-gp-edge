@@ -9,90 +9,10 @@ import { getMedicalContent, getApproachCards, saveApproachCards, MedicalContent,
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
-
-function getBlockNodes(html: string): ChildNode[] {
-  if (typeof window === "undefined") return [];
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  
-  const blocks: ChildNode[] = [];
-  
-  function traverse(node: ChildNode) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (node.textContent?.trim()) {
-        blocks.push(node);
-      }
-      return;
-    }
-    
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const tagName = el.tagName.toUpperCase();
-      
-      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
-        blocks.push(el);
-      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
-        if (el.childNodes.length > 0) {
-          Array.from(el.childNodes).forEach(traverse);
-        } else if (el.textContent?.trim()) {
-          blocks.push(el);
-        }
-      } else {
-        blocks.push(el);
-      }
-    }
-  }
-  
-  Array.from(temp.childNodes).forEach(traverse);
-  return blocks;
-}
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 
 function cleanTableHtmlStyles(html: string): string {
   return html;
-}
-
-function splitHtmlIntoPages(html: string): string[] {
-  if (typeof window === "undefined") return [html];
-  
-  const blocks = getBlockNodes(html);
-  if (blocks.length === 0) return [html];
-  
-  const pages: string[] = [];
-  let currentPageHtml = "";
-  let currentPageTextLength = 0;
-  
-  blocks.forEach((node) => {
-    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
-      ? (node as HTMLElement).outerHTML 
-      : node.textContent || "";
-    const nodeText = node.textContent || "";
-    const nodeLength = nodeText.length;
-    
-    const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 3000 : 4000;
-    
-    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
-      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
-    
-    const shouldStartNewPage = 
-      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 2000);
-      
-    if (shouldStartNewPage) {
-      pages.push(currentPageHtml.trim());
-      currentPageHtml = nodeHtml;
-      currentPageTextLength = nodeLength;
-    } else {
-      currentPageHtml += nodeHtml;
-      currentPageTextLength += nodeLength;
-    }
-  });
-  
-  if (currentPageHtml.trim()) {
-    pages.push(currentPageHtml.trim());
-  }
-  
-  return pages.length > 0 ? pages : [html];
 }
 
 // ─── System helper utilities ──────────────────────────────────────────────────
@@ -500,6 +420,8 @@ function MedicalLibraryContent() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
+  const [dbConditionData, setDbConditionData] = useState<{ fullHtml: string; pages: string[]; references: any[] } | null>(null);
+  const [dbLoading, setDbLoading] = useState(false);
   const [visibleLimit, setVisibleLimit] = useState(9);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
@@ -630,6 +552,33 @@ function MedicalLibraryContent() {
     }
   }, []);
 
+  const selectedConditionId = searchParams.get("id");
+
+  useEffect(() => {
+    if (!selectedConditionId || !selectedConditionId.startsWith("CUSTOM-") || selectedConditionId.startsWith("CUSTOM-APPROACH-")) {
+      setDbConditionData(null);
+      return;
+    }
+    const cleanId = selectedConditionId.replace("CUSTOM-", "");
+    setDbLoading(true);
+    fetch(`/api/medical-content/${cleanId}`)
+      .then(res => res.json())
+      .then(json => {
+        if (json.success && json.data) {
+          const data = json.data;
+          const html = data.fullHtml || "";
+          const pages = splitHtmlIntoPages(html);
+          setDbConditionData({
+            fullHtml: html,
+            pages: pages,
+            references: data.references || []
+          });
+        }
+      })
+      .catch(err => console.error("Error fetching db condition details:", err))
+      .finally(() => setDbLoading(false));
+  }, [selectedConditionId]);
+
   const allConditions = useMemo(() => {
     const parseDate = (dStr: string) => {
       if (!dStr) return 0;
@@ -655,11 +604,30 @@ function MedicalLibraryContent() {
     });
   }, [customConditions]);
 
-  const selectedConditionId = searchParams.get("id");
-  const selectedCondition = useMemo(() => {
+  const selectedConditionRaw = useMemo(() => {
     if (!selectedConditionId) return null;
     return allConditions.find((c) => c.id === selectedConditionId) ?? null;
   }, [selectedConditionId, allConditions]);
+
+  const selectedCondition = useMemo<MedicalCondition | null>(() => {
+    if (!selectedConditionRaw) return null;
+    if (selectedConditionRaw.id.startsWith("CUSTOM-") && !selectedConditionRaw.id.startsWith("CUSTOM-APPROACH-") && dbConditionData) {
+      return {
+        ...selectedConditionRaw,
+        clinicalNotes: dbConditionData.fullHtml,
+        references: dbConditionData.references,
+        document: {
+          filename: selectedConditionRaw.document?.filename || `${selectedConditionRaw.name.replace(/\s+/g, "_")}.pdf`,
+          fileSize: selectedConditionRaw.document?.fileSize || "1.2 MB",
+          totalPages: dbConditionData.pages.length,
+          downloadUrl: selectedConditionRaw.document?.downloadUrl || "#",
+          summary: selectedConditionRaw.document?.summary || selectedConditionRaw.name,
+          pages: dbConditionData.pages,
+        }
+      } as MedicalCondition;
+    }
+    return selectedConditionRaw;
+  }, [selectedConditionRaw, dbConditionData]);
 
   const selectedApproachCard = useMemo(() => {
     if (!selectedCondition || !selectedCondition.id.startsWith("CUSTOM-APPROACH-")) return null;
@@ -669,12 +637,13 @@ function MedicalLibraryContent() {
   }, [selectedCondition]);
 
   const customHtml = useMemo(() => {
-    if (typeof window === "undefined" || !selectedCondition || !selectedCondition.id.startsWith("CUSTOM-") || selectedCondition.id.startsWith("CUSTOM-APPROACH-")) {
+    if (!selectedCondition || !selectedCondition.id.startsWith("CUSTOM-") || selectedCondition.id.startsWith("CUSTOM-APPROACH-")) {
       return "";
     }
+    if (dbConditionData) return dbConditionData.fullHtml;
     const cleanId = selectedCondition.id.replace("CUSTOM-", "");
-    return localStorage.getItem(`gpedge_content_body_${cleanId}`) || "";
-  }, [selectedCondition]);
+    return (typeof window !== "undefined" ? localStorage.getItem(`gpedge_content_body_${cleanId}`) : "") || "";
+  }, [selectedCondition, dbConditionData]);
 
   const observerRef = useRef<ResizeObserver | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(720);
@@ -709,12 +678,13 @@ function MedicalLibraryContent() {
   }, []);
 
   const scaleFactor = useMemo(() => {
-    return containerWidth / 720;
+    return containerWidth / 794;
   }, [containerWidth]);
 
   const currentZoomScale = useMemo(() => {
     return scaleFactor * (pdfZoom / 100);
   }, [scaleFactor, pdfZoom]);
+
 
   // Memoize system counts
   const systemCounts = useMemo(() => {
@@ -1757,20 +1727,22 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         <div
                           className="mx-auto"
                           style={{
-                            width: `${720 * currentZoomScale}px`,
-                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? `${940 * currentZoomScale}px` : "auto",
+                            width: `${794 * currentZoomScale}px`,
+                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? `${1123 * currentZoomScale}px` : "auto",
                             position: "relative",
                             flexShrink: 0,
                           }}
                         >
                         <div
-                          className="bg-white text-slate-800 p-8 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area"
+                          className="bg-white text-slate-800 p-16 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area"
                           style={{
                             transform: `scale(${currentZoomScale})`,
                             transformOrigin: "top left",
-                            width: "720px",
-                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "940px" : "auto",
+                            width: "794px",
+                            minHeight: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "1123px" : "auto",
+                            height: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "1123px" : "auto",
                             position: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "absolute" : "relative",
+                            overflowY: (selectedCondition.document && selectedCondition.document.totalPages > 1) ? "hidden" : "visible",
                             top: 0,
                             left: 0,
                           }}
@@ -1790,7 +1762,15 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           </div>
 
                           {/* Render custom guideline HTML or paginated default content */}
-                          {selectedCondition.id.startsWith("CUSTOM-") ? (
+                          {dbLoading ? (
+                            <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+                              <svg className="w-8 h-8 text-teal-700 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              <span className="text-xs text-slate-500 font-semibold select-none">Fetching latest guidelines from database...</span>
+                            </div>
+                          ) : selectedCondition.id.startsWith("CUSTOM-") ? (
                             <div className="space-y-4 flex flex-col h-full text-slate-800">
                               {/* Header info / title inside document */}
                               <div className="mb-4 border-b-2 border-teal-700/30 pb-2 select-none text-left">
@@ -1940,7 +1920,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           )}
 
                           {/* Footer */}
-                          <footer className="absolute bottom-6 left-8 right-8 border-t border-slate-200 pt-2 flex items-center justify-between text-[8px] text-slate-400 font-medium select-none uppercase tracking-wider">
+                          <footer className="absolute bottom-8 left-16 right-16 border-t border-slate-200 pt-3 flex items-center justify-between text-[8px] text-slate-400 font-medium select-none uppercase tracking-wider">
                             <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
                             <span>{selectedCondition.id} · Page {pdfPage} of {selectedCondition.document.totalPages}</span>
                           </footer>

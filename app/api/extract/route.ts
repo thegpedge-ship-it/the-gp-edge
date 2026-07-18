@@ -982,9 +982,30 @@ function convertPlainTextToHtml(text: string): string {
       /^(?:7\.)?\s*when\s+to\s+refer/i.test(cleanLine) ||
       /^(?:8\.)?\s*prognosis/i.test(cleanLine) ||
       /^(?:9\.)?\s*(?:resources|references)/i.test(cleanLine);
-      
+
+    // ── Callout keyword lines ──────────────────────────────────────────────
+    // Lines whose entire content is a callout label (e.g. "Key Points:", "⚠ Warning",
+    // "Important:", "MBS Billing Info") must become <h3> tags so that
+    // convertTextCallouts() can detect them and wrap the following content in a
+    // styled callout div.  Without this, plain-text extraction from PDFs/DOCs
+    // collapses them into ordinary <p> tags and the callout is lost.
+    const strippedLine = line.replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "").replace(/[-—:\s]+$/, "").trim();
+    const isCalloutHeader =
+      !isHeader &&
+      strippedLine.length > 0 &&
+      strippedLine.length < 80 && // short label, not a paragraph sentence
+      (
+        /^(?:key\s*point|pearl|clinical\s*pearl)/i.test(cleanLine) ||
+        /^(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert)/i.test(cleanLine) ||
+        /^(?:important|key\s*diagnostic\s*rule|key\s*rule|diagnostic\s*rule|attention|note\s*:)/i.test(cleanLine) ||
+        /^(?:billing|mbs)/i.test(cleanLine)
+      );
+
     if (isHeader) {
       html += `<h2>${line}</h2>\n`;
+    } else if (isCalloutHeader) {
+      // Emit as h3 so convertTextCallouts() pattern-matches it as a callout header
+      html += `<h3>${line}</h3>\n`;
     } else if (line.startsWith("•") || line.startsWith("-") || line.startsWith("*")) {
       html += `<li>${line.replace(/^[•\-*]\s*/, "")}</li>\n`;
     } else if (line.includes("|")) {
@@ -1673,6 +1694,19 @@ function generateCatalogHtml(catalog: ExtractedCatalog, system: string, category
       `;
     }
   });
+
+  // ── Final callout pass ────────────────────────────────────────────────────
+  // formatSectionHtml() runs convertTextCallouts per-section, but for PDF/DOC
+  // content the plain-text-to-HTML conversion may have produced <h3> callout
+  // headers whose following bullet lists land in a different section chunk.
+  // Running a final pass over the fully assembled HTML catches those cases and
+  // ensures every callout keyword becomes a styled callout block regardless of
+  // where it appeared in the source document.
+  html = styleHtmlCallouts(html);
+  html = convertTextCallouts(html);
+  html = highlightWarningText(html);
+  // Strip any remaining pictographic emojis (except those already consumed above)
+  html = html.replace(/\p{Extended_Pictographic}/gu, "");
 
   return html;
 }
@@ -2388,6 +2422,144 @@ export async function POST(req: NextRequest) {
         questions,
         rawTextLength: rawText.length,
         fileName,
+      });
+    }
+
+    // Determine if this is a clinical approach upload
+    const isApproachType = type === "approach" || fileName.toLowerCase().includes("approach");
+
+    if (isApproachType) {
+      let rawText = "";
+      if (ext === "pdf") {
+        rawText = await extractTextAndImagesFromPdfBuffer(buffer);
+      } else if (ext === "doc") {
+        rawText = await extractTextAndImagesFromDocBuffer(buffer);
+      } else {
+        const result = await mammoth.extractRawText({ buffer });
+        rawText = result.value.trim() || await extractTextAndImagesFromPdfBuffer(buffer);
+      }
+
+      // Cleanup temp file
+      if (tempPath && fs.existsSync(tempPath)) {
+        try { fs.unlinkSync(tempPath); } catch {}
+        tempPath = null;
+      }
+
+      const title = inferTitle(fileName, rawText);
+      const system = matchField(rawText, SOAP_PATTERNS.system) || "Cardiology";
+      const category = matchField(rawText, SOAP_PATTERNS.category) || "Clinical Approach";
+      
+      const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
+      
+      let overview = "";
+      const steps: any[] = [];
+      const keyPoints: string[] = [];
+      const redFlags: string[] = [];
+      const references: any[] = [];
+      
+      let currentSection: "overview" | "steps" | "keyPoints" | "redFlags" | "references" = "overview";
+      let currentStep: any = null;
+      
+      for (const line of lines) {
+        const lower = line.toLowerCase();
+        
+        // Detect section headers
+        if (lower.includes("key point") || lower.includes("key clinical point")) {
+          currentSection = "keyPoints";
+          continue;
+        }
+        if (lower.includes("red flag") || lower.includes("warning") || lower.includes("caution")) {
+          currentSection = "redFlags";
+          continue;
+        }
+        if (lower.includes("reference") || lower.includes("citation") || lower.includes("source")) {
+          currentSection = "references";
+          continue;
+        }
+        if (lower.includes("clinical step") || lower.includes("step 1") || lower.match(/^step\s+\d+/i)) {
+          currentSection = "steps";
+        }
+        
+        if (currentSection === "overview") {
+          if (line !== title && !line.startsWith("System:") && !line.startsWith("Category:")) {
+            overview += (overview ? " " : "") + line;
+          }
+        } else if (currentSection === "steps") {
+          const stepMatch = line.match(/^(?:step\s*\d+\s*[:\-]?\s*|\d+[\.\)\-]\s*)(.+)/i);
+          if (stepMatch) {
+            if (currentStep) steps.push(currentStep);
+            currentStep = {
+              id: crypto.randomUUID(),
+              title: stepMatch[1].trim(),
+              description: "",
+              type: "action",
+              checklistItems: []
+            };
+          } else if (currentStep) {
+            if (line.startsWith("-") || line.startsWith("*") || line.startsWith("•")) {
+              currentStep.checklistItems.push(line.replace(/^[-*•]\s*/, "").trim());
+            } else {
+              currentStep.description += (currentStep.description ? " " : "") + line;
+            }
+          } else {
+            overview += (overview ? " " : "") + line;
+          }
+        } else if (currentSection === "keyPoints") {
+          if (line.startsWith("-") || line.startsWith("*") || line.startsWith("•") || line.match(/^\d+[\.\)\-]/)) {
+            keyPoints.push(line.replace(/^[-*•\d\.\)\-]\s*/, "").trim());
+          } else {
+            keyPoints.push(line);
+          }
+        } else if (currentSection === "redFlags") {
+          if (line.startsWith("-") || line.startsWith("*") || line.startsWith("•") || line.match(/^\d+[\.\)\-]/)) {
+            redFlags.push(line.replace(/^[-*•\d\.\)\-]\s*/, "").trim());
+          } else {
+            redFlags.push(line);
+          }
+        } else if (currentSection === "references") {
+          const refMatch = line.match(/^(?:\d+[\.\)\-]\s*)?(.+)/);
+          if (refMatch) {
+            const text = refMatch[1].trim();
+            const urlMatch = text.match(/(https?:\/\/[^\s]+)/i);
+            const url = urlMatch ? urlMatch[1] : undefined;
+            const cleanText = url ? text.replace(url, "").trim() : text;
+            references.push({
+              id: references.length + 1,
+              text: cleanText || "Source Reference",
+              url
+            });
+          }
+        }
+      }
+      
+      if (currentStep) steps.push(currentStep);
+
+      if (steps.length === 0) {
+        steps.push({
+          id: crypto.randomUUID(),
+          title: "Initial Assessment",
+          description: "Assess patient history and present symptoms.",
+          type: "action",
+          checklistItems: ["Check vital signs", "Confirm history"]
+        });
+      }
+      
+      return NextResponse.json({
+        success: true,
+        type: "approach",
+        card: {
+          title,
+          subtitle: overview.substring(0, 120) + (overview.length > 120 ? "..." : ""),
+          system,
+          category,
+          status: "draft",
+          overview,
+          steps,
+          keyPoints: keyPoints.length > 0 ? keyPoints : ["Patient education & follow-up"],
+          redFlags: redFlags.length > 0 ? redFlags : ["Immediate referral if red flags present"],
+          references: references.length > 0 ? references : [{ id: 1, text: "GP Reference Guide" }]
+        },
+        fileName
       });
     }
 

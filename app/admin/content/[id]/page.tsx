@@ -18,89 +18,10 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 
-function getBlockNodes(html: string): ChildNode[] {
-  if (typeof window === "undefined") return [];
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  
-  const blocks: ChildNode[] = [];
-  
-  function traverse(node: ChildNode) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (node.textContent?.trim()) {
-        blocks.push(node);
-      }
-      return;
-    }
-    
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const tagName = el.tagName.toUpperCase();
-      
-      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
-        blocks.push(el);
-      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
-        if (el.childNodes.length > 0) {
-          Array.from(el.childNodes).forEach(traverse);
-        } else if (el.textContent?.trim()) {
-          blocks.push(el);
-        }
-      } else {
-        blocks.push(el);
-      }
-    }
-  }
-  
-  Array.from(temp.childNodes).forEach(traverse);
-  return blocks;
-}
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 
 function cleanTableHtmlStyles(html: string): string {
   return html;
-}
-
-function splitHtmlIntoPages(html: string): string[] {
-  if (typeof window === "undefined") return [html];
-  
-  const blocks = getBlockNodes(html);
-  if (blocks.length === 0) return [html];
-  
-  const pages: string[] = [];
-  let currentPageHtml = "";
-  let currentPageTextLength = 0;
-  
-  blocks.forEach((node) => {
-    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
-      ? (node as HTMLElement).outerHTML 
-      : node.textContent || "";
-    const nodeText = node.textContent || "";
-    const nodeLength = nodeText.length;
-    
-    const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 3000 : 4000;
-    
-    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
-      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
-    
-    const shouldStartNewPage = 
-      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 2000);
-      
-    if (shouldStartNewPage) {
-      pages.push(currentPageHtml.trim());
-      currentPageHtml = nodeHtml;
-      currentPageTextLength = nodeLength;
-    } else {
-      currentPageHtml += nodeHtml;
-      currentPageTextLength += nodeLength;
-    }
-  });
-  
-  if (currentPageHtml.trim()) {
-    pages.push(currentPageHtml.trim());
-  }
-  
-  return pages.length > 0 ? pages : [html];
 }
 
 function decodeHtml(str: string): string {

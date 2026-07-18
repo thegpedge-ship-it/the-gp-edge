@@ -25,51 +25,7 @@ const typeColors: Record<string, string> = {
   Note: "bg-teal-50/30 text-teal-800 border-teal-100/70 dark:bg-teal-950/15 dark:text-teal-400 dark:border-teal-900/20",
 };
 
-function splitHtmlIntoPages(html: string): string[] {
-  if (typeof window === "undefined") return [html];
-  
-  const tempDiv = document.createElement("div");
-  tempDiv.innerHTML = html;
-  
-  const pages: string[] = [];
-  let currentPageHtml = "";
-  let currentPageTextLength = 0;
-  
-  Array.from(tempDiv.childNodes).forEach((node) => {
-    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
-      ? (node as HTMLElement).outerHTML 
-      : node.textContent || "";
-    const nodeText = node.textContent || "";
-    const nodeLength = nodeText.length;
-    
-    // Page 1 has a large header, so it has less space (limit to ~1000 chars of text).
-    // Subsequent pages can hold more (limit to ~1400 chars of text).
-    const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 3000 : 4000;
-    
-    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
-      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
-    
-    const shouldStartNewPage = 
-      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 2000);
-      
-    if (shouldStartNewPage) {
-      pages.push(currentPageHtml.trim());
-      currentPageHtml = nodeHtml;
-      currentPageTextLength = nodeLength;
-    } else {
-      currentPageHtml += nodeHtml;
-      currentPageTextLength += nodeLength;
-    }
-  });
-  
-  if (currentPageHtml.trim()) {
-    pages.push(currentPageHtml.trim());
-  }
-  
-  return pages.length > 0 ? pages : [html];
-}
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 
 export default function ContentPage() {
   const { isReadOnly } = useAdminRole();
@@ -375,7 +331,7 @@ export default function ContentPage() {
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
             type: "Document",
-            status: "draft",
+            status: "published",
             author: "GP Edge Admin",
             references: refArray.length,
             pdfUrl: r2Url,
@@ -394,7 +350,7 @@ export default function ContentPage() {
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
             type: "Document",
-            status: "draft",
+            status: "published",
             lastUpdated: new Date().toISOString().split("T")[0],
             author: "GP Edge Admin",
             references: ext.references?.length ?? 1,
@@ -415,7 +371,7 @@ export default function ContentPage() {
       if (newContentItems.length === 1) {
         router.push(`/admin/content/editor?id=${newContentItems[0].id}`);
       } else {
-        setSuccessModalMessage(`Successfully imported ${newContentItems.length} clinical documents as drafts! Open each from the content list to edit and publish.`);
+        setSuccessModalMessage(`Successfully imported and published ${newContentItems.length} clinical documents!`);
         setShowSuccessModal(true);
       }
     } catch (err) {
@@ -504,7 +460,7 @@ export default function ContentPage() {
       system: newSystem,
       category: newCategory.trim() || "Clinical Reference",
       type,
-      status: "draft",
+      status: "published",
       author: "GP Edge Admin",
       references: extractedRefs.length > 0 ? extractedRefs.length : (type === "Condition" ? 3 : 1),
       fullHtml: contentHtml.trim(),
@@ -516,7 +472,7 @@ export default function ContentPage() {
       system: newSystem,
       category: newCategory.trim() || "Clinical Reference",
       type,
-      status: "draft",
+      status: "published",
       lastUpdated: new Date().toISOString().split("T")[0],
       author: "GP Edge Admin",
       references: extractedRefs.length > 0 ? extractedRefs.length : (type === "Condition" ? 3 : 1),
@@ -619,17 +575,6 @@ export default function ContentPage() {
           ]}
           className="w-48"
         />
-        <CustomSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "All Status" },
-            { value: "published", label: "Published" },
-            { value: "review", label: "Review" },
-            { value: "draft", label: "Draft" },
-          ]}
-          className="w-48"
-        />
       </motion.div>
 
       {/* Content cards grid */}
@@ -671,16 +616,6 @@ export default function ContentPage() {
                   >
                     <Lucide.Edit className="w-4 h-4" />
                   </Link>
-                  {item.status === "draft" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all" title="Send to Review">
-                      <Lucide.ChevronRight className="w-4 h-4" />
-                    </button>
-                  )}
-                  {item.status === "review" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "published"); }} className="p-1 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all" title="Publish">
-                      <Lucide.Check className="w-4 h-4" />
-                    </button>
-                  )}
                   <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
                     <Lucide.Trash2 className="w-4 h-4" />
                   </button>
@@ -841,7 +776,7 @@ export default function ContentPage() {
                             system: newSystem,
                             category: newCategory.trim() || "Clinical Reference",
                             type: "Guideline",
-                            status: "draft",
+                            status: "published",
                             author: "GP Edge Admin",
                             fullHtml: html,
                           }).then((savedId) => {
@@ -851,7 +786,7 @@ export default function ContentPage() {
                               system: newSystem,
                               category: newCategory.trim() || "Clinical Reference",
                               type: "Guideline",
-                              status: "draft",
+                              status: "published",
                               lastUpdated: new Date().toISOString().split("T")[0],
                               author: "GP Edge Admin",
                               references: (extractedData?.references?.length) || 0,

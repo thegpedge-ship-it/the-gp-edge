@@ -91,49 +91,126 @@ export default function AutofillPage() {
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isReadOnly) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    setSelectedFile(file);
-    setUploadedFileName(file.name);
-    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
-    setUploadedFileType(ext.toUpperCase());
-    setUploadedFilePreview(ext === "pdf" ? "pdf" : "docx");
-    setUploadState("uploading");
-    setUploadProgress(0);
+    const fileList = Array.from(files);
+    
+    if (fileList.length === 1) {
+      const file = fileList[0];
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      setSelectedFile(file);
+      setUploadedFileName(file.name);
+      setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
+      setUploadedFileType(ext.toUpperCase());
+      setUploadedFilePreview(ext === "pdf" ? "pdf" : "docx");
+      setUploadState("uploading");
+      setUploadProgress(0);
 
-    const progressTimer = setInterval(() => {
-      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
-    }, 150);
+      const progressTimer = setInterval(() => {
+        setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
+      }, 150);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "autofill");
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "autofill");
 
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        body: formData,
-      });
+        const res = await fetch("/api/extract", {
+          method: "POST",
+          body: formData,
+        });
 
-      clearInterval(progressTimer);
-      setUploadProgress(100);
+        clearInterval(progressTimer);
+        setUploadProgress(100);
 
-      const result = await res.json();
-      if (result.success) {
-        setExtractedData(result);
-        setUploadState("success");
-        // Auto-trigger extraction immediately — no manual button needed
-        runTextExtraction(result);
-      } else {
-        alert(result.error || "Failed to extract text from document");
+        const result = await res.json();
+        if (result.success) {
+          setExtractedData(result);
+          setUploadState("success");
+          runTextExtraction(result);
+        } else {
+          alert(result.error || "Failed to extract text from document");
+          setUploadState("idle");
+        }
+      } catch (err: any) {
+        clearInterval(progressTimer);
+        alert("Upload error: " + err.message);
         setUploadState("idle");
       }
-    } catch (err: any) {
-      clearInterval(progressTimer);
-      alert("Upload error: " + err.message);
-      setUploadState("idle");
+    } else {
+      setUploadedFileName(`${fileList.length} files`);
+      const totalSize = (fileList.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2) + " MB";
+      setUploadedFileSize(totalSize);
+      setUploadedFileType("BATCH");
+      setUploadedFilePreview(null);
+      setUploadState("uploading");
+      setUploadProgress(0);
+
+      let successCount = 0;
+      let templatesList = getAutofillTemplates();
+      let nextId = templatesList.length > 0 ? Math.max(...templatesList.map(t => t.id)) + 1 : 1;
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        setUploadProgress(Math.round((i / fileList.length) * 100));
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("type", "autofill");
+
+          const res = await fetch("/api/extract", {
+            method: "POST",
+            body: formData,
+          });
+          const result = await res.json();
+          if (result.success) {
+            const title = result.title || file.name.replace(/\.[^/.]+$/, "");
+            const system = result.system || "Respiratory";
+            const category = result.category || "Acute";
+            const subjective = result.symptoms || result.subjective || "";
+            const objective = result.objective || "";
+            const plan = result.treatment || result.plan || "";
+            const assessment = result.notes || result.assessment || "";
+            const doctorSummary = result.doctorSummary || "";
+            const patientResources = result.patientResources || "";
+
+            const newTemplate: AutofillTemplate = {
+              id: nextId++,
+              name: title,
+              system: system,
+              category: category,
+              fields: 0,
+              usageCount: 0,
+              lastUsed: "Just now",
+              status: "active",
+              author: "GP Edge Admin",
+              version: "v1.0",
+              subjective,
+              objective,
+              assessment,
+              plan,
+              doctorSummary,
+              patientResources,
+              sampleFields: []
+            };
+            templatesList = [newTemplate, ...templatesList];
+            successCount++;
+          }
+        } catch (err) {
+          console.error("Batch extraction failed for file " + file.name, err);
+        }
+      }
+
+      setUploadProgress(100);
+      setUploadState("success");
+      setTemplates(templatesList);
+      saveAutofillTemplates(templatesList);
+      
+      setTimeout(() => {
+        setUploadState("idle");
+        addUserNotification("Batch Import Successful", `Successfully imported ${successCount} autofill templates.`, 1, "custom");
+      }, 1500);
     }
   };
 
@@ -585,12 +662,12 @@ export default function AutofillPage() {
                           <div
                             onClick={() => fileInputRef.current?.click()}
                             onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
+                             onDrop={(e) => {
                               e.preventDefault();
-                              const file = e.dataTransfer.files?.[0];
-                              if (file && fileInputRef.current) {
+                              const files = e.dataTransfer.files;
+                              if (files && files.length > 0 && fileInputRef.current) {
                                 const dt = new DataTransfer();
-                                dt.items.add(file);
+                                Array.from(files).forEach((f) => dt.items.add(f));
                                 fileInputRef.current.files = dt.files;
                                 fileInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
                               }
@@ -602,6 +679,7 @@ export default function AutofillPage() {
                               ref={fileInputRef}
                               onChange={handleFileChange}
                               accept=".pdf,.docx"
+                              multiple
                               className="hidden"
                             />
                             <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center group-hover:scale-110 transition-transform">

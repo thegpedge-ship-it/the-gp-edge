@@ -23,89 +23,10 @@ function normalizeSystemName(sys: string): string {
   return sys;
 }
 
-function getBlockNodes(html: string): ChildNode[] {
-  if (typeof window === "undefined") return [];
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  
-  const blocks: ChildNode[] = [];
-  
-  function traverse(node: ChildNode) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      if (node.textContent?.trim()) {
-        blocks.push(node);
-      }
-      return;
-    }
-    
-    if (node.nodeType === Node.ELEMENT_NODE) {
-      const el = node as HTMLElement;
-      const tagName = el.tagName.toUpperCase();
-      
-      if (["P", "TABLE", "UL", "OL", "H1", "H2", "H3", "H4", "H5", "H6", "BLOCKQUOTE", "HR"].includes(tagName)) {
-        blocks.push(el);
-      } else if (tagName === "DIV" || tagName === "SECTION" || tagName === "ARTICLE" || tagName === "SPAN") {
-        if (el.childNodes.length > 0) {
-          Array.from(el.childNodes).forEach(traverse);
-        } else if (el.textContent?.trim()) {
-          blocks.push(el);
-        }
-      } else {
-        blocks.push(el);
-      }
-    }
-  }
-  
-  Array.from(temp.childNodes).forEach(traverse);
-  return blocks;
-}
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 
 function cleanTableHtmlStyles(html: string): string {
   return html;
-}
-
-function splitHtmlIntoPages(html: string): string[] {
-  if (typeof window === "undefined") return [html];
-  
-  const blocks = getBlockNodes(html);
-  if (blocks.length === 0) return [html];
-  
-  const pages: string[] = [];
-  let currentPageHtml = "";
-  let currentPageTextLength = 0;
-  
-  blocks.forEach((node) => {
-    const nodeHtml = (node.nodeType === Node.ELEMENT_NODE) 
-      ? (node as HTMLElement).outerHTML 
-      : node.textContent || "";
-    const nodeText = node.textContent || "";
-    const nodeLength = nodeText.length;
-    
-    const isFirstPage = pages.length === 0;
-    const limit = isFirstPage ? 3000 : 4000;
-    
-    const isHeading = node.nodeType === Node.ELEMENT_NODE && 
-      ["H1", "H2", "H3", "H4", "H5", "H6"].includes((node as HTMLElement).tagName.toUpperCase());
-    
-    const shouldStartNewPage = 
-      (currentPageTextLength > 0 && currentPageTextLength + nodeLength > limit) ||
-      (isHeading && currentPageTextLength > 2000);
-      
-    if (shouldStartNewPage) {
-      pages.push(currentPageHtml.trim());
-      currentPageHtml = nodeHtml;
-      currentPageTextLength = nodeLength;
-    } else {
-      currentPageHtml += nodeHtml;
-      currentPageTextLength += nodeLength;
-    }
-  });
-  
-  if (currentPageHtml.trim()) {
-    pages.push(currentPageHtml.trim());
-  }
-  
-  return pages.length > 0 ? pages : [html];
 }
 
 function PDFViewerContent() {
@@ -127,11 +48,11 @@ function PDFViewerContent() {
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return;
     const updateScale = () => {
-      const parentWidth = containerRef.current?.getBoundingClientRect().width || 720;
+      const parentWidth = containerRef.current?.getBoundingClientRect().width || 794;
       // Padding is p-8 (32px) or sm:p-12 (48px) on each side. Let's use 96px total padding.
       const padding = window.innerWidth >= 640 ? 96 : 64;
       const availableWidth = parentWidth - padding;
-      const factor = Math.min(1, availableWidth / 720);
+      const factor = Math.min(1, availableWidth / 794);
       setScaleFactor(factor);
     };
     updateScale();
@@ -142,6 +63,7 @@ function PDFViewerContent() {
   const currentZoomScale = useMemo(() => {
     return scaleFactor * (pdfZoom / 100);
   }, [scaleFactor, pdfZoom]);
+
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -155,72 +77,66 @@ function PDFViewerContent() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const loadPdfData = async () => {
+      setLoading(true);
       let found = mockConditions.find((c) => c.id === id) || null;
       if (!found && id && id.startsWith("CUSTOM-")) {
         const adminContent = getMedicalContent();
         const cleanId = id.replace("CUSTOM-", "");
         const item = adminContent.find((c) => String(c.id) === cleanId);
-        if (item) {
-          const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
-          let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
-          if (referencesRaw) {
-            try { refs = JSON.parse(referencesRaw); } catch {}
-          }
-          const savedHtml = localStorage.getItem(`gpedge_content_body_${item.id}`) || "";
-          const cleanedHtml = cleanTableHtmlStyles(savedHtml);
-          setCustomHtml(cleanedHtml);
+        
+        try {
+          const res = await fetch(`/api/medical-content/${cleanId}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            const fullHtml = data.fullHtml || "";
+            const cleanedHtml = cleanTableHtmlStyles(fullHtml);
+            setCustomHtml(cleanedHtml);
 
-          const savedPagesRaw = localStorage.getItem(`gpedge_content_pages_${item.id}`);
-          let parsedPages: string[] = [];
-          if (savedPagesRaw) {
-            try { parsedPages = JSON.parse(savedPagesRaw); } catch {}
-          }
-          if (parsedPages.length <= 1) {
-            parsedPages = splitHtmlIntoPages(cleanedHtml || "");
-          } else {
-            parsedPages = parsedPages.map(pageHtml => cleanTableHtmlStyles(pageHtml));
-          }
-          setCustomPages(parsedPages);
+            const parsedPages = splitHtmlIntoPages(cleanedHtml);
+            setCustomPages(parsedPages);
+            
+            const refs = data.references || [];
+            const tags = data.tags || [];
+            setCustomTags(tags);
 
-          const tagsRaw = localStorage.getItem(`gpedge_content_tags_${item.id}`);
-          let parsedTags: string[] = [];
-          if (tagsRaw) {
-            try { parsedTags = JSON.parse(tagsRaw); } catch {}
+            const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+              data.type === "Condition" ? "Condition" :
+              data.type === "Guideline" || data.type === "Protocol" || data.type === "Pathway" ? "Guideline" :
+              data.type === "Note" ? "Note" : "Document";
+
+            found = {
+              id: `CUSTOM-${data.id}`,
+              name: data.name,
+              system: normalizeSystemName(data.system) as any,
+              category: data.category,
+              type: normalizedType,
+              lastUpdated: data.lastUpdated,
+              author: data.author,
+              symptoms: [],
+              diagnosisCriteria: [],
+              treatmentOptions: [],
+              clinicalNotes: "",
+              references: refs,
+              document: {
+                filename: `${data.name.replace(/\s+/g, "_")}.pdf`,
+                fileSize: "1.2 MB",
+                totalPages: parsedPages.length,
+                downloadUrl: "#",
+                summary: data.name
+              }
+            };
           }
-          setCustomTags(parsedTags);
-
-          const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
-            item.type === "Condition" ? "Condition" :
-            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
-            item.type === "Note" ? "Note" : "Document";
-
-          found = {
-            id: `CUSTOM-${item.id}`,
-            name: item.name,
-            system: normalizeSystemName(item.system) as any,
-            category: item.category,
-            type: normalizedType,
-            lastUpdated: item.lastUpdated,
-            author: item.author,
-            symptoms: [],
-            diagnosisCriteria: [],
-            treatmentOptions: [],
-            clinicalNotes: "",
-            references: refs,
-            document: {
-              filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
-              fileSize: "1.2 MB",
-              totalPages: parsedPages.length,
-              downloadUrl: "#",
-              summary: item.name
-            }
-          };
+        } catch (err) {
+          console.error("Error loading view-pdf details from API:", err);
         }
       }
       setCondition(found);
       setLoading(false);
-    }
+    };
+
+    loadPdfData();
   }, [id]);
 
   useEffect(() => {
@@ -605,21 +521,21 @@ function PDFViewerContent() {
         <div
           className="mx-auto"
           style={{
-            width: `${720 * currentZoomScale}px`,
-            height: doc.totalPages > 1 ? `${1020 * currentZoomScale}px` : "auto",
+            width: `${794 * currentZoomScale}px`,
+            height: doc.totalPages > 1 ? `${1123 * currentZoomScale}px` : "auto",
             position: "relative",
             flexShrink: 0,
           }}
         >
           <div 
             id="printable-pdf-area"
-            className="bg-white text-slate-800 p-10 sm:p-12 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
+            className="bg-white text-slate-800 p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
             style={{
               transform: `scale(${currentZoomScale})`,
               transformOrigin: "top left",
-              width: "720px",
-              minHeight: doc.totalPages > 1 ? "1020px" : "auto",
-              height: doc.totalPages > 1 ? "1020px" : "auto",
+              width: "794px",
+              minHeight: doc.totalPages > 1 ? "1123px" : "auto",
+              height: doc.totalPages > 1 ? "1123px" : "auto",
               position: doc.totalPages > 1 ? "absolute" : "relative",
               overflowY: doc.totalPages > 1 ? "hidden" : "visible",
             }}
@@ -807,7 +723,7 @@ function PDFViewerContent() {
             )}
 
             {/* Professional PDF Footer */}
-            <footer className="absolute bottom-12 left-12 right-12 border-t border-slate-200 pt-4 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
+            <footer className="absolute bottom-8 left-16 right-16 border-t border-slate-200 pt-3 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
               <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
               <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
             </footer>
