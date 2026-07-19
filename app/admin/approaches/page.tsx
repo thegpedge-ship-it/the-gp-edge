@@ -465,10 +465,6 @@ export default function ApproachesPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1.5">
-                      <Lucide.ListChecks className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      {(card.steps || []).length} steps
-                    </span>
-                    <span className="flex items-center gap-1.5">
                       <Lucide.Tag className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                       <span className="truncate max-w-[120px]">
                         {(card.tags || []).slice(0, 2).join(", ")}{(card.tags || []).length > 2 ? ` +${(card.tags || []).length - 2}` : ""}
