@@ -1,9 +1,16 @@
 "use server";
 
 import { query, queryOne } from "@/lib/db";
-import { embedTexts, toVectorLiteral, EMBED_BATCH_SIZE } from "@/lib/mbs/embed";
+import {
+  embedTexts,
+  embedQuery,
+  toVectorLiteral,
+  EMBED_BATCH_SIZE,
+} from "@/lib/mbs/embed";
 import { generateTitles, TITLE_BATCH_SIZE } from "@/lib/mbs/title";
 import type { MbsXmlItem } from "@/lib/mbs/parseMbsXml";
+import { MBS_RESULT_LIMIT, MBS_SEARCH_POOL } from "@/lib/mbs/constants";
+import { ensureDbUser } from "@/lib/user";
 
 export interface SyncBatchResult {
   inserted: number;
@@ -311,4 +318,194 @@ export async function retireMissingMbsItemsAction(
     restored: restoredRows.length,
     retiredSample: retiredRows.slice(0, 60).map((r) => r.item_num),
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   USER-FACING SEARCH
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface MbsSearchHit {
+  itemNum: number;
+  title: string | null;
+  description: string;
+  /** Cosine similarity 0..1. Null for the unsearched default listing. */
+  score: number | null;
+  /** Which vector produced the winning score — useful for debugging odd hits. */
+  matchedOn: "title" | "description" | null;
+  saved: boolean;
+}
+
+/** Item numbers the signed-in user has saved. Empty when signed out. */
+async function savedItemNums(): Promise<Set<number>> {
+  const user = await ensureDbUser();
+  if (!user) return new Set();
+  const rows = await query<{ item_num: number }>(
+    `SELECT item_num FROM user_favourite_mbs_items WHERE user_id = $1`,
+    [user.id],
+  );
+  return new Set(rows.map((r) => r.item_num));
+}
+
+export interface MbsPage {
+  items: MbsSearchHit[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+/**
+ * Paginated browse listing — every live item in the schedule.
+ *
+ * Deliberately does NOT filter on `embedding IS NOT NULL`, unlike search.
+ * Browsing needs no vector, so requiring one would hide thousands of perfectly
+ * valid items whenever the embedding passes are incomplete, and the schedule
+ * would look far smaller than it is.
+ *
+ * Ordered by item number so the grid is stable across visits and paging is
+ * meaningful — a non-deterministic order makes page 2 overlap page 1.
+ */
+export async function listMbsItemsAction(
+  page = 1,
+  pageSize = MBS_RESULT_LIMIT,
+): Promise<MbsPage> {
+  const safePage = Math.max(1, Math.floor(page));
+  const offset = (safePage - 1) * pageSize;
+
+  const [rows, countRow, saved] = await Promise.all([
+    query<{ item_num: number; title: string | null; description: string }>(
+      `SELECT item_num, title, description
+         FROM mbs_items
+        WHERE retired_at IS NULL
+        ORDER BY item_num
+        LIMIT $1 OFFSET $2`,
+      [pageSize, offset],
+    ),
+    queryOne<{ count: string }>(
+      `SELECT count(*)::text AS count FROM mbs_items WHERE retired_at IS NULL`,
+    ),
+    savedItemNums(),
+  ]);
+
+  const total = Number(countRow?.count ?? 0);
+
+  return {
+    items: rows.map((r) => ({
+      itemNum: r.item_num,
+      title: r.title,
+      description: r.description,
+      score: null,
+      matchedOn: null,
+      saved: saved.has(r.item_num),
+    })),
+    total,
+    page: safePage,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  };
+}
+
+/**
+ * Semantic search across BOTH vectors.
+ *
+ * Each branch runs its own nearest-neighbour scan so it can use its own partial
+ * HNSW index. Scoring GREATEST(...) across both vectors in a single ORDER BY
+ * instead would be one expression over two indexes — unindexable, and it would
+ * sequential-scan all 6,000 rows on every keystroke.
+ *
+ * Both branches over-fetch (3x the limit) before merging: if each returned only
+ * `limit`, an item ranked just outside the top 12 on BOTH vectors would be lost
+ * even though its combined standing beats items that made one list.
+ */
+export async function searchMbsAction(
+  text: string,
+  limit = MBS_SEARCH_POOL,
+): Promise<MbsSearchHit[]> {
+  const q = text.trim();
+  // Below three characters an embedding is noise, and the call still costs
+  // quota. The client enforces this too; this is the backstop.
+  if (q.length < 3) return [];
+
+  // RETRIEVAL_QUERY, not RETRIEVAL_DOCUMENT — Gemini places queries and
+  // documents in deliberately different regions of the space.
+  const vec = toVectorLiteral(await embedQuery(q));
+  const overFetch = Math.max(limit * 3, 40);
+
+  const [rows, saved] = await Promise.all([
+    query<{
+      item_num: number;
+      title: string | null;
+      description: string;
+      score: string;
+      matched_on: "title" | "description";
+    }>(
+      `WITH by_description AS (
+         SELECT item_num,
+                1 - (embedding <=> $1::vector) AS score,
+                'description'::text AS matched_on
+           FROM mbs_items
+          WHERE retired_at IS NULL AND embedding IS NOT NULL
+          ORDER BY embedding <=> $1::vector
+          LIMIT $2
+       ),
+       by_title AS (
+         SELECT item_num,
+                1 - (title_embedding <=> $1::vector) AS score,
+                'title'::text AS matched_on
+           FROM mbs_items
+          WHERE retired_at IS NULL AND title_embedding IS NOT NULL
+          ORDER BY title_embedding <=> $1::vector
+          LIMIT $2
+       ),
+       merged AS (
+         SELECT DISTINCT ON (item_num) item_num, score, matched_on
+           FROM (SELECT * FROM by_description UNION ALL SELECT * FROM by_title) u
+          ORDER BY item_num, score DESC
+       )
+       SELECT m.item_num, i.title, i.description, m.score::text, m.matched_on
+         FROM merged m
+         JOIN mbs_items i USING (item_num)
+        ORDER BY m.score DESC
+        LIMIT $3`,
+      [vec, overFetch, limit],
+    ),
+    savedItemNums(),
+  ]);
+
+  return rows.map((r) => ({
+    itemNum: r.item_num,
+    title: r.title,
+    description: r.description,
+    score: Number(r.score),
+    matchedOn: r.matched_on,
+    saved: saved.has(r.item_num),
+  }));
+}
+
+/**
+ * Save or unsave an item for the signed-in user.
+ *
+ * Returns the resulting state so the caller can reconcile against what it
+ * optimistically rendered, rather than assuming the toggle landed.
+ */
+export async function toggleMbsFavouriteAction(
+  itemNum: number,
+): Promise<{ saved: boolean }> {
+  const user = await ensureDbUser();
+  if (!user) return { saved: false };
+
+  const deleted = await query<{ item_num: number }>(
+    `DELETE FROM user_favourite_mbs_items
+      WHERE user_id = $1 AND item_num = $2
+      RETURNING item_num`,
+    [user.id, itemNum],
+  );
+  if (deleted.length > 0) return { saved: false };
+
+  // ON CONFLICT guards the double-click race where two toggles arrive together.
+  await query(
+    `INSERT INTO user_favourite_mbs_items (user_id, item_num)
+     VALUES ($1, $2)
+     ON CONFLICT DO NOTHING`,
+    [user.id, itemNum],
+  );
+  return { saved: true };
 }
