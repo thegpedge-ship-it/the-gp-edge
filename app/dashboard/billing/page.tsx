@@ -24,12 +24,16 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  ArrowLeft,
+  ExternalLink,
 } from "lucide-react";
 import {
   listMbsItemsAction,
   searchMbsAction,
   toggleMbsFavouriteAction,
+  fetchMbsItemPageAction,
   type MbsSearchHit,
+  type MbsItemPage,
 } from "@/actions/mbs.actions";
 import { MBS_RESULT_LIMIT } from "@/lib/mbs/constants";
 
@@ -56,6 +60,29 @@ export default function MbsBillingPage() {
   const [page, setPage] = useState(1);
   const [browseTotalPages, setBrowseTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+
+  /** Detail view. Non-null replaces the grid with the government page. */
+  const [detail, setDetail] = useState<MbsItemPage | null>(null);
+  const [detailFor, setDetailFor] = useState<number | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const openItem = useCallback(async (itemNum: number) => {
+    setDetailFor(itemNum);
+    setDetail(null);
+    setDetailError(null);
+    window.scrollTo({ top: 0 });
+    try {
+      setDetail(await fetchMbsItemPageAction(itemNum));
+    } catch {
+      setDetailError(`Could not load item ${itemNum} from MBS Online.`);
+    }
+  }, []);
+
+  const closeDetail = useCallback(() => {
+    setDetailFor(null);
+    setDetail(null);
+    setDetailError(null);
+  }, []);
 
   /**
    * Guards against out-of-order responses.
@@ -164,6 +191,62 @@ export default function MbsBillingPage() {
     ? Math.max(1, Math.ceil(items.length / MBS_RESULT_LIMIT))
     : browseTotalPages;
 
+  /* ── Detail view — replaces the grid entirely ─────────────────────────── */
+  if (detailFor !== null) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-5">
+        <div className="flex items-center justify-between gap-4">
+          <button
+            onClick={closeDetail}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to items
+          </button>
+
+          {detail && (
+            <a
+              href={detail.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              Open on MBS Online
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+          Item {detailFor}
+        </h1>
+
+        {detailError ? (
+          <p className="text-sm font-semibold text-red-600 dark:text-red-400">{detailError}</p>
+        ) : !detail ? (
+          <div className="space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-4 rounded bg-slate-100 dark:bg-slate-800/50 animate-pulse"
+                style={{ width: `${90 - i * 6}%` }}
+              />
+            ))}
+          </div>
+        ) : (
+          /* Markup comes from MBS Online with scripts, forms, inline handlers
+             and javascript: URLs already stripped server-side (stripUnsafe).
+             overflow-x-auto contains the government page's wide tables rather
+             than letting them scroll the whole dashboard sideways. */
+          <div
+            className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 overflow-x-auto text-sm text-slate-700 dark:text-slate-300"
+            dangerouslySetInnerHTML={{ __html: detail.html }}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -224,7 +307,12 @@ export default function MbsBillingPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {visibleItems.map((item) => (
-            <ItemCard key={item.itemNum} item={item} onToggleSave={toggleSave} />
+            <ItemCard
+              key={item.itemNum}
+              item={item}
+              onToggleSave={toggleSave}
+              onOpen={openItem}
+            />
           ))}
         </div>
       )}
@@ -307,9 +395,11 @@ function Pagination({
 function ItemCard({
   item,
   onToggleSave,
+  onOpen,
 }: {
   item: MbsSearchHit;
   onToggleSave: (itemNum: number) => void;
+  onOpen: (itemNum: number) => void;
 }) {
   return (
     <motion.div
@@ -318,8 +408,17 @@ function ItemCard({
       transition={{ duration: 0.2 }}
       className="relative rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
     >
+      {/* The clickable region deliberately excludes the save button, which sits
+          outside it — nesting a button inside a button is invalid HTML and the
+          save click would also open the item. */}
+      <button
+        onClick={() => onOpen(item.itemNum)}
+        className="absolute inset-0 z-0 rounded-2xl cursor-pointer"
+        aria-label={`Open item ${item.itemNum}`}
+      />
+
       {/* pr-9 reserves space so a long title never runs under the save icon. */}
-      <div className="pr-9">
+      <div className="pr-9 relative z-0 pointer-events-none">
         <span className="inline-block text-[11px] font-bold tracking-wider text-emerald-700 dark:text-emerald-400">
           ITEM {item.itemNum}
         </span>
@@ -335,10 +434,11 @@ function ItemCard({
         </p>
       </div>
 
+      {/* z-10 keeps this above the full-card open overlay. */}
       <button
         onClick={() => onToggleSave(item.itemNum)}
         aria-label={item.saved ? "Remove from saved" : "Save item"}
-        className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-300 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+        className="absolute top-4 right-4 z-10 p-1.5 rounded-lg text-slate-300 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
       >
         {item.saved ? (
           <BookmarkCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />

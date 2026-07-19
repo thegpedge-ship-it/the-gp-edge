@@ -509,3 +509,92 @@ export async function toggleMbsFavouriteAction(
   );
   return { saved: true };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ITEM DETAIL — live fetch of the government page
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const MBS_HOST = "https://www9.health.gov.au";
+
+/**
+ * Remove everything that can execute or navigate on our behalf.
+ *
+ * The fetched markup is injected with dangerouslySetInnerHTML, so anything left
+ * here runs in our origin with our cookies. The source is a government site, but
+ * "trusted today" is not a security model — a compromised or altered upstream
+ * page would otherwise get script execution on an authenticated session.
+ *
+ * Regex stripping is deliberately blunt and is NOT a general-purpose sanitiser;
+ * it is sufficient because we drop entire categories of element rather than
+ * trying to make them safe.
+ */
+function stripUnsafe(html: string): string {
+  return (
+    html
+      .replace(/<script\b[\s\S]*?<\/script\s*>/gi, "")
+      .replace(/<style\b[\s\S]*?<\/style\s*>/gi, "")
+      .replace(/<(iframe|object|embed|applet|form|input|button|noscript)\b[\s\S]*?<\/\1\s*>/gi, "")
+      .replace(/<(iframe|object|embed|applet|form|input|button|link|meta|base)\b[^>]*\/?>/gi, "")
+      // Inline handlers: onclick=, onerror=, onload= …
+      .replace(/\son[a-z]+\s*=\s*"[^"]*"/gi, "")
+      .replace(/\son[a-z]+\s*=\s*'[^']*'/gi, "")
+      .replace(/\son[a-z]+\s*=\s*[^\s>]+/gi, "")
+      // javascript: URLs in whatever anchors survive
+      .replace(/(href|src)\s*=\s*"javascript:[^"]*"/gi, '$1="#"')
+      .replace(/(href|src)\s*=\s*'javascript:[^']*'/gi, "$1='#'")
+  );
+}
+
+/** Point root-relative asset and link paths back at the government host so
+ *  images resolve and links do not 404 against our own domain. */
+function absolutiseUrls(html: string): string {
+  return html
+    .replace(/(href|src)\s*=\s*"\/(?!\/)/gi, `$1="${MBS_HOST}/`)
+    .replace(/(href|src)\s*=\s*'\/(?!\/)/gi, `$1='${MBS_HOST}/`);
+}
+
+export interface MbsItemPage {
+  itemNum: number;
+  /** Sanitised inner HTML of the source page's <body>. */
+  html: string;
+  /** The page this was taken from, for an "open original" link. */
+  sourceUrl: string;
+}
+
+/**
+ * Fetch one item's page from MBS Online and return its body markup.
+ *
+ * Fetched fresh on every request (no-store) rather than cached — the schedule
+ * is the billing source of truth and a stale fee shown as current is worse than
+ * a slower page.
+ */
+export async function fetchMbsItemPageAction(
+  itemNum: number,
+): Promise<MbsItemPage> {
+  if (!Number.isInteger(itemNum) || itemNum <= 0) {
+    throw new Error("Invalid item number.");
+  }
+
+  const sourceUrl =
+    `${MBS_HOST}/mbs/fullDisplay.cfm` +
+    `?type=item&q=${itemNum}&qt=item&criteria=${itemNum}`;
+
+  const res = await fetch(sourceUrl, {
+    // Default fetch agents are refused by some government endpoints.
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; GPEdge/1.0)" },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`MBS Online returned ${res.status} for item ${itemNum}.`);
+  }
+
+  const raw = await res.text();
+  const body = raw.match(/<body[^>]*>([\s\S]*?)<\/body\s*>/i)?.[1] ?? raw;
+
+  return {
+    itemNum,
+    html: absolutiseUrls(stripUnsafe(body)),
+    sourceUrl,
+  };
+}
