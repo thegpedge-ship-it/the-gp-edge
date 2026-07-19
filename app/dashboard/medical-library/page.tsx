@@ -1294,7 +1294,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           {/* Overview Box */}
                           {(selectedApproachCard?.overview || selectedCondition.document?.summary) && (
                             <div className={`p-4 bg-gradient-to-br ${sys.glow} to-transparent border border-slate-200/50 dark:border-slate-800/30 ${sys.text} text-xs leading-relaxed font-semibold rounded-2xl`}>
-                              {decodeHtmlEntities(selectedApproachCard ? selectedApproachCard.overview : selectedCondition.document?.summary)}
+                              {decodeHtmlEntities((selectedApproachCard ? selectedApproachCard.overview : selectedCondition.document?.summary) || "")}
                             </div>
                           )}
 
