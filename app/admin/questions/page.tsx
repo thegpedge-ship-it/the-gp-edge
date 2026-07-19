@@ -350,27 +350,36 @@ export default function QuestionsPage() {
 
     // Process all files concurrently
     const allExtracted: any[] = [];
-    let completedCount = 0;
 
     const updateBatchFile = (idx: number, updates: Partial<typeof initialBatch[0]>) => {
-      setBatchFiles(prev => prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf));
+      setBatchFiles(prev => {
+        const next = prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf);
+        const totalProgress = next.reduce((sum, f) => sum + f.progress, 0);
+        const avgProgress = Math.round(totalProgress / next.length);
+        setUploadProgress(avgProgress);
+        return next;
+      });
     };
 
     await Promise.allSettled(
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Simulate incremental progress
+        // Simulate incremental progress smoothly
+        let currentProgress = 10;
         const progressTimer = setInterval(() => {
-          updateBatchFile(idx, { progress: Math.min(90, 10 + Math.random() * 50) });
-        }, 200);
+          currentProgress += Math.random() * 8 + 2;
+          if (currentProgress > 90) currentProgress = 90;
+          updateBatchFile(idx, { progress: Math.round(currentProgress) });
+        }, 250);
 
         try {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("type", "question");
 
-          updateBatchFile(idx, { status: "extracting", progress: 40 });
+          // Keep current progress but update status to extracting
+          updateBatchFile(idx, { status: "extracting" });
 
           const res = await fetch("/api/extract", {
             method: "POST",
@@ -404,9 +413,6 @@ export default function QuestionsPage() {
           clearInterval(progressTimer);
           updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
         }
-
-        completedCount++;
-        setUploadProgress(Math.round((completedCount / fileList.length) * 100));
       })
     );
 
@@ -1415,6 +1421,13 @@ export default function QuestionsPage() {
                               {bf.error && <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>}
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0">{bf.size}</span>
+                            <span className={`text-[10px] font-mono w-8 text-right shrink-0 ${
+                              bf.status === "success" ? "text-emerald-600 dark:text-emerald-400" :
+                              bf.status === "error" ? "text-red-500" :
+                              "text-teal-600 dark:text-teal-400"
+                            }`}>
+                              {bf.progress}%
+                            </span>
                             {/* Mini progress bar */}
                             <div className="w-16 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0">
                               <div className={`h-full transition-all duration-300 rounded-full ${
