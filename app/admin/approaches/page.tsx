@@ -76,6 +76,7 @@ function emptyStep(): ApproachStep {
 
 export default function ApproachesPage() {
   const { isReadOnly } = useAdminRole();
+  const router = useRouter();
   const [cards, setCards] = useState<ApproachCard[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
@@ -457,8 +458,7 @@ export default function ApproachesPage() {
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{card.lastUpdated}</span>
                 </div>
                 <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-800 dark:group-hover:text-slate-350 transition-colors">{card.title}</h3>
-                <p className="text-xs text-slate-400 dark:text-slate-550 mb-3">{card.subtitle}</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed">{card.overview}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{card.system} · {card.category}</p>
               </div>
 
               <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800">

@@ -15,6 +15,17 @@ function cleanTableHtmlStyles(html: string): string {
   return html;
 }
 
+function decodeHtmlEntities(str: string): string {
+  if (!str) return "";
+  return str
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#039;/g, "'");
+}
+
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
 
@@ -262,7 +273,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
         </div>
 
         <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
-          {condition.name}
+          {decodeHtmlEntities(condition.name)}
         </h3>
 
         <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
@@ -338,7 +349,7 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
         </div>
 
         <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5">
-          {condition.name}
+          {decodeHtmlEntities(condition.name)}
         </h4>
 
         <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
@@ -347,14 +358,6 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
           <span>{condition.category}</span>
         </div>
 
-        <div className="space-y-1 mb-4">
-          {(condition.symptoms || []).slice(0, 2).map((rf, i) => (
-            <p key={i} className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
-              <span className="text-teal-600 dark:text-teal-500 font-bold">•</span>
-              <span className="truncate">{rf}</span>
-            </p>
-          ))}
-        </div>
       </div>
 
       <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
@@ -523,7 +526,7 @@ function MedicalLibraryContent() {
                 fileSize: "1.2 MB",
                 totalPages: parsedPages.length || 1,
                 downloadUrl: "#",
-                summary: card.subtitle || card.overview || "",
+                summary: card.subtitle || card.overview || card.title,
                 pages: parsedPages
               }
             };
@@ -604,7 +607,7 @@ function MedicalLibraryContent() {
 
   const selectedCondition = useMemo<MedicalCondition | null>(() => {
     if (!selectedConditionRaw) return null;
-    if (selectedConditionRaw.id.startsWith("CUSTOM-") && !selectedConditionRaw.id.startsWith("CUSTOM-APPROACH-") && dbConditionData) {
+    if (selectedConditionRaw.id.startsWith("CUSTOM-") && dbConditionData) {
       return {
         ...selectedConditionRaw,
         clinicalNotes: dbConditionData.fullHtml,
@@ -1093,7 +1096,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     <Lucide.ChevronRight className="w-3 h-3 text-slate-350" />
                     <span>{selectedCondition.category}</span>
                     <Lucide.ChevronRight className="w-3 h-3 text-slate-350" />
-                    <span className="text-slate-600 dark:text-slate-350">{selectedCondition.name}</span>
+                    <span className="text-slate-600 dark:text-slate-350">{decodeHtmlEntities(selectedCondition.name)}</span>
                   </div>
 
                   {/* Header info */}
@@ -1119,7 +1122,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         )}
                       </div>
                       <h2 className="font-sans text-xl md:text-2xl font-semibold leading-snug text-slate-900 dark:text-slate-100 tracking-tight mt-1">
-                        {selectedCondition.name}
+                        {decodeHtmlEntities(selectedCondition.name)}
                       </h2>
                     </div>
                   </div>
@@ -1137,7 +1140,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       </div>
                     </div>
                     <p className="font-sans text-xs md:text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-200">
-                      {selectedCondition.document?.summary || `This high-yield clinical overview for ${selectedCondition.name} details major symptoms presentation, diagnostic steps benchmarks, and stepwise management options.`}
+                      {decodeHtmlEntities(selectedCondition.document?.summary || `This high-yield clinical overview for ${selectedCondition.name} details major symptoms presentation, diagnostic steps benchmarks, and stepwise management options.`)}
                     </p>
                   </div>
 
@@ -1165,7 +1168,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   </div>
 
                   {/* Rest of Clinical Details */}
-                  {!selectedCondition.id.startsWith("CUSTOM-") || selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? (
+                  {!selectedCondition.id.startsWith("CUSTOM-") ? (
                     <>
                       {/* Symptoms Section */}
                       <div className="space-y-3">
@@ -1236,47 +1239,24 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     </>
                   ) : (
                     <>
-                      {/* For custom guidelines: show summary and info box */}
+                      {/* For custom guidelines / approaches: show summary and info box */}
                       <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-5 space-y-4">
                         <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none">
                           <Lucide.Info className="w-4 h-4 text-teal-600" />
-                          Guideline Reference Note
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? "Approach Reference Note" : "Guideline Reference Note"}
                         </h4>
                         <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
-                          This is a custom clinical reference guideline uploaded directly to the library database.
-                          The full document content is rendered as a standalone page-layout in the preview pane on the right.
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-") 
+                            ? "This is a custom clinical approach card uploaded directly to the library database. The full document content is rendered as a standalone page-layout in the preview pane on the right."
+                            : "This is a custom clinical reference guideline uploaded directly to the library database. The full document content is rendered as a standalone page-layout in the preview pane on the right."}
                         </p>
                         <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
-                          Use the controls on the top-right of the preview to zoom, search, download, or open the document in a standalone page to print the clinical guidelines.
+                          {selectedCondition.id.startsWith("CUSTOM-APPROACH-")
+                            ? "Use the controls on the top-right of the preview to zoom, search, download, or open the approach card in a standalone page to print the clinical guidelines."
+                            : "Use the controls on the top-right of the preview to zoom, search, download, or open the document in a standalone page to print the clinical guidelines."}
                         </p>
                       </div>
                     </>
-                  )}
-
-                  {/* Clinical References */}
-                  {selectedCondition.references && selectedCondition.references.length > 0 && (
-                    <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
-                      <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 select-none">
-                        Clinical References ({selectedCondition.references.length})
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        {selectedCondition.references.map((ref) => (
-                          <div key={ref.id} className="flex gap-3 bg-white/40 dark:bg-slate-900/40 border border-slate-200/10 dark:border-slate-800/15 p-3.5 rounded-xl text-xs text-slate-600 dark:text-slate-400 hover:shadow-md transition-shadow">
-                            <span className="bg-slate-100 dark:bg-slate-800 w-5 h-5 rounded border border-slate-200/30 dark:border-slate-750 flex items-center justify-center shrink-0 font-bold text-[9px] text-slate-500 select-none">
-                              {ref.id}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">{ref.text}</p>
-                              {ref.url && (
-                                <a href={ref.url} target="_blank" rel="noreferrer" className="text-green-600 dark:text-green-500 hover:underline mt-1.5 inline-block text-[10px] font-bold">
-                                  Access Online Source →
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   )}
                 </div>
               </div>
@@ -1298,7 +1278,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                             </div>
                             <h2 className="font-serif text-xl font-bold text-white flex items-center gap-2">
                               <Lucide.ClipboardCheck className={`w-5 h-5 shrink-0 ${getBrightSystemColor(selectedCondition.system)}`} />
-                              {selectedCondition.name}
+                              {decodeHtmlEntities(selectedCondition.name)}
                             </h2>
                             <div className="flex items-center gap-3 mt-3 text-[10px] text-slate-400 select-none">
                               <span>{selectedApproachCard ? selectedApproachCard.steps.length : (selectedCondition.diagnosisCriteria.length + selectedCondition.treatmentOptions.length)} steps</span>
@@ -1314,7 +1294,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           {/* Overview Box */}
                           {(selectedApproachCard?.overview || selectedCondition.document?.summary) && (
                             <div className={`p-4 bg-gradient-to-br ${sys.glow} to-transparent border border-slate-200/50 dark:border-slate-800/30 ${sys.text} text-xs leading-relaxed font-semibold rounded-2xl`}>
-                              {selectedApproachCard ? selectedApproachCard.overview : selectedCondition.document?.summary}
+                              {decodeHtmlEntities(selectedApproachCard ? selectedApproachCard.overview : selectedCondition.document?.summary)}
                             </div>
                           )}
 
