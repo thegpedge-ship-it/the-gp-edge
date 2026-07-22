@@ -272,9 +272,9 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-4 mt-4 border-t border-slate-50 dark:border-slate-800/80">
           <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
           <span>
-            {activeTab === "revenue" && "MRR has grown 108% since January 2026. Premium Annual plans compose 53.6% of new signups."}
-            {activeTab === "growth" && "Conversion of trial-to-paid is up 1.2% in June. Active base represents 86.6% retention."}
-            {activeTab === "visitors" && "Traffic peaks during exam cycles. Standard bounce rate is stable at 24.3%."}
+            {activeTab === "revenue" && (monthlyStats.length > 0 ? "Real-time monthly revenue trends and active subscription metrics." : "No revenue records found yet.")}
+            {activeTab === "growth" && (monthlyStats.length > 0 ? "Real-time subscriber acquisition and user growth metrics." : "No user growth data recorded yet.")}
+            {activeTab === "visitors" && (monthlyStats.length > 0 ? "Real-time user practice activity and quiz attempt volumes." : "No visitor activity recorded yet.")}
           </span>
         </div>
       </div>

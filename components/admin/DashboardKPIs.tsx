@@ -196,9 +196,9 @@ export function DashboardKPIs({ timeframe, stats }: DashboardKPIsProps) {
     : "0.0%";
 
   // Churn calculations
-  const churnValue = stats ? `${stats.churnRate.toFixed(1)}%` : "2.3%";
-  const retainedPct = stats ? Math.round(100 - stats.churnRate) : 98;
-  const churnedPct = stats ? Math.round(stats.churnRate) : 2;
+  const churnValue = stats ? `${stats.churnRate.toFixed(1)}%` : "0.0%";
+  const retainedPct = stats ? Math.round(100 - stats.churnRate) : 0;
+  const churnedPct = stats ? Math.round(stats.churnRate) : 0;
 
   // Dynamic segments for Total Revenue and Monthly Recurring Revenue based on plan distribution
   const revenueSegments = (stats && stats.planDistribution.length > 0) ? stats.planDistribution.map(p => ({

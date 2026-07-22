@@ -16,6 +16,7 @@ interface DashboardStats {
   draftQuizzesCount: number;
   suspendedUsersCount: number;
   churnRate: number;
+  dauCount?: number;
   lastActionTime: string | null;
 }
 
@@ -24,33 +25,33 @@ interface DashboardIntelligenceProps {
 }
 
 export function DashboardIntelligence({ stats }: DashboardIntelligenceProps) {
-  // Use real data to dynamically update the live snapshot values!
-  const dauValue = stats ? Math.max(1, Math.round(stats.totalUsers * 0.45)).toLocaleString() : "2,482";
-  const newUpgradesValue = stats ? `${stats.activeSubscriptions} active` : "12 upgrades";
-  const templatesCountText = stats ? `${stats.autofillTemplatesCount} templates` : "6 modules";
+  // Real database stats
+  const dauValue = (stats && stats.dauCount !== undefined) ? stats.dauCount.toLocaleString() : "0";
+  const newUpgradesValue = stats ? `${stats.activeSubscriptions} active` : "0 active";
+  const templatesCountText = stats ? `${stats.autofillTemplatesCount} templates` : "0 templates";
   
   const activities = [
     {
       label: "Active Users Today (DAU)",
       value: dauValue,
-      subtext: "+8.2% vs yesterday",
-      trending: "up"
+      subtext: "active today",
+      trending: "neutral"
     },
     {
       label: "Active Premium Subscribers",
       value: newUpgradesValue,
       subtext: "current total",
-      trending: "up"
+      trending: "neutral"
     },
     {
       label: "Subscription Cancellations",
-      value: "0 cancellations",
-      subtext: "last 7 days",
+      value: `${stats ? Math.round((stats.churnRate * stats.activeSubscriptions) / 100) : 0} cancellations`,
+      subtext: "calculated churn",
       trending: "neutral"
     },
     {
       label: "Registrations Awaiting Review",
-      value: "0 practitioners",
+      value: `${stats ? stats.suspendedUsersCount : 0} practitioners`,
       subtext: "require badge checks",
       trending: "neutral"
     },
@@ -58,20 +59,20 @@ export function DashboardIntelligence({ stats }: DashboardIntelligenceProps) {
       label: "Autofill Modules Available",
       value: templatesCountText,
       subtext: "ready in library",
-      trending: "up"
+      trending: "neutral"
     },
     {
       label: "Total Registered Users",
-      value: stats ? stats.totalUsers.toString() : "12,847",
+      value: stats ? stats.totalUsers.toLocaleString() : "0",
       subtext: "active database user accounts",
-      trending: "up"
+      trending: "neutral"
     }
   ];
 
-  const pendingRefunds = stats ? stats.pendingRefundsCount : 5;
-  const flaggedContent = stats ? stats.draftQuestionsCount : 1;
-  const modulesApproval = stats ? stats.draftQuizzesCount : 12;
-  const suspendedUsers = stats ? stats.suspendedUsersCount : 14;
+  const pendingRefunds = stats ? stats.pendingRefundsCount : 0;
+  const flaggedContent = stats ? stats.draftQuestionsCount : 0;
+  const modulesApproval = stats ? stats.draftQuizzesCount : 0;
+  const suspendedUsers = stats ? stats.suspendedUsersCount : 0;
   
   const totalDecisions = pendingRefunds + flaggedContent + modulesApproval + suspendedUsers;
 
