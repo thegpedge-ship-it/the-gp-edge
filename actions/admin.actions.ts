@@ -2,6 +2,7 @@
 
 import { query, queryOne, execute } from "@/lib/db";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 
 export interface CredentialUser {
   id: string;
@@ -17,6 +18,26 @@ export interface CredentialUser {
   status?: string;
   permissions?: string[];
   lastChanged?: string;
+}
+
+export async function isBcryptHash(str?: string): Promise<boolean> {
+  if (!str) return false;
+  return str.startsWith("$2a$") || str.startsWith("$2b$") || str.startsWith("$2y$");
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  if (await isBcryptHash(password)) {
+    return password;
+  }
+  return await bcrypt.hash(password, 10);
+}
+
+export async function verifyPassword(plainText: string, storedHashOrPlain: string): Promise<boolean> {
+  if (!storedHashOrPlain) return false;
+  if (await isBcryptHash(storedHashOrPlain)) {
+    return await bcrypt.compare(plainText, storedHashOrPlain);
+  }
+  return plainText === storedHashOrPlain;
 }
 
 function mapRowToCredentialUser(row: any): CredentialUser {
@@ -83,7 +104,17 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<{ succe
     const isNew = !user.id || user.id.length < 20;
     const dbId = isNew ? randomUUID() : user.id;
     const permissions = user.permissions || [];
-    const passwordHash = user.password || "password123";
+    
+    let passwordHash: string;
+    if (user.password) {
+      passwordHash = await hashPassword(user.password);
+    } else if (!isNew) {
+      const existing = await queryOne<any>(`SELECT password_hash FROM admin_users WHERE id = $1`, [dbId]);
+      passwordHash = existing?.password_hash || (await hashPassword("password123"));
+    } else {
+      passwordHash = await hashPassword("password123");
+    }
+
     const passwordChangedAt = user.mustResetPassword ? null : new Date();
 
     // Ensure permission keys exist
@@ -177,16 +208,60 @@ export async function resetAdminPasswordAction(
   newPassword: string
 ): Promise<boolean> {
   try {
+    const hashedPassword = await hashPassword(newPassword);
     await execute(
       `UPDATE admin_users
           SET password_hash = $1, password_changed_at = NOW(), updated_at = NOW()
         WHERE id = $2`,
-      [newPassword, id]
+      [hashedPassword, id]
     );
     return true;
   } catch (error) {
     console.error("Error resetting admin password in DB:", error);
     return false;
+  }
+}
+
+export async function verifyAdminCredentialsAction(
+  username: string,
+  plainPassword: string
+): Promise<{ success: boolean; user?: CredentialUser; error?: string }> {
+  try {
+    const rows = await query<any>(
+      `SELECT u.*,
+              ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
+         FROM admin_users u
+         LEFT JOIN admin_user_permissions p ON p.admin_user_id = u.id
+        WHERE LOWER(u.username) = LOWER($1) AND u.deleted_at IS NULL
+        GROUP BY u.id
+        LIMIT 1`,
+      [username.trim()]
+    );
+
+    if (!rows || rows.length === 0) {
+      return { success: false, error: "Username not found. Please contact your Super Administrator." };
+    }
+
+    const row = rows[0];
+    const storedHash = row.password_hash;
+    const isValid = await verifyPassword(plainPassword, storedHash);
+
+    if (!isValid) {
+      return { success: false, error: "Invalid password. Please check your credentials and try again." };
+    }
+
+    // Automatically migrate legacy plain-text passwords in DB to bcrypt hashes
+    if (!(await isBcryptHash(storedHash))) {
+      const newHash = await hashPassword(plainPassword);
+      await execute(`UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2`, [newHash, row.id]);
+      row.password_hash = newHash;
+    }
+
+    const user = mapRowToCredentialUser(row);
+    return { success: true, user };
+  } catch (error: any) {
+    console.error("Error verifying admin credentials:", error);
+    return { success: false, error: error.message || "Authentication error." };
   }
 }
 
@@ -196,16 +271,26 @@ export async function syncLocalAdminsWithDbAction(
   try {
     let dbAdmins = await getAdminsFromDbAction();
 
-    // Replace dummy placeholder passwords with real ones from local storage
+    // Migrate any legacy unhashed passwords in DB to bcrypt hashes
     for (const admin of dbAdmins) {
-      if (admin.password?.startsWith("dummy_")) {
-        const localMatch = localAdmins.find((l) => l.username === admin.username);
-        if (localMatch?.password) {
+      if (admin.password && !(await isBcryptHash(admin.password))) {
+        if (admin.password.startsWith("dummy_")) {
+          const localMatch = localAdmins.find((l) => l.username === admin.username);
+          if (localMatch?.password) {
+            const hashedPassword = await hashPassword(localMatch.password);
+            await execute(
+              `UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
+              [hashedPassword, admin.id]
+            );
+            admin.password = hashedPassword;
+          }
+        } else {
+          const hashedPassword = await hashPassword(admin.password);
           await execute(
             `UPDATE admin_users SET password_hash = $1, updated_at = NOW() WHERE id = $2`,
-            [localMatch.password, admin.id]
+            [hashedPassword, admin.id]
           );
-          admin.password = localMatch.password;
+          admin.password = hashedPassword;
         }
       }
     }
