@@ -323,7 +323,6 @@ export default function QuestionsPage() {
 
     const fileList = Array.from(files);
     setExtractionState("idle");
-    setExtractedQuestions([]);
 
     // Initialize batch tracking for all files
     const initialBatch: {
@@ -418,7 +417,7 @@ export default function QuestionsPage() {
 
     // All files processed — merge results
     setUploadProgress(100);
-    setExtractedQuestions(allExtracted);
+    setExtractedQuestions((prev) => [...prev, ...allExtracted]);
     setUploadState("success");
     runExtractionAnim(allExtracted);
 
@@ -493,19 +492,32 @@ export default function QuestionsPage() {
         return newQ;
       });
 
+      const hasImages = newQs.some((q: any) => q.image && q.image.startsWith("data:image/"));
+
+      setUploadProgress(0);
+      setUploadedFileName("Publishing to database...");
       setUploadState("uploading");
+
+      let completedCount = 0;
+      const totalCount = newQs.length;
 
       const uploadedNewQs = await Promise.all(
         newQs.map(async (q) => {
+          let updatedQ = q;
           if (q.image && q.image.startsWith("data:image/")) {
             try {
               const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
-              return { ...q, image: fileUrl };
+              updatedQ = { ...q, image: fileUrl };
             } catch (err) {
               console.error("Client image upload failed:", err);
             }
           }
-          return q;
+          completedCount++;
+          if (hasImages) {
+            const progressVal = Math.round((completedCount / totalCount) * 50);
+            setUploadProgress(progressVal);
+          }
+          return updatedQ;
         })
       );
 
@@ -514,7 +526,27 @@ export default function QuestionsPage() {
       );
       const updated = [...uploadedNewQs, ...filteredExisting];
       setQuestions(updated);
-      const res = await importQuestionsAction(uploadedNewQs);
+
+      const startProgress = hasImages ? 50 : 0;
+      setUploadProgress(startProgress);
+      const progressTimer = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(progressTimer);
+            return 95;
+          }
+          return prev + 1;
+        });
+      }, 150);
+
+      let res;
+      try {
+        res = await importQuestionsAction(uploadedNewQs);
+      } finally {
+        clearInterval(progressTimer);
+        setUploadProgress(100);
+      }
+
       if (res?.success && res.results) {
         const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
         setQuestions((prev) =>
@@ -1477,7 +1509,6 @@ export default function QuestionsPage() {
                             onClick={() => {
                               setUploadState("idle");
                               setExtractionState("idle");
-                              setExtractedQuestions([]);
                             }}
                             className="text-[10px] font-bold text-slate-500 hover:text-red-500 transition-colors"
                           >

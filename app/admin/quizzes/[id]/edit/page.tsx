@@ -284,7 +284,6 @@ export default function EditQuizPage() {
 
     const fileList = Array.from(files);
     setExtractionState("idle");
-    setExtractedQuestions([]);
 
     // Initialize batch tracking for all files
     const initialBatch: {
@@ -379,7 +378,7 @@ export default function EditQuizPage() {
 
     // All files processed — merge results
     setUploadProgress(100);
-    setExtractedQuestions(allExtracted);
+    setExtractedQuestions((prev) => [...prev, ...allExtracted]);
     setUploadState("success");
     runExtractionAnim(allExtracted);
 
@@ -1706,9 +1705,8 @@ export default function EditQuizPage() {
                             onClick={() => {
                               setUploadState("idle");
                               setExtractionState("idle");
-                              setExtractedQuestions([]);
                             }}
-                            className="text-[10px] font-bold text-slate-505 hover:text-red-500 transition-colors"
+                            className="text-[10px] font-bold text-slate-555 hover:text-red-500 transition-colors"
                           >
                             Upload Another File
                           </button>

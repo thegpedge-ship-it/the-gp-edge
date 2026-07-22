@@ -735,6 +735,14 @@ function MedicalLibraryContent() {
     setVisibleLimit(9);
   }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly]);
 
+  const totalMcCount = useMemo(() => {
+    return filteredConditions.filter(c => c.type !== "Approach").length;
+  }, [filteredConditions]);
+
+  const totalApproachCount = useMemo(() => {
+    return filteredConditions.filter(c => c.type === "Approach").length;
+  }, [filteredConditions]);
+
   const mcConditions = useMemo(() => {
     return filteredConditions.filter(c => c.type !== "Approach").slice(0, visibleLimit);
   }, [filteredConditions, visibleLimit]);
@@ -742,6 +750,10 @@ function MedicalLibraryContent() {
   const approachConditions = useMemo(() => {
     return filteredConditions.filter(c => c.type === "Approach").slice(0, visibleLimit);
   }, [filteredConditions, visibleLimit]);
+
+  const hasMore = useMemo(() => {
+    return visibleLimit < Math.max(totalMcCount, totalApproachCount);
+  }, [visibleLimit, totalMcCount, totalApproachCount]);
 
 
 
@@ -1048,7 +1060,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     </AnimatePresence>
                   </div>
 
-                  {visibleLimit < filteredConditions.length && (
+                  {hasMore && (
                     <div className="flex justify-center pt-4 select-none">
                       <button
                         onClick={() => setVisibleLimit((prev) => prev + 9)}

@@ -12,7 +12,119 @@ import crypto from "crypto";
  */
 export async function importQuestionsAction(questionsList: any[]) {
   try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // 1. Fetch all existing exam types
+    const allExamTypes = await query<{ code: string }>(`SELECT code FROM exam_types`);
+    const examTypeSet = new Set(allExamTypes.map(r => r.code.toUpperCase()));
+
+    // 2. Fetch all subjects and subtopics
+    const allSubjects = await query<{ id: string; name: string; slug: string }>(`SELECT id, name, slug FROM subjects`);
+    const allSubtopics = await query<{ id: string; name: string; slug: string; subject_id: string }>(
+      `SELECT id, name, slug, subject_id FROM subtopics`
+    );
+
+    const subjectMap = new Map<string, string>(); // lowerCase name -> id
+    allSubjects.forEach(s => subjectMap.set(s.name.toLowerCase(), s.id));
+
+    const subtopicMap = new Map<string, { id: string; subjectId: string }>(); // lowerCase name -> { id, subjectId }
+    allSubtopics.forEach(st => subtopicMap.set(st.name.toLowerCase(), { id: st.id, subjectId: st.subject_id }));
+
+    // 3. Fetch existing tags
+    const allTagNames = Array.from(
+      new Set(
+        questionsList.flatMap(q => q.tags || [])
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      )
+    );
+
+    const tagMap = new Map<string, string>(); // lowerCase label -> id
+    if (allTagNames.length > 0) {
+      const existingTags = await query<{ id: string; label: string }>(
+        `SELECT id, label FROM tags WHERE LOWER(label) = ANY($1::text[])`,
+        [allTagNames.map(t => t.toLowerCase())]
+      );
+      existingTags.forEach(t => tagMap.set(t.label.toLowerCase(), t.id));
+    }
+
+    // 4. Pre-fetch existing questions (by stem or dbId)
+    const stems = questionsList.map(q => q.text?.trim()).filter(Boolean);
+    const dbIds = questionsList.map(q => q.dbId).filter(id => id && uuidRegex.test(id));
+
+    const questionByStem = new Map<string, string>(); // lowerCase stem -> id
+    const questionById = new Set<string>();
+
+    if (stems.length > 0) {
+      const existingQsByStem = await query<{ id: string; stem: string }>(
+        `SELECT id, stem FROM questions WHERE stem = ANY($1::text[])`,
+        [stems]
+      );
+      existingQsByStem.forEach(q => questionByStem.set(q.stem.trim().toLowerCase(), q.id));
+    }
+
+    if (dbIds.length > 0) {
+      const existingQsById = await query<{ id: string }>(
+        `SELECT id FROM questions WHERE id = ANY($1::uuid[])`,
+        [dbIds]
+      );
+      existingQsById.forEach(q => questionById.add(q.id));
+    }
+
+    // In-memory helpers for creating Subjects/Subtopics/Tags
+    const getOrCreateSubject = async (name: string): Promise<string | null> => {
+      const key = name.toLowerCase();
+      if (subjectMap.has(key)) return subjectMap.get(key)!;
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const newSub = await queryOne<{ id: string }>(
+        `INSERT INTO subjects (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+        [slug, name]
+      );
+      if (newSub) {
+        subjectMap.set(key, newSub.id);
+        return newSub.id;
+      }
+      return null;
+    };
+
+    const getOrCreateSubtopic = async (name: string, subjectId: string): Promise<string | null> => {
+      const key = name.toLowerCase();
+      if (subtopicMap.has(key)) return subtopicMap.get(key)!.id;
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const newSubtopic = await queryOne<{ id: string }>(
+        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
+        [subjectId, slug, name]
+      );
+      if (newSubtopic) {
+        subtopicMap.set(key, { id: newSubtopic.id, subjectId });
+        return newSubtopic.id;
+      }
+      return null;
+    };
+
+    const getOrCreateTag = async (label: string): Promise<string | null> => {
+      const clean = label.trim();
+      const key = clean.toLowerCase();
+      if (tagMap.has(key)) return tagMap.get(key)!;
+
+      const slug = key.replace(/[^a-z0-9]+/g, "-");
+      const tag = await queryOne<{ id: string }>(
+        `INSERT INTO tags (slug, label) VALUES ($1, $2)
+         ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
+         RETURNING id`,
+        [slug, clean]
+      );
+      if (tag) {
+        tagMap.set(key, tag.id);
+        return tag.id;
+      }
+      return null;
+    };
+
     const results: { text: string; dbId: string }[] = [];
+
     for (const q of questionsList) {
       if (!q.text || !q.text.trim()) continue;
 
@@ -20,12 +132,9 @@ export async function importQuestionsAction(questionsList: any[]) {
       const status = (q.status?.toLowerCase() || "published") as string;
       const examTypeCode: string = q.examType || "AKT";
 
-      // 1. Ensure exam_type row exists
-      const existingExamType = await queryOne(
-        `SELECT code FROM exam_types WHERE code = $1`,
-        [examTypeCode]
-      );
-      if (!existingExamType) {
+      // Ensure exam type exists
+      const examTypeKey = examTypeCode.toUpperCase();
+      if (!examTypeSet.has(examTypeKey)) {
         const examName =
           examTypeCode === "AKT"
             ? "Applied Knowledge Test"
@@ -36,26 +145,26 @@ export async function importQuestionsAction(questionsList: any[]) {
           `INSERT INTO exam_types (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
           [examTypeCode, examName]
         );
+        examTypeSet.add(examTypeKey);
       }
 
-      // 2. Resolve subject / subtopic IDs
+      // Resolve subject / subtopic IDs
       let subjectId: string | null = null;
       let subtopicId: string | null = null;
 
       const rawTopic = q.topic ? q.topic.split(",")[0].trim() : "General";
       const rawSubtopic = q.subtopic ? q.subtopic.split(",")[0].trim() : "";
 
+      // Resolve subtopic
       if (rawSubtopic) {
-        const subtopicMatch = await queryOne<{ id: string; subject_id: string }>(
-          `SELECT id, subject_id FROM subtopics WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-          [rawSubtopic]
-        );
-        if (subtopicMatch) {
-          subtopicId = subtopicMatch.id;
-          subjectId = subtopicMatch.subject_id;
+        const key = rawSubtopic.toLowerCase();
+        if (subtopicMap.has(key)) {
+          subtopicId = subtopicMap.get(key)!.id;
+          subjectId = subtopicMap.get(key)!.subjectId;
         }
       }
 
+      // Resolve subject/topic
       if (!subjectId) {
         let searchTopic = rawTopic;
         const lowerRaw = rawTopic.toLowerCase();
@@ -73,58 +182,55 @@ export async function importQuestionsAction(questionsList: any[]) {
           searchTopic = "Paediatrics";
         }
 
-        const subtopicMatch = await queryOne<{ id: string; subject_id: string }>(
-          `SELECT id, subject_id FROM subtopics WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-          [searchTopic]
-        );
-        if (subtopicMatch) {
-          subtopicId = subtopicMatch.id;
-          subjectId = subtopicMatch.subject_id;
+        const key = searchTopic.toLowerCase();
+        if (subtopicMap.has(key)) {
+          subtopicId = subtopicMap.get(key)!.id;
+          subjectId = subtopicMap.get(key)!.subjectId;
+        } else if (subjectMap.has(key)) {
+          subjectId = subjectMap.get(key)!;
         } else {
-          const subjectMatch = await queryOne<{ id: string }>(
-            `SELECT id FROM subjects WHERE LOWER(name) = LOWER($1) LIMIT 1`,
-            [searchTopic]
-          );
-          if (subjectMatch) {
-            subjectId = subjectMatch.id;
+          // Check partial match
+          const partialMatch = Array.from(subjectMap.keys()).find(k => k.includes(key));
+          if (partialMatch) {
+            subjectId = subjectMap.get(partialMatch)!;
           } else {
-            const partial = await queryOne<{ id: string }>(
-              `SELECT id FROM subjects WHERE LOWER(name) LIKE LOWER($1) LIMIT 1`,
-              [`%${searchTopic}%`]
-            );
-            if (partial) {
-              subjectId = partial.id;
-            } else {
-              // Create subject
-              const subjectSlug = searchTopic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-              const newSubject = await queryOne<{ id: string }>(
-                `INSERT INTO subjects (slug, name) VALUES ($1, $2) RETURNING id`,
-                [subjectSlug, searchTopic]
-              );
-              subjectId = newSubject ? newSubject.id : null;
-            }
+            subjectId = await getOrCreateSubject(searchTopic);
           }
         }
       }
 
-      // If rawSubtopic was specified but not found, create it now that we have subjectId
+      // If rawSubtopic was specified but not found, create it
       if (rawSubtopic && !subtopicId && subjectId) {
-        const subtopicSlug = rawSubtopic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-        const newSubtopic = await queryOne<{ id: string }>(
-          `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
-          [subjectId, subtopicSlug, rawSubtopic]
-        );
-        if (newSubtopic) {
-          subtopicId = newSubtopic.id;
-        }
+        subtopicId = await getOrCreateSubtopic(rawSubtopic, subjectId);
       }
 
-      // 3. Upload image to R2 if present, and insert a row in files table
-      let imageUrl: string | null = null;
+      // Handle image reference
       let imageFileId: string | null = null;
-
       if (q.image) {
-        if (q.image.startsWith("data:image/")) {
+        if (q.image.startsWith("http")) {
+          const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+          if (q.image.startsWith(publicBase)) {
+            const objectKey = q.image.replace(publicBase, "").replace(/^\//, "");
+            const existingFile = await queryOne<{ id: string }>(
+              `SELECT id FROM files WHERE object_key = $1 LIMIT 1`,
+              [objectKey]
+            );
+            if (existingFile) {
+              imageFileId = existingFile.id;
+            } else {
+              const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
+              const fileRow = await queryOne<{ id: string }>(
+                `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
+                 VALUES ($1, $2, $3, $4, $5, 'active')
+                 RETURNING id`,
+                [bucketName, objectKey, "uploaded_question_image.jpg", "image/jpeg", 0]
+              );
+              if (fileRow) {
+                imageFileId = fileRow.id;
+              }
+            }
+          }
+        } else if (q.image.startsWith("data:image/")) {
           const parts = q.image.split(";base64,");
           const mimeType = parts[0].split(":")[1];
           const base64Data = parts[1];
@@ -142,9 +248,7 @@ export async function importQuestionsAction(questionsList: any[]) {
               })
             );
             const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
-            imageUrl = `${publicBase}/${objectKey}`;
-
-            // Create row in files table
+            
             const fileRow = await queryOne<{ id: string }>(
               `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
                VALUES ($1, $2, $3, $4, $5, 'active')
@@ -157,63 +261,28 @@ export async function importQuestionsAction(questionsList: any[]) {
           } catch (uploadErr) {
             console.error("R2 image upload failed:", uploadErr);
           }
-        } else if (q.image.startsWith("http")) {
-          imageUrl = q.image;
-          // Look up existing file by object key in R2 URL
-          const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
-          if (imageUrl && imageUrl.startsWith(publicBase)) {
-            const objectKey = imageUrl.replace(publicBase, "").replace(/^\//, "");
-            const existingFile = await queryOne<{ id: string }>(
-              `SELECT id FROM files WHERE object_key = $1 LIMIT 1`,
-              [objectKey]
-            );
-            if (existingFile) {
-              imageFileId = existingFile.id;
-            } else {
-              // Create a row in the files table for the client-side uploaded image
-              const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
-              const mimeType = "image/jpeg"; // Default fallback
-              const fileRow = await queryOne<{ id: string }>(
-                `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
-                 VALUES ($1, $2, $3, $4, $5, 'active')
-                 RETURNING id`,
-                [bucketName, objectKey, "uploaded_question_image.jpg", mimeType, 0]
-              );
-              if (fileRow) {
-                imageFileId = fileRow.id;
-              }
-            }
-          }
         }
       }
 
-      // 4. Upsert the question row (match by dbId first, then by stem)
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      let existingQ = null;
-      if (q.dbId && uuidRegex.test(q.dbId)) {
-        existingQ = await queryOne<{ id: string }>(
-          `SELECT id FROM questions WHERE id = $1 LIMIT 1`,
-          [q.dbId]
-        );
-      }
-      if (!existingQ) {
-        existingQ = await queryOne<{ id: string }>(
-          `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
-          [q.text]
-        );
+      // Upsert the question row
+      let questionId: string | null = null;
+      const cleanStem = q.text.trim();
+      const stemKey = cleanStem.toLowerCase();
+
+      if (q.dbId && uuidRegex.test(q.dbId) && questionById.has(q.dbId)) {
+        questionId = q.dbId;
+      } else if (questionByStem.has(stemKey)) {
+        questionId = questionByStem.get(stemKey)!;
       }
 
-      let questionId: string;
-
-      if (existingQ) {
-        questionId = existingQ.id;
+      if (questionId) {
         await execute(
           `UPDATE questions
              SET stem = $1, rationale = $2, difficulty = $3, status = $4,
                  exam_type_code = $5, subject_id = $6, subtopic_id = $7,
                  image_file_id = $8, updated_at = NOW()
            WHERE id = $9`,
-          [q.text, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
+          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
         );
       } else {
         const newQ = await queryOne<{ id: string }>(
@@ -221,12 +290,12 @@ export async function importQuestionsAction(questionsList: any[]) {
              (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id, image_file_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id`,
-          [q.text, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
+          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
         );
         questionId = newQ!.id;
       }
 
-      // 5. Replace options (using ON CONFLICT to avoid unique constraint race conditions)
+      // Replace options
       if (q.options && q.options.length > 0) {
         await execute(
           `DELETE FROM question_options 
@@ -249,37 +318,24 @@ export async function importQuestionsAction(questionsList: any[]) {
         }
       }
 
-      // 6. Replace tags (delete + upsert to avoid (question_id, tag_id) unique constraint)
+      // Replace tags
       if (q.tags && q.tags.length > 0) {
         await execute(`DELETE FROM question_tags WHERE question_id = $1`, [questionId]);
 
         const seen = new Set<string>();
         for (const tagName of q.tags) {
-          const clean = tagName.trim();
-          const key = clean.toLowerCase();
-          if (!clean || seen.has(key)) continue;
-          seen.add(key);
+          const cleanTagName = tagName.trim();
+          const tagKey = cleanTagName.toLowerCase();
+          if (!cleanTagName || seen.has(tagKey)) continue;
+          seen.add(tagKey);
 
-          const slug = key.replace(/[^a-z0-9]+/g, "-");
-          // Upsert tag
-          let tag = await queryOne<{ id: string }>(
-            `SELECT id FROM tags WHERE LOWER(label) = LOWER($1) LIMIT 1`,
-            [clean]
-          );
-          if (!tag) {
-            tag = await queryOne<{ id: string }>(
-              `INSERT INTO tags (slug, label) VALUES ($1, $2)
-               ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
-               RETURNING id`,
-              [slug, clean]
-            );
-          }
-          if (tag) {
+          const tagId = await getOrCreateTag(cleanTagName);
+          if (tagId) {
             await execute(
               `INSERT INTO question_tags (question_id, tag_id)
                VALUES ($1, $2)
                ON CONFLICT (question_id, tag_id) DO NOTHING`,
-              [questionId, tag.id]
+              [questionId, tagId]
             );
           }
         }

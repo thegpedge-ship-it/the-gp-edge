@@ -89,20 +89,28 @@ export async function syncQuizToDbAction(
       );
     }
 
+    // Pre-fetch all matching questions in a single query
+    const questionMap = new Map<string, string>(); // stem -> id
+    const stems = questionsList.map(q => q.text?.trim()).filter(Boolean);
+    if (stems.length > 0) {
+      const matchingQuestions = await query<{ id: string; stem: string }>(
+        `SELECT id, stem FROM questions WHERE stem = ANY($1::text[])`,
+        [stems]
+      );
+      matchingQuestions.forEach(q => questionMap.set(q.stem.trim().toLowerCase(), q.id));
+    }
+
     // Rebuild quiz_questions
     for (let i = 0; i < questionsList.length; i++) {
       const q = questionsList[i];
       if (!q?.text) continue;
-      const question = await queryOne<{ id: string }>(
-        `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
-        [q.text.trim()]
-      );
-      if (question) {
+      const questionId = questionMap.get(q.text.trim().toLowerCase());
+      if (questionId) {
         await execute(
           `INSERT INTO quiz_questions (quiz_id, question_id, position)
            VALUES ($1, $2, $3)
            ON CONFLICT (quiz_id, question_id) DO NOTHING`,
-          [dbQuiz!.id, question.id, i]
+          [dbQuiz!.id, questionId, i]
         );
       }
     }
@@ -159,16 +167,13 @@ export async function syncQuizToDbAction(
       for (let i = 0; i < questionsList.length; i++) {
         const q = questionsList[i];
         if (!q?.text) continue;
-        const question = await queryOne<{ id: string }>(
-          `SELECT id FROM questions WHERE stem = $1 LIMIT 1`,
-          [q.text.trim()]
-        );
-        if (question) {
+        const questionId = questionMap.get(q.text.trim().toLowerCase());
+        if (questionId) {
           await execute(
             `INSERT INTO mock_test_questions (mock_test_id, question_id, position)
              VALUES ($1, $2, $3)
              ON CONFLICT DO NOTHING`,
-            [dbMockId, question.id, i]
+            [dbMockId, questionId, i]
           );
         }
       }
