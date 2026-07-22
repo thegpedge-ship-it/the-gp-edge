@@ -70,7 +70,7 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
 
     // 5. Total Revenue
     const revenueResult = await queryOne<{ sum: string }>("SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded'");
-    const totalRevenue = parseFloat(revenueResult?.sum || "0") / 100;
+    const totalRevenue = parseFloat(revenueResult?.sum || "0");
 
     // 6. Active Subscriptions
     const activeSubsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'");
@@ -90,7 +90,7 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
          JOIN plans p ON s.plan_id = p.id 
          WHERE s.status = 'active'`
       );
-      mrr = parseFloat(mrrResult?.sum || "0");
+      mrr = Math.round(parseFloat(mrrResult?.sum || "0") * 100) / 100;
     } catch {
       mrr = 0;
     }
@@ -199,8 +199,8 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
     const revPrevResult = await queryOne<{ sum: string }>(
       "SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
     );
-    const revCurr = parseFloat(revCurrResult?.sum || "0") / 100;
-    const revPrev = parseFloat(revPrevResult?.sum || "0") / 100;
+    const revCurr = parseFloat(revCurrResult?.sum || "0");
+    const revPrev = parseFloat(revPrevResult?.sum || "0");
     const revenueChange = revPrev > 0 ? ((revCurr - revPrev) * 100) / revPrev : 0;
 
     const mrrNewResult = await queryOne<{ count: string }>(
