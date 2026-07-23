@@ -2194,9 +2194,29 @@ export function parseTextToQuestions(text: string): any[] {
  * and replaces the src with the public R2 URL.
  * Returns the updated HTML. Images that fail to upload are left as-is.
  */
+async function recognizeImageText(buffer: Buffer, fileName: string): Promise<string> {
+  try {
+    const { data } = await Tesseract.recognize(buffer, "eng");
+    return data.text || "";
+  } catch (err: any) {
+    console.warn(`Tesseract OCR unavailable or failed for ${fileName} in serverless environment:`, err?.message || err);
+    return `[Image Content: ${fileName}]`;
+  }
+}
+
+/**
+ * Finds every base64 data:image/... src in an HTML string, uploads each to R2,
+ * and replaces the src with the public R2 URL.
+ * Returns the updated HTML. Images that fail to upload are left as-is.
+ */
 async function uploadBase64ImagesToR2(html: string): Promise<string> {
   // Quick exit — if there are no embedded data URLs skip the whole pass
   if (!html.includes("data:image/")) return html;
+
+  if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
+    console.warn("R2 storage environment variables missing — keeping inline base64 images");
+    return html;
+  }
 
   const r2Client = new S3Client({
     region: "auto",
@@ -2310,9 +2330,10 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save to temp for cleanup tracking
+    // Save to temp for cleanup tracking with safe filename
+    const safeFileName = fileName.replace(/[^a-zA-Z0-9_.-]/g, "_");
     const tempDir = os.tmpdir();
-    tempPath = join(tempDir, `gpedgesync_${Date.now()}_${fileName}`);
+    tempPath = join(tempDir, `gpedgesync_${Date.now()}_${safeFileName}`);
     await writeFile(tempPath, buffer);
 
     // Determine if this is an autofill template upload
@@ -2325,8 +2346,7 @@ export async function POST(req: NextRequest) {
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
-        const { data } = await Tesseract.recognize(buffer, "eng");
-        rawText = data.text || "";
+        rawText = await recognizeImageText(buffer, fileName);
       } else {
         const result = await mammoth.extractRawText({ buffer });
         rawText = result.value.trim() || await extractTextFromPdfBuffer(buffer);
@@ -2392,8 +2412,7 @@ export async function POST(req: NextRequest) {
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
-        const { data } = await Tesseract.recognize(buffer, "eng");
-        rawText = data.text || "";
+        rawText = await recognizeImageText(buffer, fileName);
       } else {
         rawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }
@@ -2425,11 +2444,10 @@ export async function POST(req: NextRequest) {
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
       } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
-        const { data } = await Tesseract.recognize(buffer, "eng");
-        rawText = data.text || "";
+        rawText = await recognizeImageText(buffer, fileName);
       } else {
         const result = await mammoth.extractRawText({ buffer });
-        rawText = result.value.trim() || await extractTextAndImagesFromPdfBuffer(buffer);
+        rawText = result.value.trim() || await extractTextFromPdfBuffer(buffer);
       }
 
       // Cleanup temp file
