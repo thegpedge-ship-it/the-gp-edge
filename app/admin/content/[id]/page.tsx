@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getMedicalContent, MedicalContent } from "@/lib/quizData";
+import { getMedicalContent, fetchMedicalContent, MedicalContent } from "@/lib/quizData";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import {
   themeBorder,
   themeBtnGhost,
@@ -16,6 +17,12 @@ import {
   themeSurface,
   themeText,
 } from "@/lib/adminTheme";
+
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
+
+function cleanTableHtmlStyles(html: string): string {
+  return html;
+}
 
 function decodeHtml(str: string): string {
   if (!str) return "";
@@ -48,68 +55,142 @@ const typeColors: Record<string, string> = {
 export default function ContentDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const contentId = Number(params.id);
+  const contentId = params.id as string;
 
   const [item, setItem] = useState<MedicalContent | null>(null);
   const [bodyHtml, setBodyHtml] = useState("");
+  const [pdfPage, setPdfPage] = useState(1);
+  const [pdfZoom, setPdfZoom] = useState(100);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
 
   useEffect(() => {
-    const loaded = getMedicalContent();
-    const found = loaded.find((c) => c.id === contentId);
-    if (found) {
-      setItem(found);
-      const savedHtml = localStorage.getItem(`gpedge_content_body_${contentId}`);
-      if (savedHtml) {
-        setBodyHtml(savedHtml);
-      } else {
-        // Fallback placeholder content
-        setBodyHtml(`
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No overview provided.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No pathophysiology details provided.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No clinical features listed.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No diagnosis and investigations outline provided.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No management overview provided.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No non-pharmacological directives listed.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No pharmacological directives listed.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No complications listed.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No referral guidelines listed.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No prognosis outlook provided.</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">No reference resources provided.</p>
-        `);
+    if (typeof window === "undefined" || !containerRef.current) return;
+    const updateScale = () => {
+      const parentWidth = containerRef.current?.getBoundingClientRect().width || 794;
+      // Subtract padding of parent (p-6 is 24px on each side, so 48px total)
+      const availableWidth = parentWidth - 48;
+      const factor = Math.min(1, availableWidth / 794);
+      setScaleFactor(factor);
+    };
+    updateScale();
+    window.addEventListener("resize", updateScale);
+    return () => window.removeEventListener("resize", updateScale);
+  }, [bodyHtml]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
+
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      setItem(null);
+      setBodyHtml("");
+
+      // 1. Fetch metadata and body directly from Neon API for this specific item first
+      if (contentId && !String(contentId).startsWith("local")) {
+        try {
+          const res = await fetch(`/api/medical-content/${contentId}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            
+            // Reconstruct the MedicalContent metadata object
+            const loadedItem: MedicalContent = {
+              id: data.id,
+              name: data.name,
+              system: data.system,
+              category: data.category,
+              type: data.type || "Document",
+              status: data.status,
+              author: data.author,
+              lastUpdated: data.lastUpdated,
+              tags: data.tags || [],
+              references: data.references?.length ?? 0,
+              pdfUrl: data.pdfUrl,
+            };
+            
+            setItem(loadedItem);
+
+            // Prefer the pre-built fullHtml; assemble from sections as fallback
+            let html = (data.fullHtml || "").trim();
+
+            if (!html && data.sections) {
+              const s = data.sections as Record<string, string>;
+              const sectionOrder = [
+                { label: "1. Overview",                   key: "overview" },
+                { label: "2. Pathophysiology",            key: "pathophysiology" },
+                { label: "3. Clinical Features",          key: "clinical_features" },
+                { label: "4. Diagnosis & Investigations", key: "diagnosis" },
+                { label: "5. Management",                 key: "management" },
+                { label: "6. Complications",              key: "complications" },
+                { label: "7. When to Refer",              key: "when_to_refer" },
+                { label: "8. Prognosis",                  key: "prognosis" },
+                { label: "9. Resources",                  key: "resources" },
+              ];
+              html = sectionOrder
+                .filter(({ key }) => s[key]?.trim())
+                .map(({ label, key }) =>
+                  `<h2 style="font-family:Georgia,serif;font-size:1.35rem;font-weight:bold;color:#0f766e;border-left:4px solid #0f766e;padding-left:0.75rem;margin-top:1.75rem;margin-bottom:0.75rem;line-height:1.25;">${label}</h2>${s[key]}`
+                )
+                .join("\n");
+            }
+
+            if (html) {
+              setBodyHtml(html);
+            } else {
+              setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
+            }
+            setPdfPage(1);
+            setIsLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error("Direct fetch failed:", err);
+        }
       }
-    }
+
+      // 2. Fallback to list lookup if direct fetch fails or local ID
+      const loaded = await fetchMedicalContent().catch(() => getMedicalContent());
+      const found = loaded.find((c) => String(c.id) === String(contentId));
+      if (found) {
+        setItem(found);
+        setBodyHtml(`<h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e;">Overview</h2><p>No content available yet.</p>`);
+        setPdfPage(1);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(false);
+    };
+    load();
   }, [contentId]);
 
-  if (!item) {
+
+
+  const pages = useMemo(() => {
+    const cleaned = cleanTableHtmlStyles(bodyHtml);
+    return splitHtmlIntoPages(cleaned);
+  }, [bodyHtml]);
+
+  const totalPages = pages.length;
+
+  if (isLoading) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-slate-500 dark:text-slate-400">Clinical Content not found.</p>
-        <button onClick={() => router.push("/admin/content")} className={`mt-4 ${themeBtnPrimary} px-4 py-2 text-sm`}>
-          Back to Content List
-        </button>
+      <div className="min-h-[60vh] flex items-center justify-center p-8 text-center">
+        <div>
+          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-2 border-teal-200 border-t-teal-700" />
+          <p className="text-slate-500 dark:text-slate-400">Loading clinical content...</p>
+        </div>
       </div>
     );
+  }
+
+  if (!item) {
+    return null;
   }
 
   return (
@@ -215,28 +296,28 @@ export default function ContentDetailPage() {
               text-transform: uppercase !important;
               letter-spacing: 0.05em !important;
               padding: 0.75rem 1rem !important;
-              background-color: #2bb09c !important;
+              background-color: #16a34a !important;
               color: #ffffff !important;
               border: 1px solid #cbd5e1 !important;
             }
-            .print-area td {
-              padding: 0.75rem 1rem !important;
-              font-size: 0.825rem !important;
-              border: 1px solid #e2e8f0 !important;
-              color: #475569 !important;
-            }
-            .print-area td p, .print-area th p {
-              margin: 0 !important;
-              font-size: inherit !important;
-              color: inherit !important;
-              line-height: inherit !important;
-            }
-            .print-area tr:nth-child(even) td {
-              background-color: #f8fafc !important;
-            }
-            .print-area tr:nth-child(odd) td {
-              background-color: #ffffff !important;
-            }
+             .print-area td {
+               padding: 0.75rem 1rem !important;
+               font-size: 0.825rem !important;
+               border: 1px solid #e2e8f0 !important;
+               color: #475569;
+             }
+             .print-area td p, .print-area th p {
+               margin: 0 !important;
+               font-size: inherit !important;
+               color: inherit !important;
+               line-height: inherit !important;
+             }
+             .print-area tr:nth-child(even) td {
+               background-color: #ffffff;
+             }
+             .print-area tr:nth-child(odd) td {
+               background-color: #ffffff;
+             }
             .print-area .callout-block {
               border-radius: 0.75rem !important;
               padding: 1rem !important;
@@ -266,22 +347,33 @@ export default function ContentDetailPage() {
               color: #1a5c51 !important;
             }
             .print-area .callout-block[data-variant="pearl"] {
-              background-color: #e6f7f4 !important;
-              border: 1px solid #e6f7f4 !important;
-              border-left: 5px solid #2bb09c !important;
-              color: #1a5c51 !important;
+              background-color: #f0fdf4 !important;
+              border: 1px solid #d1fae5 !important;
+              border-left: 5px solid #16a34a !important;
+              color: #14532d !important;
             }
-            .print-area .callout-block[data-variant="warning"] {
-              background-color: #fff9e6 !important;
-              border: 1px solid #fff9e6 !important;
-              border-left: 5px solid #dd6b20 !important;
-              color: #7b341e !important;
+            .print-area .callout-block[data-variant="pearl"] > div:first-child {
+              color: #15803d !important;
             }
+            .print-area .callout-block[data-variant="important"] {
+              background-color: #fefce8 !important;
+              border: 1px solid #fef08a !important;
+              border-left: 5px solid #eab308 !important;
+              color: #713f12 !important;
+            }
+            .print-area .callout-block[data-variant="important"] > div:first-child {
+              color: #854d0e !important;
+            }
+            .print-area .callout-block[data-variant="warning"],
             .print-area .callout-block[data-variant="danger"] {
-              background-color: #fff5f5 !important;
-              border: 1px solid #fff5f5 !important;
-              border-left: 5px solid #c53030 !important;
-              color: #9b2c2c !important;
+              background-color: #fef2f2 !important;
+              border: 1px solid #fee2e2 !important;
+              border-left: 5px solid #ef4444 !important;
+              color: #7f1d1d !important;
+            }
+            .print-area .callout-block[data-variant="warning"] > div:first-child,
+            .print-area .callout-block[data-variant="danger"] > div:first-child {
+              color: #b91c1c !important;
             }
             .print-area .callout-block[data-variant="billing"] {
               background-color: #f8fafc !important;
@@ -319,10 +411,10 @@ export default function ContentDetailPage() {
               color: #f8fafc !important;
               border-color: #334155 !important;
             }
-            .dark .print-area td {
-              border-color: #334155 !important;
-              color: #cbd5e1 !important;
-            }
+             .dark .print-area td {
+               border-color: #334155 !important;
+               color: #cbd5e1;
+             }
             .dark .print-area tr:nth-child(even) td {
               background-color: #1e293b !important;
             }
@@ -375,12 +467,100 @@ export default function ContentDetailPage() {
               color: #94a3b8 !important;
             }
           ` }} />
-          <div className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm h-full`}>
-            <div className="bg-slate-50/50 dark:bg-slate-950/20 border border-slate-200/60 dark:border-slate-800/80 rounded-xl p-5 space-y-4 h-full">
+          {/* PDF Toolbar */}
+          {totalPages > 1 && (
+            <div className="bg-slate-900 dark:bg-slate-950 text-slate-200 rounded-xl px-4 py-3 border border-slate-800/80 flex items-center justify-between gap-3 text-xs flex-wrap shadow-lg shrink-0 select-none">
+              <div className="flex items-center gap-2 min-w-0">
+                <Lucide.FileText className="w-4 h-4 text-teal-500 shrink-0" />
+                <span className="font-bold truncate max-w-[150px]" title={item.name}>
+                  {item.name}
+                </span>
+                <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono shrink-0">
+                  Document Preview
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button 
+                  onClick={() => setPdfPage((p) => Math.max(1, p - 1))} 
+                  disabled={pdfPage === 1} 
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors border-none bg-transparent cursor-pointer text-white"
+                >
+                  <Lucide.ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="font-mono text-xs font-semibold">Page {pdfPage} of {totalPages}</span>
+                <button 
+                  onClick={() => setPdfPage((p) => Math.min(totalPages, p + 1))} 
+                  disabled={pdfPage === totalPages} 
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 disabled:opacity-30 transition-colors border-none bg-transparent cursor-pointer text-white"
+                >
+                  <Lucide.ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPdfZoom((z) => Math.max(50, z - 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
+                  <Lucide.Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="font-mono text-[10px] font-bold">{pdfZoom}%</span>
+                <button onClick={() => setPdfZoom((z) => Math.min(200, z + 10))} className="w-6 h-6 flex items-center justify-center rounded hover:bg-slate-800 border-none bg-transparent cursor-pointer text-white">
+                  <Lucide.Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div 
+            ref={containerRef}
+            className={`bg-slate-100 dark:bg-slate-950 border ${themeBorder} rounded-2xl p-6 shadow-sm overflow-y-auto overflow-x-auto max-h-[850px] flex items-start justify-start custom-scrollbar`}
+          >
+            <div
+              className="mx-auto"
+              style={{
+                width: `${794 * currentZoomScale}px`,
+                height: totalPages > 1 ? `${1123 * currentZoomScale}px` : "auto",
+                position: "relative",
+                flexShrink: 0,
+              }}
+            >
               <div 
-                className="print-area prose prose-sm text-slate-700 dark:text-slate-300 max-w-none select-text"
-                dangerouslySetInnerHTML={{ __html: bodyHtml }}
-              />
+                className="bg-white text-slate-850 p-10 shadow-2xl border border-slate-200 absolute top-0 left-0 rounded-lg select-text print-area"
+                style={{
+                  transform: `scale(${currentZoomScale})`,
+                  transformOrigin: "top left",
+                  width: "794px",
+                  minHeight: totalPages > 1 ? "1123px" : "auto",
+                  height: totalPages > 1 ? "1123px" : "auto",
+                  position: totalPages > 1 ? "absolute" : "relative",
+                  overflowY: totalPages > 1 ? "hidden" : "visible",
+                }}
+              >
+                {/* Header info inside paginated document preview */}
+                <div className="mb-4 border-b-2 border-teal-700/30 pb-2 select-none text-left">
+                  <span className="text-[9px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                    {item.system} · {item.category}
+                  </span>
+                  {pdfPage === 1 ? (
+                    <>
+                      <h1 className="font-serif text-2xl text-slate-900 mt-1.5 font-normal tracking-tight leading-snug">
+                        {item.name}
+                      </h1>
+                      <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-400">
+                        <span>Author: {item.author || "GP Edge Content Team"}</span>
+                        <span>•</span>
+                        <span>Last updated: {item.lastUpdated || "Just now"}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-xs font-serif text-slate-600 mt-1 italic">
+                      {item.name} — continued (Page {pdfPage})
+                    </p>
+                  )}
+                </div>
+                
+                <div 
+                  className="text-slate-700 select-text pb-12 text-left"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(pages[pdfPage - 1] || "") }}
+                />
+              </div>
             </div>
           </div>
         </motion.div>

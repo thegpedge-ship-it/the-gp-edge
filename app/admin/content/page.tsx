@@ -9,8 +9,9 @@ import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
-import { getMedicalContent, saveMedicalContent, MedicalContent } from "@/lib/quizData";
+import { fetchMedicalContent, saveMedicalContent, saveMedicalContentItem, updateMedicalContentItem, MedicalContent } from "@/lib/quizData";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { uploadToR2 } from "@/lib/r2Client";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -22,7 +23,10 @@ const typeColors: Record<string, string> = {
   Pathway: "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:border-slate-700/70",
   Document: "bg-teal-50/40 text-teal-700 border-teal-100 dark:bg-teal-950/10 dark:text-teal-400 dark:border-teal-900/30",
   Note: "bg-teal-50/30 text-teal-800 border-teal-100/70 dark:bg-teal-950/15 dark:text-teal-400 dark:border-teal-900/20",
+  Approach: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-700",
 };
+
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 
 export default function ContentPage() {
   const { isReadOnly } = useAdminRole();
@@ -37,6 +41,14 @@ export default function ContentPage() {
   // Content Upload Modal Wizard
   const [showAddModal, setShowAddModal] = useState(false);
   const [modalStep, setModalStep] = useState<"select" | "condition" | "document" | "note">("select");
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Themed Modals State
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteTargetName, setDeleteTargetName] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState("");
   
   // New entry states
   const [newTitle, setNewTitle] = useState("");
@@ -56,6 +68,8 @@ export default function ContentPage() {
     progress: number;
     status: "idle" | "uploading" | "extracting" | "success" | "error";
     error?: string;
+    pdfUrl?: string;
+    isDocx?: boolean;
     extractedData?: {
       title?: string;
       system?: string;
@@ -73,7 +87,7 @@ export default function ContentPage() {
   const [extractedData, setExtractedData] = useState<any>(null);
 
   useEffect(() => {
-    setContent(getMedicalContent());
+    fetchMedicalContent().then(setContent);
   }, []);
 
   const systems = Array.from(new Set(content.map((c) => c.system)));
@@ -93,7 +107,7 @@ export default function ContentPage() {
       if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
         return timeB - timeA;
       }
-      return b.id - a.id;
+      return b.id.localeCompare(a.id);
     });
   }, [filtered]);
 
@@ -101,20 +115,19 @@ export default function ContentPage() {
     return sortedContent.slice(0, visibleCount);
   }, [sortedContent, visibleCount]);
 
-  const updateStatus = (id: number, newStatus: MedicalContent["status"]) => {
+  const updateStatus = (id: string, newStatus: MedicalContent["status"]) => {
     if (isReadOnly) return;
+    updateMedicalContentItem(id, { status: newStatus });
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
   };
 
-  const deleteContent = (id: number) => {
+  const deleteContent = (id: string, name: string) => {
     if (isReadOnly) return;
-    if (confirm("Are you sure you want to delete this content? This action cannot be undone.")) {
-      const updated = content.filter((c) => c.id !== id);
-      setContent(updated);
-      saveMedicalContent(updated);
-    }
+    setDeleteTargetId(id);
+    setDeleteTargetName(name);
+    setShowDeleteModal(true);
   };
 
   // Reset Modal Form
@@ -142,6 +155,7 @@ export default function ContentPage() {
       size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
       progress: 5,
       status: "uploading",
+      isDocx: file.name.toLowerCase().endsWith(".docx") || file.name.toLowerCase().endsWith(".doc"),
     }));
 
     setContentUploadQueue((prev) => [...prev, ...newItems]);
@@ -184,6 +198,14 @@ export default function ContentPage() {
       const result = await res.json();
 
       if (result.success) {
+        // Upload the file payload directly to R2 bucket
+        let r2Url = "";
+        try {
+          r2Url = await uploadToR2(file, file.name, file.type);
+        } catch (uploadErr) {
+          console.error("Failed to upload copy to Cloudflare R2:", uploadErr);
+        }
+
         setContentUploadQueue((prev) =>
           prev.map((item) =>
             item.id === id
@@ -191,6 +213,7 @@ export default function ContentPage() {
                   ...item,
                   status: "success",
                   progress: 100,
+                  pdfUrl: r2Url,
                   extractedData: {
                     title: result.title || file.name.replace(/\.[^/.]+$/, ""),
                     system: result.system || "Endocrine",
@@ -256,7 +279,7 @@ export default function ContentPage() {
     setContentUploadQueue((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleSaveAllDocuments = () => {
+  const handleSaveAllDocuments = async () => {
     if (isReadOnly) return;
     const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
     if (successItems.length === 0) {
@@ -264,99 +287,105 @@ export default function ContentPage() {
       return;
     }
 
-    let nextId = content.length > 0 ? Math.max(...content.map((c) => c.id)) + 1 : 1;
+    setIsSaving(true);
     const newContentItems: MedicalContent[] = [];
 
-    successItems.forEach((item) => {
-      const ext = item.extractedData!;
-      const newItem: MedicalContent = {
-        id: nextId++,
-        name: ext.title || "Extracted Document",
-        system: ext.system || "Endocrine",
-        category: ext.category || "Clinical Reference",
-        type: "Document",
-        status: "published",
-        lastUpdated: "Just now",
-        author: "GP Edge Admin",
-        references: ext.references && ext.references.length > 0 ? ext.references.length : 1,
-        usedInQuestions: 0,
-      };
+    try {
+      await Promise.all(
+        successItems.map(async (item) => {
+          const ext = item.extractedData!;
+          const r2Url = item.pdfUrl || "";
+          const size = item.size || "1.2 MB";
 
-      newContentItems.push(newItem);
-
-      // Save HTML body to localStorage
-      let contentHtml = "";
-      if (ext.fullHtml) {
-        contentHtml = ext.fullHtml;
-      } else {
-        contentHtml = `
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
-          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(s => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
-          </ul>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis & Investigations Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
-          <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-            ${(ext.treatment || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(t => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${t}</li>`).join("")}
-          </ul>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
-          
-          <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
-          <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
-        `;
-      }
-
-      localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
-      localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
-
-      if (ext.references && ext.references.length > 0) {
-        const refObjects = ext.references.map((refText: string, index: number) => ({
-          id: index + 1,
-          text: refText,
-          url: "#"
-        }));
-        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
-      } else {
-        const defaultRefs = [
-          {
-            id: 1,
-            text: `Clinical reference handbook - Resource 1`,
-            url: "#"
+          let contentHtml = "";
+          if (ext.fullHtml) {
+            contentHtml = ext.fullHtml;
+          } else {
+            contentHtml = `
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
+              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+                ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map((s: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
+              </ul>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
+            `;
           }
-        ];
-        localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
-      }
-    });
 
-    const updated = [...newContentItems, ...content];
-    setContent(updated);
-    saveMedicalContent(updated);
-    setShowAddModal(false);
-    resetForm();
-    alert(`Successfully imported ${newContentItems.length} documents!`);
+          // Save to Neon via API
+          const refArray = ext.references && ext.references.length > 0 ? ext.references : [];
+          const savedId = await saveMedicalContentItem({
+            name: ext.title || "Extracted Document",
+            system: ext.system || "Endocrine",
+            category: ext.category || "Clinical Reference",
+            type: "Document",
+            status: "published",
+            author: "GP Edge Admin",
+            references: refArray.length,
+            pdfUrl: r2Url,
+            pdfSize: size,
+            fullHtml: contentHtml.trim(),
+            sections: {
+              resources: refArray.length > 0
+                ? `<ul>${refArray.map((r: string) => `<li>${r}</li>`).join("")}</ul>`
+                : "",
+            },
+          });
+
+          const localId = savedId || `local-${Date.now()}`;
+          if (typeof window !== "undefined" && contentHtml) {
+            localStorage.setItem(`gpedge_content_body_${localId}`, contentHtml.trim());
+          }
+
+          const newItem: MedicalContent = {
+            id: localId,
+            name: ext.title || "Extracted Document",
+            system: ext.system || "Endocrine",
+            category: ext.category || "Clinical Reference",
+            type: "Document",
+            status: "published",
+            lastUpdated: new Date().toISOString().split("T")[0],
+            author: "GP Edge Admin",
+            references: ext.references?.length ?? 1,
+            usedInQuestions: 0,
+            pdfUrl: r2Url,
+            pdfSize: size,
+          };
+          newContentItems.push(newItem);
+        })
+      );
+
+      const updated = [...newContentItems, ...content];
+      setContent(updated);
+      saveMedicalContent(updated);
+      setShowAddModal(false);
+      resetForm();
+
+      if (newContentItems.length === 1) {
+        router.push(`/admin/content/editor?id=${newContentItems[0].id}`);
+      } else {
+        setSuccessModalMessage(`Successfully imported and published ${newContentItems.length} clinical documents!`);
+        setShowSuccessModal(true);
+      }
+    } catch (err) {
+      console.error("Error saving documents:", err);
+      alert("Failed to save and import documents.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Lock body scroll when modal is open to prevent background scrolling lag
@@ -377,7 +406,7 @@ export default function ContentPage() {
   }, [searchQuery, statusFilter, typeFilter, systemFilter]);
 
   // Submit and save content
-  const handleSaveContent = (type: MedicalContent["type"]) => {
+  const handleSaveContent = async (type: MedicalContent["type"]) => {
     if (isReadOnly) return;
     if (!newTitle.trim()) {
       alert("Please fill in the title field.");
@@ -386,19 +415,6 @@ export default function ContentPage() {
 
     const extractedRefs = extractedData?.references || [];
     const referencesCount = extractedRefs.length;
-
-    const newItem: MedicalContent = {
-      id: content.length > 0 ? Math.max(...content.map(c => c.id)) + 1 : 1,
-      name: newTitle,
-      system: newSystem,
-      category: newCategory.trim() || "Clinical Reference",
-      type: type,
-      status: "published",
-      lastUpdated: "Just now",
-      author: "GP Edge Admin",
-      references: referencesCount > 0 ? referencesCount : (type === "Condition" ? 3 : 1),
-      usedInQuestions: 0,
-    };
 
     // Pre-populate HTML body if symptoms/treatment/notes exist to import into editor
     let contentHtml = "";
@@ -444,31 +460,36 @@ export default function ContentPage() {
         <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
       `;
     }
-    localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
-    localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
+    // Save to Neon via API
+    const savedId = await saveMedicalContentItem({
+      name: newTitle,
+      system: newSystem,
+      category: newCategory.trim() || "Clinical Reference",
+      type,
+      status: "published",
+      author: "GP Edge Admin",
+      references: extractedRefs.length > 0 ? extractedRefs.length : (type === "Condition" ? 3 : 1),
+      fullHtml: contentHtml.trim(),
+    });
 
-    if (extractedRefs.length > 0) {
-      const refObjects = extractedRefs.map((refText: string, index: number) => ({
-        id: index + 1,
-        text: refText,
-        url: "#"
-      }));
-      localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
-    } else {
-      const defaultCount = type === "Condition" ? 3 : 1;
-      const defaultRefs = Array.from({ length: defaultCount }, (_, index) => ({
-        id: index + 1,
-        text: `Clinical reference handbook - Resource ${index + 1}`,
-        url: "#"
-      }));
-      localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(defaultRefs));
-    }
-
+    const newItem: MedicalContent = {
+      id: savedId || `local-${Date.now()}`,
+      name: newTitle,
+      system: newSystem,
+      category: newCategory.trim() || "Clinical Reference",
+      type,
+      status: "published",
+      lastUpdated: new Date().toISOString().split("T")[0],
+      author: "GP Edge Admin",
+      references: extractedRefs.length > 0 ? extractedRefs.length : (type === "Condition" ? 3 : 1),
+      usedInQuestions: 0,
+    };
     const updated = [newItem, ...content];
     setContent(updated);
     saveMedicalContent(updated);
     setShowAddModal(false);
     resetForm();
+    router.push(`/admin/content/editor?id=${newItem.id}`);
   };
 
   return (
@@ -557,17 +578,7 @@ export default function ContentPage() {
             { value: "Pathway", label: "Pathway" },
             { value: "Document", label: "Document" },
             { value: "Note", label: "Note" },
-          ]}
-          className="w-48"
-        />
-        <CustomSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "All Status" },
-            { value: "published", label: "Published" },
-            { value: "review", label: "Review" },
-            { value: "draft", label: "Draft" },
+            { value: "Approach", label: "Clinical Approach" },
           ]}
           className="w-48"
         />
@@ -612,17 +623,7 @@ export default function ContentPage() {
                   >
                     <Lucide.Edit className="w-4 h-4" />
                   </Link>
-                  {item.status === "draft" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "review"); }} className="p-1 rounded-lg text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all" title="Send to Review">
-                      <Lucide.ChevronRight className="w-4 h-4" />
-                    </button>
-                  )}
-                  {item.status === "review" && (
-                    <button onClick={(e) => { e.stopPropagation(); updateStatus(item.id, "published"); }} className="p-1 rounded-lg text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all" title="Publish">
-                      <Lucide.Check className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
+                  <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
                     <Lucide.Trash2 className="w-4 h-4" />
                   </button>
                 </div>
@@ -631,6 +632,21 @@ export default function ContentPage() {
           </motion.div>
         ))}
       </motion.div>
+
+      {displayedContent.length === 0 && (
+        <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
+          <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
+          <p className="text-sm font-medium">No medical content found.</p>
+          {!isReadOnly && (
+            <button
+              onClick={() => { if (isReadOnly) return; resetForm(); setShowAddModal(true); }}
+              className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Create your first medical content →
+            </button>
+          )}
+        </motion.div>
+      )}
 
       {sortedContent.length > visibleCount && (
         <div className="flex justify-center pt-2">
@@ -775,80 +791,34 @@ export default function ContentPage() {
                       <button onClick={() => handleSaveContent("Condition")} className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-semibold shadow transition-all cursor-pointer border-none">Save Content</button>
                       <button
                         onClick={() => {
-                          if (!newTitle.trim()) { alert("Please enter a title."); return; }                          const extractedRefs = extractedData?.references || [];
-                          const referencesCount = extractedRefs.length;
-                          const newItem: MedicalContent = {
-                            id: content.length > 0 ? Math.max(...content.map(c => c.id)) + 1 : 1,
+                          if (!newTitle.trim()) { alert("Please enter a title."); return; }
+                          const html = extractedData?.fullHtml || `<h2>Overview</h2><p>${notesInput || ""}</p>`;
+                          saveMedicalContentItem({
                             name: newTitle,
                             system: newSystem,
                             category: newCategory.trim() || "Clinical Reference",
                             type: "Guideline",
-                            status: "draft",
-                            lastUpdated: "Just now",
+                            status: "published",
                             author: "GP Edge Admin",
-                            references: referencesCount > 0 ? referencesCount : 0,
-                            usedInQuestions: 0,
-                          };
-
-                          let contentHtml = "";
-                          if (extractedData && extractedData.fullHtml) {
-                            contentHtml = extractedData.fullHtml;
-                          } else {
-                            contentHtml = `
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${notesInput || "[Enter Overview Here]"}</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
-                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                                ${(symptomsInput || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
-                              </ul>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">Clinical diagnosis based on symptom presentation</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5a. Non-Pharmacological Management</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Non-Pharmacological Management Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5b. Pharmacological Management</h2>
-                              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                                ${(treatmentInput || "[Enter Pharmacological Management Here]").split("\n").filter(Boolean).map(item => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${item}</li>`).join("")}
-                              </ul>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
-                              
-                              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
-                              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
-                            `;
-                          }
-                          localStorage.setItem(`gpedge_content_body_${newItem.id}`, contentHtml.trim());
-                          localStorage.setItem(`gpedge_content_pages_${newItem.id}`, JSON.stringify([contentHtml.trim()]));
-                          
-                          if (extractedRefs.length > 0) {
-                            const refObjects = extractedRefs.map((refText: string, index: number) => ({
-                              id: index + 1,
-                              text: refText,
-                              url: "#"
-                            }));
-                            localStorage.setItem(`gpedge_content_refs_${newItem.id}`, JSON.stringify(refObjects));
-                          }
-                          
-                          const updated = [newItem, ...content];
-                          setContent(updated);
-                          saveMedicalContent(updated);
-                          router.push(`/admin/content/editor?id=${newItem.id}`);
+                            fullHtml: html,
+                          }).then((savedId) => {
+                            const ni: MedicalContent = {
+                              id: savedId || `local-${Date.now()}`,
+                              name: newTitle,
+                              system: newSystem,
+                              category: newCategory.trim() || "Clinical Reference",
+                              type: "Guideline",
+                              status: "published",
+                              lastUpdated: new Date().toISOString().split("T")[0],
+                              author: "GP Edge Admin",
+                              references: (extractedData?.references?.length) || 0,
+                              usedInQuestions: 0,
+                            };
+                            const updated = [ni, ...content];
+                            setContent(updated);
+                            saveMedicalContent(updated);
+                            router.push(`/admin/content/editor?id=${ni.id}`);
+                          });
                         }}
                         className="px-5 py-2 bg-teal-800 text-white rounded-xl text-xs font-semibold hover:bg-teal-900 shadow transition-all flex items-center gap-1.5 cursor-pointer border-none"
                       >
@@ -880,13 +850,13 @@ export default function ContentPage() {
                         type="file" 
                         ref={fileInputRef} 
                         onChange={handleFileChange} 
-                        accept=".pdf,.docx" 
+                        accept=".pdf,.docx,.doc,.png,.jpg,.jpeg,.tiff,.webp" 
                         multiple={true}
                         className="hidden" 
                       />
                       <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX files here</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from directory (Supports multiple files, Max 10MB each)</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop PDF, DOCX or Image files here</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Supports PDF, DOCX, DOC, PNG, JPG, TIFF, WebP · Images are processed with OCR · Multiple files supported</p>
                     </div>
 
                     {/* Interactive Queue */}
@@ -955,22 +925,23 @@ export default function ContentPage() {
                                 </div>
                                 <div>
                                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Body System</label>
-                                  <select
+                                  <CustomSelect
                                     value={item.extractedData.system || "Endocrine"}
-                                    onChange={(e) => updateQueueItemMetadata(item.id, "system", e.target.value)}
-                                    className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
-                                  >
-                                    <option value="Respiratory">Respiratory</option>
-                                    <option value="Endocrine">Endocrine</option>
-                                    <option value="Psychiatry">Psychiatry</option>
-                                    <option value="Dermatology">Dermatology</option>
-                                    <option value="Women's Health">Women's Health</option>
-                                    <option value="Paediatrics">Paediatrics</option>
-                                    <option value="Cardiovascular">Cardiovascular</option>
-                                    <option value="Gastroenterology">Gastroenterology</option>
-                                    <option value="Musculoskeletal">Musculoskeletal</option>
-                                    <option value="MBS">MBS</option>
-                                  </select>
+                                    onChange={(val) => updateQueueItemMetadata(item.id, "system", val)}
+                                    options={[
+                                      { value: "Respiratory", label: "Respiratory" },
+                                      { value: "Endocrine", label: "Endocrine" },
+                                      { value: "Psychiatry", label: "Psychiatry" },
+                                      { value: "Dermatology", label: "Dermatology" },
+                                      { value: "Women's Health", label: "Women's Health" },
+                                      { value: "Paediatrics", label: "Paediatrics" },
+                                      { value: "Cardiovascular", label: "Cardiovascular" },
+                                      { value: "Gastroenterology", label: "Gastroenterology" },
+                                      { value: "Musculoskeletal", label: "Musculoskeletal" },
+                                      { value: "MBS", label: "MBS" },
+                                    ]}
+                                    triggerClassName="w-full flex items-center justify-between px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 transition-all font-medium font-sans"
+                                  />
                                 </div>
                                 <div>
                                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Category</label>
@@ -988,11 +959,10 @@ export default function ContentPage() {
                       </div>
                     )}
 
-                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
-                      <button 
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">                       <button 
                         type="button"
                         onClick={() => setModalStep("select")} 
-                        disabled={contentUploadQueue.some(item => item.status === "uploading")}
+                        disabled={isSaving || contentUploadQueue.some(item => item.status === "uploading")}
                         className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-50"
                       >
                         Back
@@ -1000,16 +970,128 @@ export default function ContentPage() {
                       <button 
                         type="button"
                         onClick={handleSaveAllDocuments} 
-                        disabled={!contentUploadQueue.some(item => item.status === "success")}
-                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow border-none cursor-pointer"
+                        disabled={isSaving || !contentUploadQueue.some(item => item.status === "success")}
+                        className="px-4 py-2 bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-semibold hover:bg-slate-900 shadow border-none cursor-pointer flex items-center gap-1.5"
                       >
-                        Import Documents ({contentUploadQueue.filter(item => item.status === "success").length})
+                        {isSaving ? (
+                          <>
+                            <Lucide.Loader2 className="w-3.5 h-3.5 animate-spin" /> Converting to PDF...
+                          </>
+                        ) : (
+                          `Import Documents (${contentUploadQueue.filter(item => item.status === "success").length})`
+                        )}
                       </button>
                     </div>
                   </div>
                 )}
 
 
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Themed Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteModal && (
+          <div key="delete-confirm-modal-portal" className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+            <motion.div
+              key="delete-confirm-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              onClick={() => setShowDeleteModal(false)}
+            />
+            <motion.div
+              key="delete-confirm-modal-card"
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="relative w-full max-w-md mx-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden pointer-events-auto text-slate-800 dark:text-slate-100 text-center space-y-4"
+            >
+              <div className="mx-auto w-12 h-12 rounded-full bg-red-50 dark:bg-red-950/30 flex items-center justify-center text-red-500 dark:text-red-400">
+                <Lucide.Trash2 className="w-6 h-6 animate-pulse" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-50">Delete Clinical Content?</h3>
+                <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed px-2">
+                  Are you sure you want to delete <strong>"{deleteTargetName}"</strong>? This will permanently remove it from the catalog.
+                </p>
+              </div>
+              <div className="flex gap-2.5 justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (deleteTargetId !== null) {
+                      // API soft-delete
+                      fetch(`/api/medical-content/${deleteTargetId}`, { method: "DELETE" }).catch(console.error);
+                      const updated = content.filter((c) => c.id !== deleteTargetId);
+                      setContent(updated);
+                      saveMedicalContent(updated);
+                      setShowDeleteModal(false);
+                      setDeleteTargetId(null);
+                      setDeleteTargetName("");
+                    }
+                  }}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-red-500/10 cursor-pointer border-none active:scale-95"
+                >
+                  Delete Document
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Themed Success Notification Modal */}
+      <AnimatePresence>
+        {showSuccessModal && (
+          <div key="success-alert-modal-portal" className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+            <motion.div
+              key="success-alert-modal-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm pointer-events-auto cursor-pointer"
+              onClick={() => setShowSuccessModal(false)}
+            />
+            <motion.div
+              key="success-alert-modal-card"
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", stiffness: 350, damping: 30 }}
+              className="relative w-full max-w-sm mx-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden pointer-events-auto text-slate-800 dark:text-slate-100 text-center space-y-4"
+            >
+              <div className="mx-auto w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-500 dark:text-emerald-400">
+                <Lucide.CheckCircle2 className="w-6 h-6 animate-bounce" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-50">Import Complete</h3>
+                <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed px-4">
+                  {successModalMessage}
+                </p>
+              </div>
+              <div className="flex justify-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessModal(false)}
+                  className="px-6 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition shadow-md shadow-teal-500/10 cursor-pointer border-none active:scale-95"
+                >
+                  Continue
+                </button>
               </div>
             </motion.div>
           </div>

@@ -1,5 +1,7 @@
 import { memo } from "react";
-import { weakTopics, strongTopics } from "./data";
+import { weakTopics as fallbackWeak, strongTopics as fallbackStrong } from "./data";
+
+type Topic = { name: string; accuracy: number; attempts: number };
 
 /**
  * WeakStrongTopicsCard — topic analysis panel.
@@ -7,7 +9,13 @@ import { weakTopics, strongTopics } from "./data";
  * - Wrapped in React.memo.
  * - No entry animation — handled by PageTransition.
  */
-const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard() {
+const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard({
+  weakTopics = fallbackWeak,
+  strongTopics = fallbackStrong,
+}: {
+  weakTopics?: Topic[];
+  strongTopics?: Topic[];
+}) {
   return (
     <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7">
       <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-1">
@@ -24,6 +32,9 @@ const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard() {
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Weakest topics</p>
           </div>
           <ul className="space-y-2.5">
+            {weakTopics.length === 0 && (
+              <li className="text-[13px] text-slate-400 dark:text-slate-500">No data yet.</li>
+            )}
             {weakTopics.map((t) => (
               <li
                 key={t.name}
@@ -45,6 +56,9 @@ const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard() {
             <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Strongest topics</p>
           </div>
           <ul className="space-y-2.5">
+            {strongTopics.length === 0 && (
+              <li className="text-[13px] text-slate-400 dark:text-slate-500">No data yet.</li>
+            )}
             {strongTopics.map((t) => (
               <li
                 key={t.name}

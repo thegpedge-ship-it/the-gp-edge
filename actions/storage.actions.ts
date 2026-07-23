@@ -15,7 +15,7 @@ export async function getPresignedUploadUrl(fileName: string, fileType: string) 
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
   const fileKey = `${uniqueId}-${sanitizedFileName}`;
 
-  const bucketName = process.env.R2_BUCKET_NAME || "";
+  const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
 
   const command = new PutObjectCommand({
     Bucket: bucketName,

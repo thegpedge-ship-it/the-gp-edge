@@ -78,45 +78,161 @@ export default function AutofillDetailPage() {
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isReadOnly) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    setUploadedFileName(file.name);
-    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
-    setUploadState("uploading");
-    setUploadProgress(0);
+    const fileList = Array.from(files);
 
-    const progressTimer = setInterval(() => {
-      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
-    }, 150);
+    if (fileList.length === 1) {
+      const file = fileList[0];
+      setUploadedFileName(file.name);
+      setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
+      setUploadState("uploading");
+      setUploadProgress(0);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("type", "autofill");
+      const progressTimer = setInterval(() => {
+        setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
+      }, 150);
 
-      const res = await fetch("/api/extract", {
-        method: "POST",
-        body: formData,
-      });
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "autofill");
 
-      clearInterval(progressTimer);
-      setUploadProgress(100);
+        const res = await fetch("/api/extract", {
+          method: "POST",
+          body: formData,
+        });
 
-      const result = await res.json();
-      if (result.success) {
-        setExtractedData(result);
-        setUploadState("success");
-        // Auto-trigger extraction immediately after upload
-        runTextExtraction(result);
-      } else {
-        alert(result.error || "Failed to extract text from document");
+        clearInterval(progressTimer);
+        setUploadProgress(100);
+
+        const result = await res.json();
+        if (result.success) {
+          setExtractedData(result);
+          setUploadState("success");
+          // Auto-trigger extraction immediately after upload
+          runTextExtraction(result);
+        } else {
+          alert(result.error || "Failed to extract text from document");
+          setUploadState("idle");
+        }
+      } catch (err: any) {
+        clearInterval(progressTimer);
+        alert("Upload error: " + err.message);
         setUploadState("idle");
       }
-    } catch (err: any) {
-      clearInterval(progressTimer);
-      alert("Upload error: " + err.message);
-      setUploadState("idle");
+    } else {
+      setUploadedFileName(`${fileList.length} files`);
+      const totalSize = (fileList.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2) + " MB";
+      setUploadedFileSize(totalSize);
+      setUploadState("uploading");
+      setUploadProgress(0);
+
+      let successCount = 0;
+      let templatesList = getAutofillTemplates();
+      let nextId = templatesList.length > 0 ? Math.max(...templatesList.map(t => t.id)) + 1 : 1;
+
+      // First file updates current template
+      const firstFile = fileList[0];
+      try {
+        const formData = new FormData();
+        formData.append("file", firstFile);
+        formData.append("type", "autofill");
+        const res = await fetch("/api/extract", { method: "POST", body: formData });
+        const result = await res.json();
+        if (result.success && template) {
+          const title = result.title || firstFile.name.replace(/\.[^/.]+$/, "");
+          const system = result.system || "Respiratory";
+          const category = result.category || "Acute";
+          const subjective = result.symptoms || result.subjective || "";
+          const objective = result.objective || "";
+          const plan = result.treatment || result.plan || "";
+          const assessment = result.notes || result.assessment || "";
+          const doctorSummary = result.doctorSummary || "";
+          const patientResources = result.patientResources || "";
+          const content = result.content || [subjective, objective, assessment, plan, doctorSummary, patientResources].filter(Boolean).join("\n\n");
+
+          const updatedTemplate: AutofillTemplate = {
+            ...template,
+            name: title,
+            system: system,
+            category: category,
+            fields: 0,
+            content,
+            subjective,
+            objective,
+            assessment,
+            plan,
+            doctorSummary,
+            patientResources,
+            sampleFields: []
+          };
+          templatesList = templatesList.map(t => t.id === template.id ? updatedTemplate : t);
+          setTemplate(updatedTemplate);
+          successCount++;
+        }
+      } catch (err) {
+        console.error("Failed to update template from " + firstFile.name, err);
+      }
+
+      // Other files create new templates
+      for (let i = 1; i < fileList.length; i++) {
+        const file = fileList[i];
+        setUploadProgress(Math.round((i / fileList.length) * 100));
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("type", "autofill");
+          const res = await fetch("/api/extract", { method: "POST", body: formData });
+          const result = await res.json();
+          if (result.success) {
+            const title = result.title || file.name.replace(/\.[^/.]+$/, "");
+            const system = result.system || "Respiratory";
+            const category = result.category || "Acute";
+            const subjective = result.symptoms || result.subjective || "";
+            const objective = result.objective || "";
+            const plan = result.treatment || result.plan || "";
+            const assessment = result.notes || result.assessment || "";
+            const doctorSummary = result.doctorSummary || "";
+            const patientResources = result.patientResources || "";
+
+            const newTemplate: AutofillTemplate = {
+              id: nextId++,
+              name: title,
+              system: system,
+              category: category,
+              fields: 0,
+              usageCount: 0,
+              lastUsed: "Just now",
+              status: "active",
+              author: "GP Edge Admin",
+              version: "v1.0",
+              subjective,
+              objective,
+              assessment,
+              plan,
+              doctorSummary,
+              patientResources,
+              sampleFields: []
+            };
+            templatesList = [newTemplate, ...templatesList];
+            successCount++;
+          }
+        } catch (err) {
+          console.error("Batch extraction failed for file " + file.name, err);
+        }
+      }
+
+      setUploadProgress(100);
+      setUploadState("success");
+      setTemplates(templatesList);
+      saveAutofillTemplates(templatesList);
+
+      setTimeout(() => {
+        setUploadState("idle");
+        addUserNotification("Batch Import Successful", `Imported ${successCount} templates (updated current and created new ones).`, 1, "custom");
+      }, 1500);
     }
   };
 
@@ -168,6 +284,12 @@ export default function AutofillDetailPage() {
         category: category,
         fields: 0,
         content,
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
         sampleFields: []
       };
 
@@ -528,11 +650,12 @@ export default function AutofillDetailPage() {
                               ref={fileInputRef}
                               onChange={handleFileChange}
                               accept=".pdf,.docx"
+                              multiple
                               className="hidden"
                             />
                             <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
                             <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">or click to choose file from directory (Max 10MB)</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from directory (Max 10MB)</p>
                           </div>
                         </div>
                       </div>

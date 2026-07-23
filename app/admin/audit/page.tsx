@@ -8,6 +8,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { addUserNotification } from "@/utils/notifications";
+import { saveAdminToDbAction, deleteAdminFromDbAction, getAdminsFromDbAction } from "@/actions/admin.actions";
 import {
   themeBorder,
   themeBtnGhost,
@@ -33,12 +34,15 @@ const ALL_FEATURES = [
   { key: "questions", label: "Questions", desc: "Create, edit & delete questions" },
   { key: "quizzes", label: "Quizzes", desc: "Manage quiz templates" },
   { key: "content", label: "Medical Content", desc: "Manage medical library articles" },
+  { key: "approaches", label: "Clinical Approaches", desc: "Manage clinical approach guidelines" },
   { key: "autofill", label: "Autofill Templates", desc: "Create & edit autofill templates" },
   { key: "users", label: "Users", desc: "View & manage user accounts" },
+  { key: "mbs", label: "Update MBS", desc: "Upload government MBS data & rebuild search" },
   { key: "notifications", label: "Notifications", desc: "Send system notifications" },
   { key: "billing", label: "Billing", desc: "View revenue & manage subscriptions" },
   { key: "audit", label: "Audit & Security", desc: "View audit logs & manage roles" },
   { key: "settings", label: "Settings", desc: "System-level configuration" },
+  { key: "search", label: "Search", desc: "Global admin search tool" },
 ];
 
 const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
@@ -46,8 +50,8 @@ const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 /* ── Role presets ── */
 const ROLE_PRESETS: Record<string, string[]> = {
   "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"],
-  Moderator: ["dashboard", "questions", "content"],
+  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
+  Moderator: ["dashboard", "questions", "content", "approaches"],
   Viewer: ["dashboard"],
 };
 
@@ -55,7 +59,7 @@ interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "Super Admin" | "Admin" | "Moderator" | "Viewer";
+  role: "Super Admin" | "Admin";
   permissions: string[];
   lastLogin: string;
   status: "active" | "inactive";
@@ -70,8 +74,10 @@ const auditLogs = [
   { timestamp: "28 May 2026, 11:45 PM", admin: "Siddhant Udavant", action: "Published Question #2850 to live bank", category: "Questions", severity: "info" },
   { timestamp: "28 May 2026, 11:30 PM", admin: "Siddhant Udavant", action: "Suspended account — policy violation", category: "Users", severity: "warning" },
   { timestamp: "28 May 2026, 10:15 PM", admin: "Arun Mehta", action: "Bulk imported 142 Cardiology questions", category: "Questions", severity: "info" },
+  { timestamp: "28 May 2026, 9:25 PM", admin: "Jessica Park", action: "Published new Cardiology approach — Hypertension Management", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review queue", category: "Questions", severity: "info" },
   { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Published new Respiratory autofill template", category: "Content", severity: "info" },
+  { timestamp: "28 May 2026, 5:10 PM", admin: "Arun Mehta", action: "Created draft approach 'Approach to Dyspnoea'", category: "Approaches", severity: "info" },
   { timestamp: "28 May 2026, 4:00 PM", admin: "Arun Mehta", action: "Deleted Question #2839 — duplicate entry", category: "Questions", severity: "warning" },
   { timestamp: "27 May 2026, 11:00 PM", admin: "Siddhant Udavant", action: "Enabled maintenance mode for 30 minutes", category: "System", severity: "warning" },
   { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 — policy criteria met", category: "Billing", severity: "info" },
@@ -79,6 +85,7 @@ const auditLogs = [
 
 const softDeleted = [
   { item: "Question #2839", type: "Question", deletedBy: "Arun Mehta", date: "28 May 2026", reason: "Duplicate" },
+  { item: "Approach to Syncope v1", type: "Clinical Approach", deletedBy: "Arun Mehta", date: "26 May 2026", reason: "Replaced by updated guidelines" },
   { item: "GORD Template v1", type: "Autofill", deletedBy: "Jessica Park", date: "25 May 2026", reason: "Outdated" },
   { item: "Test Account #9999", type: "User", deletedBy: "Siddhant Udavant", date: "20 May 2026", reason: "Test data cleanup" },
 ];
@@ -86,7 +93,7 @@ const softDeleted = [
 export default function AuditPage() {
   const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin } = useAdminRole();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [currentAdminId, setCurrentAdminId] = useState("1");
+  const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
 
   const [activeTab, setActiveTab] = useState<"accounts" | "logs" | "deleted" | "policies">("accounts");
   const [searchQuery, setSearchQuery] = useState("");
@@ -103,6 +110,7 @@ export default function AuditPage() {
   /* Modal state */
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [adminToDelete, setAdminToDelete] = useState<AdminUser | null>(null);
 
   /* Edit form state */
   const [editName, setEditName] = useState("");
@@ -110,7 +118,7 @@ export default function AuditPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
-  const [editRole, setEditRole] = useState<"Super Admin" | "Admin" | "Moderator" | "Viewer">("Admin");
+  const [editRole, setEditRole] = useState<"Super Admin" | "Admin">("Admin");
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editForgotPassword, setEditForgotPassword] = useState(true);
   const [editOauth, setEditOauth] = useState(false);
@@ -122,13 +130,24 @@ export default function AuditPage() {
   const [addUsername, setAddUsername] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [showAddPassword, setShowAddPassword] = useState(false);
-  const [addRole, setAddRole] = useState<"Super Admin" | "Admin" | "Moderator" | "Viewer">("Admin");
-  const [addPermissions, setAddPermissions] = useState<string[]>([]);
+  const [addRole, setAddRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [addPermissions, setAddPermissions] = useState<string[]>([...ALL_FEATURE_KEYS]);
   const [addForgotPassword, setAddForgotPassword] = useState(true);
   const [addOauth, setAddOauth] = useState(false);
   const [addMfa, setAddMfa] = useState(false);
 
-  const syncAdminsFromStorage = () => {
+  const syncAdminsFromStorage = async () => {
+    try {
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch admins from DB:", e);
+    }
+
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("gpedge_admin_credentials_list");
       if (stored) {
@@ -138,11 +157,11 @@ export default function AuditPage() {
             let permissions = u.permissions || [];
             if (permissions.length === 0) {
               if (u.role === "Super Admin" || u.role === "Viewer") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing", "audit", "settings", "search"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
               } else if (u.role === "Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"];
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
               } else if (u.role === "Moderator") {
-                permissions = ["dashboard", "questions", "content"];
+                permissions = ["dashboard", "questions", "content", "approaches"];
               }
             }
             return {
@@ -151,7 +170,7 @@ export default function AuditPage() {
               email: u.email,
               role: u.role,
               permissions,
-              lastLogin: u.id === "1" ? "Just now" : u.id === "2" ? "2 hours ago" : u.id === "3" ? "1 day ago" : "Never",
+              lastLogin: u.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00" ? "Just now" : u.id === "b5a452ef-09c3-4d2b-aa58-bf8827f8a101" ? "2 hours ago" : u.id === "d7c92b23-1c32-4f8a-9a99-8cb142646202" ? "1 day ago" : "Never",
               status: u.status || "active",
               username: u.username || "",
               forgotPasswordEnabled: u.forgotPasswordEnabled ?? true,
@@ -172,7 +191,7 @@ export default function AuditPage() {
     syncAdminsFromStorage();
 
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("gpedge_active_admin_id") || "1";
+      const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
       setCurrentAdminId(stored);
 
       // Load Security Policies
@@ -243,7 +262,7 @@ export default function AuditPage() {
     setEditMfa(admin.mfaEnabled);
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!editingAdmin) return;
     if (isReadOnly) return;
     if (!editName.trim() || !editEmail.trim() || !editUsername.trim()) {
@@ -251,34 +270,40 @@ export default function AuditPage() {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const updatedCreds = credsList.map((u: any) => {
-        if (u.id === editingAdmin.id) {
-          const isTargetSuperAdmin = editRole === "Super Admin";
-          return {
-            ...u,
-            name: editName.trim(),
-            email: editEmail.trim(),
-            username: editUsername.trim(),
-            role: editRole,
-            permissions: [...editPermissions],
-            lastChanged: "Just now",
-            ...(editPassword.trim() ? { password: editPassword } : {}),
-            forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
-            oauthEnabled: isTargetSuperAdmin ? editOauth : false,
-            mfaEnabled: isTargetSuperAdmin ? editMfa : false,
-          };
-        }
-        return u;
-      });
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedCreds));
+    const isTargetSuperAdmin = editRole === "Super Admin";
+    const updatedUser = {
+      id: editingAdmin.id,
+      name: editName.trim(),
+      email: editEmail.trim(),
+      username: editUsername.trim(),
+      role: editRole,
+      permissions: [...editPermissions],
+      lastChanged: "Just now",
+      ...(editPassword.trim() ? { password: editPassword } : {}),
+      forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
+      oauthEnabled: isTargetSuperAdmin ? editOauth : false,
+      mfaEnabled: isTargetSuperAdmin ? editMfa : false,
+      mustResetPassword: editingAdmin.mustResetPassword,
+      status: editingAdmin.status,
+    };
+
+    try {
+      const res = await saveAdminToDbAction(updatedUser);
+      if (!res.success) {
+        alert(res.error || "Failed to update admin.");
+        return;
+      }
+      setEditingAdmin(null);
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin Updated", `Successfully updated details for "${editName}".`, 1, "custom");
+    } catch (err: any) {
+      console.error("Failed to save admin to DB:", err);
+      alert(err.message || "An unexpected error occurred.");
     }
-
-    setEditingAdmin(null);
     syncAdminsFromStorage();
   }
 
@@ -288,7 +313,7 @@ export default function AuditPage() {
     setAddUsername("");
     setAddPassword("");
     setAddRole("Admin");
-    setAddPermissions(["dashboard", "questions", "quizzes", "content", "autofill", "users", "notifications", "billing"]);
+    setAddPermissions([...ALL_FEATURE_KEYS]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);
@@ -296,58 +321,79 @@ export default function AuditPage() {
     setShowAddModal(true);
   }
 
-  function saveAdd() {
+  async function saveAdd() {
     if (isReadOnly) return;
     if (!addName.trim() || !addEmail.trim() || !addUsername.trim() || !addPassword.trim()) {
       alert("Please fill in all required fields.");
       return;
     }
     
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const isTargetSuperAdmin = addRole === "Super Admin";
-      const newCred = {
-        id: String(Date.now()),
-        name: addName.trim(),
-        email: addEmail.trim(),
-        username: addUsername.trim(),
-        password: addPassword,
-        role: addRole,
-        permissions: [...addPermissions],
-        lastChanged: "Just now",
-        forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
-        oauthEnabled: isTargetSuperAdmin ? addOauth : false,
-        mfaEnabled: isTargetSuperAdmin ? addMfa : false,
-        mustResetPassword: true, // Force password reset on first login
-        status: "active",
-      };
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify([...credsList, newCred]));
+    const isTargetSuperAdmin = addRole === "Super Admin";
+    const newCred = {
+      id: String(Date.now()),
+      name: addName.trim(),
+      email: addEmail.trim(),
+      username: addUsername.trim(),
+      password: addPassword,
+      role: addRole,
+      permissions: [...addPermissions],
+      lastChanged: "Just now",
+      forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
+      oauthEnabled: isTargetSuperAdmin ? addOauth : false,
+      mfaEnabled: isTargetSuperAdmin ? addMfa : false,
+      mustResetPassword: true, // Force password reset on first login
+      status: "active",
+    };
+
+    try {
+      const res = await saveAdminToDbAction(newCred);
+      if (!res.success) {
+        alert(res.error || "Failed to create admin.");
+        return;
+      }
+      setShowAddModal(false);
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
+    } catch (err: any) {
+      console.error("Failed to add admin to DB:", err);
+      alert(err.message || "An unexpected error occurred.");
     }
-
-    setShowAddModal(false);
     syncAdminsFromStorage();
   }
 
-  function removeAdmin(id: string, name: string) {
+  function requestDeleteAdmin(admin: AdminUser) {
     if (isReadOnly) return;
-    if (id === "1") {
+    if (admin.id === "1") {
       alert("Cannot delete primary Super Admin account.");
       return;
     }
-    if (!confirm(`Are you sure you want to delete administrator "${name}"?`)) return;
+    setAdminToDelete(admin);
+  }
 
-    if (typeof window !== "undefined") {
-      const storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
-      const credsList = storedCreds ? JSON.parse(storedCreds) : [];
-      const updatedCreds = credsList.filter((u: any) => u.id !== id);
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(updatedCreds));
+  async function removeAdmin(id: string, name: string) {
+    if (isReadOnly) return;
+
+    try {
+      await deleteAdminFromDbAction(id);
+      const dbAdmins = await getAdminsFromDbAction();
+      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       addUserNotification("Admin Deleted", `Successfully removed credentials for "${name}".`, 1, "custom");
+    } catch (err) {
+      console.error("Failed to delete admin from DB:", err);
     }
     syncAdminsFromStorage();
+  }
+
+  async function confirmDeleteAdmin() {
+    if (!adminToDelete) return;
+    const { id, name } = adminToDelete;
+    setAdminToDelete(null);
+    await removeAdmin(id, name);
   }
 
   function togglePermission(perms: string[], key: string, setter: (v: string[]) => void) {
@@ -604,7 +650,7 @@ export default function AuditPage() {
                             </button>
                             {a.id !== "1" && (
                               <button
-                                onClick={() => isSuperAdmin && removeAdmin(a.id, a.name)}
+                                onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
                                 disabled={!isSuperAdmin || isReadOnly}
                                 className={`p-1.5 rounded-lg transition-all ${
                                   isSuperAdmin && !isReadOnly
@@ -636,9 +682,9 @@ export default function AuditPage() {
             <div className="px-6 py-4 border-b border-slate-200/40 flex items-center justify-between flex-wrap gap-3">
               <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">Audit Logs Trail</h3>
               <div className="flex gap-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg p-1">
-                {["all", "users", "questions", "billing", "system"].map((f) => (
+                {["all", "users", "questions", "billing", "system", "approaches"].map((f) => (
                   <button key={f} onClick={() => setLogFilter(f)} className={`px-3 py-1 text-xs font-semibold rounded-md transition-all border-none bg-transparent cursor-pointer ${logFilter === f ? "bg-white dark:bg-slate-850 text-teal-700 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-450 hover:text-slate-700 dark:hover:text-slate-350"}`}>
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f === "approaches" ? "Clinical Approaches" : f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 ))}
               </div>
@@ -1168,6 +1214,69 @@ export default function AuditPage() {
                     Add Admin
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {adminToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 backdrop-blur-sm p-4"
+            onClick={() => setAdminToDelete(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className={`w-full max-w-lg overflow-hidden rounded-3xl border ${themeBorder} ${themePanel} shadow-2xl`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-100/80 dark:border-slate-800/80 bg-gradient-to-r from-rose-50/80 via-white to-teal-50/40 dark:from-rose-950/20 dark:via-slate-900 dark:to-teal-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/40">
+                    <Lucide.Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Delete administrator?</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This action removes the account and its access credentials from the admin list.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
+                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                    Are you sure you want to delete administrator <span className="font-semibold text-slate-900 dark:text-slate-50">"{adminToDelete.name}"</span>?
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">This cannot be undone. The account will be removed from the admin roster immediately.</p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                  <Lucide.Info className="w-4 h-4 text-teal-600 shrink-0" />
+                  <span>Super Admin accounts are protected and cannot be removed.</span>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-950/30 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setAdminToDelete(null)}
+                  className={`px-4 py-2 text-xs font-semibold rounded-xl border ${themeBtnGhost}`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAdmin}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-600/15 hover:from-rose-500 hover:to-rose-400 transition-all active:scale-[0.98]"
+                >
+                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                  Delete Admin
+                </button>
               </div>
             </motion.div>
           </motion.div>

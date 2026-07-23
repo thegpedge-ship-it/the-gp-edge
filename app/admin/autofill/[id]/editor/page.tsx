@@ -12,11 +12,12 @@ import {
   getAutofillTemplates,
   saveAutofillTemplates,
   AutofillTemplate,
+  fetchQuestions,
   getQuestions,
-  createQuiz,
   Question,
 } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { syncQuizToDbAction } from "@/actions/quiz.actions";
 
 // ─────────────────────────────────────────────────────────────
 // SOAP → HTML seed
@@ -114,7 +115,7 @@ function RibbonGroup({ label, children }: { label: string; children: React.React
 // Main editor
 // ─────────────────────────────────────────────────────────────
 function TemplateEditorContent() {
-  const { isReadOnly } = useAdminRole();
+  const { isReadOnly, currentAdmin } = useAdminRole();
   const params = useParams();
   const router = useRouter();
   const templateId = Number(params.id);
@@ -126,13 +127,22 @@ function TemplateEditorContent() {
   const [docTitle, setDocTitle] = useState("");
   const [selectedSystem, setSelectedSystem] = useState("Respiratory");
   const [selectedCategory, setSelectedCategory] = useState("Acute");
-  const [templateStatus, setTemplateStatus] = useState<"active" | "draft" | "suspended">("draft");
+  const [templateStatus, setTemplateStatus] = useState<"active" | "draft" | "suspended">("active");
+  const [editTriggerCount, setEditTriggerCount] = useState(0);
   const [author, setAuthor] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
   // Content
   const [templateContent, setTemplateContent] = useState("");
+
+  // SOAP fields
+  const [subjective, setSubjective] = useState("");
+  const [objective, setObjective] = useState("");
+  const [assessment, setAssessment] = useState("");
+  const [plan, setPlan] = useState("");
+  const [doctorSummary, setDoctorSummary] = useState("");
+  const [patientResources, setPatientResources] = useState("");
 
   // Layout
   const [ribbonTab, setRibbonTab] = useState<"home" | "insert" | "layout">("home");
@@ -329,6 +339,12 @@ function TemplateEditorContent() {
       setSelectedSystem(system);
       setSelectedCategory(category);
       setTemplateContent(content);
+      setSubjective(subjective);
+      setObjective(objective);
+      setAssessment(assessment);
+      setPlan(plan);
+      setDoctorSummary(doctorSummary);
+      setPatientResources(patientResources);
 
       if (references && references.length > 0) {
         setDocReferences(references.map((refText: string, i: number) => ({
@@ -457,6 +473,12 @@ function TemplateEditorContent() {
     setAuthor(item.author);
     setTags(item.tags || []);
     setTemplateContent(item.content || [item.subjective, item.objective, item.assessment, item.plan, item.doctorSummary, item.patientResources].filter(Boolean).join("\n\n"));
+    setSubjective(item.subjective || "");
+    setObjective(item.objective || "");
+    setAssessment(item.assessment || "");
+    setPlan(item.plan || "");
+    setDoctorSummary(item.doctorSummary || "");
+    setPatientResources(item.patientResources || "");
 
     let savedHtml = localStorage.getItem(`gpedge_template_body_${templateId}`);
     if (!savedHtml) savedHtml = soapToHtml(item);
@@ -478,7 +500,9 @@ function TemplateEditorContent() {
     else if (item.references) setDocReferences([{ id: 1, text: item.references, url: "#" }]);
     const rawLinks = localStorage.getItem(`gpedge_template_links_${templateId}`);
     if (rawLinks) { try { setLinkedQuestionIds(JSON.parse(rawLinks)); } catch {} }
-    setAllQuestions(getQuestions());
+    fetchQuestions().then((list) => {
+      setAllQuestions(list);
+    });
   }, [templateId]);
 
   // ── Keyboard shortcuts ──
@@ -855,6 +879,7 @@ function TemplateEditorContent() {
     if (history[historyIndex] !== html) {
       const h = [...history.slice(0, historyIndex + 1), html];
       setHistory(h); setHistoryIndex(h.length - 1);
+      setEditTriggerCount(prev => prev + 1); // trigger auto-save!
     }
   };
 
@@ -1062,6 +1087,43 @@ function TemplateEditorContent() {
     localStorage.setItem(`gpedge_template_pages_${templateId}`, JSON.stringify(np));
   };
 
+  // Debounced real-time update auto-save hook
+  useEffect(() => {
+    if (isReadOnly) return;
+    if (!docTitle.trim() || !templateId) return;
+
+    const timer = setTimeout(() => {
+      const html = editorRef.current?.innerHTML || "";
+      localStorage.setItem(`gpedge_template_body_${templateId}`, html);
+      const ap = syncPages();
+      localStorage.setItem(`gpedge_template_pages_${templateId}`, JSON.stringify(ap));
+      localStorage.setItem(`gpedge_template_refs_${templateId}`, JSON.stringify(docReferences));
+
+      const list = getAutofillTemplates();
+      const up = list.map((t) => t.id === templateId ? {
+        ...t,
+        name: docTitle.trim(),
+        system: selectedSystem,
+        category: selectedCategory,
+        status: "active" as const,
+        author,
+        tags,
+        content: templateContent,
+        subjective,
+        objective,
+        assessment,
+        plan,
+        doctorSummary,
+        patientResources,
+      } : t);
+      
+      setTemplates(up);
+      saveAutofillTemplates(up);
+    }, 1000); // 1-second debounce
+
+    return () => clearTimeout(timer);
+  }, [docTitle, selectedSystem, selectedCategory, docReferences, tags, templateContent, subjective, objective, assessment, plan, doctorSummary, patientResources, editTriggerCount, activePage]);
+
   // ── Image ──
   const insertImageUrl = () => {
     if (!imageUrl.trim()) return;
@@ -1096,6 +1158,12 @@ function TemplateEditorContent() {
       ...t, name: docTitle.trim(), system: selectedSystem, category: selectedCategory,
       status: templateStatus as AutofillTemplate["status"], author, tags,
       content: templateContent,
+      subjective,
+      objective,
+      assessment,
+      plan,
+      doctorSummary,
+      patientResources,
     } : t);
     setTemplates(up); saveAutofillTemplates(up);
     addUserNotification("Template Saved", `Saved changes to "${docTitle}".`, 1, "custom");
@@ -1112,14 +1180,26 @@ function TemplateEditorContent() {
     router.push(`/admin/autofill/${nextId}/editor`);
   };
 
-  const handleGenerateQuiz = () => {
+  const handleGenerateQuiz = async () => {
     if (isReadOnly) return;
-    const bank = getQuestions();
+    const bank = allQuestions;
     const rel = bank.filter(q => q.topic.toLowerCase().includes(selectedSystem.toLowerCase()));
     const qqs = rel.slice(0, 8); if (qqs.length === 0) qqs.push(...bank.slice(0, 5));
-    const nq = createQuiz({ name: `Quiz: ${docTitle}`, description: `Auto-generated from "${docTitle}"`, timeLimit: qqs.length * 2, passingScore: 70, randomize: true, status: "draft", examType: "AKT", questionIds: qqs.map(q => q.id), topics: [selectedSystem] });
-    addUserNotification("Quiz Generated", `Generated quiz "${nq.name}".`, qqs.length, "quiz");
-    router.push(`/admin/quizzes/${nq.id}/edit`);
+    const quizName = `Quiz: ${docTitle}`;
+    const result = await syncQuizToDbAction({
+      name: quizName,
+      description: `Auto-generated from "${docTitle}"`,
+      timeLimit: qqs.length * 2,
+      passingScore: 70,
+      randomize: true,
+      status: "active",
+      examType: "AKT",
+    }, qqs, currentAdmin?.id);
+
+    if (result.success && result.dbId) {
+      addUserNotification("Quiz Generated & Published", `Generated and published quiz "${quizName}".`, qqs.length, "quiz");
+      router.push(`/admin/quizzes/${result.dbId}/edit`);
+    }
   };
 
   const handleAddRef = () => {
@@ -1558,7 +1638,7 @@ function TemplateEditorContent() {
         @media print { .no-print { display: none !important; } .word-canvas { box-shadow: none !important; } .tbl-drag-handle { display: none !important; } }
       `}} />
 
-      <div className="flex flex-col bg-slate-100 dark:bg-slate-950 -mx-6 -mt-6 lg:-mx-8 lg:-mt-8" style={{ minHeight: 'calc(100vh - 3.5rem)' }}>
+      <div className="flex flex-col bg-slate-100 dark:bg-slate-950 -mx-6 -mt-6 lg:-mx-8 lg:-mt-8" style={{ minHeight: "calc(100vh - 3.5rem)" }}>
 
         {/* ── Breadcrumb / Action bar (matches content editor style, sticky below topbar) ── */}
         <div className="no-print sticky top-14 z-30">
@@ -1573,46 +1653,6 @@ function TemplateEditorContent() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Status Selector */}
-                <div className="relative inline-block text-left" ref={dropdownRefs.status}>
-                  <button
-                    type="button"
-                    onClick={() => { if (isReadOnly) return; setStatusOpen(o => !o); }}
-                    disabled={isReadOnly}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-750 dark:text-slate-300 hover:border-teal-350 hover:text-teal-650 transition-all flex items-center gap-1.5 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <span>Status: <span className="capitalize font-bold text-teal-800 dark:text-teal-400">{templateStatus}</span></span>
-                    <Lucide.ChevronDown className="w-3 h-3 opacity-70" />
-                  </button>
-                  <AnimatePresence>
-                    {statusOpen && !isReadOnly && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 4 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        className="absolute right-0 mt-1 w-32 rounded-lg bg-white dark:bg-slate-900 border border-teal-200/50 dark:border-teal-900/40 shadow-lg z-[60] overflow-hidden"
-                      >
-                        <div className="p-1">
-                          {(["active", "draft", "suspended"] as const).map((s) => (
-                            <button
-                              key={s}
-                              onClick={() => { setTemplateStatus(s); setStatusOpen(false); }}
-                              className={`w-full text-left px-2.5 py-1.5 text-xs rounded-md transition-colors capitalize ${
-                                templateStatus === s
-                                  ? "bg-teal-50 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300 font-bold"
-                                  : "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                              }`}
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-
                 {/* Sidebar toggle */}
                 <button
                   onClick={() => setShowSidebar(s => !s)}
@@ -1624,19 +1664,18 @@ function TemplateEditorContent() {
                 {/* Export PDF */}
                 <button
                   onClick={handleExportPDF}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-355 dark:border-slate-700 hover:border-teal-355 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm"
                   title="Export as PDF"
                 >
                   <Lucide.FileDown className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Export PDF</span>
                 </button>
 
-
                 {/* Import Document */}
                 <button
                   onClick={() => { if (isReadOnly) return; docFileInputRef.current?.click(); }}
                   disabled={isReadOnly}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-355 dark:border-slate-700 hover:border-teal-355 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                   title={isReadOnly ? "Viewers cannot import documents" : "Import DOCX or PDF"}
                 >
                   <Lucide.Upload className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
@@ -1647,18 +1686,25 @@ function TemplateEditorContent() {
                 <button
                   onClick={() => { if (isReadOnly) return; handleDuplicate(); }}
                   disabled={isReadOnly}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:border-slate-700 hover:border-teal-350 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-355 dark:border-slate-700 hover:border-teal-355 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
                   title={isReadOnly ? "Viewers cannot duplicate templates" : "Duplicate"}
                 >
                   <Lucide.Copy className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Duplicate</span>
                 </button>
 
-                {/* Save */}
-                <button onClick={handleSave} className="px-4 py-1.5 text-xs font-semibold text-white bg-teal-800 rounded-lg hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5">
-                  <Lucide.Save className="w-3.5 h-3.5" />
-                  Save Changes
-                </button>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 font-medium px-2.5 py-1.5 bg-slate-50 dark:bg-slate-850 rounded-lg border border-slate-200/60 dark:border-slate-700/60 select-none">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                  <span>Saved in real-time</span>
+                </div>
+
+                <Link
+                  href="/admin/autofill"
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-800 text-white hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5 border-none cursor-pointer"
+                >
+                  <Lucide.ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Templates</span>
+                </Link>
               </div>
             </div>
           </div>

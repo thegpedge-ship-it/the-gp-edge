@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
+import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, verifyAdminCredentialsAction } from "@/actions/admin.actions";
 
 import {
   themeBorder,
@@ -27,7 +28,7 @@ interface CredentialUser {
 
 const FALLBACK_USERS: CredentialUser[] = [
   {
-    id: "1",
+    id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
     name: "Siddhant Udavant",
     username: "siddhant_super",
     role: "Super Admin",
@@ -36,31 +37,13 @@ const FALLBACK_USERS: CredentialUser[] = [
     password: "super123",
   },
   {
-    id: "2",
+    id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101",
     name: "Arun Mehta",
     username: "arun_admin",
     role: "Admin",
     email: "content@gpedge.com",
     forgotPasswordEnabled: true,
     password: "admin123",
-  },
-  {
-    id: "3",
-    name: "Jessica Park",
-    username: "jessica_mod",
-    role: "Moderator",
-    email: "moderator@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "moderator123",
-  },
-  {
-    id: "4",
-    name: "Sarah Connor",
-    username: "sarah_view",
-    role: "Viewer",
-    email: "viewer@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "viewer123",
   },
 ];
 
@@ -97,60 +80,52 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    syncLocalAdminsWithDbAction(FALLBACK_USERS).then(dbAdmins => {
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
+    });
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        // Load actual credential list configured
-        let stored = localStorage.getItem("gpedge_admin_credentials_list");
-        let usersList: CredentialUser[] = [];
-        try {
-          usersList = stored ? JSON.parse(stored) : [];
-        } catch (e) {
-          usersList = [];
-        }
-        if (!usersList || usersList.length === 0 || !usersList.find(u => u.username === "siddhant_super")) {
-          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(FALLBACK_USERS));
-          usersList = FALLBACK_USERS;
-        }
+    try {
+      const result = await verifyAdminCredentialsAction(username, password);
 
-        const foundUser = usersList.find(
-          (u) => u.username.toLowerCase() === username.trim().toLowerCase()
-        );
-
-        if (!foundUser) {
-          setError("Username not found. Please contact your Super Administrator.");
-          setLoading(false);
-          return;
-        }
-
-        const expectedPassword = foundUser.password || "password123"; // fallback just in case
-        if (password !== expectedPassword) {
-          setError("Invalid password. Please check your credentials and try again.");
-          setLoading(false);
-          return;
-        }
-
-        // Success! Set active admin id and mark as logged in or redirect to force reset
-        if (foundUser.mustResetPassword) {
-          localStorage.setItem("gpedge_temp_reset_admin_id", foundUser.id);
-          router.push("/admin/reset-password");
-          setLoading(false);
-          return;
-        }
-
-        localStorage.setItem("gpedge_admin_logged_in", "true");
-        localStorage.setItem("gpedge_active_admin_id", foundUser.id);
-        
-        // Dispatch event so layout and header sync up instantly
-        window.dispatchEvent(new Event("gpedge_admin_changed"));
-        
-        router.push("/admin/dashboard");
+      if (!result.success || !result.user) {
+        setError(result.error || "Invalid username or password.");
+        setLoading(false);
+        return;
       }
-    }, 800);
+
+      const foundUser = result.user;
+
+      const dbAdmins = await getAdminsFromDbAction();
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
+
+      if (foundUser.mustResetPassword) {
+        localStorage.setItem("gpedge_temp_reset_admin_id", foundUser.id);
+        router.push("/admin/reset-password");
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem("gpedge_admin_logged_in", "true");
+      localStorage.setItem("gpedge_active_admin_id", foundUser.id);
+
+      window.dispatchEvent(new Event("gpedge_admin_changed"));
+      router.push("/admin/dashboard");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError("An error occurred during authentication. Please try again.");
+      setLoading(false);
+    }
   };
 
   const handleSendResetLink = (e: React.FormEvent) => {

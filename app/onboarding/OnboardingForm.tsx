@@ -10,8 +10,10 @@ import {
   AlignLeft,
   Loader2,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { completeOnboarding } from "./actions";
+import type { LiveExam } from "./actions";
 
 export type OnboardingDefaults = {
   role_title: string;
@@ -72,12 +74,19 @@ function Field({
 export default function OnboardingForm({
   firstName,
   defaults,
+  exams,
 }: {
   firstName: string | null;
   defaults: OnboardingDefaults;
+  exams: LiveExam[];
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Pre-select the saved exam only if it still matches a live exam code.
+  const examDefault = exams.some((e) => e.code === defaults.exam_target)
+    ? defaults.exam_target
+    : "";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -146,13 +155,42 @@ export default function OnboardingForm({
               placeholder="e.g. RACGP-89241"
               defaultValue={defaults.racgp_id}
             />
-            <Field
-              id="exam_target"
-              label="Exam Target"
-              icon={<Target size={14} />}
-              placeholder="e.g. AKT — Aug 2026"
-              defaultValue={defaults.exam_target}
-            />
+            <div>
+              <label
+                htmlFor="exam_target"
+                className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1"
+              >
+                Exam Target
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <Target size={14} />
+                </span>
+                <select
+                  id="exam_target"
+                  name="exam_target"
+                  defaultValue={examDefault}
+                  disabled={exams.length === 0}
+                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50
+                             text-sm text-slate-800 appearance-none cursor-pointer
+                             focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500
+                             hover:border-slate-300 transition-all duration-150
+                             disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {exams.length === 0 ? "No exams available yet" : "Select your exam"}
+                  </option>
+                  {exams.map((exam) => (
+                    <option key={exam.code} value={exam.code}>
+                      {exam.name} ({exam.code})
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                  <ChevronDown size={14} />
+                </span>
+              </div>
+            </div>
           </div>
 
           <div>

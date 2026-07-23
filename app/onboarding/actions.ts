@@ -7,6 +7,21 @@ import { ensureDbUser } from "@/lib/user";
 
 export type OnboardingState = { error?: string };
 
+export type LiveExam = { code: string; name: string };
+
+/**
+ * Exams currently live on the platform — i.e. exam types that have at least one
+ * published, non-deleted question. Drives the onboarding "Exam Target" dropdown
+ * so users can only pick an exam we actually have content for.
+ */
+export async function getLiveExams(): Promise<LiveExam[]> {
+  return prisma.exam_types.findMany({
+    where: { questions: { some: { status: "published", deleted_at: null } } },
+    orderBy: { code: "asc" },
+    select: { code: true, name: true },
+  });
+}
+
 /**
  * Persist the onboarding form into the `users` table, then flag the Clerk
  * account as onboarded so the auth gate stops redirecting here.

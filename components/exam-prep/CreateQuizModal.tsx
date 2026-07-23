@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { subjects } from "./data";
-import type { Subject } from "./data";
-import {
-  buildInstructionsUrl,
-  saveCustomTestConfig,
-} from "@/lib/testSession";
+import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
+import type { ExamTreeSubject } from "@/app/exam-prep/actions";
+import { cachedExamTree } from "@/lib/examCache";
+import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
+import ViewReportButton from "@/components/report/ViewReportButton";
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
 
 /* Default question count when the modal opens — the user can change it,
    but it is always clamped to the pool of selected subtopics. */
@@ -24,39 +24,40 @@ const theme = {
 /* ─── Flatten subtopics for lookups / totals ──────────────────────────── */
 type SubtopicEntry = { subtopicId: string; subtopicName: string; questionCount: number; subjectId: string; subjectName: string };
 
-function buildIndex(): { entries: SubtopicEntry[]; byId: Map<string, SubtopicEntry> } {
-  const entries: SubtopicEntry[] = [];
-  for (const s of subjects) {
-    for (const st of s.subtopics) {
-      entries.push({
-        subtopicId: st.id,
-        subtopicName: st.name,
-        questionCount: st.questionCount,
-        subjectId: s.id,
-        subjectName: s.name,
-      });
-    }
-  }
-  return { entries, byId: new Map(entries.map((e) => [e.subtopicId, e])) };
-}
-
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function CreateQuizModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
-  const { entries, byId } = useMemo(buildIndex, []);
 
-  const [activeSubject, setActiveSubject] = useState<Subject | null>(null);
+  const [tree, setTree] = useState<ExamTreeSubject[] | null>(null); // null = loading
+  const [activeSubject, setActiveSubject] = useState<ExamTreeSubject | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [desiredCount, setDesiredCount] = useState(DEFAULT_QUIZ_SIZE);
+  const [starting, setStarting] = useState(false);
 
-  // Reset selection each time the modal opens fresh
-  useEffect(() => {
-    if (open) {
-      setSelected(new Set());
-      setActiveSubject(null);
-      setDesiredCount(DEFAULT_QUIZ_SIZE);
+  const { entries, byId } = useMemo(() => {
+    const entries: SubtopicEntry[] = [];
+    for (const s of tree ?? []) {
+      for (const st of s.subtopics) {
+        entries.push({
+          subtopicId: st.id,
+          subtopicName: st.name,
+          questionCount: st.questionCount,
+          subjectId: s.id,
+          subjectName: s.name,
+        });
+      }
     }
-  }, [open]);
+    return { entries, byId: new Map(entries.map((e) => [e.subtopicId, e])) };
+  }, [tree]);
+
+  // Load the tree (once) + reset selection each time the modal opens fresh.
+  useEffect(() => {
+    if (!open) return;
+    setSelected(new Set());
+    setActiveSubject(null);
+    setDesiredCount(DEFAULT_QUIZ_SIZE);
+    if (tree === null) cachedExamTree().then(setTree);
+  }, [open, tree]);
 
   // Close on Escape
   useEffect(() => {
@@ -89,17 +90,17 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
   };
 
   // Click a subject to drill in; click it again (or the rail header) to collapse back
-  const handleSubjectClick = (subject: Subject) => {
+  const handleSubjectClick = (subject: ExamTreeSubject) => {
     setActiveSubject((prev) => (prev?.id === subject.id ? null : subject));
   };
 
-  const selectedInSubject = (subject: Subject) =>
+  const selectedInSubject = (subject: ExamTreeSubject) =>
     subject.subtopics.filter((st) => selected.has(st.id)).length;
 
-  const allSelectedInSubject = (subject: Subject) =>
+  const allSelectedInSubject = (subject: ExamTreeSubject) =>
     subject.subtopics.length > 0 && subject.subtopics.every((st) => selected.has(st.id));
 
-  const toggleSubjectAll = (subject: Subject) => {
+  const toggleSubjectAll = (subject: ExamTreeSubject) => {
     setSelected((prev) => {
       const next = new Set(prev);
       const all = subject.subtopics.every((st) => next.has(st.id));
@@ -125,22 +126,35 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
   const everythingSelected = selected.size === entries.length && entries.length > 0;
 
   /* ── Start ── */
-  const startQuiz = () => {
-    if (selectedList.length === 0) return;
+  const startQuiz = async () => {
+    if (selectedList.length === 0 || starting) return;
     const name =
       selectedList.length === 1
         ? `Custom Quiz — ${selectedList[0].subtopicName}`
         : `Custom Quiz — ${selectedList.length} topics`;
-    saveCustomTestConfig({
+    setStarting(true);
+    const set = await buildCustomQuestionSet({
+      subtopicIds: [...selected],
+      count: quizQuestionCount,
+      title: name,
+    });
+    setStarting(false);
+    if (set.questionIds.length === 0) return;
+    saveTestPlan({
+      testId: "custom",
+      source: "custom",
       name,
-      questionCount: quizQuestionCount,
+      questionIds: set.questionIds,
       durationMinutes,
+      timed: false,
     });
     onClose();
     router.push(buildInstructionsUrl("custom"));
   };
 
   return (
+    <>
+      {starting && <FullScreenLoader message="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -208,33 +222,40 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                   <p className="text-[10px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest whitespace-nowrap">Subjects</p>
                   {activeSubject && <span className="text-[10px] font-extrabold leading-none text-slate-400 dark:text-slate-500">&raquo;</span>}
                 </div>
-                <div className="py-1">
-                  {subjects.map((subject) => {
-                    const isActive = activeSubject?.id === subject.id;
-                    const count = selectedInSubject(subject);
-                    return (
-                      <button
-                        key={subject.id}
-                        onClick={() => handleSubjectClick(subject)}
-                        title={subject.name}
-                        className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0 border-b border-slate-100 dark:border-slate-800/60 ${
-                          isActive ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                        }`}
-                      >
-                        {isActive && <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${theme.dot}`} />}
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? theme.dot : "bg-slate-300 dark:bg-slate-600"}`} />
-                        <span className={`text-[12px] truncate flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
-                          {subject.name}
-                        </span>
-                        {count > 0 && (
-                          <span className="ml-auto flex-shrink-0 text-[10px] font-bold text-white bg-emerald-500 rounded-full px-1.5 min-w-[18px] text-center">
-                            {count}
+                {tree === null ? (
+                  <div className="flex flex-col items-center justify-center gap-3 py-10">
+                    <div className="w-6 h-6 rounded-full border-2 border-emerald-100 dark:border-emerald-900/40 border-t-emerald-500 animate-spin" />
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">Loading…</p>
+                  </div>
+                ) : (
+                  <div className="py-1">
+                    {tree.map((subject) => {
+                      const isActive = activeSubject?.id === subject.id;
+                      const count = selectedInSubject(subject);
+                      return (
+                        <button
+                          key={subject.id}
+                          onClick={() => handleSubjectClick(subject)}
+                          title={subject.name}
+                          className={`w-full flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-150 relative min-w-0 border-b border-slate-100 dark:border-slate-800/60 ${
+                            isActive ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          {isActive && <div className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full ${theme.dot}`} />}
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? theme.dot : "bg-slate-300 dark:bg-slate-600"}`} />
+                          <span className={`text-[12px] truncate flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
+                            {subject.name}
                           </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                          {count > 0 && (
+                            <span className="ml-auto flex-shrink-0 text-[10px] font-bold text-white bg-emerald-500 rounded-full px-1.5 min-w-[18px] text-center">
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Column 2 — Subtopics (multi-select) — appears once a subject is picked */}
@@ -370,21 +391,25 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                 </div>
               </div>
 
-              <button
-                onClick={startQuiz}
-                disabled={selectedList.length === 0}
-                className={`flex-shrink-0 px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
-                  selectedList.length === 0
-                    ? "bg-slate-200 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
-                    : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"
-                }`}
-              >
-                Start Quiz &rarr;
-              </button>
+              <div className="flex-shrink-0 flex items-center gap-3">
+                <ViewReportButton testId="custom" variant="link" />
+                <button
+                  onClick={startQuiz}
+                  disabled={selectedList.length === 0 || starting}
+                  className={`px-6 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-300 ${
+                    selectedList.length === 0 || starting
+                      ? "bg-slate-200 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
+                      : "bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5"
+                  }`}
+                >
+                  {starting ? "Preparing…" : "Start Quiz →"}
+                </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+    </>
   );
 }

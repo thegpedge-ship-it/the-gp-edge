@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
 import { mockConditions, bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
 import { getMedicalContent } from "@/lib/quizData";
+import { sanitizeHtml } from "@/utils/sanitizeHtml";
 
 function normalizeSystemName(sys: string): string {
   const s = (sys || "").trim().toLowerCase();
@@ -22,6 +23,12 @@ function normalizeSystemName(sys: string): string {
   return sys;
 }
 
+import { splitHtmlIntoPages } from "@/utils/pdfPagination";
+
+function cleanTableHtmlStyles(html: string): string {
+  return html;
+}
+
 function PDFViewerContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -29,9 +36,23 @@ function PDFViewerContent() {
 
   const [condition, setCondition] = useState<MedicalCondition | null>(null);
   const [customHtml, setCustomHtml] = useState<string>("");
+  const [customPages, setCustomPages] = useState<string[]>([]);
+  const [customTags, setCustomTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scaleFactor, setScaleFactor] = useState(1);
+
+  useEffect(() => {
+    setScaleFactor(1);
+  }, [condition, customPages]);
+
+  const currentZoomScale = useMemo(() => {
+    return scaleFactor * (pdfZoom / 100);
+  }, [scaleFactor, pdfZoom]);
+
 
   const handleBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) {
@@ -45,52 +66,66 @@ function PDFViewerContent() {
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    const loadPdfData = async () => {
+      setLoading(true);
       let found = mockConditions.find((c) => c.id === id) || null;
       if (!found && id && id.startsWith("CUSTOM-")) {
         const adminContent = getMedicalContent();
-        const cleanId = id.replace("CUSTOM-", "");
+        const cleanId = id.replace("CUSTOM-APPROACH-", "").replace("CUSTOM-", "");
         const item = adminContent.find((c) => String(c.id) === cleanId);
-        if (item) {
-          const referencesRaw = localStorage.getItem(`gpedge_content_refs_${item.id}`);
-          let refs = [{ id: 1, text: "Clinical reference handbook - Resource 1" }];
-          if (referencesRaw) {
-            try { refs = JSON.parse(referencesRaw); } catch {}
+        
+        try {
+          const res = await fetch(`/api/medical-content/${cleanId}`);
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            const fullHtml = data.fullHtml || "";
+            const cleanedHtml = cleanTableHtmlStyles(fullHtml);
+            setCustomHtml(cleanedHtml);
+
+            const parsedPages = splitHtmlIntoPages(cleanedHtml);
+            setCustomPages(parsedPages);
+            
+            const refs = data.references || [];
+            const tags = data.tags || [];
+            setCustomTags(tags);
+
+            const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
+              data.type === "Condition" ? "Condition" :
+              data.type === "Guideline" || data.type === "Protocol" || data.type === "Pathway" ? "Guideline" :
+              data.type === "Note" ? "Note" : "Document";
+
+            found = {
+              id: `CUSTOM-${data.id}`,
+              name: data.name,
+              system: normalizeSystemName(data.system) as any,
+              category: data.category,
+              type: normalizedType,
+              lastUpdated: data.lastUpdated,
+              author: data.author,
+              symptoms: [],
+              diagnosisCriteria: [],
+              treatmentOptions: [],
+              clinicalNotes: "",
+              references: refs,
+              document: {
+                filename: `${data.name.replace(/\s+/g, "_")}.pdf`,
+                fileSize: "1.2 MB",
+                totalPages: parsedPages.length,
+                downloadUrl: "#",
+                summary: data.name
+              }
+            };
           }
-          const savedHtml = localStorage.getItem(`gpedge_content_body_${item.id}`) || "";
-          setCustomHtml(savedHtml);
-
-          const normalizedType: "Condition" | "Guideline" | "Document" | "Note" = 
-            item.type === "Condition" ? "Condition" :
-            item.type === "Guideline" || item.type === "Protocol" || item.type === "Pathway" ? "Guideline" :
-            item.type === "Note" ? "Note" : "Document";
-
-          found = {
-            id: `CUSTOM-${item.id}`,
-            name: item.name,
-            system: normalizeSystemName(item.system) as any,
-            category: item.category,
-            type: normalizedType,
-            lastUpdated: item.lastUpdated,
-            author: item.author,
-            symptoms: [],
-            diagnosisCriteria: [],
-            treatmentOptions: [],
-            clinicalNotes: "",
-            references: refs,
-            document: {
-              filename: `${item.name.replace(/\s+/g, "_")}.pdf`,
-              fileSize: "1.2 MB",
-              totalPages: 1,
-              downloadUrl: "#",
-              summary: item.name
-            }
-          };
+        } catch (err) {
+          console.error("Error loading view-pdf details from API:", err);
         }
       }
       setCondition(found);
       setLoading(false);
-    }
+    };
+
+    loadPdfData();
   }, [id]);
 
   useEffect(() => {
@@ -196,7 +231,7 @@ function PDFViewerContent() {
           text-transform: uppercase !important;
           letter-spacing: 0.05em !important;
           padding: 0.75rem 1rem !important;
-          background-color: #2bb09c !important;
+          background-color: #16a34a !important;
           color: #ffffff !important;
           border: 1px solid #cbd5e1 !important;
         }
@@ -204,7 +239,7 @@ function PDFViewerContent() {
           padding: 0.75rem 1rem !important;
           font-size: 0.825rem !important;
           border: 1px solid #e2e8f0 !important;
-          color: #475569 !important;
+          color: #475569;
         }
         .print-area td p, .print-area th p {
           margin: 0 !important;
@@ -213,10 +248,10 @@ function PDFViewerContent() {
           line-height: inherit !important;
         }
         .print-area tr:nth-child(even) td {
-          background-color: #f8fafc !important;
+          background-color: #ffffff;
         }
         .print-area tr:nth-child(odd) td {
-          background-color: #ffffff !important;
+          background-color: #ffffff;
         }
         .print-area .callout-block {
           border-radius: 0.75rem !important;
@@ -247,22 +282,33 @@ function PDFViewerContent() {
           color: #1a5c51 !important;
         }
         .print-area .callout-block[data-variant="pearl"] {
-          background-color: #e6f7f4 !important;
-          border: 1px solid #e6f7f4 !important;
-          border-left: 5px solid #2bb09c !important;
-          color: #1a5c51 !important;
+          background-color: #f0fdf4 !important;
+          border: 1px solid #d1fae5 !important;
+          border-left: 5px solid #16a34a !important;
+          color: #14532d !important;
         }
-        .print-area .callout-block[data-variant="warning"] {
-          background-color: #fff9e6 !important;
-          border: 1px solid #fff9e6 !important;
-          border-left: 5px solid #dd6b20 !important;
-          color: #7b341e !important;
+        .print-area .callout-block[data-variant="pearl"] > div:first-child {
+          color: #15803d !important;
         }
+        .print-area .callout-block[data-variant="important"] {
+          background-color: #fefce8 !important;
+          border: 1px solid #fef08a !important;
+          border-left: 5px solid #eab308 !important;
+          color: #713f12 !important;
+        }
+        .print-area .callout-block[data-variant="important"] > div:first-child {
+          color: #854d0e !important;
+        }
+        .print-area .callout-block[data-variant="warning"],
         .print-area .callout-block[data-variant="danger"] {
-          background-color: #fff5f5 !important;
-          border: 1px solid #fff5f5 !important;
-          border-left: 5px solid #c53030 !important;
-          color: #9b2c2c !important;
+          background-color: #fef2f2 !important;
+          border: 1px solid #fee2e2 !important;
+          border-left: 5px solid #ef4444 !important;
+          color: #7f1d1d !important;
+        }
+        .print-area .callout-block[data-variant="warning"] > div:first-child,
+        .print-area .callout-block[data-variant="danger"] > div:first-child {
+          color: #b91c1c !important;
         }
         .print-area .callout-block[data-variant="billing"] {
           background-color: #f8fafc !important;
@@ -302,7 +348,7 @@ function PDFViewerContent() {
         }
         .dark .print-area td {
           border-color: #334155 !important;
-          color: #cbd5e1 !important;
+          color: #cbd5e1;
         }
         .dark .print-area tr:nth-child(even) td {
           background-color: #1e293b !important;
@@ -385,7 +431,7 @@ function PDFViewerContent() {
         </div>
 
         {/* Middle Side: Page navigation */}
-        {!condition.id.startsWith("CUSTOM-") && (
+        {doc.totalPages > 1 && (
           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
             <button
               onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
@@ -457,24 +503,30 @@ function PDFViewerContent() {
       </header>
 
       {/* Main Canvas Scroll Area */}
-      <main className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex justify-center items-start relative medical-scroll">
+      <main 
+        ref={containerRef}
+        className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex items-start justify-start relative custom-scrollbar"
+      >
         <div
+          className="mx-auto"
           style={{
-            width: `${720 * (pdfZoom / 100)}px`,
-            height: condition.id.startsWith("CUSTOM-") ? "auto" : `${940 * (pdfZoom / 100)}px`,
+            width: `${794 * currentZoomScale}px`,
+            height: doc.totalPages > 1 ? `${1123 * currentZoomScale}px` : "auto",
             position: "relative",
             flexShrink: 0,
           }}
         >
           <div 
             id="printable-pdf-area"
-            className="bg-white text-slate-800 p-12 sm:p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
+            className="bg-white text-slate-800 p-16 shadow-2xl border border-slate-200/80 absolute top-0 left-0 rounded-lg select-text print-area"
             style={{
-              transform: `scale(${pdfZoom / 100})`,
+              transform: `scale(${currentZoomScale})`,
               transformOrigin: "top left",
-              width: "720px",
-              height: condition.id.startsWith("CUSTOM-") ? "auto" : "940px",
-              position: condition.id.startsWith("CUSTOM-") ? "relative" : "absolute",
+              width: "794px",
+              minHeight: doc.totalPages > 1 ? "1123px" : "auto",
+              height: doc.totalPages > 1 ? "1123px" : "auto",
+              position: doc.totalPages > 1 ? "absolute" : "relative",
+              overflowY: doc.totalPages > 1 ? "hidden" : "visible",
             }}
           >
             {/* Faint Confidential Watermark */}
@@ -493,10 +545,43 @@ function PDFViewerContent() {
 
             {/* Render custom guideline HTML or paginated default content */}
             {condition.id.startsWith("CUSTOM-") ? (
-              <div 
-                className="prose prose-sm text-slate-700 max-w-none select-text pb-12"
-                dangerouslySetInnerHTML={{ __html: customHtml }}
-              />
+              <div className="space-y-6 flex flex-col h-full text-slate-800">
+                {/* Header info / title inside document */}
+                <div className="mb-8 border-b-2 border-teal-700/30 pb-4 select-none text-left">
+                  <span className="text-[10px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                    {condition.system} · {condition.category}
+                  </span>
+                  {pdfPage === 1 ? (
+                    <>
+                      <h1 className="font-serif text-3xl text-slate-900 mt-2 font-normal tracking-tight leading-snug">
+                        {condition.name}
+                      </h1>
+                      <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
+                        <span>Author: {condition.author || "GP Edge Content Team"}</span>
+                        <span>•</span>
+                        <span>Last updated: {condition.lastUpdated || "Just now"}</span>
+                      </div>
+                      {customTags && customTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {customTags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200/50 px-2.5 py-0.5 rounded-full">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-lg font-serif text-slate-600 mt-1 italic">
+                      {condition.name} — continued (Page {pdfPage})
+                    </p>
+                  )}
+                </div>
+                <div 
+                  className="prose prose-sm text-slate-700 max-w-none select-text pb-12 flex-1 text-left"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(customPages[pdfPage - 1] || "") }}
+                />
+              </div>
             ) : (
               <>
                 {/* PAGE 1 CONTENT */}
@@ -627,7 +712,7 @@ function PDFViewerContent() {
             )}
 
             {/* Professional PDF Footer */}
-            <footer className="absolute bottom-12 left-12 right-12 border-t border-slate-200 pt-4 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
+            <footer className="absolute bottom-8 left-16 right-16 border-t border-slate-200 pt-3 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
               <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
               <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
             </footer>

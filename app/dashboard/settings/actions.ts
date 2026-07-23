@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { ensureDbUser } from "@/lib/user";
@@ -82,6 +82,17 @@ export async function deleteOwnAccountData(): Promise<ActionResult> {
   const { userId } = await auth();
   if (!userId) return { ok: false, error: "You're not signed in." };
 
+  // Tombstone the Clerk identity BEFORE removing the DB row. The client deletes
+  // the Clerk identity in a separate step (it needs interactive reverification),
+  // so there's a window where the row is gone but the session is still valid.
+  // A server-component re-render in that window (e.g. the dashboard layout
+  // revalidating after reverification) would call ensureDbUser() and resurrect
+  // a skeleton row. The flag makes ensureDbUser refuse to recreate it.
+  const client = await clerkClient();
+  await client.users.updateUserMetadata(userId, {
+    publicMetadata: { accountDeleted: true },
+  });
+
   let fileIds: string[] = [];
   try {
     fileIds = await prisma.$transaction(async (tx) => {
@@ -109,6 +120,15 @@ export async function deleteOwnAccountData(): Promise<ActionResult> {
       return ids;
     });
   } catch {
+    // Delete failed — the row still exists and the user keeps their account, so
+    // clear the tombstone or ensureDbUser would lock them out on next load.
+    try {
+      await client.users.updateUserMetadata(userId, {
+        publicMetadata: { accountDeleted: null },
+      });
+    } catch {
+      // Best effort; the account is still intact either way.
+    }
     return { ok: false, error: "Could not delete your account data." };
   }
 

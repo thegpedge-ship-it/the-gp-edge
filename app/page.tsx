@@ -34,7 +34,7 @@ export default async function Home() {
 
   if (userId) {
     return (
-      <DashboardShell className="" bgClassName="bg-transparent">
+      <DashboardShell className="" bgClassName="bg-transparent" showSidebar>
         {content}
       </DashboardShell>
     );

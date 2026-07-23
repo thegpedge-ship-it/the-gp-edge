@@ -95,7 +95,7 @@ export default function NewQuestionsNotificationCard() {
               Dismiss
             </button>
             <a
-              href="/dashboard/medical-library"
+              href="/dashboard/exam-prep"
               onClick={handleDismiss}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-xs font-extrabold text-white rounded-full transition-all shadow-md shadow-teal-500/25 flex items-center gap-1.5 active:scale-[0.97]"
             >

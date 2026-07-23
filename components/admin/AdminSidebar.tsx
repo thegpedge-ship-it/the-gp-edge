@@ -21,6 +21,8 @@ import {
   LogOut,
   HelpCircle,
   Lock,
+  Layers,
+  Stethoscope,
 } from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -48,6 +50,7 @@ const navGroups = [
       { label: "Questions", href: "/admin/questions", icon: FileQuestion },
       { label: "Quizzes", href: "/admin/quizzes", icon: ClipboardList },
       { label: "Medical Content", href: "/admin/content", icon: BookOpen },
+      { label: "Clinical Approaches", href: "/admin/approaches", icon: Layers },
       { label: "Autofill Templates", href: "/admin/autofill", icon: FileEdit },
     ],
   },
@@ -55,6 +58,7 @@ const navGroups = [
     title: "Operations",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Update MBS", href: "/admin/mbs", icon: Stethoscope },
       { label: "Notifications", href: "/admin/notifications", icon: Bell },
       { label: "Billing", href: "/admin/billing", icon: CreditCard },
     ],

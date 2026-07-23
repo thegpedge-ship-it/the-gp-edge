@@ -1,6 +1,8 @@
 import { memo } from "react";
 import Link from "next/link";
-import { quickAccess } from "./data";
+import { quickAccess as fallbackQuickAccess } from "./data";
+
+type QuickAccessItem = { key: string; title: string; caption: string; accent: string; badge: string };
 
 /**
  * QuickAccessCard — quick access grid.
@@ -9,7 +11,11 @@ import { quickAccess } from "./data";
  * - Wrapped in React.memo.
  * - Hover states retained.
  */
-const QuickAccessCard = memo(function QuickAccessCard() {
+const QuickAccessCard = memo(function QuickAccessCard({
+  quickAccess = fallbackQuickAccess,
+}: {
+  quickAccess?: QuickAccessItem[];
+}) {
   return (
     <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7">
       <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-4">

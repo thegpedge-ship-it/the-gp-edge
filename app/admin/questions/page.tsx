@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
@@ -23,14 +24,16 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
-import { Question, getQuestions, saveQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { uploadBase64ImageToR2 } from "@/lib/r2Client";
+import { importQuestionsAction, deleteQuestionAction } from "@/actions/question.actions";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-type StatusFilter = "all" | "draft" | "review" | "published";
+type StatusFilter = "all" | "published";
 
 function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> {
   return new Promise((resolve) => {
@@ -88,6 +91,28 @@ export default function QuestionsPage() {
   const [newImage, setNewImage] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ count: number; onConfirm: (overwrite: boolean) => void } | null>(null);
+
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (message: string, title = "Notification", type: "success" | "error" | "warning" | "info" = "info") => {
+    setAlertConfig({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
 
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -102,9 +127,13 @@ export default function QuestionsPage() {
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize questions from localStorage
+  // Load questions from Neon (no localStorage — Neon is source of truth)
   useEffect(() => {
-    setQuestions(getQuestions());
+    // Clear old oversized localStorage key that caused quota errors
+    try { localStorage.removeItem("gpedge_admin_questions"); } catch {}
+    fetchQuestions().then((list) => {
+      setQuestions(list);
+    });
   }, []);
 
   // Handle optional question pre-viewing via query parameter (e.g. from Search page)
@@ -168,32 +197,51 @@ export default function QuestionsPage() {
     return matchSearch && matchStatus && matchTopic && matchDifficulty;
   });
 
-  const updateStatus = (id: number, newStatus: Question["status"]) => {
+  const updateStatus = async (id: number, newStatus: Question["status"]) => {
     if (isReadOnly) return;
+    const targetQ = questions.find((q) => q.id === id);
     const updated = questions.map((q) => (q.id === id ? { ...q, status: newStatus } : q));
     setQuestions(updated);
-    saveQuestions(updated);
+    if (targetQ) {
+      await importQuestionsAction([{ ...targetQ, status: newStatus }]);
+    }
   };
 
-  const deleteQuestion = (id: number) => {
+  const deleteQuestion = async (id: number) => {
     if (isReadOnly) return;
+    const targetQ = questions.find((q) => q.id === id);
     const updated = questions.filter((q) => q.id !== id);
     setQuestions(updated);
-    saveQuestions(updated);
+    if (targetQ) {
+      await deleteQuestionAction(targetQ.dbId || targetQ.text);
+    }
   };
 
-  const handleCreateQuestion = () => {
+  const handleCreateQuestion = async () => {
     if (isReadOnly) return;
     if (!newQuestionText.trim()) {
-      alert("Please enter the question text.");
+      showAlert("Please enter the question text.", "Validation Error", "error");
       return;
+    }
+    // Duplicate check
+    if (!editingQuestion) {
+      const cleanedText = newQuestionText.trim().toLowerCase();
+      const existingQuestion = questions.find((q) => q.text.trim().toLowerCase() === cleanedText);
+      if (existingQuestion) {
+        setShowAddModal(false);
+        resetAddForm();
+        setSearchQuery(existingQuestion.id.toString());
+        showAlert(`This question already exists in the Question Bank (ID: #${existingQuestion.id}). We have filtered the view to show it.`, "Question Already Exists", "info");
+        return;
+      }
     }
     const correctIndex = Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1);
 
     if (editingQuestion) {
+      let updatedQ: any = null;
       const updated = questions.map((q) => {
         if (q.id === editingQuestion.id) {
-          return {
+          updatedQ = {
             ...q,
             text: newQuestionText,
             options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
@@ -202,14 +250,25 @@ export default function QuestionsPage() {
             topic: newQuestionTopics.join(", "),
             difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
             examType: "AKT" as const,
+            status: "published",
             tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
             image: newImage || undefined,
           };
+          return updatedQ;
         }
         return q;
       });
       setQuestions(updated);
-      saveQuestions(updated);
+      if (updatedQ) {
+        importQuestionsAction([updatedQ]).then((res) => {
+          if (res?.success && res.results && res.results[0]) {
+            const dbId = res.results[0].dbId;
+            setQuestions((prev) =>
+              prev.map((q) => (q.id === updatedQ.id ? { ...q, dbId } : q))
+            );
+          }
+        });
+      }
       setShowAddModal(false);
       setEditingQuestion(null);
       resetAddForm();
@@ -226,13 +285,20 @@ export default function QuestionsPage() {
       topic: newQuestionTopics.join(", "),
       difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
       examType: "AKT" as const,
-      status: "draft",
+      status: "published",
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
     const updated = [newQuestion, ...questions];
     setQuestions(updated);
-    saveQuestions(updated);
+    importQuestionsAction([newQuestion]).then((res) => {
+      if (res?.success && res.results && res.results[0]) {
+        const dbId = res.results[0].dbId;
+        setQuestions((prev) =>
+          prev.map((q) => (q.id === newQuestion.id ? { ...q, dbId } : q))
+        );
+      }
+    });
     setShowAddModal(false);
     resetAddForm();
 
@@ -257,7 +323,6 @@ export default function QuestionsPage() {
 
     const fileList = Array.from(files);
     setExtractionState("idle");
-    setExtractedQuestions([]);
 
     // Initialize batch tracking for all files
     const initialBatch: {
@@ -284,27 +349,36 @@ export default function QuestionsPage() {
 
     // Process all files concurrently
     const allExtracted: any[] = [];
-    let completedCount = 0;
 
     const updateBatchFile = (idx: number, updates: Partial<typeof initialBatch[0]>) => {
-      setBatchFiles(prev => prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf));
+      setBatchFiles(prev => {
+        const next = prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf);
+        const totalProgress = next.reduce((sum, f) => sum + f.progress, 0);
+        const avgProgress = Math.round(totalProgress / next.length);
+        setUploadProgress(avgProgress);
+        return next;
+      });
     };
 
     await Promise.allSettled(
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Simulate incremental progress
+        // Simulate incremental progress smoothly
+        let currentProgress = 10;
         const progressTimer = setInterval(() => {
-          updateBatchFile(idx, { progress: Math.min(90, 10 + Math.random() * 50) });
-        }, 200);
+          currentProgress += Math.random() * 8 + 2;
+          if (currentProgress > 90) currentProgress = 90;
+          updateBatchFile(idx, { progress: Math.round(currentProgress) });
+        }, 250);
 
         try {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("type", "question");
 
-          updateBatchFile(idx, { status: "extracting", progress: 40 });
+          // Keep current progress but update status to extracting
+          updateBatchFile(idx, { status: "extracting" });
 
           const res = await fetch("/api/extract", {
             method: "POST",
@@ -338,15 +412,12 @@ export default function QuestionsPage() {
           clearInterval(progressTimer);
           updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
         }
-
-        completedCount++;
-        setUploadProgress(Math.round((completedCount / fileList.length) * 100));
       })
     );
 
     // All files processed — merge results
     setUploadProgress(100);
-    setExtractedQuestions(allExtracted);
+    setExtractedQuestions((prev) => [...prev, ...allExtracted]);
     setUploadState("success");
     runExtractionAnim(allExtracted);
 
@@ -381,43 +452,137 @@ export default function QuestionsPage() {
     }, 1200);
   };
 
-  const handleSaveImportedQuestions = () => {
+  const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
-    let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
-    const newQs = extractedQuestions.map((q: any) => {
-      const cleanedTags = q.tags
-        ? q.tags.map((t: string) => t.trim()).filter(Boolean)
-        : ["General"];
-      const newQ = {
-        ...q,
-        id: nextId++,
-        topic: q.topic ? q.topic.trim() : "General",
-        difficulty: q.difficulty || "Medium",
-        examType: q.examType || "AKT",
-        tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-        status: "draft" as const
-      };
-      return newQ;
+    // Deduplicate the extracted list itself by question text (case-insensitive)
+    const uniqueQuestionsToImport: any[] = [];
+    extractedQuestions.forEach((eq) => {
+      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+        uniqueQuestionsToImport.push(eq);
+      }
     });
 
-    const updated = [...newQs, ...questions];
-    setQuestions(updated);
-    saveQuestions(updated);
-    
-    addUserNotification(
-      `${newQs.length} Questions Imported`,
-      `Successfully imported ${newQs.length} questions from document template.`,
-      newQs.length,
-      "new-questions"
+    const duplicates = uniqueQuestionsToImport.filter((eq) =>
+      questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
     );
 
-    setShowUploadModal(false);
-    setUploadState("idle");
-    setExtractionState("idle");
-    setExtractedQuestions([]);
-    
-    alert(`Successfully imported ${newQs.length} questions as drafts!`);
+    const proceedWithImport = async (overwrite: boolean) => {
+      let finalImportList = uniqueQuestionsToImport;
+      if (!overwrite) {
+        finalImportList = uniqueQuestionsToImport.filter(
+          (u) => !questions.some((aq) => aq.text.trim().toLowerCase() === u.text.trim().toLowerCase())
+        );
+      }
+      
+      let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
+      const newQs = finalImportList.map((q: any) => {
+        const cleanedTags = q.tags
+          ? q.tags.map((t: string) => t.trim()).filter(Boolean)
+          : ["General"];
+        const newQ = {
+          ...q,
+          id: nextId++,
+          topic: q.topic ? q.topic.trim() : "General",
+          difficulty: q.difficulty || "Medium",
+          examType: q.examType || "AKT",
+          tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
+          status: "published" as const
+        };
+        return newQ;
+      });
+
+      const hasImages = newQs.some((q: any) => q.image && q.image.startsWith("data:image/"));
+
+      setUploadProgress(0);
+      setUploadedFileName("Publishing to database...");
+      setUploadState("uploading");
+
+      let completedCount = 0;
+      const totalCount = newQs.length;
+
+      const uploadedNewQs = await Promise.all(
+        newQs.map(async (q) => {
+          let updatedQ = q;
+          if (q.image && q.image.startsWith("data:image/")) {
+            try {
+              const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+              updatedQ = { ...q, image: fileUrl };
+            } catch (err) {
+              console.error("Client image upload failed:", err);
+            }
+          }
+          completedCount++;
+          if (hasImages) {
+            const progressVal = Math.round((completedCount / totalCount) * 50);
+            setUploadProgress(progressVal);
+          }
+          return updatedQ;
+        })
+      );
+
+      const filteredExisting = questions.filter(
+        (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+      );
+      const updated = [...uploadedNewQs, ...filteredExisting];
+      setQuestions(updated);
+
+      const startProgress = hasImages ? 50 : 0;
+      setUploadProgress(startProgress);
+      const progressTimer = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 95) {
+            clearInterval(progressTimer);
+            return 95;
+          }
+          return prev + 1;
+        });
+      }, 150);
+
+      let res;
+      try {
+        res = await importQuestionsAction(uploadedNewQs);
+      } finally {
+        clearInterval(progressTimer);
+        setUploadProgress(100);
+      }
+
+      if (res?.success && res.results) {
+        const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+        setQuestions((prev) =>
+          prev.map((q) => {
+            const dbId = resultsMap.get(q.text.trim().toLowerCase());
+            return dbId ? { ...q, dbId } : q;
+          })
+        );
+      }
+      
+      addUserNotification(
+        `${newQs.length} Questions Imported`,
+        `Successfully imported ${newQs.length} questions from document template.`,
+        newQs.length,
+        "new-questions"
+      );
+
+      setShowUploadModal(false);
+      setUploadState("idle");
+      setExtractionState("idle");
+      setExtractedQuestions([]);
+      setDuplicatePrompt(null);
+      
+      showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
+    };
+
+    if (duplicates.length > 0) {
+      setDuplicatePrompt({
+        count: duplicates.length,
+        onConfirm: (overwrite) => {
+          proceedWithImport(overwrite);
+        }
+      });
+    } else {
+      proceedWithImport(true);
+    }
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -435,7 +600,7 @@ export default function QuestionsPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <a
-              href="/templates/question_template.docx"
+              href="/templates/question_template.docx?v=2"
               download
               className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
             >
@@ -505,8 +670,6 @@ export default function QuestionsPage() {
           onChange={(val) => setStatusFilter(val as StatusFilter)}
           options={[
             { value: "all", label: "All Status" },
-            { value: "draft", label: "Draft" },
-            { value: "review", label: "Review" },
             { value: "published", label: "Published" },
           ]}
           className="w-48"
@@ -616,16 +779,7 @@ export default function QuestionsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      {q.status === "draft" && (
-                        <button onClick={() => updateStatus(q.id, "review")} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Send to Review">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </button>
-                      )}
-                      {q.status === "review" && (
-                        <button onClick={() => updateStatus(q.id, "published")} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Publish">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        </button>
-                      )}
+
                       <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Delete">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       </button>
@@ -798,7 +952,7 @@ export default function QuestionsPage() {
                     </svg>
                     Correct Answer Rationale
                   </div>
-                  <p className="font-normal leading-relaxed text-teal-900/70 dark:text-teal-300/80">{previewQuestion.rationale}</p>
+                  <p className="font-normal leading-relaxed text-teal-900/70 dark:text-teal-300/80 whitespace-pre-line">{previewQuestion.rationale}</p>
                 </div>
               </div>
             </motion.div>
@@ -1029,8 +1183,14 @@ export default function QuestionsPage() {
                           if (file) {
                             const reader = new FileReader();
                             reader.onloadend = async () => {
-                              const compressed = await compressBase64Image(reader.result as string);
-                              setNewImage(compressed);
+                              try {
+                                const compressed = await compressBase64Image(reader.result as string);
+                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                setNewImage(fileUrl);
+                              } catch (err: any) {
+                                console.error("Upload to R2 failed:", err);
+                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
+                              }
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1168,7 +1328,7 @@ export default function QuestionsPage() {
                       onClick={handleCreateQuestion}
                       className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                     >
-                      {editingQuestion ? "Save Changes" : "Save as Draft"}
+                      {editingQuestion ? "Save Changes" : "Save & Publish"}
                     </button>
                   </div>
                 </div>
@@ -1293,6 +1453,13 @@ export default function QuestionsPage() {
                               {bf.error && <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>}
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0">{bf.size}</span>
+                            <span className={`text-[10px] font-mono w-8 text-right shrink-0 ${
+                              bf.status === "success" ? "text-emerald-600 dark:text-emerald-400" :
+                              bf.status === "error" ? "text-red-500" :
+                              "text-teal-600 dark:text-teal-400"
+                            }`}>
+                              {bf.progress}%
+                            </span>
                             {/* Mini progress bar */}
                             <div className="w-16 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0">
                               <div className={`h-full transition-all duration-300 rounded-full ${
@@ -1342,7 +1509,6 @@ export default function QuestionsPage() {
                             onClick={() => {
                               setUploadState("idle");
                               setExtractionState("idle");
-                              setExtractedQuestions([]);
                             }}
                             className="text-[10px] font-bold text-slate-500 hover:text-red-500 transition-colors"
                           >
@@ -1567,8 +1733,14 @@ export default function QuestionsPage() {
                                           if (file) {
                                             const reader = new FileReader();
                                             reader.onloadend = async () => {
-                                              const compressed = await compressBase64Image(reader.result as string);
-                                              handleUpdateExtractedQuestion(qidx, "image", compressed);
+                                              try {
+                                                const compressed = await compressBase64Image(reader.result as string);
+                                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                                handleUpdateExtractedQuestion(qidx, "image", fileUrl);
+                                              } catch (err: any) {
+                                                console.error("Upload to R2 failed:", err);
+                                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
+                                              }
                                             };
                                             reader.readAsDataURL(file);
                                           }
@@ -1601,7 +1773,7 @@ export default function QuestionsPage() {
                     onClick={handleSaveImportedQuestions}
                     className={`px-4 py-2.5 text-xs font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                   >
-                    Import & Save as Draft
+                    Import & Publish
                   </button>
                 )}
               </div>
@@ -1650,6 +1822,129 @@ export default function QuestionsPage() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Custom Alert Modal */}
+      <AnimatePresence>
+        {alertConfig.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9998]"
+              onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className={`fixed inset-x-4 top-[20%] mx-auto w-full max-w-md bg-white dark:bg-slate-900 border rounded-2xl z-[9999] shadow-2xl p-6 overflow-hidden ${themeBorder}`}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-full shrink-0 ${
+                  alertConfig.type === "success" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-450" :
+                  alertConfig.type === "error" ? "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450" :
+                  alertConfig.type === "warning" ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-450" :
+                  "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-450"
+                }`}>
+                  {alertConfig.type === "success" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "error" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "warning" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "info" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className={`font-serif text-lg font-semibold ${themeText}`}>{alertConfig.title}</h3>
+                  <p className={`mt-2 text-sm leading-relaxed ${themeMuted}`}>{alertConfig.message}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                  className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${themeBtnPrimary}`}
+                >
+                  OK
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {duplicatePrompt && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm"
+              onClick={() => setDuplicatePrompt(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Duplicate Questions Found</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  <strong>{duplicatePrompt.count} question(s)</strong> in this file already exist in the Question Bank.
+                </p>
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 border border-slate-100 dark:border-slate-800/30">
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Overwrite & Replace</span>: Updates existing records with the new document version (text, options, rationale).</p>
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Skip Duplicates</span>: Leaves existing bank records untouched and only imports brand new questions.</p>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(false);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Skip Duplicates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(true);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
+                  >
+                    Overwrite & Replace
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
         )}
       </AnimatePresence>
     </motion.div>

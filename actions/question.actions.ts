@@ -1,0 +1,371 @@
+"use server";
+
+import { query, queryOne, execute } from "@/lib/db";
+import { r2 } from "@/lib/r2";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "crypto";
+
+/**
+ * Syncs a list of questions to the Neon PostgreSQL database via raw pg.
+ * If a question with the exact same stem exists it updates it,
+ * otherwise it creates a new row.
+ */
+export async function importQuestionsAction(questionsList: any[]) {
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // 1. Fetch all existing exam types
+    const allExamTypes = await query<{ code: string }>(`SELECT code FROM exam_types`);
+    const examTypeSet = new Set(allExamTypes.map(r => r.code.toUpperCase()));
+
+    // 2. Fetch all subjects and subtopics
+    const allSubjects = await query<{ id: string; name: string; slug: string }>(`SELECT id, name, slug FROM subjects`);
+    const allSubtopics = await query<{ id: string; name: string; slug: string; subject_id: string }>(
+      `SELECT id, name, slug, subject_id FROM subtopics`
+    );
+
+    const subjectMap = new Map<string, string>(); // lowerCase name -> id
+    allSubjects.forEach(s => subjectMap.set(s.name.toLowerCase(), s.id));
+
+    const subtopicMap = new Map<string, { id: string; subjectId: string }>(); // lowerCase name -> { id, subjectId }
+    allSubtopics.forEach(st => subtopicMap.set(st.name.toLowerCase(), { id: st.id, subjectId: st.subject_id }));
+
+    // 3. Fetch existing tags
+    const allTagNames = Array.from(
+      new Set(
+        questionsList.flatMap(q => q.tags || [])
+          .map((t: string) => t.trim())
+          .filter(Boolean)
+      )
+    );
+
+    const tagMap = new Map<string, string>(); // lowerCase label -> id
+    if (allTagNames.length > 0) {
+      const existingTags = await query<{ id: string; label: string }>(
+        `SELECT id, label FROM tags WHERE LOWER(label) = ANY($1::text[])`,
+        [allTagNames.map(t => t.toLowerCase())]
+      );
+      existingTags.forEach(t => tagMap.set(t.label.toLowerCase(), t.id));
+    }
+
+    // 4. Pre-fetch existing questions (by stem or dbId)
+    const stems = questionsList.map(q => q.text?.trim()).filter(Boolean);
+    const dbIds = questionsList.map(q => q.dbId).filter(id => id && uuidRegex.test(id));
+
+    const questionByStem = new Map<string, string>(); // lowerCase stem -> id
+    const questionById = new Set<string>();
+
+    if (stems.length > 0) {
+      const existingQsByStem = await query<{ id: string; stem: string }>(
+        `SELECT id, stem FROM questions WHERE stem = ANY($1::text[])`,
+        [stems]
+      );
+      existingQsByStem.forEach(q => questionByStem.set(q.stem.trim().toLowerCase(), q.id));
+    }
+
+    if (dbIds.length > 0) {
+      const existingQsById = await query<{ id: string }>(
+        `SELECT id FROM questions WHERE id = ANY($1::uuid[])`,
+        [dbIds]
+      );
+      existingQsById.forEach(q => questionById.add(q.id));
+    }
+
+    // In-memory helpers for creating Subjects/Subtopics/Tags
+    const getOrCreateSubject = async (name: string): Promise<string | null> => {
+      const key = name.toLowerCase();
+      if (subjectMap.has(key)) return subjectMap.get(key)!;
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const newSub = await queryOne<{ id: string }>(
+        `INSERT INTO subjects (slug, name) VALUES ($1, $2) ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
+        [slug, name]
+      );
+      if (newSub) {
+        subjectMap.set(key, newSub.id);
+        return newSub.id;
+      }
+      return null;
+    };
+
+    const getOrCreateSubtopic = async (name: string, subjectId: string): Promise<string | null> => {
+      const key = name.toLowerCase();
+      if (subtopicMap.has(key)) return subtopicMap.get(key)!.id;
+
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      const newSubtopic = await queryOne<{ id: string }>(
+        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
+        [subjectId, slug, name]
+      );
+      if (newSubtopic) {
+        subtopicMap.set(key, { id: newSubtopic.id, subjectId });
+        return newSubtopic.id;
+      }
+      return null;
+    };
+
+    const getOrCreateTag = async (label: string): Promise<string | null> => {
+      const clean = label.trim();
+      const key = clean.toLowerCase();
+      if (tagMap.has(key)) return tagMap.get(key)!;
+
+      const slug = key.replace(/[^a-z0-9]+/g, "-");
+      const tag = await queryOne<{ id: string }>(
+        `INSERT INTO tags (slug, label) VALUES ($1, $2)
+         ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
+         RETURNING id`,
+        [slug, clean]
+      );
+      if (tag) {
+        tagMap.set(key, tag.id);
+        return tag.id;
+      }
+      return null;
+    };
+
+    const results: { text: string; dbId: string }[] = [];
+
+    for (const q of questionsList) {
+      if (!q.text || !q.text.trim()) continue;
+
+      const difficulty = (q.difficulty?.toLowerCase() || "medium") as string;
+      const status = (q.status?.toLowerCase() || "published") as string;
+      const examTypeCode: string = q.examType || "AKT";
+
+      // Ensure exam type exists
+      const examTypeKey = examTypeCode.toUpperCase();
+      if (!examTypeSet.has(examTypeKey)) {
+        const examName =
+          examTypeCode === "AKT"
+            ? "Applied Knowledge Test"
+            : examTypeCode === "KFP"
+            ? "Key Feature Problem"
+            : examTypeCode;
+        await execute(
+          `INSERT INTO exam_types (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
+          [examTypeCode, examName]
+        );
+        examTypeSet.add(examTypeKey);
+      }
+
+      // Resolve subject / subtopic IDs
+      let subjectId: string | null = null;
+      let subtopicId: string | null = null;
+
+      const rawTopic = q.topic ? q.topic.split(",")[0].trim() : "General";
+      const rawSubtopic = q.subtopic ? q.subtopic.split(",")[0].trim() : "";
+
+      // Resolve subtopic
+      if (rawSubtopic) {
+        const key = rawSubtopic.toLowerCase();
+        if (subtopicMap.has(key)) {
+          subtopicId = subtopicMap.get(key)!.id;
+          subjectId = subtopicMap.get(key)!.subjectId;
+        }
+      }
+
+      // Resolve subject/topic
+      if (!subjectId) {
+        let searchTopic = rawTopic;
+        const lowerRaw = rawTopic.toLowerCase();
+        if (lowerRaw === "cardiology" || lowerRaw.includes("cardio") || lowerRaw.includes("heart")) {
+          searchTopic = "Cardiovascular";
+        } else if (lowerRaw.includes("respiratory") || lowerRaw.includes("lung") || lowerRaw.includes("asthma")) {
+          searchTopic = "Respiratory";
+        } else if (lowerRaw === "endocrine" || lowerRaw === "endocrinology") {
+          searchTopic = "Endocrinology";
+        } else if (lowerRaw.includes("gastro") || lowerRaw === "gastroenterology") {
+          searchTopic = "Gastroenterology";
+        } else if (lowerRaw.includes("mental") || lowerRaw.includes("psych") || lowerRaw.includes("depress")) {
+          searchTopic = "Mental Health";
+        } else if (lowerRaw.includes("paediatric") || lowerRaw.includes("child")) {
+          searchTopic = "Paediatrics";
+        }
+
+        const key = searchTopic.toLowerCase();
+        if (subtopicMap.has(key)) {
+          subtopicId = subtopicMap.get(key)!.id;
+          subjectId = subtopicMap.get(key)!.subjectId;
+        } else if (subjectMap.has(key)) {
+          subjectId = subjectMap.get(key)!;
+        } else {
+          // Check partial match
+          const partialMatch = Array.from(subjectMap.keys()).find(k => k.includes(key));
+          if (partialMatch) {
+            subjectId = subjectMap.get(partialMatch)!;
+          } else {
+            subjectId = await getOrCreateSubject(searchTopic);
+          }
+        }
+      }
+
+      // If rawSubtopic was specified but not found, create it
+      if (rawSubtopic && !subtopicId && subjectId) {
+        subtopicId = await getOrCreateSubtopic(rawSubtopic, subjectId);
+      }
+
+      // Handle image reference
+      let imageFileId: string | null = null;
+      if (q.image) {
+        if (q.image.startsWith("http")) {
+          const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+          if (q.image.startsWith(publicBase)) {
+            const objectKey = q.image.replace(publicBase, "").replace(/^\//, "");
+            const existingFile = await queryOne<{ id: string }>(
+              `SELECT id FROM files WHERE object_key = $1 LIMIT 1`,
+              [objectKey]
+            );
+            if (existingFile) {
+              imageFileId = existingFile.id;
+            } else {
+              const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
+              const fileRow = await queryOne<{ id: string }>(
+                `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
+                 VALUES ($1, $2, $3, $4, $5, 'active')
+                 RETURNING id`,
+                [bucketName, objectKey, "uploaded_question_image.jpg", "image/jpeg", 0]
+              );
+              if (fileRow) {
+                imageFileId = fileRow.id;
+              }
+            }
+          }
+        } else if (q.image.startsWith("data:image/")) {
+          const parts = q.image.split(";base64,");
+          const mimeType = parts[0].split(":")[1];
+          const base64Data = parts[1];
+          const buffer = Buffer.from(base64Data, "base64");
+          const ext = mimeType.split("/")[1] || "jpg";
+          const objectKey = `${crypto.randomUUID()}.${ext}`;
+          const bucketName = process.env.R2_BUCKET_NAME || "thegpedge1234";
+          try {
+            await r2.send(
+              new PutObjectCommand({
+                Bucket: bucketName,
+                Key: objectKey,
+                Body: buffer,
+                ContentType: mimeType,
+              })
+            );
+            const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
+            
+            const fileRow = await queryOne<{ id: string }>(
+              `INSERT INTO files (bucket, object_key, original_name, mime_type, size_bytes, status)
+               VALUES ($1, $2, $3, $4, $5, 'active')
+               RETURNING id`,
+              [bucketName, objectKey, `extracted_question_image.${ext}`, mimeType, buffer.length]
+            );
+            if (fileRow) {
+              imageFileId = fileRow.id;
+            }
+          } catch (uploadErr) {
+            console.error("R2 image upload failed:", uploadErr);
+          }
+        }
+      }
+
+      // Upsert the question row
+      let questionId: string | null = null;
+      const cleanStem = q.text.trim();
+      const stemKey = cleanStem.toLowerCase();
+
+      if (q.dbId && uuidRegex.test(q.dbId) && questionById.has(q.dbId)) {
+        questionId = q.dbId;
+      } else if (questionByStem.has(stemKey)) {
+        questionId = questionByStem.get(stemKey)!;
+      }
+
+      if (questionId) {
+        await execute(
+          `UPDATE questions
+             SET stem = $1, rationale = $2, difficulty = $3, status = $4,
+                 exam_type_code = $5, subject_id = $6, subtopic_id = $7,
+                 image_file_id = $8, updated_at = NOW()
+           WHERE id = $9`,
+          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
+        );
+      } else {
+        const newQ = await queryOne<{ id: string }>(
+          `INSERT INTO questions
+             (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id, image_file_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING id`,
+          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
+        );
+        questionId = newQ!.id;
+      }
+
+      // Replace options
+      if (q.options && q.options.length > 0) {
+        await execute(
+          `DELETE FROM question_options 
+            WHERE question_id = $1 AND position > $2`,
+          [questionId, q.options.length]
+        );
+        for (let i = 0; i < q.options.length; i++) {
+          await execute(
+            `INSERT INTO question_options (question_id, label, position, is_correct)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (question_id, position)
+             DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct`,
+            [
+              questionId,
+              q.options[i] || `Option ${String.fromCharCode(65 + i)}`,
+              i + 1,
+              i === q.correctIndex,
+            ]
+          );
+        }
+      }
+
+      // Replace tags
+      if (q.tags && q.tags.length > 0) {
+        await execute(`DELETE FROM question_tags WHERE question_id = $1`, [questionId]);
+
+        const seen = new Set<string>();
+        for (const tagName of q.tags) {
+          const cleanTagName = tagName.trim();
+          const tagKey = cleanTagName.toLowerCase();
+          if (!cleanTagName || seen.has(tagKey)) continue;
+          seen.add(tagKey);
+
+          const tagId = await getOrCreateTag(cleanTagName);
+          if (tagId) {
+            await execute(
+              `INSERT INTO question_tags (question_id, tag_id)
+               VALUES ($1, $2)
+               ON CONFLICT (question_id, tag_id) DO NOTHING`,
+              [questionId, tagId]
+            );
+          }
+        }
+      }
+
+      results.push({ text: q.text, dbId: questionId });
+    }
+    return { success: true, results };
+  } catch (error: any) {
+    console.error("Error importing questions:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+
+/**
+ * Deletes a question from the database by stem text.
+ */
+export async function deleteQuestionAction(idOrText: string) {
+  try {
+    if (!idOrText?.trim()) return { success: false, error: "Empty identifier" };
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(idOrText)) {
+      await execute(`DELETE FROM questions WHERE id = $1`, [idOrText]);
+    } else {
+      await execute(`DELETE FROM questions WHERE stem = $1`, [idOrText]);
+    }
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting question:", error);
+    return { success: false, error: error.message };
+  }
+}

@@ -129,124 +129,208 @@ function KPICard({ title, value, change, trend, trendPositive, timeframeText, ra
   );
 }
 
-interface DashboardKPIsProps {
-  timeframe: string;
+interface PlanBreakdown {
+  name: string;
+  count: number;
+  share: string;
+  mrrImpact: number;
+  pct: number;
+  color: string;
 }
 
-export function DashboardKPIs({ timeframe }: DashboardKPIsProps) {
+interface DashboardStats {
+  questionBankSize: number;
+  autofillTemplatesCount: number;
+  totalUsers: number;
+  testAttemptsCount: number;
+  totalRevenue: number;
+  activeSubscriptions: number;
+  mrr: number;
+  newUsers30d: number;
+  churnRate: number;
+  planDistribution: PlanBreakdown[];
+  questionStatusDistribution: { status: string; count: number }[];
+  revenueChange: number;
+  mrrChange: number;
+  mauChange: number;
+  newUsersChange: number;
+  attemptsChange: number;
+  questionBankChange: number;
+}
+
+interface DashboardKPIsProps {
+  timeframe: string;
+  stats: DashboardStats | null;
+}
+
+export function DashboardKPIs({ timeframe, stats }: DashboardKPIsProps) {
   const tfSuffix = timeframe === "7d" ? "week" : timeframe === "90d" ? "quarter" : "month";
   const rangeLabel = timeframe === "7d" ? "7 days" : timeframe === "90d" ? "90 days" : "30 days";
+
+  // Use live stats if loaded, otherwise fall back to 0
+  const revenueValue = stats ? `$${stats.totalRevenue.toLocaleString()}` : "$0";
+  const mrrValue = stats ? `$${stats.mrr.toLocaleString()}` : "$0";
+  const activeUsersValue = stats ? stats.totalUsers.toLocaleString() : "0";
+  const newUsersValue = stats ? `+${stats.newUsers30d}` : "+0";
+  const questionBankValue = stats ? stats.questionBankSize.toLocaleString() : "0";
+  const attemptsValue = stats ? stats.testAttemptsCount.toLocaleString() : "0";
+
+  // Formatted change strings
+  const formatChange = (val: number) => {
+    return `${val >= 0 ? '+' : ''}${val.toFixed(1)}%`;
+  };
+
+  const revenueChangeStr = stats ? formatChange(stats.revenueChange) : "0.0%";
+  const mrrChangeStr = stats ? formatChange(stats.mrrChange) : "0.0%";
+  const mauChangeStr = stats ? formatChange(stats.mauChange) : "0.0%";
+  const newUsersChangeStr = stats ? formatChange(stats.newUsersChange) : "0.0%";
+  const attemptsChangeStr = stats ? formatChange(stats.attemptsChange) : "0.0%";
+  const questionBankChangeStr = stats ? formatChange(stats.questionBankChange) : "0.0%";
+
+  // Conversion rate value and change
+  const conversionRateValue = (stats && stats.totalUsers > 0) 
+    ? `${((stats.activeSubscriptions * 100) / stats.totalUsers).toFixed(1)}%` 
+    : "0.0%";
+  const conversionChangeStr = stats && stats.totalUsers > 0 
+    ? formatChange(((stats.activeSubscriptions * 100) / stats.totalUsers) - 0)
+    : "0.0%";
+
+  // Churn calculations
+  const churnValue = stats ? `${stats.churnRate.toFixed(1)}%` : "0.0%";
+  const retainedPct = stats ? Math.round(100 - stats.churnRate) : 0;
+  const churnedPct = stats ? Math.round(stats.churnRate) : 0;
+
+  // Dynamic segments for Total Revenue and Monthly Recurring Revenue based on plan distribution
+  const revenueSegments = (stats && stats.planDistribution.length > 0) ? stats.planDistribution.map(p => ({
+    label: p.name,
+    flex: p.pct,
+    color: p.color.includes("teal") ? "#0f766e" : p.color.includes("emerald") ? "#059669" : "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)"
+  })) : [
+    { label: "Direct", flex: 100, color: "#0f766e" }
+  ];
+
+  // Dynamic segments for Active Users based on premium subscriptions
+  const totalUsersCount = stats ? stats.totalUsers : 0;
+  const activeSubsCount = stats ? stats.activeSubscriptions : 0;
+  const trialCount = Math.max(0, totalUsersCount - activeSubsCount);
+  const activeUsersSegments = (stats && totalUsersCount > 0) ? [
+    { label: "Premium", flex: Math.round((activeSubsCount * 100) / totalUsersCount), color: "#0f766e" },
+    { label: "Trial/Free", flex: Math.max(1, Math.round((trialCount * 100) / totalUsersCount)), color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+  ] : [
+    { label: "Basic", flex: 100, color: "#0f766e" }
+  ];
+
+  // Dynamic segments for Conversion Rate based on active subscriptions
+  const conversionPct = (stats && stats.totalUsers > 0) ? Math.round((stats.activeSubscriptions * 100) / stats.totalUsers) : 0;
+  const conversionSegments = (stats && stats.totalUsers > 0) ? [
+    { label: "Premium", flex: conversionPct, color: "#0f766e" },
+    { label: "Trial/Free", flex: Math.max(1, Math.round(100 - conversionPct)), color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+  ] : [
+    { label: "Organic", flex: 100, color: "#0f766e" }
+  ];
+
+  // Calculate dynamic segments percentages if stats is loaded
+  const totalQuestions = stats?.questionStatusDistribution.reduce((sum, q) => sum + q.count, 0) || 0;
+  const questionsSegments = (stats && stats.questionStatusDistribution.length > 0 && totalQuestions > 0) ? stats.questionStatusDistribution.map(q => {
+    const pct = Math.round((q.count * 100) / totalQuestions);
+    return {
+      label: q.status.charAt(0).toUpperCase() + q.status.slice(1),
+      flex: pct,
+      color: q.status === "published" ? "#0f766e" : q.status === "draft" ? "#059669" : "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)"
+    };
+  }) : [
+    { label: "Published", flex: 60, color: "#0f766e" },
+    { label: "Draft", flex: 25, color: "#059669" },
+    { label: "In Review", flex: 15, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+  ];
 
   const kpis: KPICardProps[] = [
     {
       title: "Total Revenue",
-      value: timeframe === "7d" ? "$18,450" : timeframe === "90d" ? "$228,900" : "$75,300",
-      change: "34.2%",
-      trend: "up",
-      trendPositive: true,
+      value: revenueValue,
+      change: revenueChangeStr,
+      trend: stats && stats.revenueChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.revenueChange >= 0 : true,
       timeframeText: tfSuffix,
       rangeText: rangeLabel,
-      segments: [
-        { label: "Annual", flex: 54, color: "#0f766e" },
-        { label: "Monthly", flex: 33, color: "#059669" },
-        { label: "Basic", flex: 13, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
-      ]
+      segments: revenueSegments
     },
     {
       title: "Monthly Recurring Revenue",
-      value: "$17,100",
-      change: "18.0%",
-      trend: "up",
-      trendPositive: true,
+      value: mrrValue,
+      change: mrrChangeStr,
+      trend: stats && stats.mrrChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.mrrChange >= 0 : true,
       timeframeText: tfSuffix,
       rangeText: rangeLabel,
-      segments: [
-        { label: "Annual", flex: 54, color: "#0f766e" },
-        { label: "Monthly", flex: 33, color: "#059669" },
-        { label: "Basic", flex: 13, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
-      ]
+      segments: revenueSegments
     },
     {
       title: "Active Users (MAU)",
-      value: timeframe === "7d" ? "8,420" : timeframe === "90d" ? "14,120" : "12,847",
-      change: "8.5%",
-      trend: "up",
-      trendPositive: true,
+      value: activeUsersValue,
+      change: mauChangeStr,
+      trend: stats && stats.mauChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.mauChange >= 0 : true,
       timeframeText: tfSuffix,
       rangeText: rangeLabel,
-      segments: [
-        { label: "Premium", flex: 65, color: "#0f766e" },
-        { label: "Trial", flex: 25, color: "#0d9488" },
-        { label: "Guest", flex: 10, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
-      ]
+      segments: activeUsersSegments
     },
     {
       title: "New User Growth",
-      value: timeframe === "7d" ? "+284" : timeframe === "90d" ? "+3,180" : "+1,107",
-      change: "12.4%",
-      trend: "up",
-      trendPositive: true,
+      value: newUsersValue,
+      change: newUsersChangeStr,
+      trend: stats && stats.newUsersChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.newUsersChange >= 0 : true,
       timeframeText: tfSuffix,
       rangeText: rangeLabel,
       segments: [
-        { label: "Organic", flex: 50, color: "#0f766e" },
-        { label: "Referral", flex: 30, color: "#059669" },
-        { label: "Campaign", flex: 20, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+        { label: "Organic", flex: 100, color: "#0f766e" }
       ]
     },
     {
       title: "Conversion Rate",
-      value: "18.4%",
-      change: "1.2%",
-      trend: "up",
-      trendPositive: true,
+      value: conversionRateValue,
+      change: conversionChangeStr,
+      trend: stats && stats.activeSubscriptions > 0 ? "up" : "down",
+      trendPositive: stats ? stats.activeSubscriptions > 0 : true,
       timeframeText: tfSuffix,
       rangeText: "Ratio",
-      segments: [
-        { label: "Converted", flex: 18, color: "#0f766e" },
-        { label: "Trial Active", flex: 67, color: "#059669" },
-        { label: "Dropped", flex: 15, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
-      ]
+      segments: conversionSegments
     },
     {
       title: "Churn Rate",
-      value: "2.3%",
-      change: "-0.5%",
-      trend: "down",
-      trendPositive: true, // Churn rate drop is positive
+      value: churnValue,
+      change: stats && stats.churnRate > 0 ? "+0.0%" : "-0.0%",
+      trend: stats && stats.churnRate > 0 ? "up" : "down",
+      trendPositive: stats ? stats.churnRate <= 2.3 : true,
       timeframeText: tfSuffix,
       rangeText: rangeLabel,
       segments: [
-        { label: "Retained", flex: 98, color: "#0f766e" },
-        { label: "Churned", flex: 2, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+        { label: "Retained", flex: retainedPct, color: "#0f766e" },
+        { label: "Churned", flex: churnedPct, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
       ]
     },
     {
       title: "Question Bank Size",
-      value: timeframe === "7d" ? "4,792" : timeframe === "90d" ? "4,847" : "4,847",
-      change: "8.2%",
-      trend: "up",
-      trendPositive: true,
+      value: questionBankValue,
+      change: questionBankChangeStr,
+      trend: stats && stats.questionBankChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.questionBankChange >= 0 : true,
       timeframeText: tfSuffix,
       rangeText: "Questions",
-      segments: [
-        { label: "Published", flex: 60, color: "#0f766e" },
-        { label: "Draft", flex: 25, color: "#059669" },
-        { label: "In Review", flex: 15, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
-      ]
+      segments: questionsSegments
     },
     {
-      title: "Autofill Templates",
-      value: timeframe === "7d" ? "142" : timeframe === "90d" ? "156" : "156",
-      change: "5.4%",
-      trend: "up",
-      trendPositive: true,
+      title: "Test Attempts",
+      value: attemptsValue,
+      change: attemptsChangeStr,
+      trend: stats && stats.attemptsChange >= 0 ? "up" : "down",
+      trendPositive: stats ? stats.attemptsChange >= 0 : true,
       timeframeText: tfSuffix,
-      rangeText: "Templates",
+      rangeText: "Attempts",
       segments: [
-        { label: "Published", flex: 75, color: "#0f766e" },
-        { label: "Draft", flex: 15, color: "#059669" },
-        { label: "In Review", flex: 10, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
+        { label: "Completed", flex: 80, color: "#0f766e" },
+        { label: "In Progress", flex: 20, color: "repeating-linear-gradient(135deg, #e3e8ee 0 4px, transparent 4px 8px)" }
       ]
     }
   ];

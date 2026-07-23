@@ -4,24 +4,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
   AVAILABLE_TOPICS,
-  QUESTION_BANK,
   Quiz,
   QuizStatus,
   Question,
-  deleteQuiz,
-  duplicateQuiz,
-  getQuizById,
-  updateQuiz,
-  saveQuestions,
-  getQuestions,
+  fetchQuestions,
   getTopics,
   getCustomTags,
 } from "@/lib/quizData";
+import { uploadBase64ImageToR2 } from "@/lib/r2Client";
+import { importQuestionsAction } from "@/actions/question.actions";
+import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizByDbIdAction } from "@/actions/quiz.actions";
 import {
   themeBadge,
   themeBadgeSm,
@@ -80,10 +78,10 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 }
 
 export default function EditQuizPage() {
-  const { isReadOnly } = useAdminRole();
+  const { currentAdmin, isReadOnly } = useAdminRole();
   const params = useParams();
   const router = useRouter();
-  const quizId = Number(params.id);
+  const quizId = params.id as string; // DB UUID
 
   const [activeTab, setActiveTab] = useState<Tab>("settings");
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -102,7 +100,30 @@ export default function EditQuizPage() {
   const [newQuestionTags, setNewQuestionTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [questionLimit, setQuestionLimit] = useState(50);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<{ count: number; onConfirm: (overwrite: boolean) => void } | null>(null);
+
+  const [alertConfig, setAlertConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "success" | "error" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
+  const showAlert = (message: string, title = "Notification", type: "success" | "error" | "warning" | "info" = "info") => {
+    setAlertConfig({
+      isOpen: true,
+      title,
+      message,
+      type,
+    });
+  };
 
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -129,7 +150,7 @@ export default function EditQuizPage() {
   const [questionIds, setQuestionIds] = useState<number[]>([]);
   const [timeLimit, setTimeLimit] = useState(60);
   const [passingScore, setPassingScore] = useState(65);
-  const [status, setStatus] = useState<QuizStatus>("draft");
+  const [status, setStatus] = useState<QuizStatus>("active");
   const [examType, setExamType] = useState<Quiz["examType"]>("AKT");
   const [randomize, setRandomize] = useState(true);
   const [attempts, setAttempts] = useState(0);
@@ -138,26 +159,38 @@ export default function EditQuizPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const quiz = getQuizById(quizId);
-    if (!quiz) {
-      setNotFound(true);
+    // Load quiz from Neon DB by UUID
+    fetchQuizByDbIdAction(quizId).then(async (dbQuiz) => {
+      if (!dbQuiz) {
+        setNotFound(true);
+        setLoaded(true);
+        return;
+      }
+      setName(dbQuiz.name);
+      setDescription(dbQuiz.description);
+      setTopics([]);
+      setQuestionLimit(dbQuiz.questionLimit);
+      setTimeLimit(dbQuiz.timeLimit);
+      setPassingScore(dbQuiz.passingScore);
+      setStatus("active");
+      setExamType(dbQuiz.examType as any);
+      setRandomize(dbQuiz.randomize);
+      setAttempts(0);
+      setAvgScore(0);
+      setNotFound(false);
+
+      // Load all questions from DB, then map quiz question DB UUIDs → numeric ids
+      const allQs = await fetchQuestions();
+      setAllQuestions(allQs);
+
+      const dbIdToNumeric = new Map(allQs.map((q) => [q.dbId, q.id]));
+      const numericIds = dbQuiz.questionDbIds
+        .map((dbId) => dbIdToNumeric.get(dbId))
+        .filter((id): id is number => id !== undefined);
+      setQuestionIds(Array.from(new Set(numericIds)));
+
       setLoaded(true);
-      return;
-    }
-    setName(quiz.name);
-    setDescription(quiz.description);
-    setTopics(quiz.topics);
-    setQuestionIds(quiz.questionIds);
-    setTimeLimit(quiz.timeLimit);
-    setPassingScore(quiz.passingScore);
-    setStatus(quiz.status);
-    setExamType(quiz.examType);
-    setRandomize(quiz.randomize);
-    setAttempts(quiz.attempts);
-    setAvgScore(quiz.avgScore);
-    setNotFound(false);
-    setLoaded(true);
-    setAllQuestions(getQuestions());
+    });
   }, [quizId]);
 
   // Lock body scroll when modal is open
@@ -185,8 +218,28 @@ export default function EditQuizPage() {
   };
 
   const handleCreateAndAddQuestion = () => {
+    if (questionIds.length >= questionLimit) {
+      showAlert(`Cannot add question. This mock test is limited to a maximum of ${questionLimit} questions. You can increase the limit in Settings if you want to add more.`, "Question Limit Reached", "warning");
+      return;
+    }
     if (!newQuestionText.trim()) {
-      alert("Please enter the question text.");
+      showAlert("Please enter the question text.", "Validation Error", "error");
+      return;
+    }
+    const cleanedText = newQuestionText.trim().toLowerCase();
+    const existingQuestion = allQuestions.find((q) => q.text.trim().toLowerCase() === cleanedText);
+    if (existingQuestion) {
+      if (questionIds.includes(existingQuestion.id)) {
+        showAlert("This question is already assigned to this quiz.", "Already Assigned", "info");
+        setShowAddQuestionModal(false);
+        resetAddQuestionForm();
+        return;
+      }
+      setQuestionIds([...questionIds, existingQuestion.id]);
+      setShowAddQuestionModal(false);
+      resetAddQuestionForm();
+      setSaveMessage("Question already exists. Fetched and assigned from Question Bank.");
+      setTimeout(() => setSaveMessage(null), 3000);
       return;
     }
     const nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
@@ -200,16 +253,23 @@ export default function EditQuizPage() {
       topic: newQuestionTopics.join(", "),
       difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
       examType: "AKT" as const,
-      status: "draft",
+      status: "published",
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
-    const updated = [newQuestion, ...allQuestions];
-    setAllQuestions(updated);
-    saveQuestions(updated);
 
-    // Add the new question to the current quiz
-    setQuestionIds([...questionIds, nextId]);
+    // Save to Neon DB, then refresh the question bank to get the DB-assigned dbId
+    importQuestionsAction([newQuestion]).then(() => {
+      fetchQuestions().then((list) => {
+        setAllQuestions(list);
+        const dbQuestion = list.find(q => q.text.trim() === newQuestion.text.trim());
+        if (dbQuestion) {
+          setQuestionIds(prev => [...prev, dbQuestion.id]);
+        } else {
+          setQuestionIds(prev => [...prev, nextId]);
+        }
+      });
+    });
 
     setShowAddQuestionModal(false);
     resetAddQuestionForm();
@@ -217,13 +277,13 @@ export default function EditQuizPage() {
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
+
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const fileList = Array.from(files);
     setExtractionState("idle");
-    setExtractedQuestions([]);
 
     // Initialize batch tracking for all files
     const initialBatch: {
@@ -250,27 +310,36 @@ export default function EditQuizPage() {
 
     // Process all files concurrently
     const allExtracted: any[] = [];
-    let completedCount = 0;
 
     const updateBatchFile = (idx: number, updates: Partial<typeof initialBatch[0]>) => {
-      setBatchFiles(prev => prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf));
+      setBatchFiles(prev => {
+        const next = prev.map((bf, i) => i === idx ? { ...bf, ...updates } : bf);
+        const totalProgress = next.reduce((sum, f) => sum + f.progress, 0);
+        const avgProgress = Math.round(totalProgress / next.length);
+        setUploadProgress(avgProgress);
+        return next;
+      });
     };
 
     await Promise.allSettled(
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Simulate incremental progress
+        // Simulate incremental progress smoothly
+        let currentProgress = 10;
         const progressTimer = setInterval(() => {
-          updateBatchFile(idx, { progress: Math.min(90, 10 + Math.random() * 50) });
-        }, 200);
+          currentProgress += Math.random() * 8 + 2;
+          if (currentProgress > 90) currentProgress = 90;
+          updateBatchFile(idx, { progress: Math.round(currentProgress) });
+        }, 250);
 
         try {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("type", "question");
 
-          updateBatchFile(idx, { status: "extracting", progress: 40 });
+          // Keep current progress but update status to extracting
+          updateBatchFile(idx, { status: "extracting" });
 
           const res = await fetch("/api/extract", {
             method: "POST",
@@ -304,15 +373,12 @@ export default function EditQuizPage() {
           clearInterval(progressTimer);
           updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
         }
-
-        completedCount++;
-        setUploadProgress(Math.round((completedCount / fileList.length) * 100));
       })
     );
 
     // All files processed — merge results
     setUploadProgress(100);
-    setExtractedQuestions(allExtracted);
+    setExtractedQuestions((prev) => [...prev, ...allExtracted]);
     setUploadState("success");
     runExtractionAnim(allExtracted);
 
@@ -347,49 +413,198 @@ export default function EditQuizPage() {
     }, 1200);
   };
 
-  const handleSaveImportedQuestions = () => {
+  const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
-    
-    let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
-    const newQIds: number[] = [];
-    const newQs = extractedQuestions.map((q: any) => {
-      const cleanedTags = q.tags
-        ? q.tags.map((t: string) => t.trim()).filter(Boolean)
-        : ["General"];
-      const questionId = nextId++;
-      newQIds.push(questionId);
-      const newQ = {
-        ...q,
-        id: questionId,
-        topic: q.topic ? q.topic.trim() : "General",
-        difficulty: q.difficulty || "Medium",
-        examType: "AKT" as const,
-        tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-        status: "draft" as const
-      };
-      return newQ;
+
+    // Deduplicate the extracted list itself by question text (case-insensitive)
+    const uniqueQuestionsToImport: any[] = [];
+    extractedQuestions.forEach((eq) => {
+      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+        uniqueQuestionsToImport.push(eq);
+      }
     });
 
-    const updated = [...newQs, ...allQuestions];
-    setAllQuestions(updated);
-    saveQuestions(updated);
-    
-    // Assign imported questions to this quiz
-    setQuestionIds((prev) => [...prev, ...newQIds]);
-
-    addUserNotification(
-      `${newQs.length} Questions Imported`,
-      `Successfully imported ${newQs.length} questions from document template and added them to this quiz.`,
-      newQs.length,
-      "new-questions"
+    const duplicates = uniqueQuestionsToImport.filter((eq) =>
+      allQuestions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
     );
 
-    setShowUploadModal(false);
-    setUploadState("idle");
-    setExtractionState("idle");
-    setExtractedQuestions([]);
-    
-    alert(`Successfully imported ${newQs.length} questions as drafts and added them to this quiz!`);
+    const proceedWithImport = async (overwrite: boolean) => {
+      const toAssignIds: number[] = [];
+      const newQsToInsert: any[] = [];
+
+      let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
+
+      for (const eq of uniqueQuestionsToImport) {
+        const cleanedText = eq.text.trim().toLowerCase();
+        const existingQuestion = allQuestions.find((aq) => aq.text.trim().toLowerCase() === cleanedText);
+        
+        const questionId = existingQuestion ? existingQuestion.id : nextId++;
+        
+        if (existingQuestion) {
+          // If it exists in the question bank, and we want to OVERWRITE
+          if (overwrite) {
+            const cleanedTags = eq.tags
+              ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
+              : existingQuestion.tags;
+            const updatedQ = {
+              ...existingQuestion,
+              text: eq.text,
+              options: eq.options,
+              correctIndex: eq.correctIndex,
+              rationale: eq.rationale || existingQuestion.rationale,
+              topic: eq.topic ? eq.topic.trim() : existingQuestion.topic,
+              difficulty: eq.difficulty || existingQuestion.difficulty,
+              tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
+              image: eq.image || existingQuestion.image,
+              status: "published" as const
+            };
+            newQsToInsert.push(updatedQ);
+          }
+          
+          if (!toAssignIds.includes(questionId) && !questionIds.includes(questionId)) {
+            toAssignIds.push(questionId);
+          }
+        } else {
+          // If it's a new question, insert it into the question bank
+          const cleanedTags = eq.tags
+            ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
+            : ["General"];
+          const newQ = {
+            ...eq,
+            id: questionId,
+            topic: eq.topic ? eq.topic.trim() : "General",
+            difficulty: eq.difficulty || "Medium",
+            examType: "AKT" as const,
+            tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
+            status: "published" as const
+          };
+          newQsToInsert.push(newQ);
+          
+          if (!toAssignIds.includes(questionId) && !questionIds.includes(questionId)) {
+            toAssignIds.push(questionId);
+          }
+        }
+      }
+
+      const totalToAssignCount = toAssignIds.length;
+      const spaceLeft = Math.max(0, questionLimit - questionIds.length);
+      
+      if (spaceLeft === 0) {
+        showAlert(`Cannot import questions. This mock test is already at its limit of ${questionLimit} questions.`, "Import Blocked", "warning");
+        return;
+      }
+
+      let finalAssignIds = toAssignIds;
+      let finalNewQsToInsert = newQsToInsert;
+
+      if (totalToAssignCount > spaceLeft) {
+        showAlert(`The uploaded file contains ${totalToAssignCount} questions to add, but this mock test only has space for ${spaceLeft} more questions (limit: ${questionLimit}). Only the first ${spaceLeft} questions will be added/imported.`, "Import Partially Limited", "warning");
+        finalAssignIds = toAssignIds.slice(0, spaceLeft);
+        // Only insert new questions that are in finalAssignIds
+        finalNewQsToInsert = newQsToInsert.filter(q => finalAssignIds.includes(q.id));
+      }
+      
+      let latestAllQuestions: any[] = allQuestions;
+
+      if (finalNewQsToInsert.length > 0) {
+        setUploadState("uploading");
+        const uploadedNewQs = await Promise.all(
+          finalNewQsToInsert.map(async (q) => {
+            if (q.image && q.image.startsWith("data:image/")) {
+              try {
+                const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+                return { ...q, image: fileUrl };
+              } catch (err) {
+                console.error("Client image upload failed:", err);
+              }
+            }
+            return q;
+          })
+        );
+
+        // Update local state without introducing duplicate elements
+        const filteredAllQuestions = allQuestions.filter(
+          (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+        );
+        let updated = [...uploadedNewQs, ...filteredAllQuestions];
+        setAllQuestions(updated);
+        
+        const res = await importQuestionsAction(uploadedNewQs);
+        if (res?.success && res.results) {
+          const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+          updated = updated.map((q) => {
+            const dbId = resultsMap.get(q.text.trim().toLowerCase());
+            return dbId ? { ...q, dbId } : q;
+          });
+          setAllQuestions(updated);
+        }
+        latestAllQuestions = updated;
+        
+        addUserNotification(
+          `${finalNewQsToInsert.length} Questions Imported/Updated`,
+          `Successfully processed ${finalNewQsToInsert.length} questions from document template.`,
+          finalNewQsToInsert.length,
+          "new-questions"
+        );
+      }
+
+      setQuestionIds((prev) => [...prev, ...finalAssignIds]);
+
+      // Save the quiz to DB so the question assignments persist
+      const topicCounts: Record<string, number> = {};
+      const topicQuestionDbIds: Record<string, string[]> = {};
+      
+      for (const qId of [...questionIds, ...finalAssignIds]) {
+        const fullQ = latestAllQuestions.find((q: any) => q.id === qId);
+        if (fullQ) {
+          const t = fullQ.topic || "General";
+          topicCounts[t] = (topicCounts[t] || 0) + 1;
+          if (fullQ.dbId) {
+            if (!topicQuestionDbIds[t]) topicQuestionDbIds[t] = [];
+            topicQuestionDbIds[t].push(fullQ.dbId);
+          }
+        }
+      }
+
+      const activeTopics = Object.keys(topicCounts).filter((t) => topicCounts[t] > 0);
+      
+      await syncQuizToDbAction({
+        name: name.trim(),
+        description: description.trim(),
+        timeLimit,
+        passingScore,
+        randomize,
+        status: status as any,
+        examType: examType as any,
+        questionLimit,
+      }, [...questionIds, ...finalAssignIds].map(id => latestAllQuestions.find((q: any) => q.id === id)).filter(Boolean) as any[], currentAdmin?.id);
+
+      setShowUploadModal(false);
+      setUploadState("idle");
+      setExtractionState("idle");
+      setExtractedQuestions([]);
+      setDuplicatePrompt(null);
+
+      const duplicateCount = finalAssignIds.length - finalNewQsToInsert.length;
+      let successMsg = `Successfully added ${finalAssignIds.length} question(s) to this quiz!`;
+      if (duplicateCount > 0 && !overwrite) {
+        successMsg += ` (${duplicateCount} question(s) already existed in your question bank and were linked without duplicating database entries.)`;
+      } else if (duplicateCount > 0 && overwrite) {
+        successMsg += ` (${duplicateCount} question(s) already existed in your question bank and were updated and linked.)`;
+      }
+      showAlert(successMsg, "Import Successful", "success");
+    };
+
+    if (duplicates.length > 0) {
+      setDuplicatePrompt({
+        count: duplicates.length,
+        onConfirm: (overwrite) => {
+          proceedWithImport(overwrite);
+        }
+      });
+    } else {
+      proceedWithImport(true);
+    }
   };
 
   const handleUpdateExtractedQuestion = (idx: number, field: string, value: any) => {
@@ -399,13 +614,21 @@ export default function EditQuizPage() {
   };
 
   const assignedQuestions = useMemo(
-    () => questionIds.map((id) => QUESTION_BANK.find((q) => q.id === id)).filter(Boolean) as typeof QUESTION_BANK,
-    [questionIds]
+    () => questionIds.map((id) => allQuestions.find((q) => q.id === id)).filter(Boolean) as Question[],
+    [questionIds, allQuestions]
   );
 
   const availableQuestions = useMemo(() => {
-    return QUESTION_BANK.filter((q) => {
+    return allQuestions.filter((q) => {
+      if (q.status !== "published") return false;
       if (questionIds.includes(q.id)) return false;
+      
+      // Hide static mock question if its database version exists
+      if (q.id >= 2847 && q.id <= 2854) {
+        const hasDbVersion = allQuestions.some((other) => other.id >= 2855 && other.text === q.text);
+        if (hasDbVersion) return false;
+      }
+      
       const matchSearch =
         questionSearch === "" ||
         q.text.toLowerCase().includes(questionSearch.toLowerCase()) ||
@@ -413,14 +636,18 @@ export default function EditQuizPage() {
       const matchTopic = topicFilter === "all" || q.topic.split(",").map(t => t.trim().toLowerCase()).includes(topicFilter.toLowerCase());
       return matchSearch && matchTopic;
     });
-  }, [questionIds, questionSearch, topicFilter]);
+  }, [allQuestions, questionIds, questionSearch, topicFilter]);
 
   const toggleTopic = (topic: string) => {
     setTopics((prev) => (prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]));
   };
 
   const addQuestion = (id: number) => {
-    setQuestionIds((prev) => [...prev, id]);
+    if (questionIds.length >= questionLimit) {
+      showAlert(`Cannot add question. This mock test is limited to a maximum of ${questionLimit} questions. You can increase the limit in Settings if you want to add more.`, "Question Limit Reached", "warning");
+      return;
+    }
+    setQuestionIds((prev) => prev.includes(id) ? prev : [...prev, id]);
   };
 
   const removeQuestion = (id: number) => {
@@ -440,31 +667,25 @@ export default function EditQuizPage() {
   const handleSave = (redirect = false) => {
     if (isReadOnly) return;
     if (!name.trim()) {
-      alert("Please enter a quiz name.");
+      showAlert("Please enter a quiz name.", "Validation Error", "error");
       return;
     }
     if (questionIds.length === 0) {
-      alert("Add at least one question to this quiz.");
+      showAlert("Add at least one question to this quiz.", "Validation Error", "error");
       return;
     }
 
-    const updated = updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status,
-      examType,
       randomize,
-    });
-
-    if (!updated) {
-      alert("Quiz not found.");
-      router.push("/admin/quizzes");
-      return;
-    }
+      status: status as any,
+      examType: examType as any,
+      questionLimit,
+    }, questionsOfQuiz, currentAdmin?.id);
 
     setSaveMessage("Changes saved successfully.");
     setTimeout(() => setSaveMessage(null), 3000);
@@ -477,21 +698,21 @@ export default function EditQuizPage() {
   const handlePublish = () => {
     if (isReadOnly) return;
     if (!name.trim() || questionIds.length === 0) {
-      alert("Add a name and at least one question before publishing.");
+      showAlert("Add a name and at least one question before publishing.", "Publish Error", "error");
       return;
     }
     setStatus("active");
-    updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status: "active",
-      examType,
       randomize,
-    });
+      status: "active",
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
+
     addUserNotification(
       `Quiz Updated: ${name}`,
       `The mock exam "${name}" is now active with ${questionIds.length} questions.`,
@@ -505,35 +726,46 @@ export default function EditQuizPage() {
   const handleSuspend = () => {
     if (isReadOnly) return;
     setStatus("suspended");
-    updateQuiz(quizId, {
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    syncQuizToDbAction({
       name: name.trim(),
       description: description.trim(),
-      topics,
-      questionIds,
       timeLimit,
       passingScore,
-      status: "suspended",
-      examType,
       randomize,
-    });
+      status: "suspended" as any,
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
+
     setSaveMessage("Quiz suspended.");
     setTimeout(() => setSaveMessage(null), 3000);
   };
 
-  const handleDuplicate = () => {
+  const handleDuplicate = async () => {
     if (isReadOnly) return;
-    const copy = duplicateQuiz(quizId);
-    if (copy) {
-      router.push(`/admin/quizzes/${copy.id}/edit`);
+    const copyName = `${name} (Copy)`;
+    const questionsOfQuiz = questionIds.map(id => allQuestions.find(q => q.id === id)).filter(Boolean) as any[];
+    const result = await syncQuizToDbAction({
+      name: copyName,
+      description,
+      timeLimit,
+      passingScore,
+      randomize,
+      status: "active",
+      examType: examType as any,
+    }, questionsOfQuiz, currentAdmin?.id);
+    if (result.success && result.dbId) {
+      router.push(`/admin/quizzes/${result.dbId}/edit`);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (isReadOnly) return;
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    deleteQuiz(quizId);
+    await deleteQuizFromDbAction(name);
     router.push("/admin/quizzes");
   };
+
 
   if (!loaded) {
     return (
@@ -568,16 +800,7 @@ export default function EditQuizPage() {
             <button type="button" onClick={handleDuplicate} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Duplicate
             </button>
-            {status !== "active" && (
-              <button type="button" onClick={handlePublish} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
-                Publish
-              </button>
-            )}
-            {status === "active" && (
-              <button type="button" onClick={handleSuspend} disabled={isReadOnly} className={`${themeBtnGhost} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
-                Suspend
-              </button>
-            )}
+
             <button type="button" onClick={() => handleSave(true)} disabled={isReadOnly} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}>
               Save & Close
             </button>
@@ -706,18 +929,14 @@ export default function EditQuizPage() {
                 className={`w-full px-4 py-2.5 text-sm rounded-xl ${themeInput}`}
               />
             </div>
-
             <div>
-              <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Status</label>
-              <CustomSelect
-                value={status}
-                onChange={(v) => setStatus(v as QuizStatus)}
-                options={[
-                  { value: "draft", label: "Draft" },
-                  { value: "active", label: "Active" },
-                  { value: "suspended", label: "Suspended" },
-                ]}
-                className="w-full"
+              <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Question Limit</label>
+              <input
+                type="number"
+                min={1}
+                value={questionLimit}
+                onChange={(e) => setQuestionLimit(Number(e.target.value))}
+                className={`w-full px-4 py-2.5 text-sm rounded-xl ${themeInput}`}
               />
             </div>
           </div>
@@ -755,9 +974,7 @@ export default function EditQuizPage() {
               Delete Quiz
             </button>
             <div className="flex gap-3">
-              <button type="button" onClick={() => handleSave(false)} className={themeBtnGhost}>
-                Save Draft
-              </button>
+
               <button type="button" onClick={() => handleSave(true)} className={`px-4 py-2.5 text-sm font-semibold rounded-xl ${themeBtnPrimary}`}>
                 Save Changes
               </button>
@@ -770,16 +987,50 @@ export default function EditQuizPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Assigned questions */}
           <motion.div variants={itemVariants} className={`${themePanel} overflow-hidden`}>
-            <div className={`px-5 py-4 border-b ${themeBorder}`}>
-              <h3 className={`text-sm font-bold ${themeText}`}>Assigned Questions ({questionIds.length})</h3>
-              <p className={`text-xs mt-0.5 ${themeMuted}`}>Drag order using arrows. First question appears first in the exam.</p>
+            <div className={`px-5 py-4 border-b ${themeBorder} space-y-3`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className={`text-sm font-bold ${themeText}`}>Assigned Questions ({questionIds.length})</h3>
+                  <p className={`text-xs mt-0.5 ${themeMuted}`}>Drag order using arrows. First question appears first in the exam.</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUploadModal(true);
+                      setUploadState("idle");
+                      setExtractionState("idle");
+                      setExtractedQuestions([]);
+                    }}
+                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
+                    title="Upload questions document"
+                  >
+                    <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Upload
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetAddQuestionForm();
+                      setShowAddQuestionModal(true);
+                    }}
+                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 shrink-0 ${themeBtnPrimary}`}
+                    title="Create and add a new question"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Create & Add
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="divide-y divide-teal-50 dark:divide-teal-900/20 max-h-[480px] overflow-y-auto">
               {assignedQuestions.length === 0 ? (
                 <p className={`p-6 text-sm text-center ${themeMuted}`}>No questions assigned yet. Add from the question bank →</p>
               ) : (
                 assignedQuestions.map((q, index) => (
-                  <div key={q.id} className="px-5 py-3 flex items-start gap-3 group hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
+                  <div key={`${q.id}-${index}`} className="px-5 py-3 flex items-start gap-3 group hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
                     <span className={`text-xs font-bold mt-1 shrink-0 ${themeMuted}`}>#{index + 1}</span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium leading-snug ${themeText}`}>{q.text}</p>
@@ -815,36 +1066,6 @@ export default function EditQuizPage() {
             <div className={`px-5 py-4 border-b ${themeBorder} space-y-3`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className={`text-sm font-bold ${themeText}`}>Question Bank</h3>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUploadModal(true);
-                      setUploadState("idle");
-                      setExtractionState("idle");
-                      setExtractedQuestions([]);
-                    }}
-                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
-                    title="Upload questions document"
-                  >
-                    <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Upload
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetAddQuestionForm();
-                      setShowAddQuestionModal(true);
-                    }}
-                    className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 shrink-0 ${themeBtnPrimary}`}
-                    title="Create and add a new question"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                    Create & Add
-                  </button>
-                </div>
               </div>
               <input
                 type="text"
@@ -1147,8 +1368,14 @@ export default function EditQuizPage() {
                           if (file) {
                             const reader = new FileReader();
                             reader.onloadend = async () => {
-                              const compressed = await compressBase64Image(reader.result as string);
-                              setNewImage(compressed);
+                              try {
+                                const compressed = await compressBase64Image(reader.result as string);
+                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                setNewImage(fileUrl);
+                              } catch (err: any) {
+                                console.error("Upload to R2 failed:", err);
+                                alert("Failed to upload image to Cloudflare R2.");
+                              }
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1422,6 +1649,13 @@ export default function EditQuizPage() {
                               {bf.error && <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>}
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0">{bf.size}</span>
+                            <span className={`text-[10px] font-mono w-8 text-right shrink-0 ${
+                              bf.status === "success" ? "text-emerald-600 dark:text-emerald-400" :
+                              bf.status === "error" ? "text-red-500" :
+                              "text-teal-600 dark:text-teal-400"
+                            }`}>
+                              {bf.progress}%
+                            </span>
                             {/* Mini progress bar */}
                             <div className="w-16 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0">
                               <div className={`h-full transition-all duration-300 rounded-full ${
@@ -1471,9 +1705,8 @@ export default function EditQuizPage() {
                             onClick={() => {
                               setUploadState("idle");
                               setExtractionState("idle");
-                              setExtractedQuestions([]);
                             }}
-                            className="text-[10px] font-bold text-slate-505 hover:text-red-500 transition-colors"
+                            className="text-[10px] font-bold text-slate-555 hover:text-red-500 transition-colors"
                           >
                             Upload Another File
                           </button>
@@ -1696,8 +1929,14 @@ export default function EditQuizPage() {
                                           if (file) {
                                             const reader = new FileReader();
                                             reader.onloadend = async () => {
-                                              const compressed = await compressBase64Image(reader.result as string);
-                                              handleUpdateExtractedQuestion(qidx, "image", compressed);
+                                              try {
+                                                const compressed = await compressBase64Image(reader.result as string);
+                                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                                handleUpdateExtractedQuestion(qidx, "image", fileUrl);
+                                              } catch (err: any) {
+                                                console.error("Upload to R2 failed:", err);
+                                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
+                                              }
                                             };
                                             reader.readAsDataURL(file);
                                           }
@@ -1740,6 +1979,129 @@ export default function EditQuizPage() {
               </>
             )}
           </AnimatePresence>
+      {/* Custom Alert Modal */}
+      <AnimatePresence>
+        {alertConfig.isOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[9998]"
+              onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+              className={`fixed inset-x-4 top-[20%] mx-auto w-full max-w-md bg-white dark:bg-slate-900 border rounded-2xl z-[9999] shadow-2xl p-6 overflow-hidden ${themeBorder}`}
+            >
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-full shrink-0 ${
+                  alertConfig.type === "success" ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400" :
+                  alertConfig.type === "error" ? "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-450" :
+                  alertConfig.type === "warning" ? "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-450" :
+                  "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-450"
+                }`}>
+                  {alertConfig.type === "success" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "error" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "warning" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  )}
+                  {alertConfig.type === "info" && (
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className={`font-serif text-lg font-semibold ${themeText}`}>{alertConfig.title}</h3>
+                  <p className={`mt-2 text-sm leading-relaxed ${themeMuted}`}>{alertConfig.message}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
+                  className={`px-5 py-2.5 text-xs font-semibold rounded-xl transition-all shadow-sm ${themeBtnPrimary}`}
+                >
+                  OK
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {duplicatePrompt && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm"
+              onClick={() => setDuplicatePrompt(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
+                  <AlertCircle className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Duplicate Questions Found</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  <strong>{duplicatePrompt.count} question(s)</strong> in this file already exist in the Question Bank.
+                </p>
+                <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 border border-slate-100 dark:border-slate-800/30">
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Overwrite & Replace</span>: Updates existing records with the new document version (text, options, rationale).</p>
+                  <p>• <span className="font-semibold text-slate-800 dark:text-slate-250">Skip Updating</span>: Leaves existing bank records untouched (questions will still be linked to this quiz).</p>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(false);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-350 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Skip Updating
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      duplicatePrompt.onConfirm(true);
+                      setDuplicatePrompt(null);
+                    }}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
+                  >
+                    Overwrite & Replace
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

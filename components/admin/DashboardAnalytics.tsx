@@ -15,16 +15,6 @@ import {
 } from "recharts";
 import { TrendingUp, Users, CreditCard, Sparkles, Layers } from "lucide-react";
 
-// 6 Months chronological mock data
-const monthlyData = [
-  { month: "Jan", mrr: 8200, oneOff: 2400, subscribers: 842, totalUsers: 910, visitors: 1120 },
-  { month: "Feb", mrr: 9800, oneOff: 3100, subscribers: 918, totalUsers: 1020, visitors: 1250 },
-  { month: "Mar", mrr: 11400, oneOff: 2900, subscribers: 1005, totalUsers: 1150, visitors: 1410 },
-  { month: "Apr", mrr: 13200, oneOff: 3800, subscribers: 1089, totalUsers: 1280, visitors: 1340 },
-  { month: "May", mrr: 15600, oneOff: 4200, subscribers: 1174, totalUsers: 1410, visitors: 1590 },
-  { month: "Jun", mrr: 17100, oneOff: 4800, subscribers: 1456, totalUsers: 1680, visitors: 1820 }
-];
-
 interface TooltipProps {
   active?: boolean;
   payload?: Array<{
@@ -40,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-md border border-slate-700/80 rounded-xl shadow-xl p-3 text-xs space-y-1.5">
-        <p className="font-semibold text-slate-400 border-b border-slate-700 pb-1 mb-1">{label} 2026</p>
+        <p className="font-semibold text-slate-450 border-b border-slate-700 pb-1 mb-1">{label} 2026</p>
         {payload.map((entry, idx) => (
           <div key={idx} className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-1.5">
@@ -60,8 +50,48 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   return null;
 };
 
-export function DashboardAnalytics() {
+interface MonthlyStats {
+  month: string;
+  mrr: number;
+  subscribers: number;
+  totalUsers: number;
+  attempts: number;
+}
+
+interface PlanBreakdown {
+  name: string;
+  count: number;
+  share: string;
+  mrrImpact: number;
+  pct: number;
+  color: string;
+}
+
+interface DashboardAnalyticsProps {
+  monthlyStats: MonthlyStats[];
+  planDistribution?: PlanBreakdown[];
+  dauCount?: number;
+  mauCount?: number;
+  avgSessionMinutes?: number;
+}
+
+export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, mauCount, avgSessionMinutes }: DashboardAnalyticsProps) {
   const [activeTab, setActiveTab] = useState<"revenue" | "growth" | "visitors">("revenue");
+
+  const ratioVal = (dauCount && mauCount && mauCount > 0) ? `${((dauCount * 100) / mauCount).toFixed(1)}%` : "0.0%";
+  const sessionText = (avgSessionMinutes && avgSessionMinutes > 0) ? `${avgSessionMinutes}m 00s` : "0m 00s";
+
+  const plansData = planDistribution || [];
+  
+  // Format data for chart. We map monthlyStats or empty array.
+  const chartData = monthlyStats && monthlyStats.length > 0 ? monthlyStats.map((item) => ({
+    month: item.month,
+    mrr: item.mrr,
+    oneOff: 0,
+    subscribers: item.subscribers,
+    totalUsers: item.totalUsers,
+    visitors: item.attempts, // Map attempts to visitors for activity visualization
+  })) : [];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -108,7 +138,7 @@ export function DashboardAnalytics() {
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -157,7 +187,7 @@ export function DashboardAnalytics() {
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -205,7 +235,7 @@ export function DashboardAnalytics() {
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -242,9 +272,9 @@ export function DashboardAnalytics() {
         <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-4 mt-4 border-t border-slate-50 dark:border-slate-800/80">
           <TrendingUp className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
           <span>
-            {activeTab === "revenue" && "MRR has grown 108% since January 2026. Premium Annual plans compose 53.6% of new signups."}
-            {activeTab === "growth" && "Conversion of trial-to-paid is up 1.2% in June. Active base represents 86.6% retention."}
-            {activeTab === "visitors" && "Traffic peaks during exam cycles. Standard bounce rate is stable at 24.3%."}
+            {activeTab === "revenue" && (monthlyStats.length > 0 ? "Real-time monthly revenue trends and active subscription metrics." : "No revenue records found yet.")}
+            {activeTab === "growth" && (monthlyStats.length > 0 ? "Real-time subscriber acquisition and user growth metrics." : "No user growth data recorded yet.")}
+            {activeTab === "visitors" && (monthlyStats.length > 0 ? "Real-time user practice activity and quiz attempt volumes." : "No visitor activity recorded yet.")}
           </span>
         </div>
       </div>
@@ -256,33 +286,36 @@ export function DashboardAnalytics() {
           <h3 className="font-serif text-xl font-semibold text-slate-900 dark:text-slate-50 mb-5">Plan Distribution</h3>
           
           <div className="space-y-4">
-            {[
-              { name: "Premium Annual", count: "780 users", share: "53.6%", mrr: "$13,000", pct: 54, color: "bg-teal-700 dark:bg-teal-600" },
-              { name: "Premium Monthly", count: "476 users", share: "32.7%", mrr: "$3,330", pct: 33, color: "bg-emerald-600 dark:bg-emerald-500" },
-              { name: "Basic Monthly", count: "200 users", share: "13.7%", mrr: "$770", pct: 14, color: "bg-teal-500 dark:bg-teal-400" },
-              { name: "Free Trial (Active)", count: "1,220 users", share: "-", mrr: "$0", pct: 78, color: "bg-slate-400 dark:bg-slate-600" }
-            ].map((plan) => (
-              <div key={plan.name} className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <div className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${plan.color.split(" ")[0]}`} />
-                    {plan.name}
+            {plansData.length > 0 ? (
+              plansData.map((plan) => (
+                <div key={plan.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${plan.color.split(" ")[0]}`} />
+                      {plan.name}
+                    </div>
+                    <span className="text-slate-400 dark:text-slate-505 font-medium">
+                      {plan.count.toLocaleString()} users {plan.share !== "-" ? `(${plan.share})` : ""}
+                    </span>
                   </div>
-                  <span className="text-slate-400 dark:text-slate-500 font-medium">
-                    {plan.count} ({plan.share})
-                  </span>
+                  
+                  <div className="h-1.5 bg-slate-50 dark:bg-slate-950 rounded-full overflow-hidden flex">
+                    <div className={`h-full rounded-full ${plan.color}`} style={{ width: `${plan.pct}%` }} />
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-505 font-medium">
+                    <span>MRR Impact</span>
+                    <span className="font-serif font-bold text-slate-800 dark:text-slate-300">
+                      ${plan.mrrImpact.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="h-1.5 bg-slate-50 dark:bg-slate-950 rounded-full overflow-hidden flex">
-                  <div className={`h-full rounded-full ${plan.color}`} style={{ width: `${plan.pct}%` }} />
-                </div>
-                
-                <div className="flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                  <span>MRR Impact</span>
-                  <span className="font-serif font-bold text-slate-800 dark:text-slate-300">{plan.mrr}</span>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-xs text-slate-450 dark:text-slate-500 font-medium border border-dashed border-slate-100 dark:border-slate-800/80 rounded-xl">
+                No active subscription plans found.
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -291,11 +324,11 @@ export function DashboardAnalytics() {
           <div className="grid grid-cols-2 gap-3 text-center">
             <div className="p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100/50 dark:border-slate-800/50">
               <span className="block text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500 mb-0.5">DAU / MAU</span>
-              <span className="font-serif text-lg font-bold text-slate-800 dark:text-slate-100">65.4%</span>
+              <span className="font-serif text-lg font-bold text-slate-800 dark:text-slate-100">{ratioVal}</span>
             </div>
             <div className="p-2 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100/50 dark:border-slate-800/50">
               <span className="block text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500 mb-0.5">Avg Session</span>
-              <span className="font-serif text-lg font-bold text-slate-800 dark:text-slate-100">18m 42s</span>
+              <span className="font-serif text-lg font-bold text-slate-800 dark:text-slate-100">{sessionText}</span>
             </div>
           </div>
         </div>

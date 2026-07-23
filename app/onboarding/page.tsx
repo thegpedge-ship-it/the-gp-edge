@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser, isOnboarded } from "@/lib/user";
+import { getLiveExams } from "./actions";
 import OnboardingForm from "./OnboardingForm";
 
 export const metadata: Metadata = {
@@ -18,12 +19,13 @@ export default async function OnboardingPage() {
 
   // Make sure the DB row exists and pre-fill anything already saved (e.g. if the
   // user started onboarding earlier and came back).
-  const dbUser = await ensureDbUser();
+  const [dbUser, liveExams] = await Promise.all([ensureDbUser(), getLiveExams()]);
 
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-20">
       <OnboardingForm
         firstName={clerkUser.firstName}
+        exams={liveExams}
         defaults={{
           role_title: dbUser?.role_title ?? "",
           hospital: dbUser?.hospital ?? "",

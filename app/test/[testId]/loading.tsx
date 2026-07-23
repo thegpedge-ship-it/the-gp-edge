@@ -1,0 +1,12 @@
+import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+
+/**
+ * Covers both /test/[testId]/instructions and /test/[testId]/start.
+ *
+ * Bridges the gap between clicking "Start" and the client component mounting —
+ * the route chunk still has to load, and without this the user sits on the
+ * previous page with no feedback and assumes the button did nothing.
+ */
+export default function Loading() {
+  return <FullScreenLoader message="Preparing your test" />;
+}

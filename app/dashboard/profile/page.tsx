@@ -2,7 +2,6 @@ import {
   GraduationCap,
   MapPin,
   BookOpen,
-  Calendar,
   ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
@@ -10,7 +9,7 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser } from "@/lib/user";
 import { formatJoined } from "@/lib/format";
-import { badges, stats, examPaths } from "@/components/dashboard/data";
+import { getProfileData } from "./actions";
 import Avatar from "@/components/ui/Avatar";
 import FadeIn from "@/components/ui/FadeIn";
 import PageCard from "@/components/ui/PageCard";
@@ -21,7 +20,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 py-3 border-b border-slate-100 dark:border-slate-800/85 last:border-0">
       <div className="flex-1 min-w-0">
-        <p className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 mb-1">
+        <p className="font-sans text-[11px] font-semibold tracking-wider uppercase text-slate-500 mb-1.5">
           {label}
         </p>
         <p className="font-sans text-base md:text-lg font-semibold text-slate-900 dark:text-slate-100 leading-tight truncate">{value}</p>
@@ -36,6 +35,12 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default async function ProfilePage() {
   const user = await currentUser();
   const dbUser = await ensureDbUser();
+  const profileData = await getProfileData();
+  const { stats, examPaths, badges } = profileData;
+  // Defensive default: a stale cache entry from before this field existed could
+  // omit `completeness`, which would otherwise crash the render below.
+  const completeness =
+    profileData.completeness ?? { quizzesCompleted: 0, quizzesTotal: 0, quizzesPercent: 0 };
 
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";
@@ -68,7 +73,7 @@ export default async function ProfilePage() {
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl overflow-hidden flex flex-col justify-between h-full shadow-sm text-slate-700 dark:text-slate-300">
               
               {/* Premium Header Banner */}
-              <div className="h-32 w-full relative overflow-hidden rounded-t-2xl flex-shrink-0">
+              <div className="h-28 w-full relative overflow-hidden rounded-t-2xl flex-shrink-0">
                 <Image
                   src="/assets/profile/banner.png"
                   alt="Profile Banner"
@@ -80,7 +85,7 @@ export default async function ProfilePage() {
               </div>
 
               {/* Profile Identity Content */}
-              <div className="px-5 pb-5 pt-0 flex flex-col flex-1 justify-between gap-4">
+              <div className="px-5 pb-4 pt-0 flex flex-col flex-1 justify-between gap-3">
                 
                 <div className="flex flex-col items-center text-center">
                   {/* Overlapping Avatar with white border */}
@@ -118,11 +123,11 @@ export default async function ProfilePage() {
                 </div>
 
                 {/* Refined Inner Telemetry Grid */}
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                   {stats.map((stat) => (
                     <div
                       key={stat.label}
-                      className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded-xl p-4 text-center flex flex-col items-center justify-center"
+                      className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 rounded-xl p-3 text-center flex flex-col items-center justify-center"
                     >
                       <span className="font-sans text-xl font-semibold text-slate-900 dark:text-slate-50 leading-none">{stat.value}</span>
                       <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 mt-1.5 leading-tight">{stat.label}</span>
@@ -131,7 +136,7 @@ export default async function ProfilePage() {
                 </div>
 
                 {/* Extra details (Hospital, Preparation tracker, Joined Date) */}
-                <div className="space-y-2.5 pt-4 border-t border-slate-100 dark:border-slate-800/85 text-xs">
+                <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800/85 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Location:</span>
                     <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[150px]">{location}</span>
@@ -152,7 +157,7 @@ export default async function ProfilePage() {
                 <Link
                   href="/dashboard/settings"
                   id="edit-profile-link"
-                  className="w-full text-center py-2.5 rounded-xl bg-teal-600 hover:bg-teal-505 font-sans font-semibold text-sm text-white transition-all duration-150 mt-1"
+                  className="w-full text-center py-2 rounded-xl bg-teal-600 hover:bg-teal-505 font-sans font-semibold text-sm text-white transition-all duration-150 mt-1"
                 >
                   Edit Profile
                 </Link>
@@ -169,20 +174,20 @@ export default async function ProfilePage() {
           {/* Card 1: Medical Credentials */}
           <FadeIn delay={0.10}>
             <PageCard className="h-full">
-              <div className="p-6 h-full flex flex-col justify-between gap-4">
+              <div className="p-6 h-full flex flex-col gap-4">
                 <div>
-                  <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+                  <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1.5">
                     Medical Credentials
                   </h3>
-                  <p className="font-sans text-xs text-slate-500 dark:text-slate-400 mb-3">
+                  <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400">
                     Professional registration details
                   </p>
-                  
-                  <div className="mt-4 space-y-1">
-                    <DetailRow label="RACGP Number" value={racgpId} />
-                    <DetailRow label="Training Level" value={roleTitle} />
-                    <DetailRow label="Practice Location" value={practiceLocation} />
-                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col justify-around">
+                  <DetailRow label="RACGP Number" value={racgpId} />
+                  <DetailRow label="Training Level" value={roleTitle} />
+                  <DetailRow label="Practice Location" value={practiceLocation} />
                 </div>
               </div>
             </PageCard>
@@ -191,46 +196,81 @@ export default async function ProfilePage() {
           {/* Card 2: Exam Preparation */}
           <FadeIn delay={0.14}>
             <PageCard className="h-full">
-              <div className="p-6 h-full flex flex-col justify-between gap-4">
+              <div className="p-6 h-full flex flex-col gap-4">
                 <div>
-                  <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
+                  <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1.5">
                     Exam Preparation
                   </h3>
-                  <p className="font-sans text-xs text-slate-550 dark:text-slate-400 mb-4">
+                  <p className="font-sans text-[13px] text-slate-550 dark:text-slate-400">
                     Active exam targets and readiness
                   </p>
-                  
-                  <div className="mt-5 space-y-4">
-                    {examPaths.map((exam) => {
-                      const pct = exam.readiness;
-                      return (
-                        <div key={exam.code} className="space-y-1.5">
+                </div>
+
+                <div className="flex-1 flex flex-col justify-center">
+                  {examPaths.length === 0 && (
+                    <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400 py-2">
+                      No exam tracks available yet. Take a mock test to start tracking your readiness.
+                    </p>
+                  )}
+                  {examPaths.map((exam) => {
+                    const mockPct =
+                      exam.mocksTotal > 0
+                        ? Math.round((exam.mocksDone / exam.mocksTotal) * 100)
+                        : 0;
+                    return (
+                      <div key={exam.code} className="flex-1 flex flex-col justify-around gap-6">
+                        {/* Exam code + name, on one line */}
+                        <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
+                          {exam.code}
+                          <span className="font-normal text-slate-500 dark:text-slate-450">
+                            {" "}— {exam.name}
+                          </span>
+                        </p>
+
+                        {/* Bar 1 — Mock tests completed */}
+                        <div className="space-y-2.5">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">{exam.code}</p>
-                              <p className="font-sans text-[11px] text-slate-500 dark:text-slate-450 leading-none">{exam.name}</p>
-                            </div>
-                            <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">{pct}%</span>
+                            <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              Mock Tests
+                            </p>
+                            <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">
+                              {mockPct}%
+                            </span>
                           </div>
-                          <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
-                              style={{ width: `${pct}%` }}
+                              style={{ width: `${mockPct}%` }}
                             />
                           </div>
                           <p className="font-sans text-[11px] text-slate-500 dark:text-slate-450 leading-none">
-                            {exam.mocksDone} / {exam.mocksTotal} mocks · Next: {exam.nextMilestone}
+                            {exam.mocksDone} / {exam.mocksTotal} mock tests completed
                           </p>
                         </div>
-                      );
-                    })}
 
-                    {/* Active Track Highlight Banner */}
-                    <div className="flex items-center gap-2 mt-2 p-2.5 rounded-xl bg-gradient-to-r from-teal-500/10 to-transparent border border-teal-500/20 text-teal-600 dark:text-teal-400">
-                      <Calendar size={12} className="text-teal-600 dark:text-teal-400 flex-shrink-0" />
-                      <p className="font-sans text-[11px] font-semibold">{examTarget}</p>
-                    </div>
-                  </div>
+                        {/* Bar 2 — Admin-created quizzes completed */}
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
+                              Quizzes
+                            </p>
+                            <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">
+                              {completeness.quizzesPercent}%
+                            </span>
+                          </div>
+                          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
+                              style={{ width: `${completeness.quizzesPercent}%` }}
+                            />
+                          </div>
+                          <p className="font-sans text-[11px] text-slate-500 dark:text-slate-450 leading-none">
+                            {completeness.quizzesCompleted} / {completeness.quizzesTotal} quizzes completed
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </PageCard>
@@ -256,6 +296,11 @@ export default async function ProfilePage() {
                   </div>
                   
                   <div className="mt-6">
+                    {badges.length === 0 && (
+                      <p className="font-sans text-xs text-slate-500 dark:text-slate-400">
+                        No badges earned yet. Keep practising to unlock your first milestone.
+                      </p>
+                    )}
                     <div className="flex gap-4 flex-wrap">
                       {badges.map((b) => (
                         <div

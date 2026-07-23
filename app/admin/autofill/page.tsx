@@ -73,38 +73,53 @@ export default function AutofillPage() {
   const [activeTab, setActiveTab] = useState<"manual" | "upload">("manual");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // PDF upload & text extraction states
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
-  const [uploadedFileName, setUploadedFileName] = useState("");
-  const [uploadedFileSize, setUploadedFileSize] = useState("");
-  const [uploadedFileType, setUploadedFileType] = useState("");
-  const [uploadedFilePreview, setUploadedFilePreview] = useState<"pdf" | "docx" | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [extractionProgress, setExtractionProgress] = useState(0);
-  const [extractionState, setExtractionState] = useState<"idle" | "extracting" | "success">("idle");
-  const [extractionLog, setExtractionLog] = useState("");
-  const [extractedData, setExtractedData] = useState<any>(null);
+  interface AutofillUploadQueueItem {
+    id: string;
+    name: string;
+    size: string;
+    progress: number;
+    status: "idle" | "uploading" | "success" | "error";
+    error?: string;
+    extractedTemplate?: any;
+  }
 
-  // Handle file selection and API call
+  const [autofillUploadQueue, setAutofillUploadQueue] = useState<AutofillUploadQueueItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Handle file selection and API call
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isReadOnly) return;
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    setSelectedFile(file);
-    setUploadedFileName(file.name);
-    setUploadedFileSize((file.size / (1024 * 1024)).toFixed(2) + " MB");
-    setUploadedFileType(ext.toUpperCase());
-    setUploadedFilePreview(ext === "pdf" ? "pdf" : "docx");
-    setUploadState("uploading");
-    setUploadProgress(0);
+    const fileList = Array.from(files);
+    const newItems: AutofillUploadQueueItem[] = fileList.map((file, idx) => ({
+      id: `autofill-upload-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+      name: file.name,
+      size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
+      progress: 5,
+      status: "uploading",
+    }));
 
+    setAutofillUploadQueue((prev) => [...prev, ...newItems]);
+
+    // Process each file in parallel
+    newItems.forEach((item, index) => {
+      const originalFile = fileList[index];
+      runAutofillExtraction(item.id, originalFile);
+    });
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const runAutofillExtraction = async (id: string, file: File) => {
+    let currentProgress = 5;
     const progressTimer = setInterval(() => {
-      setUploadProgress((p) => (p >= 90 ? 90 : p + 10));
+      currentProgress += Math.random() * 8 + 2;
+      if (currentProgress > 90) currentProgress = 90;
+      setAutofillUploadQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, progress: Math.round(currentProgress) } : item))
+      );
     }, 150);
 
     try {
@@ -118,99 +133,112 @@ export default function AutofillPage() {
       });
 
       clearInterval(progressTimer);
-      setUploadProgress(100);
 
       const result = await res.json();
       if (result.success) {
-        setExtractedData(result);
-        setUploadState("success");
-        // Auto-trigger extraction immediately — no manual button needed
-        runTextExtraction(result);
+        setAutofillUploadQueue((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? {
+                  ...item,
+                  status: "success",
+                  progress: 100,
+                  extractedTemplate: {
+                    name: result.title || file.name.replace(/\.[^/.]+$/, ""),
+                    system: result.system || "Respiratory",
+                    category: result.category || "Acute",
+                    subjective: result.symptoms || result.subjective || "",
+                    objective: result.objective || "",
+                    plan: result.treatment || result.plan || "",
+                    assessment: result.notes || result.assessment || "",
+                    doctorSummary: result.doctorSummary || "",
+                    patientResources: result.patientResources || "",
+                  },
+                }
+              : item
+          )
+        );
       } else {
-        alert(result.error || "Failed to extract text from document");
-        setUploadState("idle");
+        setAutofillUploadQueue((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, status: "error", error: result.error || "Failed to extract text from document." } : item))
+        );
       }
     } catch (err: any) {
       clearInterval(progressTimer);
-      alert("Upload error: " + err.message);
-      setUploadState("idle");
+      setAutofillUploadQueue((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, status: "error", error: err.message || "Failed to extract text from document." } : item))
+      );
     }
   };
 
-  // Run text extraction simulation
-  const runTextExtraction = (data?: any) => {
-    setExtractionState("extracting");
-    setExtractionProgress(0);
-    setExtractionLog("Opening document stream...");
-    
-    setTimeout(() => {
-      setExtractionProgress(25);
-      setExtractionLog("Extracting raw text from pages...");
-    }, 300);
+  const updateQueueItemMetadata = (id: string, field: "name" | "system" | "category", value: string) => {
+    setAutofillUploadQueue((prev) =>
+      prev.map((item) => {
+        if (item.id === id && item.extractedTemplate) {
+          return {
+            ...item,
+            extractedTemplate: {
+              ...item.extractedTemplate,
+              [field]: value,
+            },
+          };
+        }
+        return item;
+      })
+    );
+  };
 
-    setTimeout(() => {
-      setExtractionProgress(55);
-      setExtractionLog("Identifying clinical sections...");
-    }, 600);
+  const removeQueueItem = (id: string) => {
+    setAutofillUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  };
 
-    setTimeout(() => {
-      setExtractionProgress(85);
-      setExtractionLog("Mapping fields...");
-    }, 900);
+  const handleSaveAllAutofills = async () => {
+    if (isReadOnly) return;
+    const successItems = autofillUploadQueue.filter((item) => item.status === "success" && item.extractedTemplate);
+    if (successItems.length === 0) return;
 
-    setTimeout(() => {
-      setExtractionProgress(100);
-      setExtractionState("success");
-      setExtractionLog("Extraction complete!");
-      
-      const activeData = data || extractedData;
-      const title = activeData?.title || "Extracted Template";
-      const system = activeData?.system || "Respiratory";
-      const category = activeData?.category || "Acute";
-      const subjective = activeData?.symptoms || activeData?.subjective || "";
-      const objective = activeData?.objective || "";
-      const plan = activeData?.treatment || activeData?.plan || "";
-      const assessment = activeData?.notes || activeData?.assessment || "";
-      const doctorSummary = activeData?.doctorSummary || "";
-      const patientResources = activeData?.patientResources || "";
+    setIsSaving(true);
+    try {
+      let templatesList = getAutofillTemplates();
+      let nextId = templatesList.length > 0 ? Math.max(...templatesList.map((t) => t.id)) + 1 : 1;
 
-      // Load templates and create a new one
-      const list = getAutofillTemplates();
-      const nextId = list.length > 0 ? Math.max(...list.map(t => t.id)) + 1 : 1;
-      const newTemplate: AutofillTemplate = {
-        id: nextId,
-        name: title,
-        system: system,
-        category: category,
-        fields: 0,
-        usageCount: 0,
-        lastUsed: "Just now",
-        status: "active",
-        author: "GP Edge Admin",
-        version: "v1.0",
-        subjective,
-        objective,
-        assessment,
-        plan,
-        doctorSummary,
-        patientResources,
-        sampleFields: []
-      };
-      
-      const updated = [newTemplate, ...list];
+      const newTemplates = successItems.map((item) => {
+        const et = item.extractedTemplate;
+        const temp: AutofillTemplate = {
+          id: nextId++,
+          name: et.name,
+          system: et.system,
+          category: et.category,
+          fields: 0,
+          usageCount: 0,
+          lastUsed: "Just now",
+          status: "active",
+          author: "GP Edge Admin",
+          version: "v1.0",
+          subjective: et.subjective,
+          objective: et.objective,
+          assessment: et.assessment,
+          plan: et.plan,
+          doctorSummary: et.doctorSummary,
+          patientResources: et.patientResources,
+          sampleFields: [],
+        };
+        return temp;
+      });
+
+      const updated = [...newTemplates, ...templatesList];
       setTemplates(updated);
       saveAutofillTemplates(updated);
 
-      // Reset extraction and upload states
-      setUploadState("idle");
-      setExtractionState("idle");
-      setSelectedFile(null);
       setShowEditor(false);
-
-      // Notify and redirect to template editor!
-      addUserNotification("Template Extracted", `Successfully created "${title}" and opened it in the editor.`, 1, "custom");
-      router.push(`/admin/autofill/${nextId}/editor`);
-    }, 1200);
+      setAutofillUploadQueue([]);
+      addUserNotification("Import Successful", `Successfully imported ${newTemplates.length} autofill templates.`, 1, "custom");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to save templates.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -458,9 +486,26 @@ export default function AutofillPage() {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-sm text-slate-400">No templates found matching your criteria.</p>
-        </div>
+        <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
+          <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
+          <p className="text-sm font-medium">No autofill templates found.</p>
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                if (isReadOnly) return;
+                setEditingTemplateId(null);
+                setNewName("");
+                setNewSystem("Respiratory");
+                setNewCategory("Acute");
+                setTempFields([]);
+                setShowEditor(true);
+              }}
+              className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Create your first autofill template →
+            </button>
+          )}
+        </motion.div>
       )}
 
       {/* Template builder modal */}
@@ -575,119 +620,175 @@ export default function AutofillPage() {
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
+                ) : (                  <div className="space-y-4">
                     {/* PDF/DOCX dropzone / uploader */}
-                    {uploadState === "idle" && (
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Attach Consultation Guideline or SOAP Note</label>
-                          <div
-                            onClick={() => fileInputRef.current?.click()}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const file = e.dataTransfer.files?.[0];
-                              if (file && fileInputRef.current) {
-                                const dt = new DataTransfer();
-                                dt.items.add(file);
-                                fileInputRef.current.files = dt.files;
-                                fileInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
-                              }
-                            }}
-                            className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-600 rounded-2xl p-8 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 transition-all flex flex-col items-center justify-center gap-2 group"
-                          >
-                            <input
-                              type="file"
-                              ref={fileInputRef}
-                              onChange={handleFileChange}
-                              accept=".pdf,.docx"
-                              className="hidden"
-                            />
-                            <div className="w-12 h-12 rounded-2xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <Lucide.Upload className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                            </div>
-                            <div>
-                              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drop PDF or DOCX here</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">or <span className="text-teal-600 font-semibold">click to browse</span> · Max 10MB</p>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              {["PDF", "DOCX", "DOC"].map((t) => (
-                                <span key={t} className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">{t}</span>
-                              ))}
-                            </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 font-sans">Attach Consultation Guideline or SOAP Note</label>
+                        <div
+                          onClick={() => { if (isReadOnly) return; fileInputRef.current?.click(); }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            if (isReadOnly) return;
+                            const files = e.dataTransfer.files;
+                            if (files && files.length > 0 && fileInputRef.current) {
+                              const dt = new DataTransfer();
+                              Array.from(files).forEach((f) => dt.items.add(f));
+                              fileInputRef.current.files = dt.files;
+                              fileInputRef.current.dispatchEvent(new Event("change", { bubbles: true }));
+                            }
+                          }}
+                          className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-600 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-teal-50/20 dark:hover:bg-teal-950/10 transition-all flex flex-col items-center justify-center gap-1.5 group"
+                        >
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            onChange={handleFileChange}
+                            accept=".pdf,.docx"
+                            multiple
+                            className="hidden"
+                          />
+                          <div className="w-10 h-10 rounded-2xl bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Lucide.Upload className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 font-sans">Drop PDF or DOCX here</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-sans">or <span className="text-teal-600 font-semibold">click to browse</span> · Max 10MB</p>
                           </div>
                         </div>
+                      </div>
+                    </div>
 
-                        {/* File preview card — shown immediately on file selection */}
-                        {selectedFile && (
-                          <div className="flex items-center gap-3 p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                            <div className={`w-10 h-12 rounded-lg flex items-center justify-center shrink-0 text-[9px] font-black text-white ${uploadedFilePreview === "pdf" ? "bg-red-500" : "bg-blue-500"}`}>
-                              {uploadedFileType}
+                    {autofillUploadQueue.length > 0 && (
+                      <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest font-sans">Upload Queue ({autofillUploadQueue.length} files)</p>
+                        {autofillUploadQueue.map((item) => (
+                          <div key={item.id} className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-2xl border border-slate-200/50 dark:border-slate-800/50 space-y-3 relative group">
+                            <div className="flex justify-between items-start gap-4">
+                              <div className="min-w-0 flex-1">
+                                <h5 className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate font-sans">{item.name}</h5>
+                                <p className="text-[10px] text-slate-400 font-semibold font-sans">{item.size}</p>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                {item.status === "uploading" && (
+                                  <span className="text-[10px] font-bold text-teal-850 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 px-2 py-0.5 rounded-full flex items-center gap-1 font-sans">
+                                    <Lucide.Loader2 className="w-3 h-3 animate-spin" /> Extracting
+                                  </span>
+                                )}
+                                {item.status === "success" && (
+                                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-450 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full font-sans">
+                                    Extracted
+                                  </span>
+                                )}
+                                {item.status === "error" && (
+                                  <span className="text-[10px] font-bold text-red-800 dark:text-red-405 bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-full font-sans">
+                                    Error
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeQueueItem(item.id)}
+                                  className="p-1 rounded-lg text-slate-455 hover:text-red-500 hover:bg-red-55 dark:hover:bg-red-950/20 transition-all border-none bg-transparent cursor-pointer"
+                                >
+                                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{uploadedFileName}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">{uploadedFileSize} · Ready to upload</p>
-                            </div>
-                            <button
-                              onClick={() => { setSelectedFile(null); setUploadedFileName(""); setUploadedFilePreview(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent"
-                              title="Remove file"
-                            >
-                              <Lucide.X className="w-3.5 h-3.5" />
-                            </button>
+
+                            {item.status === "uploading" && (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[10px] text-slate-405 dark:text-slate-400">
+                                  <span className="font-sans">Extracting clinical fields...</span>
+                                  <span className="font-mono text-teal-600 dark:text-teal-400">{item.progress}%</span>
+                                </div>
+                                <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                  <div className="h-full bg-teal-600 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+                                </div>
+                              </div>
+                            )}
+
+                            {item.status === "error" && (
+                              <p className="text-[10px] font-semibold text-red-500 font-sans">{item.error || "Failed to extract clinical fields."}</p>
+                            )}
+
+                            {item.status === "success" && item.extractedTemplate && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-2.5 border-t border-slate-200/50 dark:border-slate-800/40">
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 font-sans">Template Name</label>
+                                  <input
+                                    type="text"
+                                    value={item.extractedTemplate.name || ""}
+                                    onChange={(e) => updateQueueItemMetadata(item.id, "name", e.target.value)}
+                                    className="w-full px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 font-sans"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 font-sans">Body System</label>
+                                  <CustomSelect
+                                    value={item.extractedTemplate.system || "Respiratory"}
+                                    onChange={(val) => updateQueueItemMetadata(item.id, "system", val)}
+                                    options={[
+                                      { value: "Respiratory", label: "Respiratory" },
+                                      { value: "Cardiovascular", label: "Cardiovascular" },
+                                      { value: "Endocrine", label: "Endocrine" },
+                                      { value: "Psychiatry", label: "Psychiatry" },
+                                      { value: "Dermatology", label: "Dermatology" },
+                                      { value: "Women's Health", label: "Women's Health" },
+                                      { value: "Paediatrics", label: "Paediatrics" }
+                                    ]}
+                                    triggerClassName="w-full flex items-center justify-between px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 transition-all font-medium font-sans"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5 font-sans">Category</label>
+                                  <CustomSelect
+                                    value={item.extractedTemplate.category || "Acute"}
+                                    onChange={(val) => updateQueueItemMetadata(item.id, "category", val)}
+                                    options={[
+                                      { value: "Acute", label: "Acute" },
+                                      { value: "Chronic", label: "Chronic" },
+                                      { value: "Screening", label: "Screening" },
+                                      { value: "Mental Health", label: "Mental Health" }
+                                    ]}
+                                    triggerClassName="w-full flex items-center justify-between px-2 py-1 text-xs border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-teal-700 transition-all font-medium font-sans"
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAutofillUploadQueue([]);
+                          setShowEditor(false);
+                        }}
+                        disabled={isSaving || autofillUploadQueue.some(item => item.status === "uploading")}
+                        className={`px-4 py-2 text-xs font-semibold ${themeBtnGhost}`}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveAllAutofills}
+                        disabled={isSaving || !autofillUploadQueue.some(item => item.status === "success")}
+                        className={`px-4 py-2 text-xs font-semibold ${themeBtnPrimary} flex items-center gap-1.5`}
+                      >
+                        {isSaving ? (
+                          <>
+                            <Lucide.Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                          </>
+                        ) : (
+                          `Import Templates (${autofillUploadQueue.filter(item => item.status === "success").length})`
                         )}
-                      </div>
-                    )}
-
-                    {uploadState === "uploading" && (
-                      <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50 dark:bg-slate-800 space-y-3">
-                        <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-slate-700 dark:text-slate-350 truncate max-w-[220px]">{uploadedFileName}</span>
-                          <span className="text-slate-400 font-mono">{uploadProgress}%</span>
-                        </div>
-                        
-                        <div className="flex h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div className="h-full bg-teal-700 transition-all" style={{ width: `${uploadProgress}%` }} />
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium">Size: {uploadedFileSize} · Uploading file to GP Edge repository...</p>
-                      </div>
-                    )}
-
-                    {uploadState === "success" && (
-                      <div className="space-y-4">
-                        <div className="border border-slate-200 dark:border-slate-900/40 rounded-2xl p-4 bg-slate-50/30 dark:bg-slate-950/10 flex items-start gap-3 shadow-sm">
-                          <span className="w-8 h-8 bg-emerald-50 dark:bg-emerald-950/20 rounded-full flex items-center justify-center shrink-0">
-                            <Lucide.Check className="w-4 h-4 text-emerald-600 dark:text-emerald-450" />
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFileName}</p>
-                            <p className="text-[10px] text-slate-400">Uploaded successfully ({uploadedFileSize})</p>
-                            <button onClick={() => fileInputRef.current?.click()} className="text-[10px] text-slate-650 dark:text-slate-400 font-semibold hover:underline mt-1 cursor-pointer border-none bg-transparent">Replace file</button>
-                          </div>
-                        </div>
-
-                        {extractionState === "extracting" && (
-                          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-slate-800 space-y-3 shadow-inner">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-350">
-                              <span className="flex items-center gap-2">
-                                <Lucide.Loader className="w-3.5 h-3.5 text-teal-700 animate-spin" />
-                                <span>{extractionLog}</span>
-                              </span>
-                              <span className="font-mono text-teal-700 dark:text-teal-400">{extractionProgress}%</span>
-                            </div>
-                            <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                              <div className="h-full bg-teal-700 transition-all duration-300" style={{ width: `${extractionProgress}%` }} />
-                            </div>
-                          </div>
-                        )}
-
-
-                      </div>
-                    )}
-                  </div>
-                )}
+                      </button>
+                    </div>
+                  </div>)}
               </div>
             </motion.div>
           </div>

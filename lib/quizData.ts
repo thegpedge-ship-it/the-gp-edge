@@ -14,6 +14,7 @@ export interface Quiz {
   status: QuizStatus;
   examType: "AKT" | "KFP" | "Mixed";
   randomize: boolean;
+  questionLimit: number;
   updatedAt: string;
 }
 
@@ -29,6 +30,7 @@ export interface Question {
   status: "draft" | "review" | "published";
   tags: string[];
   image?: string;
+  dbId?: string;
 }
 
 export type QuestionBankItem = Question;
@@ -48,75 +50,57 @@ export const DEFAULT_QUESTIONS: Question[] = [
   { id: 2847, text: "A 54-year-old male presents with sudden chest pain. ECG shows ST elevation in leads II, III, and aVF. Which artery is most likely occluded?", options: ["Left anterior descending (LAD)", "Right coronary artery (RCA)", "Left circumflex (LCx)", "Posterior descending artery"], correctIndex: 1, rationale: "Inferior STEMI with ST elevation in II, III, aVF is most commonly caused by RCA occlusion.", topic: "Cardiology", difficulty: "Medium", examType: "AKT", status: "published", tags: ["STEMI", "ECG", "Coronary"], image: "/assets/ecg_inferior_stemi.png" },
   { id: 2848, text: "A 22-year-old female presents with acute asthma exacerbation. Her peak flow is 50% of predicted. What is the first-line medication?", options: ["Salbutamol (SABA) via spacer", "Oral prednisolone", "Inhaled fluticasone", "IV magnesium sulfate"], correctIndex: 0, rationale: "First-line treatment for acute asthma is inhaled SABA via spacer.", topic: "Respiratory", difficulty: "Easy", examType: "AKT", status: "published", tags: ["Asthma", "Emergency", "Pharmacology"] },
   { id: 2849, text: "A 35-year-old woman describes 3 weeks of depressed mood, insomnia, and anhedonia. Which screening tool is most appropriate?", options: ["GAD-7", "AUDIT", "PHQ-9", "K10"], correctIndex: 2, rationale: "PHQ-9 is the standard screening tool for depression severity.", topic: "Mental Health", difficulty: "Easy", examType: "KFP", status: "published", tags: ["Depression", "Screening", "PHQ-9"] },
-  { id: 2850, text: "An elderly patient on warfarin presents with INR of 8.5 and minor gum bleeding. What is the most appropriate management?", options: ["Continue warfarin at same dose", "Withhold warfarin and give vitamin K 1-2mg orally", "Give fresh frozen plasma", "Administer prothrombinex"], correctIndex: 1, rationale: "For INR 5-9 with minor bleeding, withhold warfarin and give low-dose oral vitamin K.", topic: "Haematology", difficulty: "Hard", examType: "AKT", status: "review", tags: ["Warfarin", "INR", "Anticoagulation"] },
+  { id: 2850, text: "An elderly patient on warfarin presents with INR of 8.5 and minor gum bleeding. What is the most appropriate management?", options: ["Continue warfarin at same dose", "Withhold warfarin and give vitamin K 1-2mg orally", "Give fresh frozen plasma", "Administer prothrombinex"], correctIndex: 1, rationale: "For INR 5-9 with minor bleeding, withhold warfarin and give low-dose oral vitamin K.", topic: "Haematology", difficulty: "Hard", examType: "AKT", status: "published", tags: ["Warfarin", "INR", "Anticoagulation"] },
   { id: 2851, text: "A mother brings her 6-month-old infant for vaccination. Which vaccines are due at this age according to the Australian NIP?", options: ["DTPa, Hep B, IPV, Hib, PCV13, Rotavirus", "MMR, Varicella, MenACWY", "DTPa, IPV only", "No vaccines due at this age"], correctIndex: 0, rationale: "At 6 months, the third dose of DTPa-Hep B-IPV-Hib, PCV13 (3rd dose), and Rotavirus (3rd dose) are due.", topic: "Paediatrics", difficulty: "Medium", examType: "AKT", status: "published", tags: ["Vaccination", "NIP", "Paediatrics"] },
-  { id: 2852, text: "A 45-year-old presents with a pigmented skin lesion. Which dermoscopic feature is most concerning for melanoma?", options: ["Symmetrical pattern", "Single uniform color", "Irregular blue-white veil", "Regular pigment network"], correctIndex: 2, rationale: "Blue-white veil is a high-risk dermoscopic feature associated with melanoma.", topic: "Dermatology", difficulty: "Hard", examType: "KFP", status: "draft", tags: ["Melanoma", "Dermoscopy", "Skin Cancer"], image: "/assets/melanoma_dermoscopy.png" },
-  { id: 2853, text: "A GP registrar reviews MBS item 721. What is the minimum documentation required for a GPMP claim?", options: ["Patient name and date only", "Problem list, management goals, actions, review date", "Referral letter to specialist", "Hospital discharge summary"], correctIndex: 1, rationale: "A GPMP requires documented problem identification, treatment goals, actions/strategies, and agreed review arrangements.", topic: "MBS Billing", difficulty: "Medium", examType: "KFP", status: "review", tags: ["GPMP", "MBS", "Billing"] },
+  { id: 2852, text: "A 45-year-old presents with a pigmented skin lesion. Which dermoscopic feature is most concerning for melanoma?", options: ["Symmetrical pattern", "Single uniform color", "Irregular blue-white veil", "Regular pigment network"], correctIndex: 2, rationale: "Blue-white veil is a high-risk dermoscopic feature associated with melanoma.", topic: "Dermatology", difficulty: "Hard", examType: "KFP", status: "published", tags: ["Melanoma", "Dermoscopy", "Skin Cancer"], image: "/assets/melanoma_dermoscopy.png" },
+  { id: 2853, text: "A GP registrar reviews MBS item 721. What is the minimum documentation required for a GPMP claim?", options: ["Patient name and date only", "Problem list, management goals, actions, review date", "Referral letter to specialist", "Hospital discharge summary"], correctIndex: 1, rationale: "A GPMP requires documented problem identification, treatment goals, actions/strategies, and agreed review arrangements.", topic: "MBS Billing", difficulty: "Medium", examType: "KFP", status: "published", tags: ["GPMP", "MBS", "Billing"] },
   { id: 2854, text: "What is the recommended first-line treatment for uncomplicated lower UTI in a non-pregnant woman?", options: ["Amoxicillin 500mg TDS for 7 days", "Trimethoprim 300mg daily for 3 days", "Ciprofloxacin 500mg BD for 5 days", "Nitrofurantoin 100mg QID for 14 days"], correctIndex: 1, rationale: "Trimethoprim 300mg daily for 3 days is first-line for uncomplicated UTI in Australia.", topic: "Infectious Disease", difficulty: "Easy", examType: "AKT", status: "published", tags: ["UTI", "Antibiotics", "Women's Health"] },
 ];
 
-const QUESTIONS_STORAGE_KEY = "gpedge_admin_questions";
+// ─── Questions: Neon is the source of truth ──────────────────────────────────
+// localStorage is NO LONGER used for questions to avoid quota errors.
+// All writes go through importQuestionsAction (server action → Neon + R2).
+// All reads go through fetchQuestions() below (async, from /api/questions).
 
+/**
+ * Sync fallback — returns the hardcoded default questions.
+ * Use this only for SSR or when the async fetch hasn't resolved yet.
+ * Do NOT use for the main questions list on the admin page.
+ */
+/** Returns empty array — Neon DB is the source of truth. */
 export function getQuestions(): Question[] {
-  if (typeof window === "undefined") return DEFAULT_QUESTIONS;
-  try {
-    const raw = localStorage.getItem(QUESTIONS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(DEFAULT_QUESTIONS));
-      return DEFAULT_QUESTIONS;
-    }
-    const parsed = JSON.parse(raw) as Question[];
-    let updated = false;
-    const migrated = parsed.map((q) => {
-      let image = q.image;
-      let changed = false;
-
-      const defaultQ = DEFAULT_QUESTIONS.find((dq) => dq.id === q.id);
-      if (defaultQ && defaultQ.image && !image) {
-        image = defaultQ.image;
-        changed = true;
-      }
-
-      // Normalize relative static paths to prevent browser 404s relative to admin route
-      if (image && !image.startsWith("data:") && !image.startsWith("/")) {
-        changed = true;
-        if (image.startsWith("assets/")) {
-          image = "/" + image;
-        } else {
-          image = "/assets/" + image;
-        }
-      }
-
-      if (changed) {
-        updated = true;
-        return { ...q, image };
-      }
-      return q;
-    });
-    if (updated) {
-      localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
-    }
-    return parsed;
-  } catch (error) {
-    return DEFAULT_QUESTIONS;
-  }
+  return [];
 }
 
-export function saveQuestions(questions: Question[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(QUESTIONS_STORAGE_KEY, JSON.stringify(questions));
-  // Mutate QUESTION_BANK in-place to keep imports updated
-  QUESTION_BANK.length = 0;
-  QUESTION_BANK.push(...questions);
+/**
+ * Async fetch from Neon via /api/questions.
+ * Returns only DB questions — no mock defaults.
+ */
+export async function fetchQuestions(): Promise<Question[]> {
+  try {
+    const res = await fetch("/api/questions", { cache: "no-store" });
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data)) {
+      QUESTION_BANK.length = 0;
+      QUESTION_BANK.push(...json.data);
+      return json.data as Question[];
+    }
+  } catch (err) {
+    console.error("fetchQuestions error:", err);
+  }
+  return [];
+}
+
+/**
+ * saveQuestions is intentionally a no-op.
+ * Data is persisted via importQuestionsAction (server action) which writes
+ * directly to Neon and uploads images to R2. No localStorage writes.
+ */
+export function saveQuestions(_questions: Question[]): void {
+  // No-op: localStorage removed. Use importQuestionsAction to persist.
 }
 
 export const QUESTION_BANK: Question[] = [];
-if (typeof window !== "undefined") {
-  QUESTION_BANK.push(...getQuestions());
-} else {
-  QUESTION_BANK.push(...DEFAULT_QUESTIONS);
-}
 
 const STORAGE_KEY = "gpedge_admin_quizzes";
 
@@ -135,6 +119,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "AKT",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-28T10:00:00.000Z",
   },
   {
@@ -151,6 +136,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: false,
+    questionLimit: 50,
     updatedAt: "2026-05-25T14:30:00.000Z",
   },
   {
@@ -167,6 +153,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-20T09:15:00.000Z",
   },
   {
@@ -183,6 +170,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "AKT",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-18T11:00:00.000Z",
   },
   {
@@ -199,6 +187,7 @@ const DEFAULT_QUIZZES: Quiz[] = [
     status: "active",
     examType: "KFP",
     randomize: false,
+    questionLimit: 50,
     updatedAt: "2026-05-15T16:45:00.000Z",
   },
   {
@@ -212,9 +201,10 @@ const DEFAULT_QUIZZES: Quiz[] = [
     passingScore: 65,
     attempts: 0,
     avgScore: 0,
-    status: "draft",
+    status: "active",
     examType: "KFP",
     randomize: true,
+    questionLimit: 50,
     updatedAt: "2026-05-10T08:00:00.000Z",
   },
 ];
@@ -235,17 +225,15 @@ function syncQuizDerivedFields(quiz: Quiz): Quiz {
   };
 }
 
+/** Returns locally-cached quizzes (DB-fetched). No mock defaults. */
 export function getQuizzes(): Quiz[] {
-  if (typeof window === "undefined") return DEFAULT_QUIZZES;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_QUIZZES));
-      return DEFAULT_QUIZZES;
-    }
+    if (!raw) return [];
     return JSON.parse(raw) as Quiz[];
   } catch {
-    return DEFAULT_QUIZZES;
+    return [];
   }
 }
 
@@ -275,9 +263,10 @@ export function createQuiz(
     passingScore: partial.passingScore ?? 65,
     attempts: 0,
     avgScore: 0,
-    status: partial.status ?? "draft",
+    status: partial.status ?? "active",
     examType: partial.examType ?? "AKT",
     randomize: partial.randomize ?? true,
+    questionLimit: partial.questionLimit ?? 50,
     updatedAt: new Date().toISOString(),
   });
   saveQuizzes([newQuiz, ...quizzes]);
@@ -312,7 +301,7 @@ export function duplicateQuiz(id: number): Quiz | null {
     questionIds: [...source.questionIds],
     timeLimit: source.timeLimit,
     passingScore: source.passingScore,
-    status: "draft",
+    status: "active",
     examType: source.examType,
     randomize: source.randomize,
   });
@@ -429,51 +418,152 @@ export function saveAdminUsers(users: AdminUser[]): void {
 }
 
 export interface MedicalContent {
-  id: number;
+  id: string; // UUID from Neon (was number in localStorage)
   name: string;
   category: string;
   system: string;
-  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note";
+  type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note" | "Approach";
   status: "published" | "draft" | "review";
   lastUpdated: string;
   author: string;
   references: number;
   tags?: string[];
   usedInQuestions?: number;
+  pdfUrl?: string;
+  pdfSize?: string;
+  isPremium?: boolean;
 }
 
-const DEFAULT_MEDICAL_CONTENT: MedicalContent[] = [
-  { id: 1, name: "Type 2 Diabetes Management", category: "Chronic Disease", system: "Endocrine", type: "Guideline", status: "published", lastUpdated: "28 May 2026", author: "GP Edge Content Team", references: 12 },
-  { id: 2, name: "Acute Coronary Syndrome", category: "Emergency", system: "Cardiovascular", type: "Protocol", status: "published", lastUpdated: "25 May 2026", author: "GP Edge Admin", references: 18 },
-  { id: 3, name: "Childhood Immunisation Schedule", category: "Preventive", system: "Paediatrics", type: "Guideline", status: "published", lastUpdated: "22 May 2026", author: "GP Edge Content Team", references: 8 },
-  { id: 4, name: "Depression Screening & Management", category: "Mental Health", system: "Psychiatry", type: "Pathway", status: "review", lastUpdated: "20 May 2026", author: "GP Edge Editorial Team", references: 15 },
-  { id: 5, name: "Asthma Action Plan", category: "Chronic Disease", system: "Respiratory", type: "Protocol", status: "published", lastUpdated: "18 May 2026", author: "GP Edge Content Team", references: 9 },
-  { id: 6, name: "Melanoma Detection & Referral", category: "Skin Cancer", system: "Dermatology", type: "Pathway", status: "draft", lastUpdated: "15 May 2026", author: "GP Edge Editorial Team", references: 6 },
-  { id: 7, name: "Antenatal Care Schedule", category: "Obstetrics", system: "Women's Health", type: "Guideline", status: "published", lastUpdated: "12 May 2026", author: "GP Edge Admin", references: 14 },
-  { id: 8, name: "GORD Management Algorithm", category: "GI", system: "Gastroenterology", type: "Pathway", status: "review", lastUpdated: "10 May 2026", author: "GP Edge Content Team", references: 7 },
-  { id: 9, name: "Red Flags in Back Pain", category: "MSK", system: "Musculoskeletal", type: "Protocol", status: "published", lastUpdated: "8 May 2026", author: "GP Edge Admin", references: 11 },
-  { id: 10, name: "MBS Item 721 — GPMP Guide", category: "Billing", system: "MBS", type: "Guideline", status: "draft", lastUpdated: "5 May 2026", author: "GP Edge Editorial Team", references: 4 },
-];
+// In-memory cache so sync callers (legacy code) can still work
+let _medicalContentCache: MedicalContent[] = [];
+let _cacheLoaded = false;
 
-const MEDICAL_CONTENT_STORAGE_KEY = "gpedge_admin_medical_content";
+const MEDICAL_CONTENT_CACHE_KEY = "gpedge_medical_content_cache";
 
+// Sync read from in-memory cache (used by legacy sync callers)
 export function getMedicalContent(): MedicalContent[] {
-  if (typeof window === "undefined") return DEFAULT_MEDICAL_CONTENT;
+  if (_medicalContentCache.length > 0) return _medicalContentCache;
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(MEDICAL_CONTENT_CACHE_KEY);
+      if (raw) {
+        _medicalContentCache = JSON.parse(raw);
+        return _medicalContentCache;
+      }
+    } catch {}
+  }
+  return [];
+}
+
+// Async fetch from Neon via API (use this in useEffect / server actions)
+export async function fetchMedicalContent(): Promise<MedicalContent[]> {
   try {
-    const raw = localStorage.getItem(MEDICAL_CONTENT_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(MEDICAL_CONTENT_STORAGE_KEY, JSON.stringify(DEFAULT_MEDICAL_CONTENT));
-      return DEFAULT_MEDICAL_CONTENT;
+    const res = await fetch("/api/medical-content", { cache: "no-store" });
+    const json = await res.json();
+    if (json.success) {
+      _medicalContentCache = json.data;
+      _cacheLoaded = true;
+      if (typeof window !== "undefined") {
+        localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(json.data));
+      }
+      return json.data as MedicalContent[];
     }
-    return JSON.parse(raw) as MedicalContent[];
-  } catch {
-    return DEFAULT_MEDICAL_CONTENT;
+  } catch (err) {
+    console.error("fetchMedicalContent error:", err);
+  }
+  return getMedicalContent(); // fallback to cache
+}
+
+// Async save to Neon via API
+export async function saveMedicalContentItem(item: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<string | null> {
+  try {
+    const res = await fetch("/api/medical-content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(item),
+    });
+    const json = await res.json();
+    if (json.success) return json.id;
+  } catch (err) {
+    console.error("saveMedicalContentItem error:", err);
+  }
+  return null;
+}
+
+// Async update existing item in Neon
+export async function updateMedicalContentItem(id: string, updates: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/medical-content/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    const json = await res.json();
+    return json.success;
+  } catch (err) {
+    console.error("updateMedicalContentItem error:", err);
+    return false;
   }
 }
 
+// Legacy sync save — updates cache only (no longer writes to DB directly)
 export function saveMedicalContent(content: MedicalContent[]): void {
+  _medicalContentCache = content;
+  if (typeof window !== "undefined") {
+    localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(content));
+  }
+}
+
+// ─── Clinical Approaches ──────────────────────────────────────────────────
+
+export interface ApproachStep {
+  id: string;
+  title: string;
+  description: string;
+  type: "action" | "decision" | "info" | "warning" | "checklist";
+  checklistItems?: string[];
+}
+
+export interface ApproachCard {
+  id: string;
+  title: string;
+  subtitle: string;
+  system: string;
+  category: string;
+  status: "draft" | "review" | "published";
+  lastUpdated: string;
+  author: string;
+  isPremium: boolean;
+  tags: string[];
+  overview: string;
+  steps: ApproachStep[];
+  keyPoints: string[];
+  redFlags: string[];
+  references: { id: number; text: string; url?: string }[];
+  fullHtml?: string;
+}
+
+const APPROACH_CARDS_KEY = "gpedge_admin_approach_cards";
+
+const DEFAULT_APPROACH_CARDS: ApproachCard[] = [];
+
+export function getApproachCards(): ApproachCard[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(APPROACH_CARDS_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as ApproachCard[];
+    return parsed.filter((c) => !c.id.startsWith("APPROACH-"));
+  } catch {
+    return [];
+  }
+}
+
+export function saveApproachCards(cards: ApproachCard[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(MEDICAL_CONTENT_STORAGE_KEY, JSON.stringify(content));
+  localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(cards));
 }
 
 export interface AutofillTemplate {
@@ -538,7 +628,7 @@ export const DEFAULT_AUTOFILL_TEMPLATES: AutofillTemplate[] = [
     name: "DIABETES ANNUAL CYCLE OF CARE", 
     category: "Chronic", 
     system: "Endocrine", 
-    fields: 15, 
+    fields: 14, 
     usageCount: 1876, 
     lastUsed: "15 mins ago", 
     status: "active", 
@@ -559,15 +649,17 @@ CURRENT STATUS:
     objective: `EXAMINATIONS:
 - Blood Pressure: {{blood_pressure}} mmHg
 - BMI: {{bmi}} kg/m2
-- Foot Exam: {{foot_exam}}
-- Eye Check: {{eye_check}}`,
+- Foot Exam: Intact sensation, pulses present. No ulcers.
+- Eye Check: Optometrist review completed on {{eye_check_date}}.`,
     assessment: "Established Type 2 Diabetes Mellitus.",
     plan: `MANAGEMENT PLAN:
 1. Continue current medications: {{medications}}
 2. Dietary advice provided.
 3. Encourage 150 mins moderate exercise per week.
 4. Next review in 6 months.`,
-    content: `Patient Name: {{patient_name}}
+    content: `DIABETES ANNUAL CYCLE OF CARE
+
+Patient Name: {{patient_name}}
 DOB: {{dob}}
 Date: {{date}}
 
@@ -580,8 +672,8 @@ CURRENT STATUS:
 EXAMINATIONS:
 - Blood Pressure: {{blood_pressure}} mmHg
 - BMI: {{bmi}} kg/m2
-- Foot Exam: {{foot_exam}}
-- Eye Check: {{eye_check}}
+- Foot Exam: Intact sensation, pulses present. No ulcers.
+- Eye Check: Optometrist review completed on {{eye_check_date}}.
 
 MANAGEMENT PLAN:
 1. Continue current medications: {{medications}}
@@ -605,8 +697,7 @@ MANAGEMENT PLAN:
       { name: "Urine ACR", type: "Numeric", required: true, placeholder: "e.g. 1.5" },
       { name: "Blood Pressure", type: "Text Input", required: true, placeholder: "e.g. 130/80" },
       { name: "BMI", type: "Numeric", required: true, placeholder: "e.g. 27.5" },
-      { name: "Foot Exam", type: "Text Input", required: true, placeholder: "e.g. Intact sensation, pulses present. No ulcers." },
-      { name: "Eye Check", type: "Text Input", required: true, placeholder: "e.g. Optometrist review completed on 14/06/2026" },
+      { name: "Eye Check Date", type: "Text Input", required: true, placeholder: "e.g. 14/06/2026" },
       { name: "Medications", type: "Textarea", required: true, placeholder: "e.g. Metformin 1000mg BD" }
     ],
     versions: []
@@ -1582,7 +1673,7 @@ export function getAutofillTemplates(): AutofillTemplate[] {
       }
       
       // Force migration for old default template ID 2 to the new Diabetes template
-      if (t.id === 2 && (t.name === "Type 2 Diabetes Review" || !t.subjective || !t.subjective.includes("DIABETES ANNUAL CYCLE OF CARE"))) {
+      if (t.id === 2 && (t.name === "Type 2 Diabetes Review" || !t.subjective || !t.objective || !t.objective.includes("Intact sensation"))) {
         return def;
       }
       

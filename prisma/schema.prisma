@@ -76,6 +76,19 @@ model attempt_answers {
   @@index([attempt_question_id], map: "idx_answers_attempt_question")
 }
 
+model attempt_subject_stats {
+  attempt_id    String        @db.Uuid
+  subject_id    String        @db.Uuid
+  correct       Int           @default(0)
+  incorrect     Int           @default(0)
+  unanswered    Int           @default(0)
+  test_attempts test_attempts @relation(fields: [attempt_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subjects      subjects      @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([attempt_id, subject_id])
+  @@index([subject_id], map: "idx_attempt_subject_stats_subject")
+}
+
 model attempt_question_options {
   id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   attempt_question_id String            @db.Uuid
@@ -330,130 +343,16 @@ model files {
   @@index([uploaded_by_admin], map: "idx_files_uploaded_by_admin")
 }
 
-model mbs_categories {
-  id        Int         @id @default(autoincrement())
-  name      String      @unique
-  mbs_items mbs_items[]
-}
-
-model mbs_item_common_uses {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id   String    @db.Uuid
-  text      String
-  position  Int       @db.SmallInt
-  mbs_items mbs_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([item_id, position])
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model mbs_item_fee_history {
-  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id         String         @unique(map: "uq_mbs_fee_current", where: raw("(effective_to IS NULL)")) @db.Uuid
-  schedule_fee    Decimal        @db.Decimal(10, 2)
-  medicare_rebate Decimal        @db.Decimal(10, 2)
-  effective_from  DateTime       @db.Date
-  effective_to    DateTime?      @db.Date
-  sync_id         String?        @db.Uuid
-  recorded_at     DateTime       @default(now()) @db.Timestamptz(6)
-  mbs_items       mbs_items      @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  mbs_sync_runs   mbs_sync_runs? @relation(fields: [sync_id], references: [id], onUpdate: NoAction)
-
-  @@index([item_id, effective_from(sort: Desc)], map: "idx_mbs_fee_history_item")
-}
-
-model mbs_item_notes {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id   String    @db.Uuid
-  text      String
-  position  Int       @db.SmallInt
-  mbs_items mbs_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([item_id, position])
-}
-
-model mbs_item_restrictions {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id   String    @db.Uuid
-  text      String
-  position  Int       @db.SmallInt
-  mbs_items mbs_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([item_id, position])
-}
-
-model mbs_item_tags {
-  item_id   String    @db.Uuid
-  tag_id    String    @db.Uuid
-  mbs_items mbs_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tags      tags      @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([item_id, tag_id])
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model mbs_items {
-  id                                                     String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_number                                            String                     @unique
-  human_title                                            String
-  official_title                                         String
-  category_id                                            Int?
-  time_min                                               Int?                       @db.SmallInt
-  time_max                                               Int?                       @db.SmallInt
-  complexity                                             complexity_level?
-  schedule_fee                                           Decimal                    @db.Decimal(10, 2)
-  medicare_rebate                                        Decimal                    @db.Decimal(10, 2)
-  bulk_billable                                          Boolean                    @default(true)
-  plain_english                                          String?
-  comparison_item_id                                     String?                    @db.Uuid
-  effective_from                                         DateTime?                  @db.Date
-  source                                                 String?
-  last_synced_at                                         DateTime?                  @db.Timestamptz(6)
-  last_sync_id                                           String?                    @db.Uuid
-  created_at                                             DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at                                             DateTime                   @default(now()) @db.Timestamptz(6)
-  deleted_at                                             DateTime?                  @db.Timestamptz(6)
-  mbs_item_common_uses                                   mbs_item_common_uses[]
-  mbs_item_fee_history                                   mbs_item_fee_history?
-  mbs_item_notes                                         mbs_item_notes[]
-  mbs_item_restrictions                                  mbs_item_restrictions[]
-  mbs_item_tags                                          mbs_item_tags[]
-  mbs_categories                                         mbs_categories?            @relation(fields: [category_id], references: [id], onUpdate: NoAction)
-  mbs_items                                              mbs_items?                 @relation("mbs_itemsTombs_items", fields: [comparison_item_id], references: [id], onUpdate: NoAction)
-  other_mbs_items                                        mbs_items[]                @relation("mbs_itemsTombs_items")
-  mbs_sync_runs                                          mbs_sync_runs?             @relation(fields: [last_sync_id], references: [id], onUpdate: NoAction)
-  mbs_scenarios_mbs_scenarios_correct_item_idTombs_items mbs_scenarios[]            @relation("mbs_scenarios_correct_item_idTombs_items")
-  mbs_scenarios_mbs_scenarios_item_idTombs_items         mbs_scenarios[]            @relation("mbs_scenarios_item_idTombs_items")
-  user_favourite_mbs_items                               user_favourite_mbs_items[]
-}
+  item_num                 Int                        @id
+  description              String
+  embedding                Unsupported("vector")?
+  detail_json              Json?
+  retired_at               DateTime?                  @db.Timestamptz(6)
+  user_favourite_mbs_items user_favourite_mbs_items[]
 
-model mbs_scenarios {
-  id                                                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  item_id                                            String            @db.Uuid
-  presentation                                       String
-  time_label                                         String?
-  complexity                                         complexity_level?
-  correct_item_id                                    String?           @db.Uuid
-  reasoning                                          String?
-  mbs_items_mbs_scenarios_correct_item_idTombs_items mbs_items?        @relation("mbs_scenarios_correct_item_idTombs_items", fields: [correct_item_id], references: [id], onUpdate: NoAction)
-  mbs_items_mbs_scenarios_item_idTombs_items         mbs_items         @relation("mbs_scenarios_item_idTombs_items", fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-}
-
-model mbs_sync_runs {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  source_url           String
-  source_label         String?
-  status               mbs_sync_status        @default(running)
-  items_added          Int                    @default(0)
-  items_updated        Int                    @default(0)
-  items_removed        Int                    @default(0)
-  error_text           String?
-  started_at           DateTime               @default(now()) @db.Timestamptz(6)
-  completed_at         DateTime?              @db.Timestamptz(6)
-  mbs_item_fee_history mbs_item_fee_history[]
-  mbs_items            mbs_items[]
-
-  @@index([completed_at(sort: Desc)], map: "idx_mbs_sync_completed")
+  @@index([embedding], map: "idx_mbs_items_embedding_active", where: raw("(retired_at IS NULL)"))
 }
 
 model medical_conditions {
@@ -767,6 +666,7 @@ model quizzes {
   created_at     DateTime         @default(now()) @db.Timestamptz(6)
   updated_at     DateTime         @default(now()) @db.Timestamptz(6)
   deleted_at     DateTime?        @db.Timestamptz(6)
+  question_limit Int?             @default(50)
   quiz_questions quiz_questions[]
   admin_users    admin_users?     @relation(fields: [created_by], references: [id], onUpdate: NoAction)
   exam_types     exam_types?      @relation(fields: [exam_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
@@ -810,22 +710,23 @@ model roles {
 }
 
 model subjects {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  slug                 String                 @unique
-  name                 String
-  icon                 String?
-  color                String?
-  sort_order           Int                    @default(0)
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
-  deleted_at           DateTime?              @db.Timestamptz(6)
-  autofill_templates   autofill_templates[]
-  medical_conditions   medical_conditions[]
-  question_subjects    question_subjects[]
-  questions            questions[]
-  quiz_config_subjects quiz_config_subjects[]
-  subtopics            subtopics[]
-  user_subject_mastery user_subject_mastery[]
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug                  String                  @unique
+  name                  String
+  icon                  String?
+  color                 String?
+  sort_order            Int                     @default(0)
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at            DateTime?               @db.Timestamptz(6)
+  attempt_subject_stats attempt_subject_stats[]
+  autofill_templates    autofill_templates[]
+  medical_conditions    medical_conditions[]
+  question_subjects     question_subjects[]
+  questions             questions[]
+  quiz_config_subjects  quiz_config_subjects[]
+  subtopics             subtopics[]
+  user_subject_mastery  user_subject_mastery[]
 }
 
 model subscriptions {
@@ -877,35 +778,35 @@ model tags {
   label                  String
   autofill_template_tags autofill_template_tags[]
   condition_tags         condition_tags[]
-  mbs_item_tags          mbs_item_tags[]
   question_tags          question_tags[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model test_attempts {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id           String              @db.Uuid
-  source            attempt_source
-  quiz_id           String?             @db.Uuid
-  mock_test_id      String?             @db.Uuid
-  subtopic_id       String?             @db.Uuid
-  quiz_config_id    String?             @db.Uuid
-  title_snapshot    String?
-  status            attempt_status      @default(in_progress)
-  total_questions   Int                 @default(0)
-  correct_count     Int                 @default(0)
-  score_percent     Decimal?            @db.Decimal(5, 2)
-  duration_seconds  Int?
-  started_at        DateTime            @default(now()) @db.Timestamptz(6)
-  expires_at        DateTime?           @db.Timestamptz(6)
-  last_seen_at      DateTime?           @db.Timestamptz(6)
-  submitted_at      DateTime?           @db.Timestamptz(6)
-  attempt_questions attempt_questions[]
-  mock_tests        mock_tests?         @relation(fields: [mock_test_id], references: [id], onUpdate: NoAction)
-  quiz_configs      quiz_configs?       @relation(fields: [quiz_config_id], references: [id], onUpdate: NoAction)
-  quizzes           quizzes?            @relation(fields: [quiz_id], references: [id], onUpdate: NoAction)
-  subtopics         subtopics?          @relation(fields: [subtopic_id], references: [id], onUpdate: NoAction)
-  users             users               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String                  @db.Uuid
+  source                attempt_source
+  quiz_id               String?                 @db.Uuid
+  mock_test_id          String?                 @db.Uuid
+  subtopic_id           String?                 @db.Uuid
+  quiz_config_id        String?                 @db.Uuid
+  title_snapshot        String?
+  status                attempt_status          @default(in_progress)
+  total_questions       Int                     @default(0)
+  correct_count         Int                     @default(0)
+  score_percent         Decimal?                @db.Decimal(5, 2)
+  duration_seconds      Int?
+  started_at            DateTime                @default(now()) @db.Timestamptz(6)
+  expires_at            DateTime?               @db.Timestamptz(6)
+  last_seen_at          DateTime?               @db.Timestamptz(6)
+  submitted_at          DateTime?               @db.Timestamptz(6)
+  attempt_questions     attempt_questions[]
+  attempt_subject_stats attempt_subject_stats[]
+  mock_tests            mock_tests?             @relation(fields: [mock_test_id], references: [id], onUpdate: NoAction)
+  quiz_configs          quiz_configs?           @relation(fields: [quiz_config_id], references: [id], onUpdate: NoAction)
+  quizzes               quizzes?                @relation(fields: [quiz_id], references: [id], onUpdate: NoAction)
+  subtopics             subtopics?              @relation(fields: [subtopic_id], references: [id], onUpdate: NoAction)
+  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([quiz_id], map: "idx_attempts_quiz")
   @@index([started_at], map: "idx_attempts_started")
@@ -925,6 +826,14 @@ model user_activity_events {
 
   @@index([created_at], map: "brin_activity_created", type: Brin)
   @@index([user_id, created_at(sort: Desc)], map: "idx_activity_user")
+}
+
+model user_active_days {
+  user_id     String   @db.Uuid
+  active_date DateTime @db.Date
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, active_date])
 }
 
 model user_badge_progress {
@@ -951,12 +860,12 @@ model user_badges {
 
 model user_favourite_mbs_items {
   user_id    String    @db.Uuid
-  item_id    String    @db.Uuid
   created_at DateTime  @default(now()) @db.Timestamptz(6)
-  mbs_items  mbs_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  item_num   Int
+  mbs_items  mbs_items @relation(fields: [item_num], references: [item_num], onDelete: Cascade, onUpdate: NoAction)
   users      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@id([user_id, item_id])
+  @@id([user_id, item_num])
 }
 
 model user_notifications {
@@ -1069,6 +978,7 @@ model users {
   quiz_configs                      quiz_configs[]
   subscriptions                     subscriptions?
   test_attempts                     test_attempts[]
+  user_active_days                  user_active_days[]
   user_activity_events              user_activity_events[]
   user_badge_progress               user_badge_progress[]
   user_badges                       user_badges[]
@@ -1124,6 +1034,16 @@ enum condition_item_kind {
   diagnosis_criterion
   treatment_option
   clinical_note
+  overview
+  pathophysiology
+  clinical_features
+  diagnosis
+  management
+  complications
+  when_to_refer
+  prognosis
+  resources
+  full_html
 }
 
 enum content_format {
@@ -1180,13 +1100,6 @@ enum log_severity {
   info
   warning
   critical
-}
-
-enum mbs_sync_status {
-  running
-  success
-  partial
-  failed
 }
 
 enum mock_availability {

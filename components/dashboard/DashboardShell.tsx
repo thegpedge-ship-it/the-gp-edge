@@ -4,7 +4,6 @@ import { memo } from "react";
 import Header from "@/components/shared/Header";
 import Sidebar from "@/components/dashboard/Sidebar";
 import PageTransition from "@/components/ui/PageTransition";
-import { useAuth } from "@clerk/nextjs";
 import {
   SidebarProvider,
   useSidebar,
@@ -13,12 +12,6 @@ import {
   MARGIN_TRANSITION,
 } from "@/contexts/SidebarContext";
 import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
-
-// Local SignedIn wrapper to avoid Clerk package ESM export issues in this Next.js version
-function SignedIn({ children }: { children: React.ReactNode }) {
-  const { isSignedIn } = useAuth();
-  return isSignedIn ? <>{children}</> : null;
-}
 
 /**
  * DashboardInner — reads sidebar context to sync content margin with sidebar width.
@@ -30,23 +23,23 @@ const DashboardInner = memo(function DashboardInner({
   className = "px-6 sm:px-8 pt-6 sm:pt-8 pb-12",
   bgClassName = "bg-transparent",
   hideSidebar = false,
+  showSidebar = false,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
   hideSidebar?: boolean;
+  showSidebar?: boolean;
 }) {
   const { isExpanded, ready } = useSidebar();
-  const { isSignedIn } = useAuth();
-
-  const showSidebar = !hideSidebar && isSignedIn;
+  const shouldShowSidebar = !hideSidebar && showSidebar;
 
   return (
     <div className={`min-h-screen ${bgClassName}`}>
       <div
         className="sticky top-0 z-50 pt-4 pb-2 bg-transparent"
         style={{
-          marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
+          marginLeft: shouldShowSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
           transition: ready ? MARGIN_TRANSITION : "none",
         }}
       >
@@ -54,16 +47,12 @@ const DashboardInner = memo(function DashboardInner({
       </div>
 
       {/* Fixed sidebar — suppressed on pages that opt out (e.g. the landing/home page) */}
-      {!hideSidebar && (
-        <SignedIn>
-          <Sidebar />
-        </SignedIn>
-      )}
+      {!hideSidebar && (showSidebar ? <Sidebar /> : null)}
 
       {/* Content — margin-left matches sidebar width only when the sidebar is shown, otherwise 0px */}
       <main
         style={{
-          marginLeft: showSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
+          marginLeft: shouldShowSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
           transition: ready ? MARGIN_TRANSITION : "none",
         }}
         className={`min-h-screen ${className}`}
@@ -85,18 +74,20 @@ export default function DashboardShell({
   className,
   bgClassName,
   hideSidebar = false,
+  showSidebar = false,
   profile = EMPTY_PROFILE,
 }: {
   children: React.ReactNode;
   className?: string;
   bgClassName?: string;
   hideSidebar?: boolean;
+  showSidebar?: boolean;
   profile?: DbProfile;
 }) {
   return (
     <ProfileProvider value={profile}>
       <SidebarProvider>
-        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar}>
+        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
           {children}
         </DashboardInner>
       </SidebarProvider>

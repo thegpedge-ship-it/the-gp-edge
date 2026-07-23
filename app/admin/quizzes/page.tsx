@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { Layers } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
@@ -23,28 +24,38 @@ import {
   themeProgressFill,
   themeText,
 } from "@/lib/adminTheme";
-import { Quiz, Question, createQuiz, getQuizzes, deleteQuiz, getQuestions } from "@/lib/quizData";
+import { Quiz, Question, fetchQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizzesFromDbAction } from "@/actions/quiz.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-const stuckSessions = [
-  { id: 1, user: "Account #1082", quiz: "AKT Full Mock Exam 2026", startedAt: "28 May, 10:32 AM", progress: "87/150", status: "stuck" },
-  { id: 2, user: "Account #1138", quiz: "KFP Practice — Cardiovascular", startedAt: "27 May, 3:15 PM", progress: "12/26", status: "stuck" },
-  { id: 3, user: "Account #1204", quiz: "Mental Health Focused Quiz", startedAt: "26 May, 9:00 AM", progress: "5/30", status: "abandoned" },
-];
-
 type ViewMode = "grid" | "table";
+
+type LiveSession = {
+  id: string;
+  user: string;
+  quiz: string;
+  startedAt: string;
+  lastSeenAt: string | null;
+  submittedAt: string | null;
+  totalQuestions: number;
+  answeredCount: number;
+  status: "in_progress" | "abandoned" | "expired";
+  isStuck: boolean;
+};
 
 
 
 export default function QuizzesPage() {
-  const { isReadOnly } = useAdminRole();
+  const { currentAdmin, isReadOnly } = useAdminRole();
   const router = useRouter();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [sessions, setSessions] = useState(stuckSessions);
+  const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
+  const [sessions, setSessions] = useState<LiveSession[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [quizName, setQuizName] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
@@ -55,6 +66,7 @@ export default function QuizzesPage() {
   const [visibleCount, setVisibleCount] = useState(9);
 
   const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
 
   const sortedQuizzes = useMemo(() => {
     return [...quizzes].sort((a, b) => {
@@ -72,8 +84,19 @@ export default function QuizzesPage() {
   }, [sortedQuizzes, visibleCount]);
 
   useEffect(() => {
-    setQuizzes(getQuizzes());
-  }, []);
+    // Clear old localStorage mock quizzes
+    try { localStorage.removeItem("gpedge_admin_quizzes"); } catch {}
+
+    // Load quizzes from Neon DB
+    fetchQuizzesFromDbAction().then((dbQuizzes) => {
+      setQuizzes(dbQuizzes as any);
+    });
+
+    // Load questions from DB for quiz previewing
+    fetchQuestions().then((listQs) => {
+      setAllQuestions(listQs);
+    });
+  }, [currentAdmin]);
 
   // Lock body scroll when modal or preview is open to prevent background scrolling lag
   useEffect(() => {
@@ -87,9 +110,49 @@ export default function QuizzesPage() {
     };
   }, [showCreateModal, previewQuiz]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSessions = async () => {
+      try {
+        const res = await fetch("/api/admin/quiz-sessions", { cache: "no-store" });
+        const json = await res.json();
+        if (!cancelled && json.success && Array.isArray(json.data)) {
+          setSessions(json.data);
+        }
+      } catch (error) {
+        console.error("Failed to load live quiz sessions:", error);
+        if (!cancelled) setSessions([]);
+      } finally {
+        if (!cancelled) setSessionsLoading(false);
+      }
+    };
+
+    loadSessions();
+    const interval = window.setInterval(loadSessions, 30000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const resetSession = (id: number) => {
     if (isReadOnly) return;
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+    setSessions((prev) => prev.filter((s) => s.id !== String(id)));
+  };
+
+  const requestDeleteQuiz = (quiz: Quiz) => {
+    if (isReadOnly) return;
+    setQuizToDelete(quiz);
+  };
+
+  const confirmDeleteQuiz = async () => {
+    if (!quizToDelete) return;
+    await deleteQuizFromDbAction(quizToDelete.name);
+    const refreshed = await fetchQuizzesFromDbAction();
+    setQuizzes(refreshed as any);
+    setQuizToDelete(null);
   };
 
 
@@ -165,7 +228,7 @@ export default function QuizzesPage() {
             return (
               <motion.div
                 key={quiz.id}
-                onClick={() => router.push(`/admin/quizzes/${quiz.id}/edit`)}
+                onClick={() => router.push(`/admin/quizzes/${ (quiz as any).dbId || quiz.id }/edit`)}
                 initial={{ opacity: 0, y: 16, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.45, delay: idx * 0.05, ease: [0.22, 1, 0.36, 1] }}
@@ -228,7 +291,7 @@ export default function QuizzesPage() {
                         </svg>
                       </button>
                       <Link
-                        href={`/admin/quizzes/${quiz.id}/edit`}
+                        href={`/admin/quizzes/${ (quiz as any).dbId || quiz.id }/edit`}
                         onClick={(e) => e.stopPropagation()}
                         className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`}
                         title="Edit Quiz"
@@ -238,11 +301,7 @@ export default function QuizzesPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (isReadOnly) return;
-                          if (confirm("Are you sure you want to delete this mock exam?")) {
-                            const deleted = deleteQuiz(quiz.id);
-                            if (deleted) setQuizzes(getQuizzes());
-                          }
+                          requestDeleteQuiz(quiz);
                         }}
                         disabled={isReadOnly}
                         className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
@@ -258,6 +317,81 @@ export default function QuizzesPage() {
           })}
         </motion.div>
       )}
+
+      {displayedQuizzes.length === 0 && (
+        <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
+          <Layers className="w-10 h-10 mx-auto opacity-30" />
+          <p className="text-sm font-medium">No quizzes found.</p>
+          {!isReadOnly && (
+            <button
+              onClick={() => {
+                if (isReadOnly) return;
+                setQuizName("");
+                setQuizDescription("");
+                setQuizLimit(50);
+                setQuizTimeLimit(60);
+                setQuizPassingScore(65);
+                setQuizRandomize(true);
+                setShowCreateModal(true);
+              }}
+              className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Create your first mock exam →
+            </button>
+          )}
+        </motion.div>
+      )}
+
+      {/* Delete confirmation modal */}
+      <AnimatePresence>
+        {quizToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setQuizToDelete(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+            >
+              <div className="px-6 pt-6 pb-4 text-center">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-red-500 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Delete Mock Exam?</h2>
+                <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
+                  Are you sure you want to delete this mock exam?
+                </p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-2">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">{quizToDelete.name}</span>
+                </p>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                <button
+                  onClick={() => setQuizToDelete(null)}
+                  className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[13px] font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteQuiz}
+                  className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[13px] font-bold shadow-md shadow-red-600/20 transition-all duration-200"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ========== TABLE VIEW ========== */}
       {viewMode === "table" && (
@@ -342,7 +476,11 @@ export default function QuizzesPage() {
             <span className={`text-xs ${themeMuted}`}>{sessions.length} sessions</span>
           </div>
         </div>
-        {sessions.length > 0 ? (
+        {sessionsLoading ? (
+          <div className="text-center py-8">
+            <p className={`text-sm ${themeMuted}`}>Loading live sessions...</p>
+          </div>
+        ) : sessions.length > 0 ? (
           <div className="divide-y divide-teal-50 dark:divide-teal-900/20">
             {sessions.map((s) => (
               <div
@@ -351,10 +489,10 @@ export default function QuizzesPage() {
               >
                 <div>
                   <p className="text-sm font-semibold text-teal-950 dark:text-teal-50/90">{s.user}</p>
-                  <p className={`text-xs ${themeMuted}`}>{s.quiz} · Started {s.startedAt} · Progress: {s.progress}</p>
+                  <p className={`text-xs ${themeMuted}`}>{s.quiz} · Started {new Date(s.startedAt).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} · Progress: {s.answeredCount}/{s.totalQuestions}</p>
                 </div>
                 <button
-                  onClick={() => resetSession(s.id)}
+                  onClick={() => resetSession(Number(s.id))}
                   className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-all opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 duration-300 ${themeBadge} hover:bg-teal-100 dark:hover:bg-teal-950/40`}
                 >
                   Reset Session
@@ -390,31 +528,37 @@ export default function QuizzesPage() {
                   <div className="flex justify-end gap-3 pt-2">
                     <button onClick={() => setShowCreateModal(false)} className={themeBtnGhost}>Cancel</button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         const finalName = quizName.trim() || "AKT Mock Exam 2026";
-                        const newQuiz = createQuiz({
+                        const result = await syncQuizToDbAction({
                           name: finalName,
                           description: quizDescription.trim(),
                           timeLimit: quizTimeLimit || 60,
                           passingScore: quizPassingScore || 65,
                           randomize: quizRandomize,
-                          status: "draft",
+                          status: "active",
                           examType: "AKT",
-                        });
-                        setQuizzes(getQuizzes());
-                        setShowCreateModal(false);
-                        addUserNotification(
-                          `New Quiz Draft: ${finalName}`,
-                          `A new mock exam draft has been created. Add questions and publish when ready.`,
-                          quizLimit || 50,
-                          "quiz"
-                        );
-                        setQuizName("");
-                        setQuizDescription("");
-                        setQuizLimit(50);
-                        setQuizTimeLimit(60);
-                        setQuizPassingScore(65);
-                        router.push(`/admin/quizzes/${newQuiz.id}/edit`);
+                          questionLimit: quizLimit || 50,
+                        }, [], currentAdmin?.id);
+
+                        if (result.success && result.dbId) {
+                          // Refresh list from DB after create
+                          const dbQuizzes = await fetchQuizzesFromDbAction();
+                          setQuizzes(dbQuizzes as any);
+                          setShowCreateModal(false);
+                          addUserNotification(
+                            `New Quiz Created: ${finalName}`,
+                            `A new mock exam "${finalName}" has been created and published.`,
+                            quizLimit || 50,
+                            "quiz"
+                          );
+                          setQuizName("");
+                          setQuizDescription("");
+                          setQuizLimit(50);
+                          setQuizTimeLimit(60);
+                          setQuizPassingScore(65);
+                          router.push(`/admin/quizzes/${result.dbId}/edit`);
+                        }
                       }}
                       className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                     >
@@ -491,9 +635,8 @@ export default function QuizzesPage() {
                 {/* Questions List */}
                 <div className="space-y-6">
                   {(() => {
-                    const allQs = getQuestions();
                     const previewQuestions = previewQuiz.questionIds
-                      .map((id) => allQs.find((q) => q.id === id))
+                      .map((id) => allQuestions.find((q) => q.id === id))
                       .filter(Boolean) as Question[];
 
                     if (previewQuestions.length === 0) {
@@ -506,7 +649,7 @@ export default function QuizzesPage() {
 
                     return previewQuestions.map((q, idx) => (
                       <div
-                        key={q.id}
+                        key={`${q.id}-${idx}`}
                         className={`p-5 rounded-2xl border ${themeBorder} ${themePanel} space-y-4 shadow-sm text-slate-900 dark:text-slate-100`}
                       >
                         {/* Question Header */}
@@ -573,7 +716,7 @@ export default function QuizzesPage() {
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">
                             Rationale / Explanation
                           </span>
-                          <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed">
+                          <p className="text-xs text-slate-650 dark:text-slate-350 leading-relaxed whitespace-pre-line">
                             {q.rationale || "No explanation provided."}
                           </p>
                         </div>

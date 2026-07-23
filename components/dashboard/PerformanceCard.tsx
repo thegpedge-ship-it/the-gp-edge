@@ -2,17 +2,29 @@
 
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { performance } from "./data";
+import { performance as fallbackPerformance } from "./data";
+
+type SubjectPerf = {
+  subject: string;
+  mastery: number;
+  change: number;
+  color: string;
+  correct: number;
+  incorrect: number;
+  unattempted: number;
+};
 
 const PerformanceCard = memo(function PerformanceCard({
   selected,
   onSelect,
+  performance = fallbackPerformance,
 }: {
   selected: string | null;
   onSelect: (subject: string | null) => void;
+  performance?: SubjectPerf[];
 }) {
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm pl-6 pr-4 pt-6 pb-6 h-full flex flex-col">
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm pl-6 pr-4 pt-6 pb-6 w-full h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100">
@@ -22,6 +34,11 @@ const PerformanceCard = memo(function PerformanceCard({
       </div>
 
       <div className="flex flex-col justify-between flex-1">
+        {performance.length === 0 && (
+          <p className="text-sm text-slate-400 dark:text-slate-500 py-8 text-center">
+            No subject data yet — complete a practice set to see your mastery.
+          </p>
+        )}
         {performance.map((row, i) => {
           const isActive = selected === row.subject;
           return (
