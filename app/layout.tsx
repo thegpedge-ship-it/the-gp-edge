@@ -63,7 +63,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
         <head />
-        <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`}>
+        <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`} suppressHydrationWarning>
           <ThemeProvider>
             <PageBackground />
 

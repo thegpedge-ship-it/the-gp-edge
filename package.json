@@ -24,6 +24,7 @@
     "bcryptjs": "^3.0.3",
     "fast-xml-parser": "^5.10.1",
     "framer-motion": "^11.2.10",
+    "hex-to-css-filter": "^6.0.0",
     "jspdf": "^2.5.2",
     "lucide-react": "^1.16.0",
     "mammoth": "^1.12.0",

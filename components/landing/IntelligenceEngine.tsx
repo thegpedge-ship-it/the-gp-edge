@@ -166,14 +166,14 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:16px_16px] pointer-events-none" />
 
       {/* Teal glow */}
-      <div className="absolute -top-20 -right-20 w-[250px] h-[250px] bg-gradient-to-br from-teal-500/20 via-teal-400/10 to-transparent rounded-full blur-[60px] pointer-events-none" />
+      <div className="absolute -top-20 -right-20 w-[250px] h-[250px] bg-gradient-to-br from-blue-500/20 via-blue-400/10 to-transparent rounded-full blur-[60px] pointer-events-none" />
 
       <div className="relative z-10">
         {/* Dashboard header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-teal-500/20 flex items-center justify-center">
-              <svg className="w-5 h-5 text-teal-400" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 101.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
@@ -184,7 +184,7 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-white">87%</div>
-            <div className="text-[10px] text-teal-400 font-medium">+12% this week</div>
+            <div className="text-[10px] text-blue-400 font-medium">+12% this week</div>
           </div>
         </div>
 
@@ -199,14 +199,14 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-teal-400/80 to-transparent shadow-[0_0_15px_rgba(45,212,191,0.6)] z-10 pointer-events-none"
+                className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-blue-400/80 to-transparent shadow-[0_0_15px_rgba(45,212,191,0.6)] z-10 pointer-events-none"
               />
             )}
           </AnimatePresence>
 
           {[
-            { id: "cardiology" as const, label: "Cardiology", progress: 92, color: "bg-teal-400/80" },
-            { id: "respiratory" as const, label: "Respiratory", progress: 78, color: "bg-emerald-400/80" },
+            { id: "cardiology" as const, label: "Cardiology", progress: 92, color: "bg-blue-400/80" },
+            { id: "respiratory" as const, label: "Respiratory", progress: 78, color: "bg-sky-400/80" },
             { id: "mental-health" as const, label: "Mental Health", progress: 65, color: "bg-amber-400/80" },
           ].map((item) => {
             const isActive = activeRow === item.id;
@@ -261,7 +261,7 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
         <div className="pt-4 border-t border-white/10">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs text-slate-400">Weekly Activity</span>
-            <span className="text-[10px] text-teal-400 font-medium">View details →</span>
+            <span className="text-[10px] text-blue-400 font-medium">View details →</span>
           </div>
           <div className="flex items-end justify-between gap-1.5 h-12">
             {[
@@ -279,11 +279,11 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
                       height: `${item.height}%`,
                       minHeight: "3px",
                       backgroundColor: item.isToday ? "rgb(20, 184, 166)" : "rgba(71, 85, 105, 0.6)",
-                      boxShadow: item.isToday ? "0 0 10px rgba(20,184,166,0.5)" : "none"
+                      boxShadow: item.isToday ? "0 0 10px rgba(66, 139, 225,0.5)" : "none"
                     }}
                   />
                 </div>
-                <span className={`text-[9px] ${item.isToday ? "text-teal-400 font-medium" : "text-slate-500"}`}>
+                <span className={`text-[9px] ${item.isToday ? "text-blue-400 font-medium" : "text-slate-500"}`}>
                   {item.day}
                 </span>
               </div>
@@ -304,7 +304,7 @@ function FloatingDashboard({ setHighlightFeatures }: FloatingDashboardProps) {
           >
             <div className="flex items-center gap-2 mb-2 border-b border-slate-800/60 pb-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-teal-400 tracking-wider uppercase">ENGINE DIAGNOSTICS</span>
+              <span className="text-[10px] font-bold text-blue-400 tracking-wider uppercase">ENGINE DIAGNOSTICS</span>
             </div>
             <div className="space-y-1">
               <div className="text-[11px] text-slate-200">
@@ -336,10 +336,10 @@ export default function IntelligenceEngine() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/60 dark:border-[rgba(90,200,176,0.18)] text-teal-700 dark:text-[#5AC8B0] text-xs font-semibold mb-6">
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-[rgba(96, 165, 250,0.08)] border border-blue-200/60 dark:border-[rgba(96, 165, 250,0.18)] text-blue-700 dark:text-[#60A5FA] text-xs font-semibold mb-6">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
               </span>
               Adaptive Intelligence
             </span>
@@ -349,7 +349,7 @@ export default function IntelligenceEngine() {
             </h2>
             
             <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-[#A8B1BD] mb-10">
-              The GP Edge learns your <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">cognitive style</span>, tracks <span className="text-teal-600 dark:text-[#5AC8B0] font-medium">knowledge gaps</span>, and adapts every session. The closer you get to exam day, the sharper your prep becomes.
+              The GP Edge learns your <span className="text-blue-600 dark:text-[#60A5FA] font-medium">cognitive style</span>, tracks <span className="text-blue-600 dark:text-[#60A5FA] font-medium">knowledge gaps</span>, and adapts every session. The closer you get to exam day, the sharper your prep becomes.
             </p>
 
             {/* Feature pills - 2x2 grid */}
@@ -370,12 +370,12 @@ export default function IntelligenceEngine() {
                     transition={{ duration: 0.4, delay: 0.2 + i * 0.08, ease: [0.22, 1, 0.36, 1] }}
                     className={`px-4 py-3.5 rounded-xl bg-white dark:bg-[#1B212C] border cursor-pointer active:scale-[0.98] transition-all duration-300 ${
                       isHighlighted
-                        ? "border-teal-400 dark:border-[rgba(90,200,176,0.5)] shadow-[0_0_15px_rgba(20,184,166,0.35)] dark:shadow-[0_0_20px_rgba(90,200,176,0.15)] scale-[1.02]"
-                        : "border-slate-200 dark:border-[rgba(255,255,255,0.08)] shadow-sm hover:shadow-md hover:border-teal-200 dark:hover:border-[rgba(90,200,176,0.3)]"
+                        ? "border-blue-400 dark:border-[rgba(96, 165, 250,0.5)] shadow-[0_0_15px_rgba(66, 139, 225,0.35)] dark:shadow-[0_0_20px_rgba(96, 165, 250,0.15)] scale-[1.02]"
+                        : "border-slate-200 dark:border-[rgba(255,255,255,0.08)] shadow-sm hover:shadow-md hover:border-blue-200 dark:hover:border-[rgba(96, 165, 250,0.3)]"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-lg bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] flex items-center justify-center flex-shrink-0">
+                      <div className="w-11 h-11 rounded-lg bg-blue-50 dark:bg-[rgba(96, 165, 250,0.08)] flex items-center justify-center flex-shrink-0">
                         {featureIcons[feature.label as keyof typeof featureIcons]}
                       </div>
                       <div>

@@ -77,7 +77,11 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
          <nav className="hidden md:flex items-center gap-6 lg:gap-8 transition-all duration-500 flex-wrap lg:flex-nowrap">
            <Link
              href="/exam-prep"
-             className="text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
+             className={`text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300 ${
+               isHomePage
+                 ? "bg-gradient-to-r from-blue-600 via-blue-300 to-blue-600"
+                 : "bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600"
+             }`}
            >
              Exam Prep
            </Link>
@@ -118,7 +122,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
              <Link href="/sign-in" className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
                Log in
              </Link>
-             <Link href="/sign-up" className="bg-teal-600 hover:bg-teal-700 whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors">
+             <Link href="/sign-up" className={`${isHomePage ? 'bg-[#428BE1] hover:bg-blue-600' : 'bg-teal-600 hover:bg-teal-700'} whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors`}>
                Sign up
              </Link>
            </SignedOut>
@@ -134,7 +138,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
  
            <style>{`
              .btn-dashboard-new {
-               background: #0d9488;
+               background: ${isHomePage ? '#428BE1' : '#0d9488'};
                color: #ffffff;
                position: relative;
                border: 2px solid rgba(255, 255, 255, 0.3);
@@ -146,10 +150,10 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
                border-radius: 12px;
                cursor: pointer;
                transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-               box-shadow: 0px 8px 16px rgba(20, 184, 166, 0.2);
+               box-shadow: 0px 8px 16px ${isHomePage ? 'rgba(66, 139, 225, 0.2)' : 'rgba(20, 184, 166, 0.2)'};
              }
             .dark .btn-dashboard-new {
-              border-color: rgba(90,200,176,0.3);
+              border-color: ${isHomePage ? 'rgba(96, 165, 250, 0.3)' : 'rgba(90,200,176,0.3)'};
             }
             .btn-dashboard-span {
               display: inline-block;

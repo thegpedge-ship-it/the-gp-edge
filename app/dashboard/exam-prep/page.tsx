@@ -1,5 +1,5 @@
+import { redirect } from "next/navigation";
+
 export default function ExamPrepDashboard() {
-  return (
-    <div></div>
-  );
+  redirect("/exam-prep");
 }
