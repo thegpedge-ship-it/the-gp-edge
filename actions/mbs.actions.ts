@@ -1,6 +1,6 @@
 "use server";
 
-import { query, queryOne } from "@/lib/db";
+import { query, queryOne, execute } from "@/lib/db";
 import {
   embedTexts,
   embedQuery,
@@ -8,6 +8,11 @@ import {
   EMBED_BATCH_SIZE,
 } from "@/lib/mbs/embed";
 import { generateTitles, TITLE_BATCH_SIZE } from "@/lib/mbs/title";
+import {
+  structureItemDetail,
+  isRelatedSection,
+  type StructuredDetail,
+} from "@/lib/mbs/structure";
 import type { MbsXmlItem } from "@/lib/mbs/parseMbsXml";
 import { MBS_RESULT_LIMIT, MBS_SEARCH_POOL } from "@/lib/mbs/constants";
 import { ensureDbUser } from "@/lib/user";
@@ -404,6 +409,42 @@ export async function listMbsItemsAction(
 }
 
 /**
+ * The signed-in user's saved items — the default listing when no search is
+ * active.
+ *
+ * Newest save first, so an item the user just bookmarked appears at the top.
+ * Retired items are deliberately NOT filtered out: a favourite still resolves
+ * here after the schedule withdraws it, matching the retire policy that keeps
+ * saved rows resolvable everywhere else. Returns an empty list when signed out.
+ */
+export async function listSavedMbsItemsAction(): Promise<MbsSearchHit[]> {
+  const user = await ensureDbUser();
+  if (!user) return [];
+
+  const rows = await query<{
+    item_num: number;
+    title: string | null;
+    description: string;
+  }>(
+    `SELECT m.item_num, m.title, m.description
+       FROM user_favourite_mbs_items f
+       JOIN mbs_items m USING (item_num)
+      WHERE f.user_id = $1
+      ORDER BY f.created_at DESC`,
+    [user.id],
+  );
+
+  return rows.map((r) => ({
+    itemNum: r.item_num,
+    title: r.title,
+    description: r.description,
+    score: null,
+    matchedOn: null,
+    saved: true,
+  }));
+}
+
+/**
  * Semantic search across BOTH vectors.
  *
  * Each branch runs its own nearest-neighbour scan so it can use its own partial
@@ -553,48 +594,242 @@ function absolutiseUrls(html: string): string {
     .replace(/(href|src)\s*=\s*'\/(?!\/)/gi, `$1='${MBS_HOST}/`);
 }
 
-export interface MbsItemPage {
-  itemNum: number;
-  /** Sanitised inner HTML of the source page's <body>. */
-  html: string;
-  /** The page this was taken from, for an "open original" link. */
-  sourceUrl: string;
+/** Collapse the sanitised page markup to readable plain text for the LLM.
+ *  Block-level tags become line breaks so lists and rows stay separated; every
+ *  other tag is dropped and the common HTML entities are decoded. */
+function htmlToText(html: string): string {
+  return html
+    // Normalise CRLF/CR to LF first — a stray \r otherwise gets captured as a
+    // note's "title" (see parseNotes) and clutters every value.
+    .replace(/\r\n?/g, "\n")
+    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    // Table cells → tab so a label/value row stays "Label<TAB>Value" rather than
+    // merging into one blob; the row itself ends with a newline below.
+    .replace(/<\/(td|th)\s*>/gi, "\t")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table|section|header|footer|ul|ol)\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&(#39|apos);/gi, "'")
+    .replace(/&quot;/gi, '"')
+    // Collapse runs of spaces, but keep tabs — they separate label from value.
+    .replace(/ +/g, " ")
+    .replace(/\t+/g, "\t")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
-/**
- * Fetch one item's page from MBS Online and return its body markup.
- *
- * Fetched fresh on every request (no-store) rather than cached — the schedule
- * is the billing source of truth and a stale fee shown as current is worse than
- * a slower page.
- */
-export async function fetchMbsItemPageAction(
-  itemNum: number,
-): Promise<MbsItemPage> {
-  if (!Number.isInteger(itemNum) || itemNum <= 0) {
-    throw new Error("Invalid item number.");
-  }
+/** How long a stored detail stays fresh before it is re-scraped and rebuilt.
+ *  Fees and descriptors change between schedule releases, not day to day. */
+const DETAIL_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
-  const sourceUrl =
+export interface MbsDetailSection {
+  label: string;
+  value: string;
+}
+
+export interface MbsItemDetail {
+  itemNum: number;
+  /** Labelled fields extracted from the page, each shown as an accordion in the
+   *  order they appear. The set of labels varies by item — not a fixed schema. */
+  sections: MbsDetailSection[];
+  /** The sanitised scraped page markup, shown in full below the structured
+   *  fields. Empty for older cached rows saved before this was persisted. */
+  html: string;
+  /** The government page this was built from, for an "open original" link. */
+  sourceUrl: string;
+  /** ISO timestamp of when the structured detail was built. */
+  fetchedAt: string;
+  /** true when served from the cache, false when freshly built this request. */
+  cached: boolean;
+}
+
+/** What we persist in mbs_items.detail_json: the LLM sections plus the raw
+ *  scraped markup, so a cached load can show both without re-scraping. */
+type StoredDetail = StructuredDetail & { html?: string };
+
+/** The government MBS Online URL for one item's full display page. */
+function itemSourceUrl(itemNum: number): string {
+  return (
     `${MBS_HOST}/mbs/fullDisplay.cfm` +
-    `?type=item&q=${itemNum}&qt=item&criteria=${itemNum}`;
+    `?type=item&q=${itemNum}&qt=item&criteria=${itemNum}`
+  );
+}
 
-  const res = await fetch(sourceUrl, {
+/** Live-fetch one item's page from MBS Online and return its sanitised body. */
+async function scrapeMbsItemHtml(itemNum: number): Promise<string> {
+  const res = await fetch(itemSourceUrl(itemNum), {
     // Default fetch agents are refused by some government endpoints.
     headers: { "User-Agent": "Mozilla/5.0 (compatible; GPEdge/1.0)" },
     cache: "no-store",
   });
-
   if (!res.ok) {
     throw new Error(`MBS Online returned ${res.status} for item ${itemNum}.`);
   }
-
   const raw = await res.text();
   const body = raw.match(/<body[^>]*>([\s\S]*?)<\/body\s*>/i)?.[1] ?? raw;
+  return absolutiseUrls(stripUnsafe(body));
+}
+
+/** Section list for display, dropping any related-items section (also filters
+ *  older cached rows that stored one). */
+function toSections(structured: StructuredDetail): MbsDetailSection[] {
+  return structured.sections
+    .filter((s) => !isRelatedSection(s.label))
+    .map((s) => ({ label: s.label, value: s.value }));
+}
+
+/* ── Associated explanatory notes ──────────────────────────────────────────
+   The source page expands every referenced explanatory note in full, after an
+   "Associated Notes" heading and before the page "Legend". Those note bodies
+   are thousands of words and already clean text, so they are segmented
+   deterministically and passed through verbatim rather than sent back through
+   the LLM (which would be slow, costly, and prone to truncating them). */
+
+/** A note code such as AN.0.9, MN.10.1, GN.4.13. */
+const NOTE_CODE = "[A-Z]{2,4}(?:\\.\\d+)+";
+
+/** Remove the "Related Items: 3 4 23 …" trailer that ends each note — the one
+ *  thing we deliberately exclude (see the structuring prompt). */
+function stripRelatedItems(text: string): string {
+  return text.replace(/\n?\s*Related Items:[^\n]*/gi, "").trim();
+}
+
+/** Split the page text into the item portion (structured by the LLM) and the
+ *  associated-notes portion (segmented below). Items without notes yield an
+ *  empty notes string. */
+function splitPageText(pageText: string): { itemText: string; notesText: string } {
+  const start = pageText.match(/(?:^|\n)Associated Notes[ \t]*(?:\n|$)/);
+  if (!start || start.index === undefined) {
+    return { itemText: pageText.trim(), notesText: "" };
+  }
+  const itemText = pageText.slice(0, start.index).trim();
+  let notesText = pageText.slice(start.index + start[0].length);
+  // Drop the page's trailing legend/footer from the notes region.
+  const legend = notesText.search(/(?:^|\n)Legend[ \t]*(?:\n|$)/);
+  if (legend !== -1) notesText = notesText.slice(0, legend);
+  return { itemText, notesText: notesText.trim() };
+}
+
+/** Segment the associated-notes text into one section per note, verbatim.
+ *  Each note is "Category N - …\n<CODE>\n<Title>\n<body…>Related Items: …". */
+function parseNotes(notesText: string): MbsDetailSection[] {
+  if (!notesText) return [];
+
+  const headerRe = new RegExp(
+    `(?:^|\\n)(?:Category \\d+ - [^\\n]+\\n+)?(${NOTE_CODE})\\n+([^\\n]+)`,
+    "g",
+  );
+  const matches = [...notesText.matchAll(headerRe)];
+
+  // Structure differed from what we expect — keep the whole notes block as one
+  // section rather than silently losing it.
+  if (matches.length === 0) {
+    return [
+      { label: "Associated Explanatory Notes", value: stripRelatedItems(notesText) },
+    ];
+  }
+
+  const sections: MbsDetailSection[] = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const code = m[1];
+    const title = m[2].trim();
+    const bodyStart = (m.index ?? 0) + m[0].length;
+    const bodyEnd =
+      i + 1 < matches.length ? (matches[i + 1].index ?? notesText.length) : notesText.length;
+    const body = stripRelatedItems(notesText.slice(bodyStart, bodyEnd));
+    sections.push({ label: `${code} — ${title}`, value: body });
+  }
+  return sections;
+}
+
+/**
+ * Get one item's structured detail for the billing detail view.
+ *
+ * Reads the cache first: if we have structured JSON for this item and it is
+ * under a month old, it is returned as-is — no scrape, no LLM call. Otherwise
+ * the government page is scraped, structured by the LLM into a fixed shape, and
+ * saved back to mbs_items (detail_json + detail_fetched_at) before being
+ * returned, so the next viewer gets it instantly.
+ *
+ * A month-old cap balances cost against staleness: fees and descriptors change
+ * between schedule releases, so a stale copy is refreshed rather than trusted
+ * forever, but an unchanged item is not re-billed to the LLM on every click.
+ */
+export async function getMbsItemDetailAction(
+  itemNum: number,
+): Promise<MbsItemDetail> {
+  if (!Number.isInteger(itemNum) || itemNum <= 0) {
+    throw new Error("Invalid item number.");
+  }
+
+  const sourceUrl = itemSourceUrl(itemNum);
+
+  // 1. Serve a fresh-enough cached copy without touching the network or LLM.
+  const cached = await queryOne<{
+    detail_json: StoredDetail | null;
+    detail_fetched_at: Date | null;
+  }>(
+    `SELECT detail_json, detail_fetched_at
+       FROM mbs_items
+      WHERE item_num = $1`,
+    [itemNum],
+  );
+
+  if (cached?.detail_json && cached.detail_fetched_at) {
+    const ageMs = Date.now() - new Date(cached.detail_fetched_at).getTime();
+    if (ageMs < DETAIL_MAX_AGE_MS) {
+      return {
+        itemNum,
+        sections: toSections(cached.detail_json),
+        html: cached.detail_json.html ?? "",
+        sourceUrl,
+        fetchedAt: new Date(cached.detail_fetched_at).toISOString(),
+        cached: true,
+      };
+    }
+  }
+
+  // 2. Miss or stale — scrape, structure, and persist.
+  const html = await scrapeMbsItemHtml(itemNum);
+  const pageText = htmlToText(html);
+
+  // The LLM structures the compact item portion into fields; the (much larger)
+  // associated notes are segmented and passed through verbatim, then appended.
+  const { itemText, notesText } = splitPageText(pageText);
+  const structured = await structureItemDetail(itemNum, itemText);
+  const sections: MbsDetailSection[] = [
+    ...toSections(structured),
+    ...parseNotes(notesText),
+  ];
+
+  // Persist the sections AND the scraped markup together so a later cached load
+  // can show both without re-scraping.
+  const stored: StoredDetail = { sections, html };
+
+  const fetchedAt = new Date();
+  // UPDATE (not upsert): the item is already a row — search hydrates from it.
+  // If it somehow is not, we still return the freshly built detail below rather
+  // than failing; it just is not cached for next time.
+  await execute(
+    `UPDATE mbs_items
+        SET detail_json = $2,
+            detail_fetched_at = $3
+      WHERE item_num = $1`,
+    [itemNum, JSON.stringify(stored), fetchedAt.toISOString()],
+  );
 
   return {
     itemNum,
-    html: absolutiseUrls(stripUnsafe(body)),
+    sections,
+    html,
     sourceUrl,
+    fetchedAt: fetchedAt.toISOString(),
+    cached: false,
   };
 }

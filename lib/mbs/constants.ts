@@ -6,18 +6,23 @@
  * the entire module, and every action in it silently stops existing.
  */
 
-/** Cards in the billing grid: 3 columns x 5 rows. */
+/**
+ * How many ranked search matches the grid shows: 15 — a 3-column x 5-row grid.
+ *
+ * Only used for search now; the default (no-query) listing shows the user's
+ * saved items in full and is not capped by this. Doubles as the loading
+ * skeleton count.
+ */
 export const MBS_RESULT_LIMIT = 15;
 
 /**
- * How many ranked matches a search returns in total — 8 pages of results.
+ * How many ranked matches a search returns — a single page of top results.
  *
- * Must stay a multiple of MBS_RESULT_LIMIT, and larger than it, or search
- * results fill a single page and the pagination control has nothing to show.
- *
- * The whole pool arrives in one request and is paged through on the client, so
- * moving between pages of results costs no further embedding call. Capped
- * because cosine similarity flattens out: past this depth the ordering carries
- * no real relevance signal and would present noise as ranking.
+ * The billing page shows only the strongest matches with no pagination, so the
+ * pool equals one page. searchMbsAction still over-fetches internally (3x) across
+ * both vector scans before merging, so these top results are chosen from a much
+ * wider candidate set even though only this many are returned. Capping here also
+ * respects that cosine similarity flattens out — past the top handful the
+ * ordering carries no real relevance signal.
  */
-export const MBS_SEARCH_POOL = MBS_RESULT_LIMIT * 8;
+export const MBS_SEARCH_POOL = MBS_RESULT_LIMIT;
