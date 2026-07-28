@@ -121,123 +121,199 @@ const SUBJECT_PALETTE = ["emerald", "cyan", "violet", "amber"] as const;
  * THE ONE ENTRY POINT — everything the dashboard needs in a single round-trip.
  * ========================================================================== */
 export async function getDashboardData(): Promise<DashboardData> {
-  const dbUser = await ensureDbUser();
+  try {
+    const dbUser = await ensureDbUser();
 
-  // Signed-out / not-yet-provisioned → return an all-empty dashboard rather
-  // than throwing, so the page still renders its zero-state.
-  if (!dbUser) return emptyDashboard();
+    // Signed-out / not-yet-provisioned → return an all-empty dashboard rather
+    // than throwing, so the page still renders its zero-state.
+    if (!dbUser || !dbUser.id) return emptyDashboard();
 
-  const now = new Date();
-  const yearAgo = new Date(now.getTime() - 365 * DAY_MS);
+    const now = new Date();
+    const yearAgo = new Date(now.getTime() - 365 * DAY_MS);
 
-  // ── Pull the sources in parallel ──────────────────────────────────────────
-  const [summary, attempts, mastery, subjectQCounts, counts, nextMock, mockBreakdown, activeVisits] =
-    await Promise.all([
+    // ── Pull all sources in a single concurrent Promise.all ───────────────────
+    // Each query includes an inline .catch() handler so a single query failure
+    // (e.g. temporary database glitch or timeout) does NOT reject the whole batch.
+    const [
+      summary,
+      attempts,
+      mastery,
+      subjectQCounts,
+      mbsRaw,
+      conditionCount,
+      savedTemplates,
+      bookmarks,
+      nextMock,
+      mockBreakdown,
+      activeVisits,
+    ] = await Promise.all([
       // 1. Running rollup: streak + totals + overall accuracy.
-      prisma.user_performance_summary.findUnique({ where: { user_id: dbUser.id } }),
+      prisma.user_performance_summary
+        .findUnique({ where: { user_id: dbUser.id } })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching performance summary:", err);
+          return null;
+        }),
 
       // 2. Completed attempts in the trailing year (heatmap / deltas / trend).
-      prisma.test_attempts.findMany({
-        where: {
-          user_id: dbUser.id,
-          status: "completed",
-          submitted_at: { gte: yearAgo },
-        },
-        orderBy: { submitted_at: "asc" },
-        select: {
-          source: true,
-          score_percent: true,
-          total_questions: true,
-          correct_count: true,
-          submitted_at: true,
-        },
-      }),
+      prisma.test_attempts
+        .findMany({
+          where: {
+            user_id: dbUser.id,
+            status: "completed",
+            submitted_at: { gte: yearAgo },
+          },
+          orderBy: { submitted_at: "asc" },
+          select: {
+            source: true,
+            score_percent: true,
+            total_questions: true,
+            correct_count: true,
+            submitted_at: true,
+          },
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching test attempts:", err);
+          return [];
+        }),
 
       // 3. Per-subject mastery rollup (drives Subject Mastery + weak/strong).
-      prisma.user_subject_mastery.findMany({
-        where: { user_id: dbUser.id },
-        orderBy: { mastery_percent: "desc" },
-        select: {
-          correct_count: true,
-          incorrect_count: true,
-          total_answered: true,
-          mastery_percent: true,
-          subjects: { select: { id: true, name: true } },
-        },
-      }),
+      prisma.user_subject_mastery
+        .findMany({
+          where: { user_id: dbUser.id },
+          orderBy: { mastery_percent: "desc" },
+          select: {
+            correct_count: true,
+            incorrect_count: true,
+            total_answered: true,
+            mastery_percent: true,
+            subjects: { select: { id: true, name: true } },
+          },
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching subject mastery:", err);
+          return [];
+        }),
 
       // 4. Published-question count per subject → lets us show "unattempted".
-      prisma.questions.groupBy({
-        by: ["subject_id"],
-        where: { status: "published", deleted_at: null, subject_id: { not: null } },
-        _count: { _all: true },
-      }),
+      prisma.questions
+        .groupBy({
+          by: ["subject_id"],
+          where: { status: "published", deleted_at: null, subject_id: { not: null } },
+          _count: { _all: true },
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching question counts:", err);
+          return [];
+        }),
 
-      // 5. Quick-access badge counts (library size + this user's saved items).
-      Promise.all([
-        prisma.$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int as count FROM mbs_items`.then(r => Number(r[0]?.count ?? 0)),
-        prisma.medical_conditions.count(),
-        prisma.user_saved_templates.count({ where: { user_id: dbUser.id } }),
-        prisma.user_question_bookmarks.count({ where: { user_id: dbUser.id } }),
-      ]),
+      // 5. MBS items count (raw query for speed)
+      prisma
+        .$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int as count FROM mbs_items`
+        .then((r) => Number(r[0]?.count ?? 0))
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching MBS items count:", err);
+          return 0;
+        }),
 
-      // 6. Soonest upcoming mock for the countdown (unlock in the future).
-      prisma.mock_tests.findFirst({
-        where: { deleted_at: null, unlock_at: { gt: now } },
-        orderBy: { unlock_at: "asc" },
-        select: { name: true, unlock_at: true, question_count: true, duration_min: true },
-      }),
+      // 6. Medical conditions count
+      prisma.medical_conditions
+        .count({ where: { deleted_at: null } })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching medical conditions count:", err);
+          return 0;
+        }),
 
-      // 7. Completed mock-test attempts with their per-subject tallies, for the
-      //    Subject → Test Breakdown chart. Trailing year to match the score line.
-      prisma.test_attempts.findMany({
-        where: {
-          user_id: dbUser.id,
-          source: "mock_test",
-          status: "completed",
-          submitted_at: { gte: yearAgo },
-        },
-        orderBy: { submitted_at: "asc" },
-        select: {
-          submitted_at: true,
-          title_snapshot: true,
-          mock_tests: { select: { name: true } },
-          attempt_subject_stats: {
-            select: {
-              correct: true,
-              incorrect: true,
-              unanswered: true,
-              subjects: { select: { name: true } },
+      // 7. User saved templates count
+      prisma.user_saved_templates
+        .count({ where: { user_id: dbUser.id } })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching saved templates count:", err);
+          return 0;
+        }),
+
+      // 8. User question bookmarks count
+      prisma.user_question_bookmarks
+        .count({ where: { user_id: dbUser.id } })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching question bookmarks count:", err);
+          return 0;
+        }),
+
+      // 9. Soonest upcoming mock for countdown
+      prisma.mock_tests
+        .findFirst({
+          where: { deleted_at: null, unlock_at: { gt: now } },
+          orderBy: { unlock_at: "asc" },
+          select: { name: true, unlock_at: true, question_count: true, duration_min: true },
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching upcoming mock:", err);
+          return null;
+        }),
+
+      // 10. Completed mock-test attempts with per-subject tallies
+      prisma.test_attempts
+        .findMany({
+          where: {
+            user_id: dbUser.id,
+            source: "mock_test",
+            status: "completed",
+            submitted_at: { gte: yearAgo },
+          },
+          orderBy: { submitted_at: "asc" },
+          select: {
+            submitted_at: true,
+            title_snapshot: true,
+            mock_tests: { select: { name: true } },
+            attempt_subject_stats: {
+              select: {
+                correct: true,
+                incorrect: true,
+                unanswered: true,
+                subjects: { select: { name: true } },
+              },
             },
           },
-        },
-      }),
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching mock breakdown:", err);
+          return [];
+        }),
 
-      // 8. Days the user simply visited the platform (any page) in the trailing
-      //    year. Lets the heatmap mark a day active on a visit, not just a submit.
-      prisma.user_active_days.findMany({
-        where: { user_id: dbUser.id, active_date: { gte: startOfDay(yearAgo) } },
-        select: { active_date: true },
-      }),
+      // 11. Days the user visited the platform
+      prisma.user_active_days
+        .findMany({
+          where: { user_id: dbUser.id, active_date: { gte: startOfDay(yearAgo) } },
+          select: { active_date: true },
+        })
+        .catch((err) => {
+          console.error("[Dashboard] Error fetching active visits:", err);
+          return [];
+        }),
     ]);
 
-  const [mbsCount, conditionCount, savedTemplates, bookmarks] = counts;
+    const mbsCount = mbsRaw;
 
-  return buildData({
-    dbUser,
-    now,
-    summary,
-    attempts,
-    mastery,
-    subjectQCounts,
-    mbsCount,
-    conditionCount,
-    savedTemplates,
-    bookmarks,
-    nextMock,
-    mockBreakdown,
-    activeVisits,
-  });
+    return buildData({
+      dbUser,
+      now,
+      summary,
+      attempts,
+      mastery,
+      subjectQCounts,
+      mbsCount,
+      conditionCount,
+      savedTemplates,
+      bookmarks,
+      nextMock,
+      mockBreakdown,
+      activeVisits,
+    });
+  } catch (err) {
+    console.error("[Dashboard] Unexpected error in getDashboardData:", err);
+    return emptyDashboard();
+  }
 }
 
 /* ============================================================================
