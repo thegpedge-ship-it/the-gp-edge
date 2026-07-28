@@ -819,9 +819,16 @@ CREATE TABLE mbs_items (
     embedding    VECTOR(768),
 
     -- Full item detail as structured JSON, assembled from the MBS item page at
-    -- view time. JSONB rather than columns because the shape varies by category
-    -- and we never query into it.
+    -- view time by an LLM. JSONB rather than columns because the shape varies by
+    -- category and we never query into it. Shape: { summary, sections: [{ label,
+    -- value, long }] } — see actions/mbs.actions.ts.
     detail_json  JSONB,
+
+    -- When detail_json was last built. The detail view serves the cached JSON
+    -- and only rebuilds it (re-scrape + re-structure) once this is older than a
+    -- month, since fees and descriptors change between schedule releases.
+    -- NULL = never built.
+    detail_fetched_at TIMESTAMPTZ,
 
     -- NULL = currently listed by the government; set = date we first saw the
     -- item absent from an uploaded XML. Withdrawn items are retired rather than
