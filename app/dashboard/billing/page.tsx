@@ -32,6 +32,9 @@ import {
   type MbsItemDetail,
 } from "@/actions/mbs.actions";
 import { MBS_RESULT_LIMIT } from "@/lib/mbs/constants";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import UpgradeModal from "@/components/UpgradeModal";
+import { Lock, Sparkles } from "lucide-react";
 
 /** Wait after the last keystroke before spending an API call. */
 const DEBOUNCE_MS = 350;
@@ -40,6 +43,9 @@ const DEBOUNCE_MS = 350;
 const MIN_QUERY_LENGTH = 3;
 
 export default function MbsBillingPage() {
+  const { hasPaidAccess, loading: accessLoading } = useUserAccess();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<MbsSearchHit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,6 +178,36 @@ export default function MbsBillingPage() {
   // MBS_RESULT_LIMIT (the slice is a safety net — search already returns at
   // most that many).
   const visibleItems = isSearching ? items.slice(0, MBS_RESULT_LIMIT) : items;
+
+  /* ── Paywall for non-paid users ────────────────────────────────────────── */
+  if (!accessLoading && !hasPaidAccess) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 px-4 text-center">
+        <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-955/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-3">
+          MBS Billing Search is Locked
+        </h1>
+        <p className="text-base text-slate-600 dark:text-slate-400 max-w-lg mx-auto mb-8">
+          Semantic searching and saved items across all 6,000+ Medicare Benefits Schedule items are available exclusively to paid subscribers.
+        </p>
+        <button
+          onClick={() => setUpgradeModalOpen(true)}
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all cursor-pointer"
+        >
+          <Sparkles className="w-4 h-4" />
+          Upgrade to Access MBS Search
+        </button>
+        <UpgradeModal
+          open={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          featureName="MBS Billing Search"
+          requiredTier="paid"
+        />
+      </div>
+    );
+  }
 
   /* ── Detail view — replaces the grid entirely ─────────────────────────── */
   if (detailFor !== null) {

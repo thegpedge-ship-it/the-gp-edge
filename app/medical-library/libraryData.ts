@@ -13,6 +13,7 @@ export interface MedicalCondition {
   category: string;
   type: "Condition" | "Guideline" | "Document" | "Note" | "Approach";
   isPremium?: boolean;
+  isFree?: boolean;
   lastUpdated: string;
   author: string;
   

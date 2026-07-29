@@ -153,6 +153,7 @@ export default function EditQuizPage() {
   const [status, setStatus] = useState<QuizStatus>("active");
   const [examType, setExamType] = useState<Quiz["examType"]>("AKT");
   const [randomize, setRandomize] = useState(true);
+  const [isFree, setIsFree] = useState(false);
   const [attempts, setAttempts] = useState(0);
   const [avgScore, setAvgScore] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -175,6 +176,7 @@ export default function EditQuizPage() {
       setStatus("active");
       setExamType(dbQuiz.examType as any);
       setRandomize(dbQuiz.randomize);
+      setIsFree(dbQuiz.isFree ?? false);
       setAttempts(0);
       setAvgScore(0);
       setNotFound(false);
@@ -682,6 +684,7 @@ export default function EditQuizPage() {
       timeLimit,
       passingScore,
       randomize,
+      isFree,
       status: status as any,
       examType: examType as any,
       questionLimit,
@@ -709,6 +712,7 @@ export default function EditQuizPage() {
       timeLimit,
       passingScore,
       randomize,
+      isFree,
       status: "active",
       examType: examType as any,
     }, questionsOfQuiz, currentAdmin?.id);
@@ -959,15 +963,29 @@ export default function EditQuizPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={randomize}
-              onChange={(e) => setRandomize(e.target.checked)}
-              className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 text-teal-700 focus:ring-teal-700/20"
-            />
-            <span className={`text-sm ${themeLabel}`}>Randomize question order for each attempt</span>
-          </label>
+          <div className="space-y-3 pt-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={randomize}
+                onChange={(e) => setRandomize(e.target.checked)}
+                className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 text-teal-700 focus:ring-teal-700/20"
+              />
+              <span className={`text-sm ${themeLabel}`}>Randomize question order for each attempt</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isFree}
+                onChange={(e) => setIsFree(e.target.checked)}
+                className="w-4 h-4 rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500/20"
+              />
+              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                Free Access (Allow non-paying & subscription users to attempt this quiz)
+              </span>
+            </label>
+          </div>
 
           <div className="flex justify-between items-center pt-4 border-t border-teal-100/80 dark:border-teal-900/30">
             <button type="button" onClick={handleDelete} className="text-sm font-semibold text-teal-800/70 hover:text-teal-900 dark:text-teal-400">

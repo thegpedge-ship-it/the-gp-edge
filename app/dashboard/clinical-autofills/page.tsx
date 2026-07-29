@@ -13,7 +13,12 @@ import {
   FileText,
   ChevronRight,
   ChevronDown,
+  Lock,
+  Unlock,
 } from "lucide-react";
+import { fetchAutofillTemplatesFromDbAction } from "@/actions/autofill.actions";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import UpgradeModal from "@/components/UpgradeModal";
 
 // ─── Template Data ───────────────────────────────────────────────────────────
 
@@ -464,6 +469,10 @@ export default function ClinicalAutofillsPage() {
     setShowTooltip(false);
   }, []);
 
+  const { hasPaidAccess } = useUserAccess();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeTemplateTitle, setUpgradeTemplateTitle] = useState<string | undefined>();
+
   // Refs
   const searchRef = useRef<HTMLInputElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -509,24 +518,61 @@ export default function ClinicalAutofillsPage() {
     );
   }, []);
 
+  const [dbTemplates, setDbTemplates] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchAutofillTemplatesFromDbAction().then((dbList) => {
+      if (dbList && dbList.length > 0) {
+        const mapped = dbList.map((t) => ({
+          id: t.id,
+          dbId: (t as any).dbId,
+          title: t.name,
+          category: t.category,
+          description: t.description,
+          updated: t.lastUsed || "Recently",
+          isFree: (t as any).isFree ?? (t as any).is_free ?? false,
+          content: [
+            t.subjective ? `SUBJECTIVE:\n${t.subjective}` : "",
+            t.objective ? `OBJECTIVE:\n${t.objective}` : "",
+            t.assessment ? `ASSESSMENT:\n${t.assessment}` : "",
+            t.plan ? `PLAN:\n${t.plan}` : "",
+            t.doctorSummary ? `DOCTOR SUMMARY:\n${t.doctorSummary}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n\n"),
+        }));
+        setDbTemplates(mapped);
+      }
+    });
+  }, []);
+
+  const activeTemplates = dbTemplates.length > 0 ? dbTemplates : TEMPLATES;
+
   // Suggestion list (dropdown)
   const suggestions = searchQuery.trim().length > 0
-    ? TEMPLATES.filter(t =>
+    ? activeTemplates.filter(t =>
       t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.category.toLowerCase().includes(searchQuery.toLowerCase())
     ).slice(0, 5)
-    : TEMPLATES.slice(0, 5);
+    : activeTemplates.slice(0, 5);
 
-  // Main grid filter
-  const filteredTemplates = TEMPLATES.filter(t => {
-    const matchesSearch =
-      !searchQuery.trim() ||
-      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBookmarks = !showBookmarks || savedTemplates.includes(t.title);
-    const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
-    return matchesSearch && matchesBookmarks && matchesCategory;
-  });
+  // Main grid filter (free items sorted first)
+  const filteredTemplates = activeTemplates
+    .filter(t => {
+      const matchesSearch =
+        !searchQuery.trim() ||
+        t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.category.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesBookmarks = !showBookmarks || savedTemplates.includes(t.title);
+      const matchesCategory = selectedCategory === "All" || t.category === selectedCategory;
+      return matchesSearch && matchesBookmarks && matchesCategory;
+    })
+    .sort((a, b) => {
+      const aFree = a.isFree === true ? 1 : 0;
+      const bFree = b.isFree === true ? 1 : 0;
+      if (bFree !== aFree) return bFree - aFree;
+      return a.title.localeCompare(b.title);
+    });
 
   return (
     <div className="w-full pb-24 pt-2" style={{ fontFamily: "inherit" }}>
@@ -1029,12 +1075,35 @@ export default function ClinicalAutofillsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTemplates.slice(0, visibleCount).map(t => {
               const isBookmarked = savedTemplates.includes(t.title);
+              const isFree = t.isFree === true;
+              const isLocked = !isFree && !hasPaidAccess;
+
               return (
                 <div
                   key={t.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col"
-                  onClick={() => setSelectedTemplate(t)}
+                  className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col ${
+                    isLocked ? "border-slate-200/70 dark:border-slate-800/70" : "border-slate-200 dark:border-slate-800"
+                  }`}
+                  onClick={() => {
+                    if (isLocked) {
+                      setUpgradeTemplateTitle(t.title);
+                      setUpgradeModalOpen(true);
+                    } else {
+                      setSelectedTemplate(t);
+                    }
+                  }}
                 >
+                  {/* Locked Banner Overlay */}
+                  {isLocked && (
+                    <div className="absolute inset-0 rounded-2xl bg-white/60 dark:bg-slate-900/75 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center">
+                      <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-955/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-1.5">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">Paid Plan Required</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Tap to upgrade access</span>
+                    </div>
+                  )}
+
                   {/* Bookmark icon — top-right, appears on hover; always shown if bookmarked */}
                   <label
                     className={`absolute top-4 right-4 z-10 ui-bookmark cursor-pointer transition-opacity duration-150 ${
@@ -1064,10 +1133,21 @@ export default function ClinicalAutofillsPage() {
                     </h3>
                   </div>
 
-                  {/* Uniform slate badge — no color coding */}
-                  <span className="inline-block self-start mb-3 font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
-                    {t.category}
-                  </span>
+                  {/* Badges row */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-block font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
+                      {t.category}
+                    </span>
+                    {isFree ? (
+                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/50 px-2 py-0.5 rounded-md">
+                        <Unlock className="w-2.5 h-2.5" /> FREE
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/30 border border-amber-200/50 px-2 py-0.5 rounded-md">
+                        <Lock className="w-2.5 h-2.5" /> PAID
+                      </span>
+                    )}
+                  </div>
 
                   {/* Description — 2-line clamp */}
                   <p className="font-sans text-sm font-normal leading-relaxed text-slate-500 dark:text-slate-400 flex-1 mb-4 line-clamp-2">
@@ -1530,6 +1610,14 @@ export default function ClinicalAutofillsPage() {
           to { transform: scale(0.8); opacity: 0; }
         }
       `}</style>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        featureName={upgradeTemplateTitle}
+        requiredTier="paid"
+      />
     </div>
   );
 }

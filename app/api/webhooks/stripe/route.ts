@@ -72,6 +72,7 @@ export async function POST(req: Request) {
         await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
         break;
 
+      case "customer.subscription.created":
       case "customer.subscription.updated":
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
         break;
@@ -261,18 +262,27 @@ async function upsertSubscriptionRow(
   priceId: string,
   checkoutSessionId: string | null
 ) {
-  const accessLevel = priceIdToAccessLevel(priceId);
-  if (!accessLevel || accessLevel === "REGISTRAR") return; // REGISTRAR handled separately
+  let accessLevel = priceIdToAccessLevel(priceId);
+  if (!accessLevel) {
+    console.warn(`[webhook/upsertSubscriptionRow] Unrecognized priceId "${priceId}". Defaulting to FELLOWSHIP.`);
+    accessLevel = "FELLOWSHIP";
+  }
 
   const now = new Date();
   const rawSub = stripeSub as any;
-  const currentPeriodEndSec = rawSub.current_period_end ?? (rawSub.items?.data?.[0]?.current_period_end) ?? Math.floor(now.getTime() / 1000);
-  const currentPeriodStartSec = rawSub.current_period_start ?? (rawSub.items?.data?.[0]?.current_period_start) ?? Math.floor(now.getTime() / 1000);
+  const currentPeriodEndSec =
+    rawSub.current_period_end ??
+    rawSub.items?.data?.[0]?.current_period_end ??
+    Math.floor(now.getTime() / 1000);
+  const currentPeriodStartSec =
+    rawSub.current_period_start ??
+    rawSub.items?.data?.[0]?.current_period_start ??
+    Math.floor(now.getTime() / 1000);
 
   const periodEnd = new Date(currentPeriodEndSec * 1000);
   const periodStart = new Date(currentPeriodStartSec * 1000);
 
-  // Map Stripe status to our subscription_status enum
+  // Map Stripe status to our subscription_status enum (case-insensitive)
   const statusMap: Record<string, "active" | "trialing" | "past_due" | "canceled" | "expired"> = {
     active: "active",
     trialing: "trialing",
@@ -283,7 +293,10 @@ async function upsertSubscriptionRow(
     incomplete_expired: "expired",
     paused: "past_due",
   };
-  const dbStatus = statusMap[stripeSub.status] ?? "active";
+  const normalizedStripeStatus = (stripeSub.status ?? "").toLowerCase();
+  const dbStatus = statusMap[normalizedStripeStatus] ?? "active";
+
+  console.log(`[webhook/upsertSubscriptionRow] User: ${userId}, Stripe status: "${stripeSub.status}" -> dbStatus: "${dbStatus}", accessLevel: "${accessLevel}"`);
 
   await prisma.subscriptions.upsert({
     where: { user_id: userId },

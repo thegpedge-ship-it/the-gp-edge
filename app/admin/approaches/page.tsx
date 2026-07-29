@@ -18,7 +18,8 @@ import {
   deleteApproachCardFromDbAction,
   syncApproachCardsToDbAction,
   getTagsFromDbAction,
-  addTagToDbAction
+  addTagToDbAction,
+  toggleLibraryItemFreeStatus
 } from "@/actions/approach.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.04 } } };
@@ -46,8 +47,8 @@ const systemColors: Record<string, string> = {
   Dermatology: "bg-green-50 text-green-800 border-green-200",
   "Women's Health": "bg-slate-50 text-slate-700 border-slate-200",
   Paediatrics: "bg-emerald-50 text-emerald-600 border-emerald-200",
-  Neurology: "bg-blue-50 text-blue-700 border-blue-200",
-  Musculoskeletal: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  Neurology: "bg-teal-50 text-teal-700 border-teal-200",
+  Musculoskeletal: "bg-emerald-50 text-emerald-700 border-emerald-200",
   MBS: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
@@ -106,13 +107,36 @@ export default function ApproachesPage() {
   const [newTitle, setNewTitle] = useState("");
   const [newSystem, setNewSystem] = useState("Cardiology");
   const [newCategory, setNewCategory] = useState("");
+  const [newIsFree, setNewIsFree] = useState(false);
 
   const resetForm = () => {
     setNewTitle("");
     setNewSystem("Cardiology");
     setNewCategory("");
+    setNewIsFree(false);
     setApproachUploadQueue([]);
     setModalStep("select");
+  };
+
+  const handleToggleFreeStatus = async (card: ApproachCard, isFree: boolean) => {
+    if (isReadOnly) return;
+    setCards((prev) =>
+      prev.map((c) => (c.id === card.id ? { ...c, isFree } : c))
+    );
+    const res = await toggleLibraryItemFreeStatus(card.id, isFree);
+    if (!res.success) {
+      setCards((prev) =>
+        prev.map((c) => (c.id === card.id ? { ...c, isFree: !isFree } : c))
+      );
+      alert(res.error || "Failed to update free status.");
+    } else {
+      addUserNotification(
+        "Approach Status Updated",
+        `"${card.title}" is now ${isFree ? "Free Access" : "Paid Only"}.`,
+        1,
+        "custom"
+      );
+    }
   };
 
   const handleCreateApproach = async () => {
@@ -134,6 +158,7 @@ export default function ApproachesPage() {
         lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
         author: "GP Edge Admin",
         isPremium: false,
+        isFree: newIsFree,
         tags: [newSystem, newCategory.trim() || "Clinical Reference"].filter(Boolean),
         overview: "",
         steps: [],
@@ -453,7 +478,23 @@ export default function ApproachesPage() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${systemColors[card.system] || "bg-slate-50 text-slate-600 border-slate-200"}`}>{card.system}</span>
-                    {card.isPremium && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">Premium</span>}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFreeStatus(card, !card.isFree);
+                      }}
+                      disabled={isReadOnly}
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                        card.isFree
+                          ? "bg-emerald-50 dark:bg-emerald-955/30 text-emerald-700 dark:text-emerald-400 border-emerald-200"
+                          : "bg-amber-50 dark:bg-amber-955/30 text-amber-700 dark:text-amber-400 border-amber-200"
+                      } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                      title={card.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${card.isFree ? "bg-emerald-500" : "bg-amber-500"}`} />
+                      {card.isFree ? "Free" : "Paid"}
+                    </button>
                   </div>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{card.lastUpdated}</span>
                 </div>
@@ -614,6 +655,16 @@ export default function ApproachesPage() {
                       <label className="block text-xs font-bold text-slate-600 dark:text-slate-300 mb-1">Category / Area</label>
                       <input type="text" placeholder="e.g. Acute Assessment, Reference Care" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500/30 text-xs dark:text-slate-200" />
                     </div>
+
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer select-none pt-1">
+                      <input
+                        type="checkbox"
+                        checked={newIsFree}
+                        onChange={(e) => setNewIsFree(e.target.checked)}
+                        className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4"
+                      />
+                      Mark as Free Access (visible to non-subscribers)
+                    </label>
 
                     <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
                       <button onClick={() => setModalStep("select")} className="px-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer bg-transparent font-sans">Back</button>

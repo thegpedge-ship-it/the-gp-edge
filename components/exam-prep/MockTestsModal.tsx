@@ -3,25 +3,39 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { FileText, Clock, Lock, Trophy, ArrowRight, X } from "lucide-react";
+import { FileText, Clock, Lock, Unlock, Trophy, ArrowRight, X } from "lucide-react";
 import type { UiMockTest } from "@/app/exam-prep/actions";
 import { cachedMockTestQuestionIds } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
 import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import UpgradeModal from "@/components/UpgradeModal";
 
 /* ─── Single mock-test card (roomy grid tile, minimal meta) ───────────────── */
 function TestCard({
   test,
   starting,
+  isRegistrarActive,
   onStart,
+  onLockedClick,
 }: {
   test: UiMockTest;
   starting: boolean;
+  isRegistrarActive: boolean;
   onStart: (test: UiMockTest) => void;
+  onLockedClick: (name: string) => void;
 }) {
-  const isLocked = test.availability === "locked";
-  const statusLabel = isLocked ? "Locked" : test.completed ? "Completed" : "Available";
+  const isFree = test.isFree === true;
+  const isTierLocked = !isFree && !isRegistrarActive;
+  const isLocked = test.availability === "locked" || isTierLocked;
+  const statusLabel = isTierLocked
+    ? "Registrar Only"
+    : test.availability === "locked"
+    ? "Locked"
+    : test.completed
+    ? "Completed"
+    : "Available";
   const action = test.completed ? "Retake" : "Start";
 
   return (
@@ -45,26 +59,40 @@ function TestCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-snug">
-            {test.name}
-          </h4>
+          <div className="flex items-center gap-1.5 mb-1">
+            <h4 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-snug">
+              {test.name}
+            </h4>
+          </div>
           {test.subtitle && (
             <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">{test.subtitle}</p>
           )}
         </div>
 
-        <span
-          className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold ${
-            isLocked
-              ? "bg-slate-100 text-slate-500 dark:bg-slate-700/40 dark:text-slate-400"
-              : test.completed
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {isFree ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
+              <Unlock className="w-2.5 h-2.5" /> FREE
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
+              <Lock className="w-2.5 h-2.5" /> Registrar
+            </span>
+          )}
+
+          <span
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+              isLocked
+                ? "bg-slate-100 text-slate-500 dark:bg-slate-700/40 dark:text-slate-400"
+                : test.completed
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                 : "bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300"
-          }`}
-        >
-          {test.completed && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-          {statusLabel}
-        </span>
+            }`}
+          >
+            {test.completed && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+            {statusLabel}
+          </span>
+        </div>
       </div>
 
       {/* Meta — kept intentionally minimal */}
@@ -88,31 +116,25 @@ function TestCard({
           </span>
         ) : (
           <span className="text-[12px] text-slate-400 dark:text-slate-500">
-            {isLocked ? "Locked for now" : "Not attempted"}
+            {isLocked ? "Registrar Plan Required" : "Not attempted"}
           </span>
         )}
 
         <div className="flex items-center gap-2.5">
           {!isLocked && <ViewReportButton testId={test.id} variant="link" />}
           {isLocked ? (
-            <span className="relative group/lock">
-              <button
-                disabled
-                aria-label={test.unlockHint ?? "This test is locked for now."}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-slate-100 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500 cursor-not-allowed"
-              >
-                <Lock size={13} strokeWidth={2.2} />
-                Locked
-              </button>
-              <span className="pointer-events-none absolute right-0 bottom-full mb-2 z-10 w-max max-w-[220px] rounded-lg bg-slate-800 dark:bg-slate-700 px-3 py-2 text-[11px] font-medium text-white opacity-0 translate-y-1 transition-all duration-150 group-hover/lock:opacity-100 group-hover/lock:translate-y-0 shadow-lg">
-                {test.unlockHint ?? "This test is locked for now."}
-              </span>
-            </span>
+            <button
+              onClick={() => onLockedClick(test.name)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 cursor-pointer transition-all"
+            >
+              <Lock size={13} strokeWidth={2.2} />
+              Unlock
+            </button>
           ) : (
             <button
               onClick={() => onStart(test)}
               disabled={starting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-wait text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[12px] font-semibold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 disabled:cursor-wait text-white shadow-md shadow-emerald-600/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
             >
               {starting ? "Loading…" : action}
               {!starting && <ArrowRight size={13} strokeWidth={2.4} />}
@@ -135,12 +157,20 @@ export default function MockTestsModal({
   tests: UiMockTest[];
 }) {
   const router = useRouter();
+  const { isRegistrarActive } = useUserAccess();
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeMockName, setUpgradeMockName] = useState<string | undefined>();
 
-  // Display order: available & not-yet-done first, then completed, then locked.
-  // Stable sort keeps the original sort_order within each tier.
-  const rank = (t: UiMockTest) =>
-    t.availability === "locked" ? 2 : t.completed ? 1 : 0;
+  // Free items sorted first, then available, then completed, then locked.
+  const rank = (t: UiMockTest) => {
+    const isFree = t.isFree === true;
+    if (isFree) return 0;
+    if (!isRegistrarActive) return 3;
+    if (t.availability === "locked") return 2;
+    if (t.completed) return 1;
+    return 0;
+  };
   const orderedTests = [...tests].sort((a, b) => rank(a) - rank(b));
 
   useEffect(() => {
@@ -165,104 +195,117 @@ export default function MockTestsModal({
       name: test.name,
       questionIds: detail.questionIds,
       durationMinutes: detail.timeLimitMin ?? test.durationMin,
-      timed: true, // mock tests are the timed test type
+      timed: true,
     });
     onClose();
     router.push(buildInstructionsUrl(test.id));
   };
 
+  const handleLockedClick = (name: string) => {
+    setUpgradeMockName(name);
+    setUpgradeModalOpen(true);
+  };
+
   return (
     <>
-      {/* The question fetch runs before navigation begins, so without this the
-          modal just sits there looking idle. */}
       {startingId && <FullScreenLoader message="Preparing your test" />}
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-
-          {/* Panel — larger footprint */}
+      <AnimatePresence>
+        {open && (
           <motion.div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mock Tests"
-            className="relative w-[95vw] lg:w-[76vw] max-w-[1240px] h-[88vh] flex flex-col glass-strong rounded-3xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
-            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
           >
-            {/* Header */}
-            <div className="relative flex items-center justify-between px-7 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
-              {/* Hairline emerald accent along the top edge */}
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-              <div className="flex items-center gap-3">
-                <h3 className="font-serif text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                  Mock Tests
-                </h3>
-                {tests.length > 0 && (
-                  <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-400">
-                    {tests.length}
-                  </span>
-                )}
+            {/* Panel */}
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Mock Tests"
+              className="relative w-[95vw] lg:w-[76vw] max-w-[1240px] h-[88vh] flex flex-col glass-strong rounded-3xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              {/* Header */}
+              <div className="relative flex items-center justify-between px-7 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+
+                <div className="flex items-center gap-3">
+                  <h3 className="font-serif text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                    Mock Tests
+                  </h3>
+                  {tests.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-400">
+                      {tests.length}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  onClick={onClose}
+                  aria-label="Close"
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" strokeWidth={2} />
+                </button>
               </div>
 
-              <button
-                onClick={onClose}
-                aria-label="Close"
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+              {/* Subheading strip */}
+              <div className="px-7 pt-4 flex-shrink-0">
+                <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                  Full AKT simulations under real exam conditions. Free sample tests are available to all users.
+                </p>
+              </div>
+
+              {/* Cards grid */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-7 py-5"
+                style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
               >
-                <X className="w-5 h-5" strokeWidth={2} />
-              </button>
-            </div>
-
-            {/* Subheading strip */}
-            <div className="px-7 pt-4 flex-shrink-0">
-              <p className="text-[13px] text-slate-500 dark:text-slate-400">
-                Full AKT simulations under real exam conditions. Pick a test to begin.
-              </p>
-            </div>
-
-            {/* Cards — responsive 2-column grid */}
-            <div
-              className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-7 py-5"
-              style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
-            >
-              {tests.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-                  <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
-                    <FileText size={24} strokeWidth={2} />
+                {tests.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                    <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
+                      <FileText size={24} strokeWidth={2} />
+                    </div>
+                    <p className="text-[15px] font-bold text-slate-600 dark:text-slate-300">No mock tests yet</p>
+                    <p className="text-[12px] text-slate-400 dark:text-slate-500 max-w-[320px]">
+                      Full AKT simulations will appear here once they&rsquo;re published.
+                    </p>
                   </div>
-                  <p className="text-[15px] font-bold text-slate-600 dark:text-slate-300">No mock tests yet</p>
-                  <p className="text-[12px] text-slate-400 dark:text-slate-500 max-w-[320px]">
-                    Full AKT simulations will appear here once they&rsquo;re published.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[1100px] mx-auto">
-                  {orderedTests.map((test) => (
-                    <TestCard
-                      key={test.id}
-                      test={test}
-                      starting={startingId === test.id}
-                      onStart={handleStart}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[1100px] mx-auto">
+                    {orderedTests.map((test) => (
+                      <TestCard
+                        key={test.id}
+                        test={test}
+                        starting={startingId === test.id}
+                        isRegistrarActive={isRegistrarActive}
+                        onStart={handleStart}
+                        onLockedClick={handleLockedClick}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        featureName={upgradeMockName}
+        requiredTier="registrar"
+      />
     </>
   );
 }
+

@@ -206,6 +206,7 @@ model autofill_templates {
   category                                                                                     String?
   subject_id                                                                                   String?                      @db.Uuid
   status                                                                                       template_status              @default(draft)
+  is_free                                                                                      Boolean                      @default(false)
   current_version_id                                                                           String?                      @db.Uuid
   created_by                                                                                   String?                      @db.Uuid
   created_at                                                                                   DateTime                     @default(now()) @db.Timestamptz(6)
@@ -368,6 +369,7 @@ model medical_conditions {
   kind                 content_kind             @default(Condition)
   status               content_status           @default(draft)
   is_premium           Boolean                  @default(false)
+  is_free              Boolean                  @default(false)
   clinical_notes       String?
   author               String?
   search_vector        Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((((COALESCE(name, ''::text) || ' '::text) || COALESCE(category, ''::text)) || ' '::text) || COALESCE(clinical_notes, ''::text)))"))
@@ -412,6 +414,7 @@ model mock_tests {
   unlock_at           DateTime?             @db.Timestamptz(6)
   unlock_hint         String?
   sort_order          Int                   @default(0)
+  is_free             Boolean               @default(false)
   created_by          String?               @db.Uuid
   created_at          DateTime              @default(now()) @db.Timestamptz(6)
   updated_at          DateTime              @default(now()) @db.Timestamptz(6)
@@ -666,6 +669,7 @@ model quizzes {
   time_limit_min Int?
   passing_score  Int?             @db.SmallInt
   randomize      Boolean          @default(true)
+  is_free        Boolean          @default(false)
   status         quiz_status      @default(draft)
   created_by     String?          @db.Uuid
   created_at     DateTime         @default(now()) @db.Timestamptz(6)

@@ -17,6 +17,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { updateTag } from "next/cache";
 import prisma from "@/lib/prisma";
+import { query } from "@/lib/db";
 import { ensureDbUser } from "@/lib/user";
 import type { difficulty_level } from "@/lib/generated/prisma";
 
@@ -763,6 +764,7 @@ export interface UiMockTest {
   durationMin: number;
   availability: "available" | "locked";
   unlockHint: string | null;
+  isFree?: boolean;
   /** Per-user history. */
   attempts: number;
   bestScore: number | null;
@@ -773,22 +775,46 @@ export async function getMockTests(): Promise<UiMockTest[]> {
   const dbUser = await ensureDbUser();
   const examCode = examCodeFromTarget(dbUser?.exam_target);
 
-  const tests = await prisma.mock_tests.findMany({
-    where: {
-      deleted_at: null,
-      ...(examCode ? { exam_type_code: examCode } : {}),
-    },
-    orderBy: { sort_order: "asc" },
-    select: {
-      id: true,
-      name: true,
-      subtitle: true,
-      question_count: true,
-      duration_min: true,
-      availability: true,
-      unlock_hint: true,
-    },
-  });
+  let tests: any[] = [];
+  try {
+    tests = await prisma.mock_tests.findMany({
+      where: {
+        deleted_at: null,
+        ...(examCode ? { exam_type_code: examCode } : {}),
+      },
+      orderBy: { sort_order: "asc" },
+      select: {
+        id: true,
+        name: true,
+        subtitle: true,
+        question_count: true,
+        duration_min: true,
+        availability: true,
+        unlock_hint: true,
+        is_free: true,
+      },
+    });
+  } catch (err) {
+    console.warn("Prisma findMany failed for mock_tests (falling back to raw query):", err);
+    const rows = await query<any>(
+      `SELECT id, name, subtitle, question_count, duration_min, availability, unlock_hint, is_free
+         FROM mock_tests
+        WHERE deleted_at IS NULL ${examCode ? "AND exam_type_code = $1" : ""}
+        ORDER BY sort_order ASC`,
+      examCode ? [examCode] : []
+    );
+    tests = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      subtitle: r.subtitle,
+      question_count: r.question_count,
+      duration_min: r.duration_min,
+      availability: r.availability,
+      unlock_hint: r.unlock_hint,
+      is_free: r.is_free,
+    }));
+  }
+
   if (tests.length === 0) return [];
 
   // Per-user attempt history for these mocks (best score + count).
@@ -818,6 +844,7 @@ export async function getMockTests(): Promise<UiMockTest[]> {
       durationMin: t.duration_min,
       availability: t.availability === "locked" ? "locked" : "available",
       unlockHint: t.unlock_hint,
+      isFree: t.is_free ?? false,
       attempts: stat?._count._all ?? 0,
       bestScore: best != null ? Math.round(Number(best)) : null,
       completed: (stat?._count._all ?? 0) > 0,

@@ -14,6 +14,7 @@ export interface Quiz {
   status: QuizStatus;
   examType: "AKT" | "KFP" | "Mixed";
   randomize: boolean;
+  isFree?: boolean;
   questionLimit: number;
   updatedAt: string;
 }
@@ -104,7 +105,7 @@ export const QUESTION_BANK: Question[] = [];
 
 const STORAGE_KEY = "gpedge_admin_quizzes";
 
-const DEFAULT_QUIZZES: Quiz[] = [
+export const DEFAULT_QUIZZES: Quiz[] = [
   {
     id: 1,
     name: "AKT Full Mock Exam 2026",
@@ -432,6 +433,7 @@ export interface MedicalContent {
   pdfUrl?: string;
   pdfSize?: string;
   isPremium?: boolean;
+  isFree?: boolean;
 }
 
 // In-memory cache so sync callers (legacy code) can still work
@@ -534,6 +536,7 @@ export interface ApproachCard {
   lastUpdated: string;
   author: string;
   isPremium: boolean;
+  isFree?: boolean;
   tags: string[];
   overview: string;
   steps: ApproachStep[];
@@ -579,6 +582,7 @@ export interface AutofillTemplate {
   version: string;
   slug?: string;
   description?: string;
+  isFree?: boolean;
   tags?: string[];
   subjective?: string;
   objective?: string;

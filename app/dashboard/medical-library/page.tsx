@@ -10,6 +10,8 @@ import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 import { splitHtmlIntoPages } from "@/utils/pdfPagination";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import UpgradeModal from "@/components/UpgradeModal";
 
 function cleanTableHtmlStyles(html: string): string {
   return html;
@@ -231,41 +233,67 @@ interface CardProps {
   handleOpenCondition: (condition: MedicalCondition) => void;
   handleTagClick: (e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string) => void;
   sys: any;
+  /** Whether the current user has a paid plan */
+  hasPaidAccess: boolean;
+  /** Callback to fire UpgradeModal from outside the card */
+  onUpgradeClick: (name: string) => void;
 }
 
-function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpenCondition, handleTagClick, sys }: CardProps) {
+function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpenCondition, handleTagClick, sys, hasPaidAccess, onUpgradeClick }: CardProps) {
   const isStarred = favorites.includes(condition.id);
+  // A card is locked when isFree is explicitly false AND the user lacks paid access
+  const isLocked = condition.isFree === false && !hasPaidAccess;
+
+  const handleClick = () => {
+    if (isLocked) {
+      onUpgradeClick(condition.name);
+    } else {
+      handleOpenCondition(condition);
+    }
+  };
+
   return (
     <motion.div
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.99 }}
-      className="glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-full"
-      onClick={() => handleOpenCondition(condition)}
+      whileHover={{ y: isLocked ? 0 : -3 }}
+      whileTap={{ scale: isLocked ? 1 : 0.99 }}
+      className={`relative glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+      onClick={handleClick}
     >
-      <div>
+      {/* Locked overlay */}
+      {isLocked && (
+        <div className="absolute inset-0 rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+            <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Paid Plan Required</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">Tap to see upgrade options</span>
+        </div>
+      )}
+
+      <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
               {condition.id}
             </span>
-            {condition.isPremium ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
-                <Lucide.Lock className="w-2.5 h-2.5" />
-                Paid Only
+            {condition.isFree === true ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30">
+                <Lucide.Unlock className="w-2.5 h-2.5" />
+                FREE
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                Free Access
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30">
+                <Lucide.Lock className="w-2.5 h-2.5" />
+                Paid
               </span>
             )}
           </div>
           <button
-            onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
+            onClick={(e) => { e.stopPropagation(); if (!isLocked) toggleFavorite(e, condition.id); }}
+            className={`p-1.5 rounded-lg border-none bg-transparent transition-colors shrink-0 flex items-center justify-center ${isLocked ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-rose-500"}`}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
             <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
@@ -292,8 +320,8 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
         </div>
       </div>
 
-      <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
-        <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer group/footer">
+      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between ${isLocked ? "opacity-40" : ""}`}>
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
         </div>
@@ -306,19 +334,39 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
   );
 }
 
-function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpenCondition, handleTagClick, sys }: CardProps) {
+function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpenCondition, handleTagClick, sys, hasPaidAccess, onUpgradeClick }: CardProps) {
   const isStarred = favorites.includes(condition.id);
+  const isLocked = condition.isFree === false && !hasPaidAccess;
+
+  const handleClick = () => {
+    if (isLocked) {
+      onUpgradeClick(condition.name);
+    } else {
+      handleOpenCondition(condition);
+    }
+  };
+
   return (
     <motion.div
       variants={cardVariants}
       initial="hidden"
       animate="visible"
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.99 }}
-      className="bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 cursor-pointer flex flex-col justify-between group h-full w-full"
-      onClick={() => handleOpenCondition(condition)}
+      whileHover={{ y: isLocked ? 0 : -3 }}
+      whileTap={{ scale: isLocked ? 1 : 0.99 }}
+      className={`relative bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+      onClick={handleClick}
     >
-      <div>
+      {isLocked && (
+        <div className="absolute inset-0 rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
+            <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Paid Plan Required</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400">Tap to see upgrade options</span>
+        </div>
+      )}
+
+      <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-955/20 px-2 py-0.5 rounded border border-teal-200/30">
@@ -327,21 +375,21 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
             <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
               Approach
             </span>
-            {condition.isPremium ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
-                <Lucide.Lock className="w-2.5 h-2.5" />
-                Paid Only
+            {condition.isFree === true ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30">
+                <Lucide.Unlock className="w-2.5 h-2.5" />
+                FREE
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-450 px-1.5 py-0.5 rounded border border-emerald-250/30" title="Open to all general users">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                Free Access
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30">
+                <Lucide.Lock className="w-2.5 h-2.5" />
+                Paid
               </span>
             )}
           </div>
           <button
-            onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-1.5 rounded-lg border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500"
+            onClick={(e) => { e.stopPropagation(); if (!isLocked) toggleFavorite(e, condition.id); }}
+            className={`p-1.5 rounded-lg border-none bg-transparent transition-colors shrink-0 flex items-center justify-center ${isLocked ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-rose-500"}`}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
             <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
@@ -357,11 +405,10 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
           <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
           <span>{condition.category}</span>
         </div>
-
       </div>
 
-      <div className="border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between">
-        <div onClick={(e) => handleTagClick(e, "system", condition.system)} className="flex flex-col cursor-pointer group/footer">
+      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between ${isLocked ? "opacity-40" : ""}`}>
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors">{condition.system}</span>
         </div>
@@ -388,6 +435,16 @@ export default function MedicalLibraryPage() {
 function MedicalLibraryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Access control
+  const { hasPaidAccess, loading: accessLoading } = useUserAccess();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeFeatureName, setUpgradeFeatureName] = useState<string | undefined>();
+
+  const handleUpgradeClick = useCallback((name: string) => {
+    setUpgradeFeatureName(name);
+    setUpgradeModalOpen(true);
+  }, []);
 
   // Split Workspace Layout States
   const [paneConfig, setPaneConfig] = useState<"3-0" | "2-1" | "1-2" | "0-3">("2-1");
@@ -475,6 +532,8 @@ function MedicalLibraryContent() {
             lastUpdated: item.lastUpdated,
             author: item.author,
             isPremium: item.isPremium,
+            // Carry the live is_free flag from the DB response
+            isFree: item.isFree ?? false,
             symptoms: [],
             diagnosisCriteria: [],
             treatmentOptions: [],
@@ -514,6 +573,7 @@ function MedicalLibraryContent() {
               category: card.category,
               type: "Approach" as const,
               isPremium: card.isPremium,
+              isFree: card.isFree ?? false,
               lastUpdated: card.lastUpdated,
               author: card.author,
               symptoms: card.redFlags || [],
@@ -596,6 +656,10 @@ function MedicalLibraryContent() {
     };
 
     return [...customConditions].sort((a, b) => {
+      // Free items always appear first, then sort by date descending
+      const aFree = a.isFree === true ? 1 : 0;
+      const bFree = b.isFree === true ? 1 : 0;
+      if (bFree !== aFree) return bFree - aFree;
       return parseDate(b.lastUpdated) - parseDate(a.lastUpdated);
     });
   }, [customConditions]);
@@ -962,7 +1026,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                            </div>
                            <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "3-0" ? "grid-cols-3" : paneConfig === "2-1" ? "grid-cols-2" : "grid-cols-1"}`}>
                              {mcConditions.map(condition => (
-                               <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
+                               <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
                              ))}
                              {mcConditions.length === 0 && (
                                <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
@@ -1006,7 +1070,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                            </div>
                            <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "0-3" ? "grid-cols-3" : paneConfig === "1-2" ? "grid-cols-2" : "grid-cols-1"}`}>
                              {approachConditions.map(condition => (
-                               <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} />
+                               <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
                              ))}
                              {approachConditions.length === 0 && (
                                <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
@@ -1916,6 +1980,14 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        featureName={upgradeFeatureName}
+        requiredTier="paid"
+      />
     </div>
   );
 }

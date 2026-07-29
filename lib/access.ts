@@ -50,8 +50,17 @@ export interface UserAccessInfo {
  * Returns null if the user does not exist.
  */
 export async function getUserAccess(userId: string): Promise<UserAccessInfo | null> {
-  const user = await prisma.users.findUnique({
-    where: { id: userId },
+  if (!userId) return null;
+
+  // 1. Fetch user by internal Postgres ID, Clerk ID, or Email address
+  const user = await prisma.users.findFirst({
+    where: {
+      OR: [
+        { id: userId },
+        { clerk_user_id: userId },
+        { email: userId },
+      ],
+    },
     select: {
       id: true,
       user_role: true,
@@ -59,39 +68,83 @@ export async function getUserAccess(userId: string): Promise<UserAccessInfo | nu
       free_questions_left: true,
       free_templates_left: true,
       free_topics_left: true,
-      subscriptions: {
-        select: {
-          access_level: true,
-          access_expires_at: true,
-          status: true,
-        },
-      },
     },
   });
 
-  if (!user) return null;
+  if (!user) {
+    console.log(`[getUserAccess] No user found matching ID/ClerkID/Email: "${userId}"`);
+    return null;
+  }
 
-  const sub = user.subscriptions;
   const now = new Date();
 
-  // Determine current access level. A subscription row may exist with status
-  // 'canceled' or 'expired' — in those cases access reverts to FREE.
-  const accessLevel: AccessLevel =
-    sub && ["active", "trialing"].includes(sub.status)
-      ? (sub.access_level as AccessLevel)
-      : "FREE";
+  // 2. Query all subscription records for this user
+  const subs = await prisma.subscriptions.findMany({
+    where: { user_id: user.id },
+    orderBy: { created_at: "desc" },
+  });
 
-  // ⚠️  CRITICAL: Page 1 requires BOTH:
-  //   1. access_level === 'REGISTRAR' (not just has_purchased_registrar)
-  //   2. access_expires_at is in the future (the 6/12 month window hasn't closed)
-  // A user who has has_purchased_registrar=true but whose Registrar period has
-  // expired (and is now on $15/mo) must NOT get full Exam Prep access.
+  console.log(
+    `[getUserAccess] User "${user.id}" (role=${user.user_role}, purchasedRegistrar=${user.has_purchased_registrar}). Subscriptions count: ${subs.length}`
+  );
+
+  // 3. Evaluate active subscriptions
+  // Criteria: status is active/trialing (case-insensitive) OR access_expires_at > now
+  const validSubs = subs.filter((s) => {
+    const st = (s.status ?? "").toString().toLowerCase();
+    const isActiveStatus = st === "active" || st === "trialing";
+    const isUnexpired =
+      s.access_expires_at != null && new Date(s.access_expires_at) > now;
+    return isActiveStatus || isUnexpired;
+  });
+
+  // Prioritize active sub by access_level (REGISTRAR > POST_REGISTRAR_UPGRADE > FELLOWSHIP)
+  let activeSub = validSubs[0] || null;
+  if (validSubs.length > 1) {
+    const registrarSub = validSubs.find((s) => String(s.access_level).toUpperCase() === "REGISTRAR");
+    const postRegSub = validSubs.find((s) => String(s.access_level).toUpperCase() === "POST_REGISTRAR_UPGRADE");
+    const fellowshipSub = validSubs.find((s) => String(s.access_level).toUpperCase() === "FELLOWSHIP");
+    activeSub = registrarSub || postRegSub || fellowshipSub || validSubs[0];
+  }
+
+  const isSubValid = activeSub != null;
+  let accessLevel: AccessLevel = "FREE";
+
+  if (isSubValid && activeSub) {
+    const lvl = String(activeSub.access_level ?? "").toUpperCase();
+    if (lvl === "REGISTRAR" || lvl === "FELLOWSHIP" || lvl === "POST_REGISTRAR_UPGRADE") {
+      accessLevel = lvl as AccessLevel;
+    } else {
+      accessLevel = "FELLOWSHIP"; // fallback if valid active sub exists
+    }
+  } else if (user.has_purchased_registrar) {
+    accessLevel = "REGISTRAR";
+  }
+
+  // Page 1 (Exam Prep) requires an active REGISTRAR access level with non-expired window
   const isRegistrarActive =
-    accessLevel === "REGISTRAR" &&
-    sub?.access_expires_at != null &&
-    sub.access_expires_at > now;
+    (isSubValid &&
+      accessLevel === "REGISTRAR" &&
+      activeSub?.access_expires_at != null &&
+      new Date(activeSub.access_expires_at) > now) ||
+    (user.has_purchased_registrar &&
+      (activeSub == null || activeSub.access_expires_at == null || new Date(activeSub.access_expires_at) > now));
 
-  const hasPaidAccess = accessLevel !== "FREE";
+  // Pages 2, 3, 4 (Medical Library, Templates, MBS Billing) require ANY active paid tier
+  const hasPaidAccess =
+    accessLevel !== "FREE" ||
+    user.has_purchased_registrar === true ||
+    isSubValid;
+
+  console.log(`[getUserAccess] Computed flags for user "${user.id}":`, {
+    accessLevel,
+    isRegistrarActive,
+    hasPaidAccess,
+    activeSubId: activeSub?.id,
+    activeSubStatus: activeSub?.status,
+    activeSubLevel: activeSub?.access_level,
+    activeSubExpiresAt: activeSub?.access_expires_at,
+  });
 
   return {
     userId: user.id,
@@ -106,63 +159,72 @@ export async function getUserAccess(userId: string): Promise<UserAccessInfo | nu
   };
 }
 
-// ─── Per-page access checks ───────────────────────────────────────────────────
+// ─── Per-module & Item access checks ──────────────────────────────────────────
 
 /**
- * Page 1 — Exam Prep (AKT & KFP)
- * Full access requires an ACTIVE (not expired) Registrar purchase.
- * $15/mo, $30/mo, $300/yr plans do NOT grant full Exam Prep access.
+ * Exam Prep / Quizzes Access:
+ *  - Registrar (6mo / 12mo active): FULL ACCESS to all quizzes and questions.
+ *  - Subscription ($15/mo, $30/mo, $300/yr) & Free Tier: Accessible ONLY if is_free == true.
  */
 export async function canAccessExamPrep(userId: string): Promise<{
   hasFullAccess: boolean;
-  freeQuestionsLeft: number;
 }> {
   const access = await getUserAccess(userId);
-  if (!access) return { hasFullAccess: false, freeQuestionsLeft: 0 };
-  return {
-    hasFullAccess: access.isRegistrarActive,
-    freeQuestionsLeft: access.freeQuestionsLeft,
-  };
+  if (!access) return { hasFullAccess: false };
+  return { hasFullAccess: access.isRegistrarActive };
+}
+
+export async function canAccessQuizItem(userId: string, isFree: boolean): Promise<boolean> {
+  if (isFree) return true;
+  const access = await getUserAccess(userId);
+  if (!access) return false;
+  return access.isRegistrarActive;
 }
 
 /**
- * Page 2 — Note Templates
- * Full access: any active paid tier.
- * Free: limited to free_templates_left (lifetime quota).
- */
-export async function canAccessTemplates(userId: string): Promise<{
-  hasFullAccess: boolean;
-  freeTemplatesLeft: number;
-}> {
-  const access = await getUserAccess(userId);
-  if (!access) return { hasFullAccess: false, freeTemplatesLeft: 0 };
-  return {
-    hasFullAccess: access.hasPaidAccess,
-    freeTemplatesLeft: access.freeTemplatesLeft,
-  };
-}
-
-/**
- * Page 3 — Study / Clinical Notes
- * Full access: any active paid tier.
- * Free: limited to free_topics_left (lifetime quota).
+ * Medical Library / Clinical Notes Access:
+ *  - Any active paid plan (Subscription or Registrar): FULL ACCESS to all items.
+ *  - Free Tier: Accessible ONLY if is_free == true.
  */
 export async function canAccessStudy(userId: string): Promise<{
   hasFullAccess: boolean;
-  freeTopicsLeft: number;
 }> {
   const access = await getUserAccess(userId);
-  if (!access) return { hasFullAccess: false, freeTopicsLeft: 0 };
-  return {
-    hasFullAccess: access.hasPaidAccess,
-    freeTopicsLeft: access.freeTopicsLeft,
-  };
+  if (!access) return { hasFullAccess: false };
+  return { hasFullAccess: access.hasPaidAccess };
+}
+
+export async function canAccessMedicalLibraryItem(userId: string, isFree: boolean): Promise<boolean> {
+  if (isFree) return true;
+  const access = await getUserAccess(userId);
+  if (!access) return false;
+  return access.hasPaidAccess;
 }
 
 /**
- * Page 4 — MBS Billing
- * Free users: completely locked (0 access).
- * Any active paid tier: full access.
+ * Note Templates / Clinical Autofills Access:
+ *  - Any active paid plan (Subscription or Registrar): FULL ACCESS to all templates.
+ *  - Free Tier: Accessible ONLY if is_free == true.
+ */
+export async function canAccessTemplates(userId: string): Promise<{
+  hasFullAccess: boolean;
+}> {
+  const access = await getUserAccess(userId);
+  if (!access) return { hasFullAccess: false };
+  return { hasFullAccess: access.hasPaidAccess };
+}
+
+export async function canAccessTemplateItem(userId: string, isFree: boolean): Promise<boolean> {
+  if (isFree) return true;
+  const access = await getUserAccess(userId);
+  if (!access) return false;
+  return access.hasPaidAccess;
+}
+
+/**
+ * Page 4 — MBS Billing Access:
+ *  - Any active paid plan: FULL ACCESS.
+ *  - Free users: FULLY LOCKED (0 access / 403).
  */
 export async function canAccessMBS(userId: string): Promise<{
   hasFullAccess: boolean;
