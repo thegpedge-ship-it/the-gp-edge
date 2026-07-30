@@ -3,6 +3,11 @@
 import { motion, AnimatePresence, useAnimate } from "framer-motion";
 import { useState, useEffect } from "react";
 
+import ExamPrepSimulation from "./simulations/ExamPrepSimulation";
+import MbsBillingSimulation from "./simulations/MbsBillingSimulation";
+import ClinicalAutofillsSimulation from "./simulations/ClinicalAutofillsSimulation";
+import MedicalDirectorySimulation from "./simulations/MedicalDirectorySimulation";
+
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
@@ -39,35 +44,10 @@ const carouselCycles = [
   ],
 ];
 
-function ConditionCarousel() {
-  const [cycleIndex, setCycleIndex] = useState(0);
-  const [direction, setDirection] = useState(1); // 1 = forward
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setDirection(1);
-      setCycleIndex((prev) => (prev + 1) % carouselCycles.length);
-    }, 3500);
-    return () => clearInterval(timer);
-  }, []);
 
-  const variants = {
-    enter: (dir: number) => ({
-      x: dir > 0 ? "100%" : "-100%",
-      opacity: 0,
-    }),
-    center: {
-      x: 0,
-      opacity: 1,
-      transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] },
-    },
-    exit: (dir: number) => ({
-      x: dir > 0 ? "-100%" : "100%",
-      opacity: 0,
-      transition: { duration: 0.35, ease: [0.55, 0, 1, 0.45] },
-    }),
-  };
 
+<<<<<<< Updated upstream
   const currentCycle = carouselCycles[cycleIndex];
 
   return (
@@ -1297,63 +1277,16 @@ export default function BentoGrid() {
           className="grid grid-cols-12 gap-4 lg:gap-5"
         >
           {/* Card 1: Exam Prep - Large Feature Card */}
-          <AdaptiveExamPrepCardInline />
+          <ExamPrepSimulation />
 
           {/* Card 2: Bill Better - Interactive MBS Search */}
-          <MBSBillingCardInline />
+          <MbsBillingSimulation />
 
           {/* Card 3: Autofills with Interactive Copy Animation */}
-          <ClinicalAutofillsCardInline />
+          <ClinicalAutofillsSimulation />
 
           {/* Card 4: Medical Directory */}
-          <motion.div
-            variants={cardVariants}
-            className="col-span-12 lg:col-span-7 relative bg-white dark:bg-[#1B212C] rounded-3xl p-5 lg:p-6 overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300"
-          >
-            <div className="relative z-10 flex flex-col lg:flex-row lg:items-start gap-5">
-              {/* Left: Header + Carousel */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-4">
-
-                </div>
-
-                <h3 className="font-sans text-xl md:text-2xl lg:text-3xl font-semibold leading-snug text-slate-900 mb-2">
-                  Medical Directory
-                </h3>
-
-                <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 mb-4">
-                  <span className="font-medium text-teal-600">300+ conditions</span> catalogued. Browse, search, and revise on the go.
-                </p>
-
-                {/* Looping Carousel */}
-                <ConditionCarousel />
-              </div>
-
-              {/* Right: Staggered Condition Tags — row-by-row grouped layout */}
-              <div className="lg:w-[230px] lg:pt-10 flex-shrink-0">
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-3">Browse by condition</p>
-                <div className="flex flex-col gap-2">
-                  {tagRows.map((row, rowIdx) => (
-                    <div key={rowIdx} className="flex gap-2">
-                      {row.map((condition) => (
-                        <motion.div
-                          key={condition.name}
-                          initial={{ opacity: 0, y: 6, scale: 0.95 }}
-                          whileInView={{ opacity: 1, y: 0, scale: 1 }}
-                          viewport={{ once: true }}
-                          transition={{ duration: 0.32, delay: 0.35 + condition.delay, ease: [0.22, 1, 0.36, 1] }}
-                          whileHover={{ y: -2, scale: 1.04, transition: { duration: 0.14 } }}
-                          className="group flex-1 min-w-0 px-2.5 py-1.5 rounded-xl text-xs font-medium flex items-center cursor-pointer bg-white border border-slate-200/80 text-slate-700 shadow-sm hover:shadow-md hover:border-teal-200 hover:bg-teal-50/60 transition-all duration-200 active:scale-[0.96]"
-                        >
-                          <span className="group-hover:text-teal-700 transition-colors truncate">{condition.name}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
+          <MedicalDirectorySimulation />
         </motion.div>
       </div>
     </section>

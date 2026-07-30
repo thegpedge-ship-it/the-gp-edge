@@ -1104,24 +1104,19 @@ export default function ClinicalAutofillsPage() {
                     </div>
                   )}
 
-                  {/* Bookmark icon — top-right, appears on hover; always shown if bookmarked */}
+                  {/* Bookmark icon — top-right, always visible */}
                   <label
-                    className={`absolute top-4 right-4 z-10 ui-bookmark cursor-pointer transition-opacity duration-150 ${
-                      isBookmarked ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    }`}
+                    className="absolute top-4 right-4 z-10 custom-bookmark cursor-pointer"
                     onClick={e => e.stopPropagation()}
                   >
                     <input
                       type="checkbox"
-                      style={{ display: 'none' }}
                       checked={isBookmarked}
                       onChange={() => toggleSaved(t.title)}
                     />
-                    <div className="bookmark">
-                      <svg viewBox="0 0 32 32" className="w-5 h-5" style={{ fill: 'inherit' }}>
-                        <g>
-                          <path d="M27 4v27a1 1 0 0 1-1.625.781L16 24.281l-9.375 7.5A1 1 0 0 1 5 31V4a4 4 0 0 1 4-4h14a4 4 0 0 1 4 4z" />
-                        </g>
+                    <div className="bookmark-icon-wrapper">
+                      <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
                       </svg>
                     </div>
                   </label>
@@ -1523,91 +1518,89 @@ export default function ClinicalAutofillsPage() {
           transition-duration: 900ms;
         }
 
-        /* UI BOOKMARK BUTTON STYLES */
-        .ui-bookmark {
-          --icon-size: 24px;
-          --icon-secondary-color: rgb(203, 213, 225);
-          --icon-hover-color: #0d9488;
-          --icon-primary-color: #0d9488;
-          --icon-circle-border: 1px solid var(--icon-primary-color);
-          --icon-circle-size: 35px;
-          --icon-anmt-duration: 0.3s;
+        /* CUSTOM BOOKMARK BUTTON STYLES */
+        .custom-bookmark {
+          --icon-color: #94a3b8; /* Soft Slate Gray */
+          --icon-hover: #64748b; 
+          --icon-active: #0d9488; /* Matches "View" button */
         }
-        .dark .ui-bookmark {
-          --icon-secondary-color: rgb(71, 85, 105);
-          --icon-hover-color: #5ac8b0;
-          --icon-primary-color: #5ac8b0;
+        .dark .custom-bookmark {
+          --icon-color: #64748b; /* Muted Gray */
+          --icon-hover: #94a3b8;
         }
-        .ui-bookmark input {
-          -webkit-appearance: none;
-          -moz-appearance: none;
-          appearance: none;
-          display: none !important;
+        .custom-bookmark input {
+          display: none;
         }
-        .ui-bookmark .bookmark {
-          width: var(--icon-size);
-          height: auto;
-          fill: var(--icon-secondary-color);
-          cursor: pointer;
-          transition: 0.2s;
-          display: flex;
-          justify-content: center;
-          align-items: center;
+        
+        .bookmark-icon-wrapper {
           position: relative;
-          transform-origin: top;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--icon-color);
+          transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), color 0.2s ease;
         }
-        .ui-bookmark .bookmark::after {
+        .bookmark-svg {
+          fill: transparent;
+          transition: fill 0.25s ease, transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .custom-bookmark:hover .bookmark-icon-wrapper {
+          transform: scale(1.08);
+          color: var(--icon-hover);
+        }
+
+        /* Sparkles effect */
+        .bookmark-icon-wrapper::after {
           content: "";
           position: absolute;
           width: 10px;
           height: 10px;
-          box-shadow: 0 30px 0 -4px var(--icon-primary-color),
-            30px 0 0 -4px var(--icon-primary-color),
-            0 -30px 0 -4px var(--icon-primary-color),
-            -30px 0 0 -4px var(--icon-primary-color),
-            -22px 22px 0 -4px var(--icon-primary-color),
-            -22px -22px 0 -4px var(--icon-primary-color),
-            22px -22px 0 -4px var(--icon-primary-color),
-            22px 22px 0 -4px var(--icon-primary-color);
           border-radius: 50%;
+          box-shadow: 
+            0 30px 0 -4px var(--icon-active),
+            30px 0 0 -4px var(--icon-active),
+            0 -30px 0 -4px var(--icon-active),
+            -30px 0 0 -4px var(--icon-active),
+            -22px 22px 0 -4px var(--icon-active),
+            -22px -22px 0 -4px var(--icon-active),
+            22px -22px 0 -4px var(--icon-active),
+            22px 22px 0 -4px var(--icon-active);
           transform: scale(0);
+          z-index: -1;
         }
-        .ui-bookmark .bookmark::before {
-          content: "";
-          position: absolute;
-          border-radius: 50%;
-          border: var(--icon-circle-border);
-          opacity: 0;
+
+        /* Checked states */
+        .custom-bookmark input:checked + .bookmark-icon-wrapper {
+          color: var(--icon-active);
         }
-        .ui-bookmark:hover .bookmark {
-          fill: var(--icon-hover-color);
+        .custom-bookmark input:checked + .bookmark-icon-wrapper .bookmark-svg {
+          fill: var(--icon-active);
+          animation: bookmark-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          transition-delay: 0.2s; /* Add a slight delay for the fill so the sparkle starts */
         }
-        .ui-bookmark input:checked + .bookmark::after {
-          animation: circles var(--icon-anmt-duration) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-          animation-delay: var(--icon-anmt-duration);
+        .custom-bookmark input:checked + .bookmark-icon-wrapper::after {
+          animation: circles 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          animation-delay: 0.1s;
         }
-        .ui-bookmark input:checked + .bookmark {
-          fill: var(--icon-primary-color);
-          animation: bookmark var(--icon-anmt-duration) forwards;
-          transition-delay: 0.3s;
+
+        @keyframes bookmark-pop {
+          0% { transform: scale(1); }
+          40% { transform: scale(0.85); }
+          100% { transform: scale(1); }
         }
-        .ui-bookmark input:checked + .bookmark::before {
-          animation: circle var(--icon-anmt-duration) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-          animation-delay: var(--icon-anmt-duration);
-        }
-        @keyframes bookmark {
-          50% { transform: scaleY(0.6); }
-          100% { transform: scaleY(1); }
-        }
-        @keyframes circle {
-          from { width: 0; height: 0; opacity: 0; }
-          90% { width: var(--icon-circle-size); height: var(--icon-circle-size); opacity: 1; }
-          to { opacity: 0; }
-        }
+
         @keyframes circles {
-          from { transform: scale(0); }
-          40% { opacity: 1; }
-          to { transform: scale(0.8); opacity: 0; }
+          from {
+            transform: scale(0);
+          }
+          40% {
+            opacity: 1;
+          }
+          to {
+            transform: scale(0.8);
+            opacity: 0;
+          }
         }
       `}</style>
 

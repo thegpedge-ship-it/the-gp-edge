@@ -195,7 +195,7 @@ const getBrightSystemColor = (system: string): string => {
 
 
 const STEP_TYPES = [
-  { value: "action", label: "Action", color: "text-teal-700 bg-teal-50 border-teal-200", icon: "" },
+  { value: "action", label: "Action", color: "text-green-700 bg-green-50 border-green-200", icon: "" },
   { value: "decision", label: "Decision", color: "text-amber-700 bg-amber-50 border-amber-200", icon: "" },
   { value: "checklist", label: "Checklist", color: "text-blue-700 bg-blue-50 border-blue-200", icon: "" },
   { value: "info", label: "Info", color: "text-slate-700 bg-slate-50 border-slate-200", icon: "" },
@@ -291,13 +291,22 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
               </span>
             )}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); if (!isLocked) toggleFavorite(e, condition.id); }}
-            className={`p-1.5 rounded-lg border-none bg-transparent transition-colors shrink-0 flex items-center justify-center ${isLocked ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-rose-500"}`}
+          <label
+            className="custom-bookmark cursor-pointer"
+            onClick={e => e.stopPropagation()}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
-          </button>
+            <input
+              type="checkbox"
+              checked={isStarred}
+              onChange={(e) => toggleFavorite(e as any, condition.id)}
+            />
+            <div className="bookmark-icon-wrapper">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+          </label>
         </div>
 
         <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
@@ -369,7 +378,7 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-955/20 px-2 py-0.5 rounded border border-teal-200/30">
+            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
               {condition.id}
             </span>
             <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
@@ -387,16 +396,25 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
               </span>
             )}
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); if (!isLocked) toggleFavorite(e, condition.id); }}
-            className={`p-1.5 rounded-lg border-none bg-transparent transition-colors shrink-0 flex items-center justify-center ${isLocked ? "opacity-30 cursor-not-allowed" : "hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer text-slate-400 hover:text-rose-500"}`}
+          <label
+            className="custom-bookmark cursor-pointer"
+            onClick={e => e.stopPropagation()}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-3.5 h-3.5 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
-          </button>
+            <input
+              type="checkbox"
+              checked={isStarred}
+              onChange={(e) => toggleFavorite(e as any, condition.id)}
+            />
+            <div className="bookmark-icon-wrapper">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+          </label>
         </div>
 
-        <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5">
+        <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
           {decodeHtmlEntities(condition.name)}
         </h4>
 
@@ -410,7 +428,7 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between ${isLocked ? "opacity-40" : ""}`}>
         <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer">
           <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors">{condition.system}</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
         </div>
         <div className="flex flex-col text-right">
           <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
@@ -426,9 +444,99 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function MedicalLibraryPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading Medical Library...</div>}>
-      <MedicalLibraryContent />
-    </Suspense>
+    <>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        /* CUSTOM BOOKMARK BUTTON STYLES */
+        .custom-bookmark {
+          --icon-color: #94a3b8; /* Soft Slate Gray */
+          --icon-hover: #64748b; 
+          --icon-active: #22c55e; /* Green matching GP Edge */
+        }
+        .dark .custom-bookmark {
+          --icon-color: #64748b; /* Muted Gray */
+          --icon-hover: #94a3b8;
+        }
+        .custom-bookmark input {
+          display: none;
+        }
+        
+        .bookmark-icon-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--icon-color);
+          transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), color 0.2s ease;
+        }
+        .bookmark-svg {
+          fill: transparent;
+          transition: fill 0.25s ease, transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+        }
+
+        .custom-bookmark:hover .bookmark-icon-wrapper {
+          transform: scale(1.08);
+          color: var(--icon-hover);
+        }
+
+        /* Sparkles effect */
+        .bookmark-icon-wrapper::after {
+          content: "";
+          position: absolute;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          box-shadow: 
+            0 30px 0 -4px var(--icon-active),
+            30px 0 0 -4px var(--icon-active),
+            0 -30px 0 -4px var(--icon-active),
+            -30px 0 0 -4px var(--icon-active),
+            -22px 22px 0 -4px var(--icon-active),
+            -22px -22px 0 -4px var(--icon-active),
+            22px -22px 0 -4px var(--icon-active),
+            22px 22px 0 -4px var(--icon-active);
+          transform: scale(0);
+          z-index: -1;
+        }
+
+        /* Checked states */
+        .custom-bookmark input:checked + .bookmark-icon-wrapper {
+          color: var(--icon-active);
+        }
+        .custom-bookmark input:checked + .bookmark-icon-wrapper .bookmark-svg {
+          fill: var(--icon-active);
+          animation: bookmark-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          transition-delay: 0.2s; /* Add a slight delay for the fill so the sparkle starts */
+        }
+        .custom-bookmark input:checked + .bookmark-icon-wrapper::after {
+          animation: circles 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          animation-delay: 0.1s;
+        }
+
+        @keyframes bookmark-pop {
+          0% { transform: scale(1); }
+          40% { transform: scale(0.85); }
+          100% { transform: scale(1); }
+        }
+
+        @keyframes circles {
+          from {
+            transform: scale(0);
+          }
+          40% {
+            opacity: 1;
+          }
+          to {
+            transform: scale(0.8);
+            opacity: 0;
+          }
+        }
+        `
+      }} />
+      <Suspense fallback={<div className="p-8 text-center text-slate-500">Loading Medical Library...</div>}>
+        <MedicalLibraryContent />
+      </Suspense>
+    </>
   );
 }
 
@@ -1017,7 +1125,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
                                       <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                       {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-green-600 text-white border-green-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                       ))}
                                    </div>
                                  </motion.div>
@@ -1061,7 +1169,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
                                       <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                       {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-green-600 text-white border-green-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                       ))}
                                    </div>
                                  </motion.div>
@@ -1087,9 +1195,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         style={{ left: paneConfig === "2-1" ? "66.666%" : "33.333%" }}
                         onPointerDown={handleDragStart}
                       >
-                        <div className={`h-full w-0.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors ${isDragging ? "bg-teal-500 dark:bg-teal-400 w-1" : ""}`} />
+                        <div className={`h-full w-0.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-green-500 dark:group-hover:bg-green-400 transition-colors ${isDragging ? "bg-green-500 dark:bg-green-400 w-1" : ""}`} />
                         {/* Handle Grip */}
-                        <div className={`absolute w-1.5 h-8 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors shadow-sm ${isDragging ? "bg-teal-500 dark:bg-teal-400 scale-y-125" : ""}`} />
+                        <div className={`absolute w-1.5 h-8 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-green-500 dark:group-hover:bg-green-400 transition-colors shadow-sm ${isDragging ? "bg-green-500 dark:bg-green-400 scale-y-125" : ""}`} />
                       </div>
                     )}
 
@@ -1101,9 +1209,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -10 }}
                           onClick={() => setPaneConfig("1-2")}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
+                          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all cursor-pointer group"
                         >
-                          <Lucide.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
+                          <Lucide.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-green-500 transition-colors" />
                         </motion.button>
                       )}
                     </AnimatePresence>
@@ -1116,9 +1224,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 10 }}
                           onClick={() => setPaneConfig("2-1")}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
+                          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all cursor-pointer group"
                         >
-                          <Lucide.ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
+                          <Lucide.ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-green-500 transition-colors" />
                         </motion.button>
                       )}
                     </AnimatePresence>
@@ -1164,7 +1272,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               {/* Left Column: Clinical Info */}
               <div className="xl:col-span-7 min-w-0">
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-teal-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
                   {/* Category breadcrumbs pathway */}
                   <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 select-none">
@@ -1204,7 +1312,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   </div>
 
                   {/* Dictated Super Summary section */}
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50/50 dark:from-emerald-950/20 dark:to-teal-950/5 border border-emerald-250/30 dark:border-emerald-900/30 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+                  <div className="bg-gradient-to-br from-emerald-50 to-green-50/50 dark:from-emerald-950/20 dark:to-green-950/5 border border-emerald-250/30 dark:border-emerald-900/30 rounded-2xl p-5 space-y-2 relative overflow-hidden">
                     <div className="flex items-center justify-between select-none">
                       <h4 className="font-sans text-xs font-bold tracking-wider uppercase text-emerald-800 dark:text-emerald-400 flex items-center gap-1.5">
                         <Lucide.FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-500" />
@@ -1318,7 +1426,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       {/* For custom guidelines / approaches: show summary and info box */}
                       <div className="bg-slate-50/50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/50 rounded-2xl p-5 space-y-4">
                         <h4 className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 flex items-center gap-1.5 select-none">
-                          <Lucide.Info className="w-4 h-4 text-teal-600" />
+                          <Lucide.Info className="w-4 h-4 text-green-600" />
                           {selectedCondition.id.startsWith("CUSTOM-APPROACH-") ? "Approach Reference Note" : "Guideline Reference Note"}
                         </h4>
                         <p className="font-sans text-xs md:text-sm font-normal leading-relaxed text-slate-700 dark:text-slate-300">
@@ -1346,7 +1454,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden flex flex-col">
                         {/* Dark Header Box */}
                         <div className="p-6 bg-gradient-to-r from-slate-900 to-slate-850 text-white relative overflow-hidden">
-                          <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-transparent to-transparent pointer-events-none" />
+                          <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-transparent to-transparent pointer-events-none" />
                           <div className="relative">
                             <div className="flex items-center gap-2 mb-2 flex-wrap select-none">
                               <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${getSystemBadgeColor(selectedCondition.system)}`}>{selectedCondition.system}</span>
@@ -1781,7 +1889,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           {/* Render custom guideline HTML or paginated default content */}
                           {dbLoading ? (
                             <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-                              <svg className="w-8 h-8 text-teal-700 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <svg className="w-8 h-8 text-green-700 animate-spin" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                               </svg>
@@ -1790,8 +1898,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           ) : selectedCondition.id.startsWith("CUSTOM-") ? (
                             <div className="space-y-4 flex flex-col h-full text-slate-800">
                               {/* Header info / title inside document */}
-                              <div className="mb-4 border-b-2 border-teal-700/30 pb-2 select-none text-left">
-                                <span className="text-[9px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                              <div className="mb-4 border-b-2 border-green-700/30 pb-2 select-none text-left">
+                                <span className="text-[9px] font-bold text-green-700 uppercase tracking-widest leading-none">
                                   {selectedCondition.system} · {selectedCondition.category}
                                 </span>
                                 {pdfPage === 1 ? (
