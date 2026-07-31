@@ -51,11 +51,15 @@ export async function completeOnboarding(
   };
 
   const role_title = value("role_title");
+  const training_stage_raw = value("training_stage");
   const hospital = value("hospital");
   const location = value("location");
   const racgp_id = value("racgp_id");
   const exam_target = value("exam_target");
   const bio = value("bio");
+
+  const training_stage = (training_stage_raw === "FELLOW" ? "FELLOW" : training_stage_raw === "OTHER" ? "OTHER" : "REGISTRAR") as "REGISTRAR" | "FELLOW" | "OTHER";
+  const user_role = training_stage === "FELLOW" ? "FELLOW" : "REGISTRAR";
 
   if (!role_title) {
     return { error: "Please tell us your current training level or role." };
@@ -63,12 +67,15 @@ export async function completeOnboarding(
 
   await prisma.users.update({
     where: { clerk_user_id: userId },
-    data: { role_title, hospital, location, racgp_id, exam_target, bio },
+    data: { role_title, training_stage, user_role, hospital, location, racgp_id, exam_target, bio },
   });
 
   const client = await clerkClient();
   await client.users.updateUserMetadata(userId, {
-    publicMetadata: { onboardingComplete: true },
+    publicMetadata: {
+      onboardingComplete: true,
+      trainingStage: training_stage,
+    },
   });
 
   redirect("/dashboard");

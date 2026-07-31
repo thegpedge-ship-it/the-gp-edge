@@ -19,6 +19,8 @@ export interface UserAccessState {
   loading: boolean;
   /** Null until resolved, or if user is not signed in. */
   access: SerializedUserAccess | null;
+  /** User's current career stage ("REGISTRAR", "FELLOW", "OTHER"). Default "REGISTRAR". */
+  trainingStage: "REGISTRAR" | "FELLOW" | "OTHER";
   /**
    * Convenience shorthand: any active paid plan
    * ($15/mo, $30/mo, $300/yr, or Registrar).
@@ -64,10 +66,12 @@ export function useUserAccess(): UserAccessState {
 
   const hasPaidAccess = !loading && (access?.hasPaidAccess ?? false);
   const isRegistrarActive = !loading && (access?.isRegistrarActive ?? false);
+  const trainingStage = access?.trainingStage ?? "REGISTRAR";
 
   return {
     loading,
     access,
+    trainingStage,
     hasPaidAccess,
     isRegistrarActive,
     hasAnyPaidPlan: hasPaidAccess,

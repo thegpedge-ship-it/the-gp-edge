@@ -18,6 +18,9 @@ import prisma from "@/lib/prisma";
 import { getVisiblePlans, type PlanId } from "@/lib/access";
 import PricingPageClient, { type PricingPlan } from "./PricingPageClient";
 
+// Force a fresh DB read — subscription expiry must be evaluated live.
+export const dynamic = "force-dynamic";
+
 // ─── Plan definitions ─────────────────────────────────────────────────────────
 
 const ALL_PLANS: Record<PlanId, PricingPlan> = {
@@ -128,33 +131,87 @@ export default async function PricingPage() {
   if (!clerkUserId) redirect("/sign-in");
 
   // Fetch user role + purchase history from DB
-  const dbUser = await prisma.users.findUnique({
-    where: { clerk_user_id: clerkUserId },
-    select: {
-      id: true,
-      user_role: true,
-      has_purchased_registrar: true,
-      subscriptions: {
-        select: { access_level: true, status: true, access_expires_at: true },
+  let dbUser: any = null;
+  try {
+    dbUser = await prisma.users.findUnique({
+      where: { clerk_user_id: clerkUserId },
+      select: {
+        id: true,
+        user_role: true,
+        training_stage: true,
+        role_title: true,
+        has_purchased_registrar: true,
+        subscriptions: {
+          select: { access_level: true, status: true, access_expires_at: true },
+        },
       },
-    },
-  });
+    });
+  } catch (err) {
+    console.warn("[PricingPage] training_stage fallback triggered:", err);
+    dbUser = await prisma.users.findUnique({
+      where: { clerk_user_id: clerkUserId },
+      select: {
+        id: true,
+        user_role: true,
+        role_title: true,
+        has_purchased_registrar: true,
+        subscriptions: {
+          select: { access_level: true, status: true, access_expires_at: true },
+        },
+      },
+    });
+  }
 
   if (!dbUser) redirect("/onboarding");
 
+  const isFellow =
+    String(dbUser.training_stage ?? "").toUpperCase() === "FELLOW" ||
+    String(dbUser.user_role ?? "").toUpperCase() === "FELLOW" ||
+    String(dbUser.role_title ?? "").toLowerCase().includes("fellow") ||
+    String(dbUser.role_title ?? "").toLowerCase().includes("post-reg");
+
+  const trainingStage = isFellow ? "FELLOW" : "REGISTRAR";
+  const userRole = isFellow ? "FELLOW" : "REGISTRAR";
+
   // Determine which plan IDs this user is allowed to see
   const visiblePlanIds = getVisiblePlans(
-    dbUser.user_role as "REGISTRAR" | "FELLOW",
-    dbUser.has_purchased_registrar
+    userRole,
+    dbUser.has_purchased_registrar,
+    trainingStage
   );
 
   // Build ordered plan list for the client
-  const plans = visiblePlanIds.map((id) => ALL_PLANS[id]);
+  const plans = visiblePlanIds.map((id) => {
+    const plan = { ...ALL_PLANS[id] };
+    if (id === "post_registrar_upgrade" && isFellow && dbUser.has_purchased_registrar) {
+      plan.name = "Loyalty Monthly Plan";
+      plan.badge = "ALUMNI LOYALTY DISCOUNT (50% OFF)";
+      plan.strikeThroughPrice = "30";
+      plan.priceDisplay = "15";
+      plan.priceNote = "AUD / month · Special alumni rate";
+      plan.highlight = true;
+      plan.cta = "Get $15/mo Loyalty Rate";
+    }
+    return plan;
+  });
 
-  // Determine if the user already has an active subscription to show status
-  const activeSub = dbUser.subscriptions;
+  // Determine if the user already has an active, non-expired subscription.
+  // NOTE: We check both status AND access_expires_at here because getUserAccess
+  // auto-expires rows on the next authenticated request — but this page does its
+  // own inline query. Checking access_expires_at ensures correct behavior even
+  // if the auto-expiry hasn't run yet (e.g. very first load after manual DB edit).
+  const now = new Date();
+  const activeSub = Array.isArray(dbUser.subscriptions)
+    ? dbUser.subscriptions.find(
+        (s: { status: string; access_level: string; access_expires_at: Date | null }) =>
+          (s.status === "active" || s.status === "trialing") &&
+          s.access_expires_at != null &&
+          new Date(s.access_expires_at) > now
+      ) ?? null
+    : null;
+
   const currentAccessLevel =
-    activeSub && ["active", "trialing"].includes(activeSub.status)
+    activeSub
       ? (activeSub.access_level as string)
       : "FREE";
 
@@ -162,6 +219,7 @@ export default async function PricingPage() {
     <PricingPageClient
       plans={plans}
       userRole={dbUser.user_role}
+      trainingStage={trainingStage}
       currentAccessLevel={currentAccessLevel}
       accessExpiresAt={activeSub?.access_expires_at?.toISOString() ?? null}
     />

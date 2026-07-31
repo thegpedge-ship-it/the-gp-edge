@@ -995,7 +995,9 @@ model users {
   // ── Stripe & billing fields ──────────────────────────────────────────────
   stripe_customer_id                String?                    @unique
   user_role                         user_role_kind             @default(REGISTRAR)
+  training_stage                    TrainingStage              @default(REGISTRAR)
   has_purchased_registrar           Boolean                    @default(false)
+  role_reevaluated                  Boolean                    @default(false)
   /// Lifetime free quota — decrements atomically, never resets.
   free_questions_left               Int                        @default(15)
   free_templates_left               Int                        @default(5)
@@ -1207,4 +1209,10 @@ enum access_level_kind {
 enum payment_mode_kind {
   payment
   subscription
+}
+
+enum TrainingStage {
+  REGISTRAR
+  FELLOW
+  OTHER
 }
