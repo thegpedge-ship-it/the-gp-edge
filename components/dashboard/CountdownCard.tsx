@@ -13,26 +13,30 @@ type UpcomingExam = {
 };
 
 function useCountdown(daysAway: number) {
-  const [target] = useState(() => {
+  const [mounted, setMounted] = useState(false);
+  const [target, setTarget] = useState<number | null>(null);
+  const [time, setTime] = useState({ days: daysAway, hours: 0, minutes: 0 });
+
+  useEffect(() => {
+    setMounted(true);
     const d = new Date();
     d.setDate(d.getDate() + daysAway);
     d.setHours(9, 0, 0, 0);
-    return d.getTime();
-  });
-
-  const calc = () => {
-    const diff = Math.max(0, target - Date.now());
-    return {
-      days: Math.floor(diff / 86_400_000),
-      hours: Math.floor((diff % 86_400_000) / 3_600_000),
-      minutes: Math.floor((diff % 3_600_000) / 60_000),
-    };
-  };
-
-  const [time, setTime] = useState(calc);
+    setTarget(d.getTime());
+  }, [daysAway]);
 
   useEffect(() => {
-    const id = setInterval(() => setTime(calc), 60_000);
+    if (!target) return;
+    const calc = () => {
+      const diff = Math.max(0, target - Date.now());
+      return {
+        days: Math.floor(diff / 86_400_000),
+        hours: Math.floor((diff % 86_400_000) / 3_600_000),
+        minutes: Math.floor((diff % 3_600_000) / 60_000),
+      };
+    };
+    setTime(calc());
+    const id = setInterval(() => setTime(calc()), 60_000);
     return () => clearInterval(id);
   }, [target]);
 
