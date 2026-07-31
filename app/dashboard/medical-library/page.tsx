@@ -726,7 +726,10 @@ function MedicalLibraryContent() {
     const cleanId = selectedConditionId.replace("CUSTOM-APPROACH-", "").replace("CUSTOM-", "");
     setDbLoading(true);
     fetch(`/api/medical-content/${cleanId}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then(json => {
         if (json.success && json.data) {
           const data = json.data;

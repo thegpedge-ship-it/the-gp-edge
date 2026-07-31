@@ -80,6 +80,7 @@ export function getQuestions(): Question[] {
 export async function fetchQuestions(): Promise<Question[]> {
   try {
     const res = await fetch("/api/questions", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       QUESTION_BANK.length = 0;
@@ -461,6 +462,7 @@ export function getMedicalContent(): MedicalContent[] {
 export async function fetchMedicalContent(): Promise<MedicalContent[]> {
   try {
     const res = await fetch("/api/medical-content", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) {
       _medicalContentCache = json.data;
@@ -484,6 +486,7 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) return json.id;
   } catch (err) {
@@ -500,6 +503,7 @@ export async function updateMedicalContentItem(id: string, updates: Partial<Medi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return json.success;
   } catch (err) {

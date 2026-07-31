@@ -16,25 +16,9 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { getVisiblePlans, type PlanId } from "@/lib/access";
-import PricingPageClient from "./PricingPageClient";
+import PricingPageClient, { type PricingPlan } from "./PricingPageClient";
 
 // ─── Plan definitions ─────────────────────────────────────────────────────────
-
-export interface PricingPlan {
-  id: PlanId;
-  name: string;
-  tagline: string;
-  badge: string | null;
-  priceDisplay: string;
-  priceNote: string;
-  billingType: "one-time" | "monthly" | "yearly";
-  amountAUD: number;
-  highlight: boolean;
-  features: string[];
-  cta: string;
-  /** Stripe price ID env var key — resolved server-side */
-  priceId: string;
-}
 
 const ALL_PLANS: Record<PlanId, PricingPlan> = {
   registrar_6mo: {
