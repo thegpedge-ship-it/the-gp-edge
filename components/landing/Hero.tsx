@@ -62,13 +62,13 @@ interface StatConfig {
   rawValue: number;
   suffix: string;
   label: string;
-  variant: "default" | "blue" | "dark";
+  variant: "default" | "teal" | "dark";
   delay: number;
 }
 
 const stats: StatConfig[] = [
   { rawValue: 4800, suffix: "+", label: "Questions", variant: "default", delay: 0.0 },
-  { rawValue: 180, suffix: "+", label: "MBS Items", variant: "blue", delay: 0.1 },
+  { rawValue: 180, suffix: "+", label: "MBS Items", variant: "teal", delay: 0.1 },
   { rawValue: 2600, suffix: "+", label: "Autofills", variant: "dark", delay: 0.2 },
   { rawValue: 300, suffix: "+", label: "Conditions", variant: "default", delay: 0.3 },
 ];
@@ -80,7 +80,7 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
     ? `${Math.floor(display / 1000)},${String(display % 1000).padStart(3, "0")}${stat.suffix}`
     : `${display}${stat.suffix}`;
 
-  const isTeal = stat.variant === "blue";
+  const isTeal = stat.variant === "teal";
   const isDark = stat.variant === "dark";
   const isDefault = stat.variant === "default";
 
@@ -91,10 +91,10 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
       transition={{ duration: 0.55, delay: 0.4 + index * 0.1, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -2, transition: { duration: 0.2 } }}
       className={`group relative rounded-2xl p-5 cursor-pointer transition-all duration-300 overflow-hidden ${isTeal
-        ? "bg-gradient-to-br from-blue-500 via-blue-500 to-sky-600 text-white shadow-xl shadow-blue-500/30 border border-blue-400/30"
+        ? "bg-gradient-to-br from-teal-500 via-teal-500 to-emerald-600 text-white shadow-xl shadow-teal-500/30 border border-teal-400/30"
         : isDark
           ? "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 text-white border border-slate-700/80 shadow-xl shadow-slate-900/30 dark:from-[#0F1115] dark:via-[#151922] dark:to-[#0F1115] dark:border-[rgba(255,255,255,0.08)]"
-          : "bg-white dark:bg-[#1B212C] text-slate-900 dark:text-[#F5F7FA] border border-slate-200/80 dark:border-[rgba(255,255,255,0.05)] shadow-md shadow-slate-200/60 dark:shadow-none hover:shadow-lg hover:border-blue-200 dark:hover:border-[rgba(255,255,255,0.1)]"
+          : "bg-white dark:bg-[#1B212C] text-slate-900 dark:text-[#F5F7FA] border border-slate-200/80 dark:border-[rgba(255,255,255,0.05)] shadow-md shadow-slate-200/60 dark:shadow-none hover:shadow-lg hover:border-teal-200 dark:hover:border-[rgba(255,255,255,0.1)]"
         }`}
     >
       {/* Inner shimmer gradient overlay */}
@@ -104,11 +104,11 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
       {isDark && (
         <>
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.06)_1px,transparent_0)] bg-[size:12px_12px] rounded-2xl" />
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full blur-2xl" />
+          <div className="absolute top-0 right-0 w-20 h-20 bg-teal-500/10 rounded-full blur-2xl" />
         </>
       )}
       {isDefault && (
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-blue-50/0 dark:from-transparent dark:to-transparent group-hover:from-blue-50/60 group-hover:to-sky-50/30 dark:group-hover:from-[rgba(96, 165, 250,0.08)] dark:group-hover:to-[rgba(96, 165, 250,0.02)] transition-all duration-400 pointer-events-none rounded-2xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-teal-50/0 dark:from-transparent dark:to-transparent group-hover:from-teal-50/60 group-hover:to-emerald-50/30 dark:group-hover:from-[rgba(90,200,176,0.08)] dark:group-hover:to-[rgba(90,200,176,0.02)] transition-all duration-400 pointer-events-none rounded-2xl" />
       )}
 
       <div className="relative z-10">
@@ -122,18 +122,18 @@ function StatCard({ stat, index }: { stat: StatConfig; index: number }) {
           {displayStr}
         </div>
 
-        <div className={`font-sans text-xs sm:text-sm font-semibold uppercase tracking-wide ${isTeal ? "text-blue-100" : isDark ? "text-slate-400" : "text-slate-550 dark:text-[#A8B1BD]"
+        <div className={`font-sans text-xs sm:text-sm font-semibold uppercase tracking-wide ${isTeal ? "text-teal-100" : isDark ? "text-slate-400" : "text-slate-550 dark:text-[#A8B1BD]"
           }`}>
           {stat.label}
         </div>
 
         {/* Accent bars */}
         <div className="mt-4 flex items-center gap-1.5">
-          <div className={`h-1 rounded-full transition-all duration-500 group-hover:w-10 w-8 ${isTeal ? "bg-white/50" : isDark ? "bg-blue-400" : "bg-blue-400"
+          <div className={`h-1 rounded-full transition-all duration-500 group-hover:w-10 w-8 ${isTeal ? "bg-white/50" : isDark ? "bg-teal-400" : "bg-teal-400"
             }`} />
-          <div className={`h-1 rounded-full w-4 ${isTeal ? "bg-white/25" : isDark ? "bg-blue-400/40" : "bg-blue-200"
+          <div className={`h-1 rounded-full w-4 ${isTeal ? "bg-white/25" : isDark ? "bg-teal-400/40" : "bg-teal-200"
             }`} />
-          <div className={`h-1 rounded-full w-2 ${isTeal ? "bg-white/15" : isDark ? "bg-blue-400/20" : "bg-blue-100"
+          <div className={`h-1 rounded-full w-2 ${isTeal ? "bg-white/15" : isDark ? "bg-teal-400/20" : "bg-teal-100"
             }`} />
         </div>
       </div>
@@ -158,12 +158,12 @@ export default function Hero() {
           {/* Left Column - Content */}
           <div className="text-center lg:text-left">
             {/* Eyebrow Badge */}
-            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-50/80 dark:bg-[rgba(96, 165, 250,0.08)] border border-blue-200/50 dark:border-[rgba(96, 165, 250,0.18)] mb-8 backdrop-blur-sm">
+            <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-teal-50/80 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/50 dark:border-[rgba(90,200,176,0.18)] mb-8 backdrop-blur-sm">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              <span className="text-xs font-semibold text-blue-700 dark:text-[#60A5FA] uppercase tracking-wider">
+              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] uppercase tracking-wider">
                 Built for GP Registrars
               </span>
             </motion.div>
@@ -175,7 +175,7 @@ export default function Hero() {
             >
               Study smarter.{" "}
               <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-blue-600 via-blue-500 to-sky-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-teal-600 via-teal-500 to-emerald-500 bg-clip-text text-transparent">
                   Pass with confidence.
                 </span>
               </span>
@@ -186,9 +186,9 @@ export default function Hero() {
               variants={itemVariants}
               className="font-sans text-lg md:text-xl font-normal leading-relaxed text-slate-600 dark:text-[#A8B1BD] max-w-xl mb-10"
             >
-              <span className="font-medium text-blue-600 dark:text-[#60A5FA]">Adaptive mock exams</span>, interactive{" "}
-              <span className="font-medium text-blue-600 dark:text-[#60A5FA]">MBS billing tools</span>, and real-world{" "}
-              <span className="font-medium text-blue-600 dark:text-[#60A5FA]">clinical templates</span>—everything you need to ace the AKT and KFP.
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">Adaptive mock exams</span>, interactive{" "}
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">MBS billing tools</span>, and real-world{" "}
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span>—everything you need to ace the AKT and KFP.
             </motion.p>
 
             {/* CTAs */}
@@ -197,9 +197,9 @@ export default function Hero() {
                 .btn-start-free-new {
                   position: relative;
                   transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-                  box-shadow: 0px 10px 20px rgba(66, 139, 225, 0.2);
+                  box-shadow: 0px 10px 20px rgba(20, 184, 166, 0.2);
                   padding: 0.9rem 1.75rem;
-                  background-color: #428BE1;
+                  background-color: #0d9488;
                   border-radius: 12px;
                   display: inline-flex;
                   align-items: center;
@@ -216,8 +216,8 @@ export default function Hero() {
                   text-decoration: none;
                 }
                 .dark .btn-start-free-new {
-                  box-shadow: 0px 10px 20px rgba(96, 165, 250, 0.15);
-                  border-color: rgba(96, 165, 250, 0.2);
+                  box-shadow: 0px 10px 20px rgba(90, 200, 176, 0.15);
+                  border-color: rgba(90, 200, 176, 0.2);
                 }
                 @media (min-width: 640px) { .btn-start-free-new { width: auto; } }
 
@@ -230,10 +230,10 @@ export default function Hero() {
                 .btn-start-free-new:hover {
                   transform: scale(1.03);
                   border-color: rgba(255, 255, 255, 0.6);
-                  box-shadow: 0px 12px 24px rgba(66, 139, 225, 0.3);
+                  box-shadow: 0px 12px 24px rgba(20, 184, 166, 0.3);
                 }
                 .dark .btn-start-free-new:hover {
-                  border-color: rgba(96, 165, 250, 0.4);
+                  border-color: rgba(90, 200, 176, 0.4);
                 }
 
                 .btn-start-free-new:hover .btn-start-free-icon {
@@ -327,7 +327,7 @@ export default function Hero() {
 
             {/* Micro-copy */}
             <motion.p variants={itemVariants} className="text-sm text-slate-500 flex items-center justify-center lg:justify-start gap-2">
-              <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
               Free to start. No credit card required.
@@ -339,7 +339,7 @@ export default function Hero() {
             {/* Container panel - premium glassmorphic Apple-style */}
             <div className="relative p-6 rounded-[2rem] bg-white/60 dark:bg-[rgba(21,25,34,0.6)] backdrop-blur-xl border border-white dark:border-[rgba(255,255,255,0.08)] shadow-2xl dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] ring-1 ring-slate-900/5 dark:ring-white/5">
               {/* Inner glow */}
-              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-blue-50/30 dark:from-[rgba(255,255,255,0.05)] dark:to-transparent pointer-events-none" />
+              <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 dark:from-[rgba(255,255,255,0.05)] dark:to-transparent pointer-events-none" />
 
               {/* Dashboard header */}
               <div className="relative flex items-center justify-between mb-4 pl-6">

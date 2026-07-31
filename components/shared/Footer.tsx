@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
 
 // ─── Animation variant ─────────────────────────────────────────────────────
 const fadeUp = {
@@ -69,8 +68,6 @@ const SOCIALS = [
 export default function Footer() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
-  const pathname = usePathname();
-  const isHomePage = pathname === "/";
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,17 +141,17 @@ export default function Footer() {
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
           className="absolute -top-48 right-0 w-[560px] h-[560px] rounded-full"
-          style={{ background: `radial-gradient(circle, ${isHomePage ? 'rgba(66,139,225,0.09)' : 'rgba(20,184,166,0.09)'} 0%, transparent 70%)` }}
+          style={{ background: "radial-gradient(circle, rgba(20,184,166,0.09) 0%, transparent 70%)" }}
         />
         <div
           className="absolute bottom-0 -left-32 w-[420px] h-[420px] rounded-full"
-          style={{ background: `radial-gradient(circle, ${isHomePage ? 'rgba(96,165,250,0.07)' : 'rgba(52,211,153,0.07)'} 0%, transparent 70%)` }}
+          style={{ background: "radial-gradient(circle, rgba(52,211,153,0.07) 0%, transparent 70%)" }}
         />
       </div>
 
       {/* ── Strong visual separator from landing page content ── */}
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        <div className={`h-px bg-gradient-to-r from-transparent ${isHomePage ? 'via-blue-300/50' : 'via-teal-300/50'} to-transparent`} />
+        <div className="h-px bg-gradient-to-r from-transparent via-teal-300/50 to-transparent" />
       </div>
 
       {/* ══════════════════════════════════════════════════════════
@@ -178,7 +175,7 @@ export default function Footer() {
             color: #8c98a8;
           }
           .footer-link:before {
-            background-color: ${isHomePage ? '#428BE1' : '#14b8a6'};
+            background-color: #14b8a6;
             content: "";
             display: inline-block;
             height: 1.5px;
@@ -187,13 +184,13 @@ export default function Footer() {
             width: 0;
           }
           .footer-link:hover {
-            color: ${isHomePage ? '#2563eb' : '#0d9488'};
+            color: #0d9488;
           }
           .dark .footer-link:hover {
-            color: ${isHomePage ? '#60a5fa' : '#58c1ae'};
+            color: #58c1ae;
           }
           .dark .footer-link:before {
-            background-color: ${isHomePage ? '#60a5fa' : '#58c1ae'};
+            background-color: #58c1ae;
           }
           .footer-link:hover:before {
             margin-right: 8px;
@@ -224,7 +221,6 @@ export default function Footer() {
                 width={240}
                 height={240}
                 className="w-auto h-20 md:h-24 object-contain"
-                style={isHomePage ? { filter: "brightness(0) saturate(100%) invert(54%) sepia(28%) saturate(4293%) hue-rotate(191deg) brightness(93%) contrast(89%)" } : {}}
                 priority
               />
             </div>
@@ -241,11 +237,7 @@ export default function Footer() {
                   key={s.name}
                   href={s.href}
                   aria-label={s.name}
-                  className={`footer-social-btn w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 active:scale-[0.95] transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${
-                    isHomePage 
-                      ? "hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200" 
-                      : "hover:text-teal-600 hover:bg-teal-50 hover:border-teal-200"
-                  }`}
+                  className="footer-social-btn w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-teal-600 hover:bg-teal-50 hover:border-teal-200 active:scale-[0.95] transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                 >
                   <svg className="w-[16px] h-[16px]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d={s.path} />
@@ -278,7 +270,7 @@ export default function Footer() {
                         href={link.href}
                         className="footer-link group"
                       >
-                        <span className={`text-[14px] font-extrabold text-transparent bg-clip-text bg-[length:200%_auto] animate-gradient-x group-hover:scale-105 transition-transform duration-300 ${isHomePage ? 'bg-gradient-to-r from-blue-600 via-blue-400 to-blue-600' : 'bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600'}`}>
+                        <span className="text-[14px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-400 to-teal-600 bg-[length:200%_auto] animate-gradient-x group-hover:scale-105 transition-transform duration-300">
                           {link.label}
                         </span>
                       </a>
@@ -314,8 +306,8 @@ export default function Footer() {
             </p>
 
             {subscribed ? (
-              <div className={`flex items-center gap-2.5 px-4 py-3.5 rounded-2xl border text-[14px] font-medium ${isHomePage ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-teal-50 border-teal-200 text-teal-700'}`}>
-                <svg className={`w-5 h-5 flex-shrink-0 ${isHomePage ? 'text-blue-500' : 'text-teal-500'}`} fill="currentColor" viewBox="0 0 20 20">
+              <div className="flex items-center gap-2.5 px-4 py-3.5 rounded-2xl bg-teal-50 border border-teal-200 text-teal-700 text-[14px] font-medium">
+                <svg className="w-5 h-5 text-teal-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
                 You&apos;re on the list!
@@ -328,15 +320,11 @@ export default function Footer() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   required
-                  className={`footer-email-input w-full px-4 py-3 text-[14px] bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 placeholder:text-slate-400 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)] ${
-                    isHomePage ? 'focus:ring-blue-500/25 focus:border-blue-400' : 'focus:ring-teal-500/25 focus:border-teal-400'
-                  }`}
+                  className="footer-email-input w-full px-4 py-3 text-[14px] bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/25 focus:border-teal-400 placeholder:text-slate-400 transition-all duration-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
                 />
                 <button
                   type="submit"
-                  className={`subscribe-animated-btn relative flex items-center justify-center gap-2.5 w-full px-4 py-3 text-white dark:text-[#0F1115] text-[14px] font-bold rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] group ${
-                    isHomePage ? 'bg-[#428BE1] dark:bg-[#60A5FA] shadow-[0_10px_20px_rgba(66,139,225,0.2)]' : 'bg-teal-600 dark:bg-[#58c1ae] shadow-[0_10px_20px_rgba(20,184,166,0.2)]'
-                  }`}
+                  className="subscribe-animated-btn relative flex items-center justify-center gap-2.5 w-full px-4 py-3 bg-teal-600 dark:bg-[#58c1ae] text-white dark:text-[#0F1115] text-[14px] font-bold rounded-xl overflow-hidden transition-all duration-300 shadow-[0_10px_20px_rgba(20,184,166,0.2)] hover:scale-[1.02] active:scale-[0.98] group"
                 >
                   Subscribe
                 </button>
@@ -399,9 +387,7 @@ export default function Footer() {
                 <a
                   key={item.label}
                   href={item.href}
-                  className={`footer-copyright text-[13px] font-medium text-slate-500 transition-colors duration-200 ${
-                    isHomePage ? 'hover:text-blue-600 dark:hover:text-[#60a5fa]' : 'hover:text-teal-600 dark:hover:text-[#58c1ae]'
-                  }`}
+                  className="footer-copyright text-[13px] font-medium text-slate-500 hover:text-teal-600 dark:hover:text-[#58c1ae] transition-colors duration-200"
                 >
                   {item.label}
                 </a>

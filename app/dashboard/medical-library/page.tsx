@@ -284,12 +284,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
                 <Lucide.Unlock className="w-2.5 h-2.5" />
                 FREE
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30">
-                <Lucide.Lock className="w-2.5 h-2.5" />
-                Paid
-              </span>
-            )}
+            ) : null}
           </div>
           <label
             className="custom-bookmark cursor-pointer"
@@ -384,17 +379,12 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
             <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
               Approach
             </span>
-            {condition.isFree === true ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                FREE
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30">
+            {condition.isPremium ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
-                Paid
+                Paid Only
               </span>
-            )}
+            ) : null}
           </div>
           <label
             className="custom-bookmark cursor-pointer"

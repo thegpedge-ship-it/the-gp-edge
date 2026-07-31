@@ -3,15 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 
 export default function GlobalLogo() {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!pathname) return null;
 
@@ -29,8 +23,6 @@ export default function GlobalLogo() {
     return null;
   }
 
-  const isHomePage = mounted && pathname === "/";
-
   return (
     <div className="fixed top-3 left-0 md:top-4 md:left-0 z-[60] pointer-events-auto">
       <Link href="/">
@@ -40,9 +32,7 @@ export default function GlobalLogo() {
           width={240}
           height={240}
           className="w-auto h-12 md:h-16 lg:h-20 xl:h-[84px] object-contain drop-shadow-sm hover:opacity-90 transition-opacity"
-          style={isHomePage ? { filter: "brightness(0) saturate(100%) invert(54%) sepia(28%) saturate(4293%) hue-rotate(191deg) brightness(93%) contrast(89%)" } : {}}
           priority
-          suppressHydrationWarning
         />
       </Link>
     </div>
