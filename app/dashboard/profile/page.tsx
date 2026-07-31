@@ -10,6 +10,8 @@ import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser } from "@/lib/user";
 import { formatJoined } from "@/lib/format";
 import { getProfileData } from "./actions";
+import { getUserAccess } from "@/lib/access";
+import ProfileBillingCard from "@/components/dashboard/ProfileBillingCard";
 import Avatar from "@/components/ui/Avatar";
 import FadeIn from "@/components/ui/FadeIn";
 import PageCard from "@/components/ui/PageCard";
@@ -35,12 +37,15 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default async function ProfilePage() {
   const user = await currentUser();
   const dbUser = await ensureDbUser();
+  const accessInfo = dbUser?.id ? await getUserAccess(dbUser.id) : null;
   const profileData = await getProfileData();
-  const { stats, examPaths, badges } = profileData;
-  // Defensive default: a stale cache entry from before this field existed could
-  // omit `completeness`, which would otherwise crash the render below.
+  const { stats, examPaths } = profileData;
   const completeness =
     profileData.completeness ?? { quizzesCompleted: 0, quizzesTotal: 0, quizzesPercent: 0 };
+
+  const accessExpiresAtIso = (dbUser as any)?.subscriptions?.access_expires_at
+    ? new Date((dbUser as any).subscriptions.access_expires_at).toISOString()
+    : null;
 
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";
@@ -276,49 +281,16 @@ export default async function ProfilePage() {
             </PageCard>
           </FadeIn>
 
-          {/* Card 3: Achievements & Badges */}
+          {/* Card 3: Billing & Subscription Management */}
           <FadeIn delay={0.18}>
             <PageCard className="h-full">
-              <div className="p-6 h-full flex flex-col justify-between gap-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <h3 className="font-sans text-lg md:text-xl font-semibold leading-snug text-slate-900 dark:text-slate-100">
-                        Achievements & Badges
-                      </h3>
-                      <p className="font-sans text-xs text-slate-550 dark:text-slate-400">
-                        Earned milestones
-                      </p>
-                    </div>
-                    <button type="button" className="font-sans text-xs font-semibold text-teal-600 dark:text-teal-400 hover:text-teal-700 transition-colors">
-                      View all
-                    </button>
-                  </div>
-                  
-                  <div className="mt-6">
-                    {badges.length === 0 && (
-                      <p className="font-sans text-xs text-slate-500 dark:text-slate-400">
-                        No badges earned yet. Keep practising to unlock your first milestone.
-                      </p>
-                    )}
-                    <div className="flex gap-4 flex-wrap">
-                      {badges.map((b) => (
-                        <div
-                          key={b.key}
-                          className="group flex flex-col items-center gap-1.5"
-                          title={`${b.name} · Earned ${b.earned}`}
-                        >
-                          <div className="relative w-12 h-12 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:scale-105">
-                            <Image src={b.img} alt={b.name} fill sizes="48px" className="object-contain drop-shadow-sm" />
-                          </div>
-                          <span className="font-sans text-[10px] font-medium text-slate-650 dark:text-slate-350 text-center leading-tight max-w-[65px] truncate">{b.name}</span>
-                          <span className="font-sans text-[9px] text-slate-500 dark:text-slate-450">{b.earned}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ProfileBillingCard
+                accessLevel={accessInfo?.accessLevel ?? "FREE"}
+                hasPaidAccess={accessInfo?.hasPaidAccess ?? false}
+                isRegistrarActive={accessInfo?.isRegistrarActive ?? false}
+                accessExpiresAt={accessExpiresAtIso}
+                hasCustomerProfile={Boolean(dbUser?.stripe_customer_id)}
+              />
             </PageCard>
           </FadeIn>
 

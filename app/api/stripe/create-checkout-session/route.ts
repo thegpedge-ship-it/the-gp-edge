@@ -58,6 +58,21 @@ export async function POST(req: Request) {
       });
     }
 
+    // ── Active Subscription Backend Guard ──────────────────────────────────────
+    const activeSub = await prisma.subscriptions.findFirst({
+      where: {
+        user_id: dbUser.id,
+        status: { in: ["active", "trialing"] },
+      },
+    });
+
+    if (activeSub && activeSub.access_expires_at && new Date(activeSub.access_expires_at) > new Date()) {
+      return NextResponse.json(
+        { error: "You already have an active subscription. Please manage your subscription from your Profile page." },
+        { status: 400 }
+      );
+    }
+
     // ── Determine checkout mode ────────────────────────────────────────────────
     const isOneTimePayment = REGISTRAR_PRICE_IDS.has(priceId);
     const mode = isOneTimePayment ? "payment" : "subscription";
@@ -70,22 +85,28 @@ export async function POST(req: Request) {
     // ── Create Checkout Session ────────────────────────────────────────────────
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
+      customer_email: customerId ? undefined : dbUser.email,
       mode,
       line_items: [{ price: priceId, quantity: 1 }],
-      // Pass userId so the webhook can update the correct DB row
+      // Pass userId so webhooks tie subscriptions to the DB user ID
       client_reference_id: dbUser.id,
       metadata: {
         userId: dbUser.id,
         priceId,
       },
-      success_url: successUrl,
-      cancel_url: cancelUrl,
-      // Allow promo codes to be entered at checkout
-      allow_promotion_codes: true,
-      // For subscription mode: collect billing address
+      // Guarantee that recurring subscription objects carry metadata.userId
       ...(mode === "subscription" && {
+        subscription_data: {
+          metadata: {
+            userId: dbUser.id,
+            priceId,
+          },
+        },
         billing_address_collection: "auto",
       }),
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      allow_promotion_codes: true,
     });
 
     return NextResponse.json({ url: session.url });

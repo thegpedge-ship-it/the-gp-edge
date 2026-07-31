@@ -14,6 +14,7 @@ import { getUserAccess } from "@/lib/access";
 export interface SerializedUserAccess {
   userId: string;
   accessLevel: "FREE" | "REGISTRAR" | "FELLOWSHIP" | "POST_REGISTRAR_UPGRADE";
+  trainingStage: "REGISTRAR" | "FELLOW" | "OTHER";
   /** Any active paid plan ($15/mo, $30/mo, $300/yr, or Registrar). */
   hasPaidAccess: boolean;
   /**
@@ -45,6 +46,7 @@ export async function getUserAccessAction(): Promise<SerializedUserAccess | null
 
     console.log(`[getUserAccessAction] Resolved access for user "${access.userId}":`, {
       accessLevel: access.accessLevel,
+      trainingStage: access.trainingStage,
       hasPaidAccess: access.hasPaidAccess,
       isRegistrarActive: access.isRegistrarActive,
       hasPurchasedRegistrar: access.hasPurchasedRegistrar,
@@ -53,6 +55,7 @@ export async function getUserAccessAction(): Promise<SerializedUserAccess | null
     return {
       userId: access.userId,
       accessLevel: access.accessLevel,
+      trainingStage: access.trainingStage,
       hasPaidAccess: access.hasPaidAccess,
       isRegistrarActive: access.isRegistrarActive,
       hasPurchasedRegistrar: access.hasPurchasedRegistrar,

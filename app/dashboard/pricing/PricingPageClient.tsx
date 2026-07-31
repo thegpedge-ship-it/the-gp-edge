@@ -15,6 +15,7 @@ import type { PricingPlan } from "./page";
 interface Props {
   plans: PricingPlan[];
   userRole: string;
+  trainingStage?: "REGISTRAR" | "FELLOW" | "OTHER";
   currentAccessLevel: string;
   accessExpiresAt: string | null;
 }
@@ -37,14 +38,18 @@ async function startCheckout(priceId: string): Promise<void> {
   if (url) window.location.href = url;
 }
 
+import DuplicatePurchaseModal from "@/components/dashboard/DuplicatePurchaseModal";
+
 // ─── Plan Card ────────────────────────────────────────────────────────────────
 
 function PlanCard({
   plan,
   currentAccessLevel,
+  onAttemptActivePurchase,
 }: {
   plan: PricingPlan;
   currentAccessLevel: string;
+  onAttemptActivePurchase: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +60,12 @@ function PlanCard({
 
   function handleClick() {
     setError(null);
+
+    // Active Subscription Guard: Block duplicate checkout if user already has an active paid plan
+    if (currentAccessLevel !== "FREE") {
+      onAttemptActivePurchase();
+      return;
+    }
 
     if (!plan.priceId || (plan.priceId.startsWith("price_") && plan.priceId.endsWith("_here"))) {
       setError("Stripe Price ID is not configured in .env. Please update your environment variables with real Stripe Price IDs.");
@@ -84,7 +95,7 @@ function PlanCard({
       className={`
         relative flex flex-col rounded-[22px] border p-7 transition-all duration-200
         ${plan.highlight
-          ? "border-teal-400/60 dark:border-teal-500/40 bg-gradient-to-b from-teal-50/80 to-white dark:from-teal-950/30 dark:to-slate-900/80 shadow-lg shadow-teal-100/50 dark:shadow-teal-950/30"
+          ? "border-teal-400/60 dark:border-teal-500/40 bg-gradient-to-b from-teal-50/80 to-white dark:from-teal-950/30 dark:to-slate-900/80 shadow-lg shadow-teal-100/50 dark:shadow-teal-955/30"
           : "border-slate-200/80 dark:border-slate-800/60 bg-white dark:bg-slate-900/60 shadow-md"
         }
       `}
@@ -114,7 +125,12 @@ function PlanCard({
 
       {/* Price */}
       <div className="mb-6">
-        <div className="flex items-baseline gap-1 mb-1">
+        <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+          {plan.strikeThroughPrice && (
+            <span className="text-xl md:text-2xl font-bold text-slate-400 dark:text-slate-500 line-through decoration-red-500/80 mr-1">
+              A${plan.strikeThroughPrice}
+            </span>
+          )}
           <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">A$</span>
           <span className="text-5xl font-bold tracking-tight text-teal-600 dark:text-teal-400">
             {plan.priceDisplay}
@@ -153,7 +169,7 @@ function PlanCard({
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/60 dark:border-red-800/40 text-red-600 dark:text-red-400 text-sm mb-4">
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 dark:bg-red-955/30 border border-red-200/60 dark:border-red-800/40 text-red-600 dark:text-red-400 text-sm mb-4">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
         </div>
@@ -166,7 +182,9 @@ function PlanCard({
         className={`
           w-full py-3 px-5 rounded-xl font-semibold text-sm transition-all duration-200
           disabled:opacity-60 disabled:cursor-not-allowed
-          ${plan.highlight
+          ${isCurrentPlan
+            ? "bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-200 border border-teal-300/80 dark:border-teal-700/80 shadow-sm"
+            : plan.highlight
             ? "bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white shadow-sm hover:shadow"
             : "bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 text-white dark:text-slate-900 shadow-sm"
           }
@@ -180,6 +198,8 @@ function PlanCard({
             </svg>
             Redirecting to checkout…
           </span>
+        ) : isCurrentPlan ? (
+          "Current Active Plan"
         ) : (
           plan.cta
         )}
@@ -210,7 +230,7 @@ function AccessBanner({
     : null;
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-teal-50 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-800/40 mb-8 select-none">
+    <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-teal-50 dark:bg-teal-955/30 border border-teal-200/60 dark:border-teal-800/40 mb-8 select-none">
       <CheckCircle2 className="w-5 h-5 text-teal-600 dark:text-teal-400 flex-shrink-0" strokeWidth={2} />
       <div>
         <p className="text-sm font-semibold text-teal-800 dark:text-teal-200">
@@ -246,10 +266,28 @@ const MODULE_ACCESS: Record<string, { page: string; free: string; paid: string; 
 export default function PricingPageClient({
   plans,
   userRole,
+  trainingStage = "REGISTRAR",
   currentAccessLevel,
   accessExpiresAt,
 }: Props) {
-  const moduleRows = MODULE_ACCESS[userRole] ?? MODULE_ACCESS.REGISTRAR;
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+
+  const isFellow =
+    String(trainingStage ?? "").toUpperCase() === "FELLOW" ||
+    String(userRole ?? "").toUpperCase() === "FELLOW";
+
+  // STRICT RULE ENFORCEMENT:
+  // 1. FELLOW: Never show $1,500 (registrar_6mo) or $2,500 (registrar_12mo) packages under any circumstance.
+  // 2. REGISTRAR: Never show $30/mo (fellowship_monthly) or $300/yr (fellowship_yearly) subscriptions under any circumstance.
+  const sanitizedPlans = isFellow
+    ? plans.filter((p) => p.id !== "registrar_6mo" && p.id !== "registrar_12mo")
+    : plans.filter((p) => p.id !== "fellowship_monthly" && p.id !== "fellowship_yearly");
+
+  const moduleRows = MODULE_ACCESS[isFellow ? "FELLOW" : "REGISTRAR"] ?? MODULE_ACCESS.REGISTRAR;
+
+  // Separate exam packages from recurring subscriptions
+  const examPlans = isFellow ? [] : sanitizedPlans.filter((p) => p.id === "registrar_6mo" || p.id === "registrar_12mo");
+  const subPlans = sanitizedPlans.filter((p) => p.id !== "registrar_6mo" && p.id !== "registrar_12mo");
 
   return (
     <>
@@ -262,6 +300,12 @@ export default function PricingPageClient({
         }
       `}</style>
 
+      <DuplicatePurchaseModal
+        open={showDuplicateModal}
+        accessExpiresAt={accessExpiresAt}
+        onClose={() => setShowDuplicateModal(false)}
+      />
+
       <div className="w-full pb-16 pt-2 flex flex-col">
         {/* ── Hero ─────────────────────────────────────────────────────────── */}
         <section className="mb-8 flex flex-col items-start text-left px-1 w-full">
@@ -270,18 +314,18 @@ export default function PricingPageClient({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-teal-500" />
             </span>
-            Pricing & Plans
+            {isFellow ? "Post-Registrar & Fellow Plans" : "Registrar & Exam Prep Plans"}
           </div>
 
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-3 max-w-3xl">
-            {userRole === "FELLOW"
-              ? "Fellowship access plans"
+            {isFellow
+              ? "Fellowship & Clinical Tools Plans"
               : "Invest in your fellowship success"}
           </h1>
           <p className="font-sans text-lg md:text-xl font-normal leading-relaxed text-slate-600 dark:text-slate-400 max-w-2xl">
-            {userRole === "FELLOW"
-              ? "Access your clinical tools and templates with a Fellowship plan."
-              : "Choose the access window that fits your exam timeline. One-time payment, no subscription required."}
+            {isFellow
+              ? "Flexible monthly and annual subscription options designed specifically for Post-Registrars and Fellows."
+              : "Choose an Exam Package for complete AKT & KFP exam prep."}
           </p>
         </section>
 
@@ -291,24 +335,71 @@ export default function PricingPageClient({
         </div>
 
         {/* ── Plan cards ────────────────────────────────────────────────────── */}
-        <section className="mb-14 px-1 w-full">
-          <div
-            className={`grid gap-6 ${
-              plans.length === 1
-                ? "grid-cols-1 max-w-sm"
-                : plans.length === 2
-                ? "grid-cols-1 md:grid-cols-2 max-w-2xl"
-                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-            }`}
-          >
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                currentAccessLevel={currentAccessLevel}
-              />
-            ))}
-          </div>
+        <section className="mb-14 px-1 w-full space-y-10">
+          {/* For Registrars: Highlight Exam Packages */}
+          {!isFellow && examPlans.length > 0 && (
+            <div>
+              <div className="mb-5">
+                <h2 className="text-xl md:text-2xl font-bold font-serif text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                  Registrar Exam Packages
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Complete AKT & KFP exam prep simulations + full clinical library and billing tools. One-time payment.
+                </p>
+              </div>
+              <div
+                className={`grid gap-6 ${
+                  examPlans.length === 1
+                    ? "grid-cols-1 max-w-sm"
+                    : "grid-cols-1 md:grid-cols-2 max-w-3xl"
+                }`}
+              >
+                {examPlans.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    currentAccessLevel={currentAccessLevel}
+                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Subscriptions section */}
+          {subPlans.length > 0 && (
+            <div>
+              {!isFellow && examPlans.length > 0 && (
+                <div className="mb-5 pt-4 border-t border-slate-200/60 dark:border-slate-800">
+                  <h2 className="text-lg md:text-xl font-bold font-serif text-slate-900 dark:text-slate-100">
+                    Standard Clinical Tool Subscriptions
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Monthly and annual subscriptions for clinical reference, note templates, and MBS billing.
+                  </p>
+                </div>
+              )}
+              <div
+                className={`grid gap-6 ${
+                  subPlans.length === 1
+                    ? "grid-cols-1 max-w-sm"
+                    : subPlans.length === 2
+                    ? "grid-cols-1 md:grid-cols-2 max-w-2xl"
+                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                }`}
+              >
+                {subPlans.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    currentAccessLevel={currentAccessLevel}
+                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* ── Module access table ───────────────────────────────────────────── */}
