@@ -22,6 +22,7 @@ import {
   BookmarkCheck,
   ArrowLeft,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import {
   listSavedMbsItemsAction,
@@ -30,6 +31,7 @@ import {
   getMbsItemDetailAction,
   type MbsSearchHit,
   type MbsItemDetail,
+  type MbsDetailSection,
 } from "@/actions/mbs.actions";
 import { MBS_RESULT_LIMIT } from "@/lib/mbs/constants";
 import { useUserAccess } from "@/hooks/useUserAccess";
@@ -338,33 +340,133 @@ export default function MbsBillingPage() {
 /* ── Detail ───────────────────────────────────────────────────────────── */
 
 /**
- * Item detail: the structured data as raw JSON, then the scraped page below it.
- * The JSON is shown unstyled on purpose — it is the agent's structured output
- * verbatim. The scraped markup follows so the full source page is visible too.
+ * Render a section's text as tight paragraphs.
+ *
+ * The scraped MBS notes wrap almost every sentence in its own <p>, so the stored
+ * value is riddled with blank-line ("\n\n") paragraph breaks. Rendered raw with
+ * `whitespace-pre-line` each of those became a full empty line, leaving the
+ * detail view very airy. Instead we split on blank lines into real paragraphs
+ * with a small, consistent gap, and keep single newlines inside each paragraph
+ * (via `whitespace-pre-line`) so fee tables and condition lists still break.
+ */
+function SectionValue({ value }: { value: string }) {
+  const paragraphs = value
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="mt-1.5 space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      {paragraphs.map((p, i) => (
+        <p key={i} className="whitespace-pre-line">
+          {p}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** A field spans the full width (single column) only when its value is
+ *  multi-line (fee tables, condition lists, descriptors) or exceptionally long;
+ *  single-line values — including longer ones like Group — pack two per row. */
+function isWideValue(value: string): boolean {
+  return value.includes("\n") || value.trim().length > 100;
+}
+
+/**
+ * Associated explanatory notes carry a note code as their label (e.g.
+ * "AN.0.9 — …", "GN.4.13 — …") or the fallback "Associated Explanatory Notes".
+ * These bodies run to thousands of words, so they render as collapsed
+ * accordions below the compact structured fields rather than always-open rows.
+ */
+const NOTE_LABEL = /^[A-Z]{2,4}(?:\.\d+)+\s*—/;
+function isNoteLabel(label: string): boolean {
+  return NOTE_LABEL.test(label) || /associated explanatory notes/i.test(label);
+}
+
+/** One collapsible explanatory note. Collapsed by default so the page opens on
+ *  the compact fields, not a wall of note text. */
+function NoteAccordion({ section }: { section: MbsDetailSection }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 p-5 text-left"
+      >
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {section.label}
+        </h3>
+        <ChevronDown
+          className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="px-5 pb-5 -mt-1">
+          <SectionValue value={section.value} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Item detail: the structured data as titled fields, followed by the
+ * associated explanatory notes as collapsible accordions. Compact metadata
+ * (item number, dates, group…) stays flat; long note bodies collapse.
  */
 function ItemDetail({ detail }: { detail: MbsItemDetail }) {
+  const fields = detail.sections.filter((s) => !isNoteLabel(s.label));
+  const notes = detail.sections.filter((s) => isNoteLabel(s.label));
+
   return (
     <div className="space-y-6">
-      {/* Structured data — raw JSON, unstyled. */}
+      {/* Structured data — one titled field per section. */}
       <div>
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
           Structured data
         </h2>
-        <pre className="overflow-x-auto rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
-          {JSON.stringify(detail.sections, null, 2)}
-        </pre>
+        {fields.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No structured fields were extracted for this item.
+          </p>
+        ) : (
+          // Compact single-line fields pack two per row; long/multi-line ones
+          // span the full width as a single column.
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {fields.map((section, i) => (
+              <div
+                key={`${section.label}-${i}`}
+                className={`rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 ${
+                  isWideValue(section.value) ? "sm:col-span-2" : ""
+                }`}
+              >
+                {/* title */}
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {section.label}
+                </h3>
+                {/* description — split blank-line paragraph breaks into tight
+                    paragraphs while keeping single line breaks inside each
+                    (fee tables, condition lists). */}
+                <SectionValue value={section.value} />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Scraped page, after the structured data. */}
-      {detail.html && (
+      {/* Associated explanatory notes — collapsible, one accordion per note. */}
+      {notes.length > 0 && (
         <div>
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Scraped data
+            Explanatory notes
           </h2>
-          <div
-            className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 overflow-x-auto text-sm text-slate-700 dark:text-slate-300"
-            dangerouslySetInnerHTML={{ __html: detail.html }}
-          />
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+            {notes.map((section, i) => (
+              <NoteAccordion key={`${section.label}-${i}`} section={section} />
+            ))}
+          </div>
         </div>
       )}
 

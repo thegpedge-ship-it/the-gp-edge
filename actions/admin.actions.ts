@@ -192,13 +192,24 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<{ succe
 
 export async function deleteAdminFromDbAction(id: string): Promise<boolean> {
   try {
-    await execute(
-      `UPDATE admin_users SET deleted_at = NOW() WHERE id = $1`,
-      [id]
-    );
+    const target = await queryOne<any>(`SELECT role_id FROM admin_users WHERE id = $1`, [id]);
+    if (!target) {
+      return true;
+    }
+    if (target.role_id === 1) {
+      console.error("Super Admin account cannot be deleted.");
+      return false;
+    }
+
+    // Delete permissions assigned to this admin user
+    await execute(`DELETE FROM admin_user_permissions WHERE admin_user_id = $1`, [id]);
+
+    // Completely delete admin record from admin_users table in Neon DB
+    await execute(`DELETE FROM admin_users WHERE id = $1 AND role_id != 1`, [id]);
+
     return true;
   } catch (error) {
-    console.error("Error deleting admin from DB:", error);
+    console.error("Error completely deleting admin from Neon DB:", error);
     return false;
   }
 }

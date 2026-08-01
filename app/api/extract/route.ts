@@ -449,14 +449,14 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
  * Checks if a line is a metadata tag. Supports plural, alternative, or misspelled forms.
  */
 function isMetadataLine(line: string): boolean {
-  const clean = line.trim().toLowerCase();
+  const clean = line.trim().replace(/^[*#•\-\d\.\)\s]+/, "").toLowerCase();
   return (
-    /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-]/i.test(clean) ||
-    /^(?:topic|category|subject)s?\s*[:\-]/i.test(clean) ||
-    /^sub[- ]?topics?\s*[:\-]/i.test(clean) ||
-    /^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]/i.test(clean) ||
-    /^(?:tags?|keywords?)\s*[:\-]/i.test(clean) ||
-    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination)\s*[:\-]/i.test(clean)
+    /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]/i.test(clean) ||
+    /^sub[- ]?(?:topics?|category|categories?|section)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:tags?|keywords?|labels?)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—]/i.test(clean)
   );
 }
 
@@ -472,19 +472,15 @@ function isStrictMetadataMatch(
   if (!parsingRationale) return true;
   const cleanVal = val.trim();
   if (type === "difficulty") {
-    // Must be exactly easy, medium, or hard (case-insensitive) and short
-    return /^(easy|medium|hard)$/i.test(cleanVal) && cleanVal.length < 20;
+    return /^(easy|medium|hard|basic|intermediate|advanced|moderate|1|2|3|akt|kfp|cce|amc)$/i.test(cleanVal) && cleanVal.length < 30;
   }
   if (type === "correct") {
-    // Must be a single letter from A to H (optionally followed by option text)
     return /^[A-H](\b|[\.\)\- ]|$)/i.test(cleanVal) && cleanVal.length < 200;
   }
   if (type === "tags") {
-    // Tags must be reasonably short
-    return cleanVal.length < 80;
+    return cleanVal.length < 120 && !cleanVal.includes(".");
   }
   if (type === "topic" || type === "subtopic") {
-    // Topic/subtopic must be short and not look like a full sentence
     return cleanVal.length < 80 && !cleanVal.includes(".") && !/\b(is|are|was|were|should|will|have|has)\b/i.test(cleanVal);
   }
   return true;
@@ -1948,40 +1944,34 @@ export function parseTextToQuestions(text: string): any[] {
   // ── STEP 1: Split into lines and group them into per-question blocks ──────
   //
   // A "question-start line" is one that matches ANY of:
-  //   • "Question 1", "Q1", "Q 1", "Q.1", "Question.1"  (with optional colon/period after)
-  //   • "1.", "1)", "1-" at the very beginning of a trimmed line
+  //   • "Question 1", "Question #1", "Q1", "Q 1", "Q.1", "Question.1"
+  //   • "1.", "1)", "1:", "1 -", "(1)", "[1]"
   //
-  // We also handle the case where the question number is embedded mid-line
-  // after sentence-ending punctuation (e.g. "... answer. 2. A 45-year-old...")
-  // by pre-splitting such inline runs before grouping.
-
-  // Pre-process: insert newlines before inline question numbers so they become
-  // their own lines.  Pattern: ". 2. " or "! Q2." in running text.
+  // Pre-process: insert newlines before inline question numbers so they become their own lines.
   const preProcessed = textWithPlaceholders
-    .replace(/([\.\?!])\s+(?=(?:Question|Q\.?)\s*\d+\s*[:.]?\s)/gi, "$1\n")
-    .replace(/([\.\?!])\s+(?=\d{1,3}[\.\)]\s+[A-Z])/g, "$1\n");
+    .replace(/([\.\?!])\s+(?=(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s)/gi, "$1\n")
+    .replace(/([\.\?!])\s+(?=\(?\d{1,3}[\.\):\-]\s+[A-Z])/g, "$1\n");
 
   const allLines = preProcessed.split("\n");
 
   // Regex that identifies a line as the start of a new question
-  const QUESTION_START = /^(?:(?:Question|Q\.?)\s*\d+\s*[:.]?\s*|\d{1,3}[\.\)]\s+)/i;
+  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i;
 
   // Group lines into blocks
   const rawBlocks: string[][] = [];
   let current: string[] | null = null;
 
   for (const rawLine of allLines) {
-    const trimmed = rawLine.trim();
+    const trimmed = rawLine.trim().replace(/^[*#]+\s*/, ""); // strip markdown headers
     if (QUESTION_START.test(trimmed)) {
       if (current && current.length > 0) rawBlocks.push(current);
       // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?)\s*\d+\s*[:.]?\s*|\d{1,3}[\.\)]\s+)/i, "").trim();
+      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i, "").trim();
       current = stripped ? [stripped] : [];
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
       }
-      // Lines before the first question are discarded (title, instructions, etc.)
     }
   }
   if (current && current.length > 0) rawBlocks.push(current);
@@ -2030,13 +2020,13 @@ export function parseTextToQuestions(text: string): any[] {
     for (let j = 0; j < filteredLines.length; j++) {
       const line = filteredLines[j];
       if (!line) continue;
+      const cleanLine = line.trim().replace(/^[*#•\-\s]+/, "");
 
       // ── Correct Answer ──────────────────────────────────────────────────
-      const correctMatch = line.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-]\s*(.*)$/i);
+      const correctMatch = cleanLine.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]\s*(.*)$/i);
       const isRealCorrect = correctMatch && isStrictMetadataMatch(correctMatch[1], "correct", parsingRationale);
       if (isRealCorrect && correctMatch) {
         parsingState = "metadata";
-        parsingRationale = false;
         let ansVal = correctMatch[1].trim();
         if (!ansVal && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2047,13 +2037,25 @@ export function parseTextToQuestions(text: string): any[] {
           const idx = m[0].charCodeAt(0) - 65;
           correctIndex = (isNaN(idx) || idx < 0 || idx > 10) ? 0 : idx;
         }
+
+        // Check if inline explanation is attached to the answer line
+        // e.g. "A. Explanation: STEMI is caused by RCA occlusion."
+        const inlineExpMatch = ansVal.match(/^[A-H][\.\)\-\s]*[:\-\=\–\—]?\s*(?:(?:explanation|rationale|because|why|discussion|reasoning)\s*[:\-\=\–\—]?\s*)?(.+)$/i);
+        if (inlineExpMatch && inlineExpMatch[1].trim().length > 5 && !/^[A-H]$/i.test(inlineExpMatch[1].trim())) {
+          const extractedExp = inlineExpMatch[1].trim().replace(/^(?:explanation|rationale|because|why)\s*[:\-\=\–\—]?\s*/i, "").trim();
+          if (extractedExp.length > 8) {
+            rationale = (rationale ? rationale + "\n" : "") + extractedExp;
+            parsingRationale = true;
+          }
+        }
         continue;
       }
 
       // ── Topic ───────────────────────────────────────────────────────────
-      const topicMatch = line.match(/^(?:topic|category|subject)s?\s*[:\-]\s*(.*)$/i);
+      const topicMatch = cleanLine.match(/^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]\s*(.*)$/i);
       if (topicMatch && isStrictMetadataMatch(topicMatch[1], "topic", parsingRationale)) {
-        parsingState = "metadata"; parsingRationale = false;
+        parsingState = "metadata";
+        parsingRationale = false;
         let v = topicMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2064,9 +2066,10 @@ export function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Subtopic ────────────────────────────────────────────────────────
-      const subtopicMatch = line.match(/^sub[- ]?topics?\s*[:\-]\s*(.*)$/i);
+      const subtopicMatch = cleanLine.match(/^sub[- ]?(?:topics?|category|categories?|section)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (subtopicMatch && isStrictMetadataMatch(subtopicMatch[1], "subtopic", parsingRationale)) {
-        parsingState = "metadata"; parsingRationale = false;
+        parsingState = "metadata";
+        parsingRationale = false;
         let v = subtopicMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2076,54 +2079,64 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
 
-      // ── Difficulty ──────────────────────────────────────────────────────
-      const diffMatch = line.match(/^(?:diffculty|difficulty|difficulty\s*level|level)\s*[:\-]\s*(.*)$/i);
+      // ── Difficulty / Grade / Level ─────────────────────────────────────
+      const diffMatch = cleanLine.match(/^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (diffMatch && isStrictMetadataMatch(diffMatch[1], "difficulty", parsingRationale)) {
-        parsingState = "metadata"; parsingRationale = false;
+        parsingState = "metadata";
+        parsingRationale = false;
         let v = diffMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
           if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        if (/easy/i.test(v)) difficulty = "Easy";
-        else if (/hard/i.test(v)) difficulty = "Hard";
+        if (/easy|basic|1/i.test(v)) difficulty = "Easy";
+        else if (/hard|advanced|3/i.test(v)) difficulty = "Hard";
+        else if (/medium|intermediate|moderate|2/i.test(v)) difficulty = "Medium";
         else difficulty = "Medium";
         continue;
       }
 
       // ── Tags ────────────────────────────────────────────────────────────
-      const tagMatch = line.match(/^(?:tags?|keywords?)\s*[:\-]\s*(.*)$/i);
+      const tagMatch = cleanLine.match(/^(?:tags?|keywords?|labels?)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (tagMatch && isStrictMetadataMatch(tagMatch[1], "tags", parsingRationale)) {
-        parsingState = "metadata"; parsingRationale = false;
+        parsingState = "metadata";
+        parsingRationale = false;
         let v = tagMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
           if (next && !isMetadataLine(next)) { v = next; j++; }
         }
-        if (v) tags = v.split(/[,;]+/).map(t => t.trim()).filter(Boolean);
+        if (v) {
+          const newTags = v
+            .split(/[,;·•|/]+/)
+            .map(t => t.trim().replace(/^[*#•·\-\s]+/, "").replace(/[*#•·\-\s]+$/, ""))
+            .filter(Boolean);
+          for (const t of newTags) {
+            if (!tags.includes(t)) tags.push(t);
+          }
+        }
         continue;
       }
 
-      // ── Rationale ───────────────────────────────────────────────────────
-      const rationaleMatch = line.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination)\s*[:\-]\s*(.*)$/i);
+      // ── Rationale / Explanation ─────────────────────────────────────────
+      const rationaleMatch = cleanLine.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—\s]\s*(.*)$/i);
       if (rationaleMatch) {
-        parsingState = "metadata"; parsingRationale = true;
+        parsingState = "metadata";
+        parsingRationale = true;
         const v = rationaleMatch[1].trim();
-        if (v) rationale = v;
+        if (v) {
+          rationale = (rationale ? rationale + "\n" : "") + v;
+        }
         continue;
       }
 
       // ── Option lines (A. B. C. D. or (A) etc.) ─────────────────────────
-      // Only try to parse options once we leave the question state, OR if we
-      // detect a clear option-A marker while still reading the stem.
       const optionMatch = line.match(/^\(?([A-H])[.\/):\-]\s*(.+)$/i);
       if (optionMatch) {
         const letter = optionMatch[1].toUpperCase();
         const optText = optionMatch[2].trim();
-        // Avoid treating "A 45-year-old..." as option A — require at least 2 chars after the delimiter
         const looksRealOption = optText.length >= 1 && !/^\d/.test(optText.substring(0, 1) === " " ? optText.substring(1) : "");
         if (parsingState === "question") {
-          // Transition to options only if this is a clear A. or (A) pattern (not "A word word...")
           const isUnambiguousOptionA = /^\(?A[.\/):\-]\s*/i.test(line) && letter === "A";
           if (isUnambiguousOptionA) {
             parsingState = "options";
@@ -2134,14 +2147,13 @@ export function parseTextToQuestions(text: string): any[] {
           options.push(optText);
           continue;
         } else if (parsingState === "metadata" && !parsingRationale && looksRealOption) {
-          // Sometimes options appear after metadata (unusual format)
           options.push(optText);
           continue;
         }
       }
 
       // ── Plain "Options:" header ─────────────────────────────────────────
-      if (/^options?\s*:?\s*$/i.test(line)) {
+      if (/^options?\s*:?\s*$/i.test(cleanLine)) {
         if (parsingState === "question") parsingState = "options";
         continue;
       }
@@ -2150,10 +2162,11 @@ export function parseTextToQuestions(text: string): any[] {
       if (parsingState === "question") {
         questionTextLines.push(line);
       } else if (parsingState === "options") {
-        // Plain option text with no letter prefix (some docs list options bare)
         options.push(line);
-      } else if (parsingState === "metadata" && parsingRationale) {
-        rationale += "\n" + line;
+      } else if (parsingState === "metadata") {
+        if (parsingRationale && !isMetadataLine(line)) {
+          rationale += (rationale ? "\n" : "") + line;
+        }
       }
     }
 
@@ -2181,6 +2194,42 @@ export function parseTextToQuestions(text: string): any[] {
       tags: tags.length > 0 ? tags : ["General"],
       image,
     });
+  }
+
+  // ── STEP 3: Fallback Answer Key / Explanation linking for standalone answer sections ──
+  // If any questions are missing explanations, search the full text for an Answer Key / Explanations section
+  const missingRationaleCount = questions.filter(q => !q.rationale || q.rationale === "No explanation provided.").length;
+  if (missingRationaleCount > 0) {
+    const sections = normalizedText.split(/(?=\n\s*(?:Answers?\s*(?:&|and)?\s*Explanations?|Answer\s*Key|Explanations?|Rationales?)\b)/i);
+    if (sections.length > 1) {
+      const answerSectionText = sections.slice(1).join("\n");
+      const expBlocks = answerSectionText.split(/(?=\n\s*(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\b|\n\s*\(?\d{1,3}[\.\):\-]\s+)/i);
+      
+      for (const expBlock of expBlocks) {
+        const numMatch = expBlock.match(/^(?:\s*(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*(\d+)|\s*\(?(\d{1,3})[\.\):\-]\s+)/i);
+        if (numMatch) {
+          const qNum = parseInt(numMatch[1] || numMatch[2], 10);
+          if (qNum >= 1 && qNum <= questions.length) {
+            const targetQ = questions[qNum - 1];
+            if (!targetQ.rationale || targetQ.rationale === "No explanation provided.") {
+              let expText = expBlock.replace(/^(?:\s*(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+[:.]?\s*|\s*\(?\d{1,3}[\.\):\-]\s+)/i, "").trim();
+              const ansMatch = expText.match(/^(?:Answer|Correct|Option)?\s*[:\-\=\–\—]?\s*([A-H])\b/i);
+              if (ansMatch) {
+                const idx = ansMatch[1].toUpperCase().charCodeAt(0) - 65;
+                if (idx >= 0 && idx < targetQ.options.length) {
+                  targetQ.correctIndex = idx;
+                }
+              }
+              expText = expText.replace(/^(?:Answer|Correct|Option)?\s*[:\-\=\–\—]?\s*[A-H][\.\)\-\s]*/i, "").trim();
+              expText = expText.replace(/^(?:Explanation|Rationale|Answer\s*&\s*Explanation)\s*[:\-\=\–\—]?\s*/i, "").trim();
+              if (expText.length > 5) {
+                targetQ.rationale = expText;
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   return questions;
