@@ -33,6 +33,20 @@ shorten, or merge away information, and do not decide something is unimportant
 and drop it — every meaningful piece of information on the page must appear in
 some field.
 
+MANDATORY FIELDS — these must ALWAYS be the first fields, in this exact order,
+each using its label EXACTLY as written here (do not rename, merge, or reorder
+them):
+  1. "Item Number"
+  2. "Item Start Date"
+  3. "Description Updated"
+  4. "Schedule Fee Updated"
+  5. "Group"
+  6. "Subheading"
+Copy each value verbatim from the page. If the page genuinely does not state one
+of these, still emit the field with its value set to "Not specified" — never omit
+one of these six and never invent a value that is not on the page. All other
+content follows after these six, divided into fields as you see fit.
+
 Rules:
 - YOU decide how to divide the content and what to title each field. Write each
   "label" as a clear, short Title-Case heading for the information it holds.
