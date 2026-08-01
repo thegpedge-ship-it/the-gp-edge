@@ -356,7 +356,7 @@ export default function PricingPageClient({
           {/* Right Side Illustration */}
           <div className="shrink-0 flex items-center justify-center w-56 md:w-72 lg:w-80">
             <Image
-              src="/assets/graduation_cap_books.png"
+              src="/assets/pricing_page.png"
               alt="GP Fellowship Exam Success Illustration"
               width={340}
               height={280}

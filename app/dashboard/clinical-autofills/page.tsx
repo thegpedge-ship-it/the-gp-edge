@@ -579,318 +579,46 @@ export default function ClinicalAutofillsPage() {
 
       {/* ── PAGE HEADER ──────────────────────────────────────────────────────── */}
       <div className="space-y-2 select-none mb-6">
-        <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-teal-50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900 rounded-lg mb-2">
-          <span className="font-sans text-xs font-semibold text-teal-700 dark:text-teal-400">Clinical Templates</span>
-        </div>
         <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
           Clinical Autofills
         </h1>
-        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
-          Pre-written templates — edit and copy directly into Best Practice.
-        </p>
       </div>
 
       {/* ── SMART COMMAND BAR ────────────────────────────────────────────────── */}
       <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto mb-8">
-        {resolvedTheme === "dark" ? (
-          <>
-            <div className="search w-full">
-              <div className="search-box w-full !max-w-none relative flex items-center">
-                <div className="search-field w-full h-full relative flex items-center">
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                    onFocus={() => setShowSuggestions(true)}
-                    placeholder=""
-                    className="input w-full h-full"
-                    style={{ paddingRight: "180px" }}
-                  />
-                  {!searchQuery && (
-                    <span className="absolute left-[12px] top-1/2 -translate-y-1/2 flex items-center pointer-events-none select-none overflow-hidden">
-                      <SearchCarousel mode={searchMode} />
-                    </span>
-                  )}
-                  {searchQuery && (
-                    <button
-                      onClick={() => { setSearchQuery(""); searchRef.current?.focus(); }}
-                      className="absolute right-[170px] p-1.5 rounded-full hover:bg-slate-800 transition-colors text-slate-400 hover:text-slate-200 flex-shrink-0 z-10"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                  
-                  {/* Mode Dropdown (Dark Mode) */}
-                  <div className="absolute right-[40px] top-1/2 -translate-y-1/2 flex-shrink-0 z-20">
-                    <button
-                      onClick={(e) => { e.preventDefault(); setShowModeDropdown(!showModeDropdown); }}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 bg-[#1A202C] border hover:border-teal-600 hover:bg-teal-900/30 rounded-full text-[12px] whitespace-nowrap font-medium transition-colors shadow-sm ${showModeDropdown ? 'border-teal-500 text-teal-400' : 'border-teal-800/80 text-teal-500'}`}
-                    >
-                      {searchMode === "condition" ? "Medical Condition" : "Approach"}
-                      <ChevronDown className="w-4 h-4" />
-                    </button>
-                    {showModeDropdown && (
-                      <div className="absolute top-[calc(100%+8px)] right-0 w-48 bg-slate-800 border border-slate-700 rounded-2xl shadow-xl p-1.5 transform origin-top transition-all duration-200 ease-out z-50">
-                        <button
-                          onClick={(e) => { e.preventDefault(); setSearchMode("condition"); setShowModeDropdown(false); searchRef.current?.focus(); }}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "condition" ? 'text-teal-400 bg-teal-900/40' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}
-                        >
-                          Medical Condition
-                        </button>
-                        <button
-                          onClick={(e) => { e.preventDefault(); setSearchMode("approach"); setShowModeDropdown(false); searchRef.current?.focus(); }}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl text-[13px] font-medium transition-colors ${searchMode === "approach" ? 'text-teal-400 bg-teal-900/40' : 'text-slate-300 hover:bg-slate-700 hover:text-white'}`}
-                        >
-                          Approach
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="search-box-icon">
-                    <button className="btn-icon-content">
-                      <i className="search-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 512 512" className="w-5 h-5" style={{ fill: "inherit" }}><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352a144 144 0 1 0 0-288 144 144 0 1 0 0 288z" fill="#fff" /></svg>
-                      </i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <style>{`
-              .search {
-                --input-line: #cccccc;
-                --input-text-color: #808080;
-                --input-text-hover-color: transparent;
-                --input-border-color: rgba(255,255,255,0.08);
-                --input-border-hover-color: rgba(90,200,176,0.5);
-                --input-bg-color: #151922;
-                --border-radius: 12px;
-                --transition-cubic-bezier: 150ms cubic-bezier(0.4,0,0.2,1);
-              }
-
-              .search-box {
-                width: 100%;
-                height: 48px;
-                border: 1px solid var(--input-border-color);
-                border-radius: var(--border-radius);
-                padding: 5px 15px;
-                background: var(--input-bg-color);
-                box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-                transition: var(--transition-cubic-bezier);
-              }
-
-              .search-box:hover {
-                border-color: var(--input-border-hover-color);
-              }
-
-              .search-field {
-                position: relative;
-                width: 100%;
-                height: 100%;
-                border: 0;
-              }
-
-              .input {
-                width: calc(100% - 50px);
-                height: 100%;
-                border: 0 !important;
-                font-size: 1rem;
-                padding-right: 0px;
-                padding-left: 10px;
-                color: var(--input-line);
-                background: transparent !important;
-                outline: none !important;
-                box-shadow: none !important;
-              }
-
-              .input:focus {
-                outline: none !important;
-                border: none !important;
-                box-shadow: none !important;
-              }
-
-              .input::-webkit-input-placeholder {
-                color: var(--input-text-color);
-              }
-
-              .input::-moz-input-placeholder {
-                color: var(--input-text-color);
-              }
-
-              .input::-ms-input-placeholder {
-                color: var(--input-text-color);
-              }
-
-              .input:focus::-webkit-input-placeholder {
-                color: var(--input-text-hover-color);
-              }
-
-              .input:focus::-moz-input-placeholder {
-                color: var(--input-text-hover-color);
-              }
-
-              .input:focus::-ms-input-placeholder {
-                color: var(--input-text-hover-color);
-              }
-
-              .search-box-icon {
-                width: 52px;
-                height: 46px;
-                position: absolute;
-                top: 50%;
-                transform: translateY(-50%);
-                right: -15px;
-                background: transparent;
-                border-bottom-right-radius: var(--border-radius);
-                border-top-right-radius: var(--border-radius);
-                transition: var(--transition-cubic-bezier);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-
-              .search-box-icon:hover {
-                background: var(--input-border-color);
-              }
-
-              .btn-icon-content {
-                width: 52px;
-                height: 46px;
-                background: transparent;
-                border: none;
-                cursor: pointer;
-                border-bottom-right-radius: var(--border-radius);
-                border-top-right-radius: var(--border-radius);
-                transition: var(--transition-cubic-bezier);
-                opacity: .4;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-
-              .btn-icon-content:hover {
-                opacity: .8;
-              }
-
-              .search-icon {
-                width: 21px;
-                height: 21px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-            `}</style>
-          </>
-        ) : (
-          <div
-            className={`w-full bg-white border transition-all duration-200 rounded-2xl shadow-sm flex flex-col md:flex-row items-stretch overflow-hidden focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-500 ${showSuggestions
+        <div
+          className={`w-full bg-white dark:bg-[#151922] border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 py-3 ${
+            showSuggestions
               ? "border-teal-500 ring-2 ring-teal-500/20"
-              : "border-slate-200 hover:border-slate-300"
-              }`}
-          >
-            {/* Medical Condition Section */}
-            <div 
-              className="flex-1 w-full md:w-auto relative flex items-center justify-between px-4 py-2 border-b md:border-b-0 md:border-r border-slate-200 hover:bg-slate-50/50 transition-colors cursor-text group"
+              : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+          }`}
+        >
+          <Search className="w-5 h-5 text-slate-400 dark:text-slate-500 mr-3 flex-shrink-0" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            placeholder="Search templates, conditions, or categories..."
+            className="w-full bg-transparent border-0 outline-none focus:ring-0 text-slate-900 dark:text-slate-100 placeholder-slate-400 text-sm md:text-base p-0 m-0"
+            autoComplete="off"
+          />
+          {searchQuery && (
+            <button
               onClick={() => {
-                setSearchMode("condition");
-                setShowSuggestions(true);
+                setSearchQuery("");
+                searchRef.current?.focus();
               }}
+              className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors flex-shrink-0 ml-2"
             >
-              <div className="flex-1 flex flex-col justify-center px-2">
-                <label htmlFor="condition-search" className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-0.5 cursor-text select-none">
-                  Medical Condition
-                </label>
-                
-                <input
-                  id="condition-search"
-                  ref={searchMode === "condition" ? searchRef : undefined}
-                  type="text"
-                  value={searchMode === "condition" ? searchQuery : ""}
-                  onChange={e => { setSearchMode("condition"); setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => { setSearchMode("condition"); setShowSuggestions(true); }}
-                  placeholder="Search medical conditions..."
-                  className="w-full bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 text-sm text-slate-800 placeholder-slate-400 z-10 relative"
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="flex-shrink-0 flex items-center ml-2">
-                {searchMode === "condition" && searchQuery ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSearchQuery(""); searchRef.current?.focus(); }}
-                    className="p-1.5 mr-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 focus:outline-none"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                ) : null}
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearchMode("condition");
-                    setShowSuggestions(true);
-                    searchRef.current?.focus();
-                  }}
-                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center transition-colors shadow-sm focus:outline-none"
-                >
-                  <Search className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Presentation Section */}
-            <div 
-              className="flex-1 w-full md:w-auto relative flex items-center justify-between px-4 py-2 border-b md:border-b-0 border-slate-200 hover:bg-slate-50/50 transition-colors cursor-text group"
-              onClick={() => {
-                setSearchMode("approach");
-                setShowSuggestions(true);
-              }}
-            >
-              <div className="flex-1 flex flex-col justify-center px-2">
-                <label htmlFor="presentation-search" className="text-[10px] font-bold text-slate-800 uppercase tracking-widest mb-0.5 cursor-text select-none">
-                  Presentation
-                </label>
-                
-                <input
-                  id="presentation-search"
-                  ref={searchMode === "approach" ? searchRef : undefined}
-                  type="text"
-                  value={searchMode === "approach" ? searchQuery : ""}
-                  onChange={e => { setSearchMode("approach"); setSearchQuery(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => { setSearchMode("approach"); setShowSuggestions(true); }}
-                  placeholder="Search presentations..."
-                  className="w-full bg-transparent border-0 p-0 m-0 outline-none focus:ring-0 text-sm text-slate-800 placeholder-slate-400 z-10 relative"
-                  autoComplete="off"
-                />
-              </div>
-
-              <div className="flex-shrink-0 flex items-center ml-2">
-                {searchMode === "approach" && searchQuery ? (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setSearchQuery(""); searchRef.current?.focus(); }}
-                    className="p-1.5 mr-1.5 rounded-full hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600 focus:outline-none"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                ) : null}
-                
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSearchMode("approach");
-                    setShowSuggestions(true);
-                    searchRef.current?.focus();
-                  }}
-                  className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-center transition-colors shadow-sm focus:outline-none"
-                >
-                  <Search className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
 
         {/* Suggestion dropdown */}
         {showSuggestions && (
@@ -1096,30 +824,39 @@ export default function ClinicalAutofillsPage() {
                   {/* Locked Banner Overlay */}
                   {isLocked && (
                     <div className="absolute inset-0 rounded-2xl bg-white/60 dark:bg-slate-900/75 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center">
-                      <div className="w-9 h-9 rounded-full bg-amber-100 dark:bg-amber-955/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-1.5">
-                        <Lock className="w-4 h-4" />
-                      </div>
-                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100">Paid Plan Required</span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Tap to upgrade access</span>
+                      <button className="group relative flex flex-row items-center bg-[#151922] justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium shadow-[inset_0_-8px_10px_#0d94881f] transition-shadow duration-500 ease-out hover:shadow-[inset_0_-5px_10px_#0d94883f] cursor-pointer">
+                        <div className="absolute inset-0 block h-full w-full animate-gradient-x bg-gradient-to-r from-amber-500/50 via-teal-400/50 to-amber-500/50 bg-[length:200%_auto] [border-radius:inherit] [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] p-[1px] ![mask-composite:subtract]" />
+                        <svg className="size-4 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 15 15" height={15} width={15}>
+                          <path clipRule="evenodd" fillRule="evenodd" fill="currentColor" d="M5 4.63601C5 3.76031 5.24219 3.1054 5.64323 2.67357C6.03934 2.24705 6.64582 1.9783 7.5014 1.9783C8.35745 1.9783 8.96306 2.24652 9.35823 2.67208C9.75838 3.10299 10 3.75708 10 4.63325V5.99999H5V4.63601ZM4 5.99999V4.63601C4 3.58148 4.29339 2.65754 4.91049 1.99307C5.53252 1.32329 6.42675 0.978302 7.5014 0.978302C8.57583 0.978302 9.46952 1.32233 10.091 1.99162C10.7076 2.65557 11 3.57896 11 4.63325V5.99999H12C12.5523 5.99999 13 6.44771 13 6.99999V13C13 13.5523 12.5523 14 12 14H3C2.44772 14 2 13.5523 2 13V6.99999C2 6.44771 2.44772 5.99999 3 5.99999H4ZM3 6.99999H12V13H3V6.99999Z" />
+                        </svg>
+                        <div className="shrink-0 bg-slate-700 w-[1px] h-4" role="none" data-orientation="vertical" />
+                        <span className="inline animate-gradient-x whitespace-pre bg-gradient-to-r from-amber-400 via-teal-300 to-amber-400 bg-[length:200%_auto] bg-clip-text text-transparent text-center font-semibold">Get Access</span>
+                        <svg strokeLinecap="round" className="text-teal-400" strokeWidth="1.5" aria-hidden="true" viewBox="0 0 10 10" height={11} width={11} stroke="currentColor" fill="none">
+                          <path strokeLinecap="round" d="M0 5h7" className="opacity-0 transition group-hover:opacity-100" />
+                          <path strokeLinecap="round" d="M1 1l4 4-4 4" className="transition group-hover:translate-x-[3px]" />
+                        </svg>
+                      </button>
                     </div>
                   )}
 
-                  {/* Bookmark icon — top-right, always visible */}
-                  <label
-                    className="absolute top-4 right-4 z-10 custom-bookmark cursor-pointer"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isBookmarked}
-                      onChange={() => toggleSaved(t.title)}
-                    />
-                    <div className="bookmark-icon-wrapper">
-                      <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-                      </svg>
-                    </div>
-                  </label>
+                  {/* Bookmark icon — top-right, visible ONLY for unlocked cards */}
+                  {!isLocked && (
+                    <label
+                      className="absolute top-4 right-4 z-10 custom-bookmark cursor-pointer"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isBookmarked}
+                        onChange={() => toggleSaved(t.title)}
+                      />
+                      <div className="bookmark-icon-wrapper">
+                        <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+                        </svg>
+                      </div>
+                    </label>
+                  )}
 
                   {/* Title */}
                   <div className="pr-8 mb-2">

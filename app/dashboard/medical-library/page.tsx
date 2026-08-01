@@ -279,12 +279,6 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
             <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
               {condition.id}
             </span>
-            {condition.isFree === true ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-955/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                FREE
-              </span>
-            ) : null}
           </div>
           <label
             className="custom-bookmark cursor-pointer"
@@ -375,9 +369,6 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
               {condition.id}
-            </span>
-            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest">
-              Approach
             </span>
             {condition.isPremium ? (
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
@@ -1007,19 +998,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
       {/* ── Page Header (Minimalist Style) ────────────────────────────────────── */}
       <div className="space-y-2 select-none">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 dark:bg-green-955/30 text-[10px] font-bold text-green-700 dark:text-green-400 border border-green-200/30 dark:border-green-800/30 uppercase tracking-[0.12em]">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
-          </span>
-          Reference Library
-        </div>
         <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-50">
           Explore the Medical Directory
         </h1>
-        <p className="font-sans text-base md:text-lg font-normal leading-relaxed text-slate-600 dark:text-slate-400 mt-1 max-w-2xl">
-          Browse official guidelines, diagnostic criteria, treatment options, and clinical summaries. {allConditions.length} conditions across major body systems.
-        </p>
       </div>
 
       <AnimatePresence mode="wait">
