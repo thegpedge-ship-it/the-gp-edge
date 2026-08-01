@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
 import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
-import type { QuizQuestion } from "@/app/exam-prep/actions";
+import type { QuizQuestion, SaveAttemptInput } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
 import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
 import { generateReportBlob } from "@/lib/report/generateReport";
@@ -199,6 +199,14 @@ export default function TestPage() {
   const startedAtRef = useRef<string>("");
   const savedRef = useRef(false);
 
+  /* Latest answers/elapsed/questions, mirrored into a ref so the close/hide
+     handlers (registered once, not on every keystroke) always beacon the
+     current state rather than a stale snapshot. */
+  const liveRef = useRef({ answers, elapsed, questions });
+  useEffect(() => {
+    liveRef.current = { answers, elapsed, questions };
+  });
+
   /* Resolve the test from its ID — URL params are never trusted.
      Opening this page directly (without coming through the instructions
      page) has no start authorization and bounces back to instructions.
@@ -276,6 +284,38 @@ export default function TestPage() {
     submittedRef.current = true;
     setShowConfirm(false);
     setSubmitted(true);
+  }, []);
+
+  /* Guaranteed save-on-leave. When the tab is closing/hidden a normal server
+     action is torn down with the page before its request lands, so the attempt
+     is posted with navigator.sendBeacon — the browser delivers it after the
+     page is gone. Marks savedRef so the on-submit save effect below does not
+     also run (which would create a duplicate attempt). Idempotent. */
+  const sendAttemptBeacon = useCallback(() => {
+    if (savedRef.current) return;
+    const plan = planRef.current;
+    const { answers, elapsed, questions } = liveRef.current;
+    if (!plan || questions.length === 0) return;
+    savedRef.current = true;
+
+    const payload: SaveAttemptInput = {
+      source: plan.source,
+      quizId: plan.quizId,
+      subtopicId: plan.subtopicId,
+      mockTestId: plan.mockTestId,
+      title: plan.name,
+      questionIds: questions.map((q) => q.id),
+      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndex: answers[i] ?? null })),
+      startedAt: startedAtRef.current || undefined,
+      durationSeconds: elapsed,
+    };
+
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    navigator.sendBeacon("/api/attempt", blob);
+
+    // Mock-test cards show per-user attempt stats — refresh them next read
+    // (the on-submit effect that normally does this is skipped once saved).
+    if (plan.source === "mock_test") clearMockTestsCache();
   }, []);
 
   /* Build the PDF report entirely in the browser and persist it locally
@@ -360,6 +400,56 @@ export default function TestPage() {
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(interval);
   }, [loading, submitted]);
+
+  /* ─── Exam lockdown: no leaving mid-test ──────────────────────────────
+     Active only while a test is in progress (cleans up the moment it is
+     submitted, so the result screen and its "Back to Exam Prep" button
+     navigate normally):
+       • Browser Back is trapped — a Back press keeps the user in the exam
+         rather than navigating away (there is no in-app back button here).
+       • Closing/reloading the tab, or switching away from it, auto-submits the
+         exam so the attempt is recorded and the end screen is shown. Closing
+         also raises the browser's native "leave?" prompt so an accidental
+         close can still be cancelled. */
+  useEffect(() => {
+    if (loading || submitted || config == null) return;
+
+    // Trap Back: seed a history entry, then re-push on every popstate so a Back
+    // press can never pop the user out of the running exam.
+    window.history.pushState(null, "", window.location.href);
+    const onPopState = () => {
+      window.history.pushState(null, "", window.location.href);
+    };
+
+    // Native close/reload warning (best-effort; lets an accidental close be
+    // cancelled). Browsers require returnValue to be set to trigger the prompt.
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+
+    // Leaving the tab (closing, minimising, or switching away) is treated as
+    // leaving the exam: beacon the attempt so it is saved even if the page is
+    // being destroyed, then flip to the end screen. Both are idempotent.
+    const leave = () => {
+      sendAttemptBeacon();
+      handleSubmit();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") leave();
+    };
+
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", leave);
+    };
+  }, [loading, submitted, config, handleSubmit, sendAttemptBeacon]);
 
   const goTo = (index: number) => {
     if (index < 0 || index >= questions.length) return;
