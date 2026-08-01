@@ -28,7 +28,9 @@ type DbUserRow = NonNullable<Awaited<ReturnType<typeof ensureDbUser>>>;
  * Returns the DB user, or `null` if there is no authenticated user (or the
  * Clerk account somehow has no email address).
  */
-export async function ensureDbUser() {
+import { cache } from "react";
+
+export const ensureDbUser = cache(async () => {
   try {
     const clerkUser = await currentUser();
     if (!clerkUser) return null;
@@ -109,7 +111,7 @@ export async function ensureDbUser() {
     console.error("[ensureDbUser] Error resolving user profile:", err);
     return null;
   }
-}
+});
 
 /** Whether this Clerk user has finished the onboarding form. */
 export function isOnboarded(clerkUser: User | null): boolean {

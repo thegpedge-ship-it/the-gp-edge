@@ -43,10 +43,6 @@ export default async function ProfilePage() {
   const completeness =
     profileData.completeness ?? { quizzesCompleted: 0, quizzesTotal: 0, quizzesPercent: 0 };
 
-  const accessExpiresAtIso = (dbUser as any)?.subscriptions?.access_expires_at
-    ? new Date((dbUser as any).subscriptions.access_expires_at).toISOString()
-    : null;
-
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";
   const hospital = dbUser?.hospital || "—";
@@ -288,8 +284,9 @@ export default async function ProfilePage() {
                 accessLevel={accessInfo?.accessLevel ?? "FREE"}
                 hasPaidAccess={accessInfo?.hasPaidAccess ?? false}
                 isRegistrarActive={accessInfo?.isRegistrarActive ?? false}
-                accessExpiresAt={accessExpiresAtIso}
+                accessExpiresAt={accessInfo?.currentPeriodEnd ? new Date(accessInfo.currentPeriodEnd).toISOString() : null}
                 hasCustomerProfile={Boolean(dbUser?.stripe_customer_id)}
+                cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
               />
             </PageCard>
           </FadeIn>

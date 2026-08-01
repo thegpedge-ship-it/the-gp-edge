@@ -11,7 +11,9 @@ import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
 import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 import { useUserAccess } from "@/hooks/useUserAccess";
-import UpgradeModal from "@/components/UpgradeModal";
+import dynamic from "next/dynamic";
+
+const UpgradeModal = dynamic(() => import("@/components/UpgradeModal"), { ssr: false });
 
 function cleanTableHtmlStyles(html: string): string {
   return html;

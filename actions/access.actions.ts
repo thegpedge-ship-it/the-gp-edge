@@ -23,6 +23,8 @@ export interface SerializedUserAccess {
    */
   isRegistrarActive: boolean;
   hasPurchasedRegistrar: boolean;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
 }
 
 /**
@@ -50,6 +52,7 @@ export async function getUserAccessAction(): Promise<SerializedUserAccess | null
       hasPaidAccess: access.hasPaidAccess,
       isRegistrarActive: access.isRegistrarActive,
       hasPurchasedRegistrar: access.hasPurchasedRegistrar,
+      cancelAtPeriodEnd: access.cancelAtPeriodEnd,
     });
 
     return {
@@ -59,6 +62,8 @@ export async function getUserAccessAction(): Promise<SerializedUserAccess | null
       hasPaidAccess: access.hasPaidAccess,
       isRegistrarActive: access.isRegistrarActive,
       hasPurchasedRegistrar: access.hasPurchasedRegistrar,
+      cancelAtPeriodEnd: access.cancelAtPeriodEnd,
+      currentPeriodEnd: access.currentPeriodEnd ? access.currentPeriodEnd.toISOString() : null,
     };
   } catch (err) {
     console.error("[getUserAccessAction] Error resolving user access:", err);

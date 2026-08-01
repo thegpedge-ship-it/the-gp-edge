@@ -41,23 +41,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // ── Ensure Stripe Customer exists ─────────────────────────────────────────
-    let customerId = dbUser.stripe_customer_id ?? undefined;
-
-    if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: dbUser.email,
-        metadata: { userId: dbUser.id },
-      });
-      customerId = customer.id;
-
-      // Persist the Stripe customer ID so future checkouts reuse it
-      await prisma.users.update({
-        where: { id: dbUser.id },
-        data: { stripe_customer_id: customerId },
-      });
-    }
-
     // ── Active Subscription Backend Guard ──────────────────────────────────────
     const activeSub = await prisma.subscriptions.findFirst({
       where: {
@@ -83,31 +66,38 @@ export async function POST(req: Request) {
     const cancelUrl = `${baseUrl}/dashboard/pricing?canceled=true`;
 
     // ── Create Checkout Session ────────────────────────────────────────────────
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      customer_email: customerId ? undefined : dbUser.email,
+    const sessionConfig: any = {
       mode,
       line_items: [{ price: priceId, quantity: 1 }],
-      // Pass userId so webhooks tie subscriptions to the DB user ID
       client_reference_id: dbUser.id,
       metadata: {
         userId: dbUser.id,
         priceId,
       },
-      // Guarantee that recurring subscription objects carry metadata.userId
-      ...(mode === "subscription" && {
-        subscription_data: {
-          metadata: {
-            userId: dbUser.id,
-            priceId,
-          },
-        },
-        billing_address_collection: "auto",
-      }),
       success_url: successUrl,
       cancel_url: cancelUrl,
       allow_promotion_codes: true,
-    });
+    };
+
+    if (dbUser.stripe_customer_id) {
+      sessionConfig.customer = dbUser.stripe_customer_id;
+    } else {
+      sessionConfig.customer_email = dbUser.email;
+    }
+
+    if (mode === "payment") {
+      sessionConfig.invoice_creation = { enabled: true };
+    } else if (mode === "subscription") {
+      sessionConfig.subscription_data = {
+        metadata: {
+          userId: dbUser.id,
+          priceId,
+        },
+      };
+      sessionConfig.billing_address_collection = "auto";
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return NextResponse.json({ url: session.url });
   } catch (err) {

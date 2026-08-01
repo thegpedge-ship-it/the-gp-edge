@@ -48,8 +48,9 @@ export async function updateCareerStageAction(
       console.warn("[updateCareerStageAction] Clerk metadata update warning:", clerkErr);
     }
 
-    revalidatePath("/dashboard", "layout");
+    revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/pricing");
+    revalidatePath("/dashboard/exam-prep");
     return { success: true };
   } catch (err) {
     console.error("[updateCareerStageAction] Error updating career stage:", err);

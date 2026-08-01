@@ -17,8 +17,10 @@ import {
 } from "lucide-react";
 import { fetchQuizzesFromDbAction, fetchQuizByDbIdAction } from "@/actions/quiz.actions";
 import { useUserAccess } from "@/hooks/useUserAccess";
-import UpgradeModal from "@/components/UpgradeModal";
+import dynamic from "next/dynamic";
 import { saveTestPlan } from "@/lib/testSession";
+
+const UpgradeModal = dynamic(() => import("@/components/UpgradeModal"), { ssr: false });
 
 interface QuizItem {
   id?: string | number;

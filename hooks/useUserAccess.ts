@@ -38,6 +38,8 @@ export interface UserAccessState {
    * Alias for hasPaidAccess — kept separately so callers can be explicit.
    */
   hasAnyPaidPlan: boolean;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
   /** Manually trigger a re-fetch of the user access tier. */
   refresh: () => void;
 }
@@ -75,6 +77,8 @@ export function useUserAccess(): UserAccessState {
     hasPaidAccess,
     isRegistrarActive,
     hasAnyPaidPlan: hasPaidAccess,
+    cancelAtPeriodEnd: !loading && (access?.cancelAtPeriodEnd ?? false),
+    currentPeriodEnd: !loading ? (access?.currentPeriodEnd ?? null) : null,
     refresh: fetchAccess,
   };
 }

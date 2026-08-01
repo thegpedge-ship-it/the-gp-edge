@@ -13,22 +13,10 @@ export async function createBillingPortalSessionAction(): Promise<{ url?: string
     const dbUser = await ensureDbUser();
     if (!dbUser) return { error: "User profile not found" };
 
-    let customerId = dbUser.stripe_customer_id;
-
-    // If stripe_customer_id is not saved on user, search by email in Stripe
-    if (!customerId && dbUser.email) {
-      const customers = await stripe.customers.list({ email: dbUser.email, limit: 1 });
-      if (customers.data.length > 0) {
-        customerId = customers.data[0].id;
-        await prisma.users.update({
-          where: { id: dbUser.id },
-          data: { stripe_customer_id: customerId },
-        }).catch(() => {});
-      }
-    }
+    const customerId = dbUser.stripe_customer_id;
 
     if (!customerId) {
-      return { error: "No active Stripe customer billing profile found. Please complete a plan purchase first." };
+      return { error: "No billing history or Stripe customer ID found for this account. Please complete a plan purchase first." };
     }
 
     const host = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || "http://localhost:3000";

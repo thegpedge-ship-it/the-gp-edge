@@ -10,6 +10,7 @@ interface Props {
   isRegistrarActive: boolean;
   accessExpiresAt: string | null;
   hasCustomerProfile: boolean;
+  cancelAtPeriodEnd?: boolean;
 }
 
 export default function ProfileBillingCard({
@@ -18,6 +19,7 @@ export default function ProfileBillingCard({
   isRegistrarActive,
   accessExpiresAt,
   hasCustomerProfile,
+  cancelAtPeriodEnd,
 }: Props) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,12 +70,14 @@ export default function ProfileBillingCard({
           </div>
           <span
             className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-              hasPaidAccess
+              cancelAtPeriodEnd
+                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+                : hasPaidAccess
                 ? "bg-teal-100 dark:bg-teal-955/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
             }`}
           >
-            {hasPaidAccess ? "Active Plan" : "Free Tier"}
+            {cancelAtPeriodEnd ? "Canceled (Active)" : hasPaidAccess ? "Active Plan" : "Free Tier"}
           </span>
         </div>
 
@@ -90,7 +94,14 @@ export default function ProfileBillingCard({
             </span>
           </div>
 
-          {formattedExpiry ? (
+          {cancelAtPeriodEnd && formattedExpiry ? (
+            <div className="mt-3 p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50">
+              <p className="font-sans text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                <strong className="font-semibold block mb-1">Subscription Canceled</strong>
+                Your plan is scheduled to end on <strong className="font-semibold">{formattedExpiry}</strong>. You will maintain full access until then, after which your account will revert to the Free tier.
+              </p>
+            </div>
+          ) : formattedExpiry ? (
             <p className="font-sans text-xs text-slate-500 dark:text-slate-400 pl-6">
               {isRegistrarActive ? "Access valid until" : "Renews / Expires"}:{" "}
               <strong className="text-slate-700 dark:text-slate-300">{formattedExpiry}</strong>
@@ -141,7 +152,7 @@ export default function ProfileBillingCard({
             ) : (
               <CreditCard className="w-4 h-4 text-slate-500 dark:text-slate-400" />
             )}
-            Manage / Cancel Subscription
+            {cancelAtPeriodEnd ? "Reactivate Subscription" : "Manage / Cancel Subscription"}
           </span>
           <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
         </button>

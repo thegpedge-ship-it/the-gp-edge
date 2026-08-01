@@ -13,6 +13,7 @@
 
 import prisma from "@/lib/prisma";
 import { unstable_noStore } from "next/cache";
+import { cache } from "react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -41,10 +42,11 @@ export interface UserAccessInfo {
    * Grants access to Pages 2, 3, 4.
    */
   hasPaidAccess: boolean;
-  /** Remaining free-tier quotas (only relevant when hasPaidAccess === false) */
   freeQuestionsLeft: number;
   freeTemplatesLeft: number;
   freeTopicsLeft: number;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: Date | null;
 }
 
 // ─── Core access resolver ─────────────────────────────────────────────────────
@@ -53,7 +55,7 @@ export interface UserAccessInfo {
  * Fetch all access-control data for a user in a single DB call.
  * Returns null if the user does not exist.
  */
-export async function getUserAccess(userId: string): Promise<UserAccessInfo | null> {
+export const getUserAccess = cache(async (userId: string): Promise<UserAccessInfo | null> => {
   // Opt out of all caching — access expiry must be evaluated against live DB data.
   // This prevents Next.js from serving stale access decisions from its data cache.
   unstable_noStore();
@@ -244,8 +246,10 @@ export async function getUserAccess(userId: string): Promise<UserAccessInfo | nu
     freeQuestionsLeft: user.free_questions_left,
     freeTemplatesLeft: user.free_templates_left,
     freeTopicsLeft: user.free_topics_left,
+    cancelAtPeriodEnd: activeSub?.cancel_at != null,
+    currentPeriodEnd: activeSub?.current_period_end ?? null,
   };
-}
+});
 
 // ─── Per-module & Item access checks ──────────────────────────────────────────
 
