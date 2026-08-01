@@ -302,35 +302,40 @@ export default function MbsBillingPage() {
 /* ── Detail ───────────────────────────────────────────────────────────── */
 
 /**
- * Item detail: the structured data as raw JSON, then the scraped page below it.
- * The JSON is shown unstyled on purpose — it is the agent's structured output
- * verbatim. The scraped markup follows so the full source page is visible too.
+ * Item detail: the structured data as titled fields. Each section the agent
+ * produced renders as a title (its label) with the field's text as the
+ * description underneath — every item shares the same structure.
  */
 function ItemDetail({ detail }: { detail: MbsItemDetail }) {
   return (
     <div className="space-y-6">
-      {/* Structured data — raw JSON, unstyled. */}
+      {/* Structured data — one titled field per section. */}
       <div>
         <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
           Structured data
         </h2>
-        <pre className="overflow-x-auto rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
-          {JSON.stringify(detail.sections, null, 2)}
-        </pre>
+        {detail.sections.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No structured fields were extracted for this item.
+          </p>
+        ) : (
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+            {detail.sections.map((section, i) => (
+              <div key={`${section.label}-${i}`} className="p-5">
+                {/* title */}
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {section.label}
+                </h3>
+                {/* description — preserve the line breaks the agent kept in the
+                    value (fee tables, condition lists) rather than collapsing them. */}
+                <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {section.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-
-      {/* Scraped page, after the structured data. */}
-      {detail.html && (
-        <div>
-          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            Scraped data
-          </h2>
-          <div
-            className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 overflow-x-auto text-sm text-slate-700 dark:text-slate-300"
-            dangerouslySetInnerHTML={{ __html: detail.html }}
-          />
-        </div>
-      )}
 
       <p className="text-[11px] text-slate-400 dark:text-slate-500">
         {detail.cached ? "Cached" : "Fetched"} from MBS Online on{" "}
