@@ -12,7 +12,13 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
+  // Server Actions send a POST request containing the `Next-Action` header.
+  // We bypass auth.protect() redirects for Server Action POST calls so browser fetch()
+  // does not encounter a 307 redirect CORS failure ("TypeError: Failed to fetch at fetchServerAction").
+  // Server Actions handle authentication internally via ensureDbUser() / currentUser().
+  const isServerAction = req.headers.has("next-action");
+
+  if (isProtectedRoute(req) && !isServerAction) {
     await auth.protect();
   }
 });
