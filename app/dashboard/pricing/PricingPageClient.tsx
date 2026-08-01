@@ -350,22 +350,7 @@ export default function PricingPageClient({
                 : "Invest in your fellowship success"}
             </h1>
 
-            {/* Short Description */}
-            <p className="font-sans text-sm md:text-base font-normal leading-relaxed text-slate-600 dark:text-slate-400">
-              {isFellow ? (
-                <>
-                  Access your clinical tools and templates with a Fellowship plan.
-                  <br className="hidden sm:inline" />
-                  Cancel any time. No lock-in contracts.
-                </>
-              ) : (
-                <>
-                  Choose the access window that fits your exam timeline.
-                  <br className="hidden sm:inline" />
-                  One-time payment, no subscription required.
-                </>
-              )}
-            </p>
+
           </div>
 
           {/* Right Side Illustration */}
@@ -387,18 +372,9 @@ export default function PricingPageClient({
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}
         <section className="mb-16 w-full space-y-10">
           {!isFellow && examPlans.length > 0 && (
-            <div>
-              <div className="mb-5">
-                <h2 className="text-xl md:text-2xl font-bold font-serif text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                  Registrar Exam Packages
-                </h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Complete AKT & KFP exam prep simulations + full clinical library and billing tools. One-time payment.
-                </p>
-              </div>
+            <div className="flex justify-center w-full">
               <div
-                className={`grid gap-6 ${
+                className={`grid gap-6 mx-auto ${
                   examPlans.length === 1
                     ? "grid-cols-1 max-w-sm"
                     : "grid-cols-1 md:grid-cols-2 max-w-4xl"
@@ -417,19 +393,9 @@ export default function PricingPageClient({
           )}
 
           {subPlans.length > 0 && (
-            <div>
-              {!isFellow && examPlans.length > 0 && (
-                <div className="mb-5 pt-4 border-t border-slate-200/60 dark:border-slate-800">
-                  <h2 className="text-lg md:text-xl font-bold font-serif text-slate-900 dark:text-slate-100">
-                    Standard Clinical Tool Subscriptions
-                  </h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Monthly and annual subscriptions for clinical reference, note templates, and MBS billing.
-                  </p>
-                </div>
-              )}
+            <div className="flex justify-center w-full">
               <div
-                className={`grid gap-6 ${
+                className={`grid gap-6 mx-auto ${
                   subPlans.length === 1
                     ? "grid-cols-1 max-w-sm"
                     : subPlans.length === 2
@@ -451,7 +417,7 @@ export default function PricingPageClient({
         </section>
 
         {/* ── Section 3: Feature Comparison / What's Included Table ──────────── */}
-        <section className="w-full max-w-4xl">
+        <section className="w-full">
           <div className="mb-6 text-left">
             <h2 className="text-2xl md:text-3xl font-bold font-serif text-slate-900 dark:text-slate-50 mb-1">
               What&apos;s included
