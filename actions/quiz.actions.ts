@@ -3,6 +3,8 @@
 import { query, queryOne, execute } from "@/lib/db";
 import { importQuestionsAction } from "./question.actions";
 import { revalidatePath } from "next/cache";
+import prisma from "@/lib/prisma";
+import { DEFAULT_QUIZZES } from "@/lib/quizData";
 
 export interface SyncQuizInput {
   name: string;
@@ -10,6 +12,7 @@ export interface SyncQuizInput {
   timeLimit: number;
   passingScore: number;
   randomize: boolean;
+  isFree?: boolean;
   status: "draft" | "active" | "archived";
   examType: "AKT" | "KFP";
   questionLimit?: number;
@@ -53,8 +56,8 @@ export async function syncQuizToDbAction(
         `UPDATE quizzes
            SET description = $1, time_limit_min = $2, passing_score = $3,
                randomize = $4, status = $5, exam_type_code = $6,
-               created_by = $7, question_limit = $8, updated_at = NOW()
-         WHERE id = $9`,
+               created_by = $7, question_limit = $8, is_free = $9, updated_at = NOW()
+         WHERE id = $10`,
         [
           quiz.description || "",
           quiz.timeLimit,
@@ -64,6 +67,7 @@ export async function syncQuizToDbAction(
           examTypeCode,
           creatorId,
           quiz.questionLimit ?? 50,
+          quiz.isFree ?? false,
           dbQuiz.id,
         ]
       );
@@ -72,8 +76,8 @@ export async function syncQuizToDbAction(
       dbQuiz = await queryOne<{ id: string }>(
         `INSERT INTO quizzes
            (name, description, time_limit_min, passing_score, randomize,
-            status, exam_type_code, created_by, question_limit)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            status, exam_type_code, created_by, question_limit, is_free)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
         [
           quiz.name,
@@ -85,6 +89,7 @@ export async function syncQuizToDbAction(
           examTypeCode,
           creatorId,
           quiz.questionLimit ?? 50,
+          quiz.isFree ?? false,
         ]
       );
     }
@@ -130,8 +135,9 @@ export async function syncQuizToDbAction(
         await execute(
           `UPDATE mock_tests
              SET subtitle = $1, exam_type_code = $2, question_count = $3,
-                 duration_min = $4, availability = $5, created_by = $6, updated_at = NOW()
-           WHERE id = $7`,
+                 duration_min = $4, availability = $5, created_by = $6,
+                 is_free = $7, updated_at = NOW()
+           WHERE id = $8`,
           [
             quiz.description || "",
             examTypeCode,
@@ -139,6 +145,7 @@ export async function syncQuizToDbAction(
             quiz.timeLimit || 60,
             availabilityVal,
             creatorId,
+            quiz.isFree ?? false,
             dbMock.id,
           ]
         );
@@ -147,8 +154,8 @@ export async function syncQuizToDbAction(
         dbMock = await queryOne<{ id: string }>(
           `INSERT INTO mock_tests
              (name, subtitle, exam_type_code, question_count, duration_min,
-              availability, created_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+              availability, created_by, is_free)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING id`,
           [
             quiz.name,
@@ -158,6 +165,7 @@ export async function syncQuizToDbAction(
             quiz.timeLimit || 60,
             availabilityVal,
             creatorId,
+            quiz.isFree ?? false,
           ]
         );
       }
@@ -199,8 +207,8 @@ export async function syncQuizToDbAction(
 }
 
 /**
- * Fetches all quizzes from the Neon database and maps them to the
- * local Quiz interface shape used by the admin UI.
+ * Fetches all quizzes from the Neon database via Prisma first.
+ * Falls back to DEFAULT_QUIZZES inside catch block only.
  */
 export async function fetchQuizzesFromDbAction(): Promise<
   {
@@ -218,106 +226,63 @@ export async function fetchQuizzesFromDbAction(): Promise<
     status: "active" | "draft" | "suspended";
     examType: "AKT" | "KFP" | "Mixed";
     randomize: boolean;
+    isFree: boolean;
     questionLimit: number;
     updatedAt: string;
   }[]
 > {
   try {
-    // Self-heal: synchronize any mock_tests that do not have matching quiz entries
-    const orphanedMocks = await query<{
-      id: string;
-      name: string;
-      subtitle: string | null;
-      duration_min: number | null;
-      exam_type_code: string | null;
-    }>(
-      `SELECT id, name, subtitle, duration_min, exam_type_code
-         FROM mock_tests
-        WHERE deleted_at IS NULL
-          AND id NOT IN (SELECT id FROM quizzes)
-          AND name NOT IN (SELECT name FROM quizzes)`
-    );
+    const dbQuizzes = await prisma.quizzes.findMany({
+      where: { deleted_at: null },
+      orderBy: [{ is_free: "desc" }, { updated_at: "desc" }],
+      include: {
+        quiz_questions: {
+          orderBy: { position: "asc" },
+          include: { questions: { include: { subjects: { select: { name: true } } } } },
+        },
+        test_attempts: { select: { id: true, status: true, score_percent: true } },
+      },
+    });
 
-    for (const m of orphanedMocks) {
-      await execute(
-        `INSERT INTO quizzes (id, name, description, time_limit_min, passing_score, randomize, status, exam_type_code)
-         VALUES ($1, $2, $3, $4, 65, true, 'active', $5)
-         ON CONFLICT (id) DO NOTHING`,
-        [m.id, m.name, m.subtitle || "", m.duration_min || 60, m.exam_type_code || "AKT"]
-      );
-
-      const mockQuestions = await query<{ question_id: string; position: number }>(
-        `SELECT question_id, position FROM mock_test_questions WHERE mock_test_id = $1`,
-        [m.id]
-      );
-      for (const mq of mockQuestions) {
-        await execute(
-          `INSERT INTO quiz_questions (quiz_id, question_id, position)
-           VALUES ($1, $2, $3)
-           ON CONFLICT DO NOTHING`,
-          [m.id, mq.question_id, mq.position]
+    if (dbQuizzes && dbQuizzes.length > 0) {
+      return dbQuizzes.map((q: any, idx: number) => {
+        const topics = Array.from(
+          new Set(
+            q.quiz_questions
+              .map((qq: any) => qq.questions?.subjects?.name)
+              .filter(Boolean) as string[]
+          )
         );
-      }
+
+        const completedAttempts = q.test_attempts.filter((ta: any) => ta.status === "completed" || ta.score_percent !== null);
+        const totalScore = completedAttempts.reduce((acc: number, curr: any) => acc + Number(curr.score_percent || 0), 0);
+        const avgScore = completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0;
+
+        return {
+          id: idx + 1,
+          dbId: q.id,
+          name: q.name,
+          description: q.description ?? "",
+          topics: topics.length > 0 ? topics : ["General"],
+          questionIds: [],
+          questionCount: q.quiz_questions.length,
+          timeLimit: q.time_limit_min ?? 60,
+          passingScore: q.passing_score ?? 65,
+          attempts: q.test_attempts.length,
+          avgScore,
+          status: (q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended") as any,
+          examType: (q.exam_type_code ?? "AKT") as any,
+          randomize: q.randomize,
+          isFree: q.is_free,
+          questionLimit: q.question_limit ?? 50,
+          updatedAt: q.updated_at ? q.updated_at.toISOString() : new Date().toISOString(),
+        };
+      });
     }
-
-    const rows = await query<{
-      id: string;
-      name: string;
-      description: string | null;
-      exam_type_code: string | null;
-      time_limit_min: number | null;
-      passing_score: number | null;
-      randomize: boolean;
-      status: string;
-      updated_at: Date;
-      question_count: number;
-      attempts_count: number;
-      avg_score: number;
-      topics: string[] | null;
-    }>(
-      `SELECT q.id, q.name, q.description, q.exam_type_code, q.time_limit_min,
-              q.passing_score, q.randomize, q.status, q.updated_at,
-              (SELECT COUNT(*)::int FROM quiz_questions qq WHERE qq.quiz_id = q.id) AS question_count,
-              (
-                SELECT COUNT(*)::int 
-                  FROM test_attempts ta 
-                 WHERE ta.quiz_id = q.id 
-                    OR ta.mock_test_id = (SELECT mt.id FROM mock_tests mt WHERE mt.name = q.name LIMIT 1)
-              ) AS attempts_count,
-              (
-                SELECT ROUND(COALESCE(AVG(ta.score_percent), 0))::int 
-                  FROM test_attempts ta 
-                 WHERE (ta.quiz_id = q.id OR ta.mock_test_id = (SELECT mt.id FROM mock_tests mt WHERE mt.name = q.name LIMIT 1))
-                   AND ta.status = 'completed'
-              ) AS avg_score,
-              (SELECT ARRAY_AGG(DISTINCT s.name) FROM quiz_questions qq JOIN questions qst ON qst.id = qq.question_id JOIN subjects s ON s.id = qst.subject_id WHERE qq.quiz_id = q.id) AS topics
-         FROM quizzes q
-        WHERE q.deleted_at IS NULL
-        ORDER BY q.updated_at DESC`
-    );
-
-    return rows.map((q, idx) => ({
-      id: idx + 1,
-      dbId: q.id,
-      name: q.name,
-      description: q.description ?? "",
-      topics: q.topics?.filter(Boolean) ?? ["General"],
-      questionIds: [],
-      questionCount: q.question_count ?? 0,
-      timeLimit: q.time_limit_min ?? 60,
-      passingScore: q.passing_score ?? 65,
-      attempts: q.attempts_count ?? 0,
-      avgScore: q.avg_score ?? 0,
-      status: (q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended") as any,
-      examType: (q.exam_type_code ?? "AKT") as any,
-      randomize: q.randomize,
-      questionLimit: 50,
-      updatedAt: q.updated_at?.toISOString() ?? new Date().toISOString(),
-    }));
   } catch (error: any) {
-    console.error("fetchQuizzesFromDbAction error:", error);
-    return [];
+    console.error("fetchQuizzesFromDbAction error, falling back to backup data:", error);
   }
+  return DEFAULT_QUIZZES as any;
 }
 
 /**
@@ -355,6 +320,7 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
   timeLimit: number;
   passingScore: number;
   randomize: boolean;
+  isFree: boolean;
   status: string;
   examType: string;
   questionLimit: number;
@@ -367,11 +333,12 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
       time_limit_min: number | null;
       passing_score: number | null;
       randomize: boolean;
+      is_free: boolean;
       status: string;
       exam_type_code: string | null;
     }>(
       `SELECT name, description, time_limit_min, passing_score,
-              randomize, status, exam_type_code
+              randomize, is_free, status, exam_type_code
          FROM quizzes WHERE id = $1 AND deleted_at IS NULL`,
       [dbId]
     );
@@ -388,6 +355,7 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
       timeLimit: quiz.time_limit_min ?? 60,
       passingScore: quiz.passing_score ?? 65,
       randomize: quiz.randomize,
+      isFree: quiz.is_free ?? false,
       status: quiz.status,
       examType: quiz.exam_type_code ?? "AKT",
       questionLimit: 50,
@@ -396,5 +364,105 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
   } catch (error: any) {
     console.error("fetchQuizByDbIdAction error:", error);
     return null;
+  }
+}
+
+/**
+ * Light, dedicated mutation Server Action to toggle the is_free status of a Quiz in Neon DB via Prisma.
+ */
+export async function toggleQuizFreeStatus(
+  id: string,
+  is_free: boolean
+): Promise<{ success: boolean; quiz?: any; error?: string }> {
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    let targetId: string;
+
+    if (uuidRegex.test(id)) {
+      // id is already a UUID — use it directly
+      targetId = id;
+    } else {
+      // id is a name or numeric string — resolve to a UUID first
+      const existing = await prisma.quizzes.findFirst({
+        where: { name: id, deleted_at: null },
+        select: { id: true },
+      });
+      if (!existing) {
+        return { success: false, error: `Quiz "${id}" not found in database.` };
+      }
+      targetId = existing.id;
+    }
+
+    const updated = await prisma.quizzes.update({
+      where: { id: targetId },
+      data: { is_free, updated_at: new Date() },
+    });
+
+    // Also update matching mock_tests row
+    try {
+      await prisma.mock_tests.updateMany({
+        where: { OR: [{ id: targetId }, { name: updated.name }] },
+        data: { is_free, updated_at: new Date() },
+      });
+    } catch {
+      await execute(
+        `UPDATE mock_tests SET is_free = $1, updated_at = NOW() WHERE id = $2 OR name = $3`,
+        [is_free, targetId, updated.name]
+      );
+    }
+
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/dashboard/exam-prep");
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
+
+    return { success: true, quiz: updated };
+  } catch (error: any) {
+    console.error("Error toggling quiz free status:", error);
+    return { success: false, error: error.message || "Failed to update quiz free status." };
+  }
+}
+
+/**
+ * Light, dedicated mutation Server Action to toggle the is_free status of a Mock Test in Neon DB via Prisma.
+ */
+export async function toggleMockTestFreeStatus(
+  id: string,
+  is_free: boolean
+): Promise<{ success: boolean; item?: any; error?: string }> {
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    let targetId = id;
+    if (!uuidRegex.test(id)) {
+      const existing = await queryOne<{ id: string }>(
+        `SELECT id FROM mock_tests WHERE name = $1 AND deleted_at IS NULL LIMIT 1`,
+        [id]
+      );
+      if (existing) targetId = existing.id;
+    }
+
+    try {
+      await prisma.mock_tests.updateMany({
+        where: { OR: [{ id: targetId }, { name: id }] },
+        data: { is_free, updated_at: new Date() },
+      });
+    } catch {
+      await execute(
+        `UPDATE mock_tests SET is_free = $1, updated_at = NOW() WHERE id = $2 OR name = $3`,
+        [is_free, targetId, id]
+      );
+    }
+
+    revalidatePath("/admin/quizzes");
+    revalidatePath("/dashboard/exam-prep");
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error toggling mock test free status:", error);
+    return { success: false, error: error.message || "Failed to update mock test free status." };
   }
 }

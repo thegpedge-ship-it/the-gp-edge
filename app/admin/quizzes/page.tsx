@@ -26,7 +26,7 @@ import {
 } from "@/lib/adminTheme";
 import { Quiz, Question, fetchQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
-import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizzesFromDbAction } from "@/actions/quiz.actions";
+import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizzesFromDbAction, toggleQuizFreeStatus } from "@/actions/quiz.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -155,6 +155,40 @@ export default function QuizzesPage() {
     setQuizToDelete(null);
   };
 
+  const handleToggleQuizFree = async (quiz: Quiz, newIsFree: boolean) => {
+    if (isReadOnly) return;
+    const targetId = (quiz as any).dbId || quiz.name;
+
+    // Optimistic UI update
+    setQuizzes((prev) =>
+      prev.map((q) =>
+        q.id === quiz.id || (q as any).dbId === (quiz as any).dbId
+          ? { ...q, isFree: newIsFree }
+          : q
+      )
+    );
+
+    const res = await toggleQuizFreeStatus(targetId, newIsFree);
+    if (!res.success) {
+      // Revert state on failure
+      setQuizzes((prev) =>
+        prev.map((q) =>
+          q.id === quiz.id || (q as any).dbId === (quiz as any).dbId
+            ? { ...q, isFree: !newIsFree }
+            : q
+        )
+      );
+      alert(res.error || "Failed to update quiz free status.");
+    } else {
+      addUserNotification(
+        `Quiz Status Updated`,
+        `"${quiz.name}" is now ${newIsFree ? "Free Access" : "Paid Only"}.`,
+        1,
+        "quiz"
+      );
+    }
+  };
+
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
@@ -241,10 +275,29 @@ export default function QuizzesPage() {
                       <p className="text-sm font-semibold text-white leading-snug">{quiz.name}</p>
                       <p className="text-[11px] text-teal-100 mt-1">{quiz.questionCount} questions · {quiz.timeLimit} min</p>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border shrink-0 bg-white/15 text-white border-white/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-teal-300" />
-                      {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
-                    </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleQuizFree(quiz, !quiz.isFree);
+                        }}
+                        disabled={isReadOnly}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                          quiz.isFree
+                            ? "bg-emerald-400/20 text-emerald-200 border-emerald-400/40"
+                            : "bg-white/10 text-slate-300 border-white/20"
+                        } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                        title={quiz.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${quiz.isFree ? "bg-emerald-400" : "bg-slate-400"}`} />
+                        {quiz.isFree ? "Free" : "Paid"}
+                      </button>
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border shrink-0 bg-white/15 text-white border-white/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-teal-300" />
+                        {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -412,6 +465,7 @@ export default function QuizzesPage() {
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Pass %</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Attempts</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Avg Score</th>
+                  <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Access Tier</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Status</th>
                 </tr>
               </thead>
@@ -434,6 +488,25 @@ export default function QuizzesPage() {
                         {q.avgScore > 0 ? (
                         <span className="text-sm font-semibold text-teal-700 dark:text-teal-400">{q.avgScore}%</span>
                       ) : <span className="text-xs text-teal-400/60">—</span>}
+                    </td>
+                    <td className="px-4 py-4">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleQuizFree(q, !q.isFree);
+                        }}
+                        disabled={isReadOnly}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
+                          q.isFree
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
+                            : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                        } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                        title={q.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${q.isFree ? "bg-emerald-500" : "bg-slate-400"}`} />
+                        {q.isFree ? "Free Access" : "Paid Only"}
+                      </button>
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border ${themeBadge}`}>

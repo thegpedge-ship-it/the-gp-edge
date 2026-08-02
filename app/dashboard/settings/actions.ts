@@ -61,7 +61,8 @@ export async function updateProfileInfo(input: ProfileUpdate): Promise<ActionRes
   }
 
   // Refresh the cached dashboard so the sidebar/profile pick up the new values.
-  revalidatePath("/dashboard", "layout");
+  revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard/settings");
   return { ok: true };
 }
 

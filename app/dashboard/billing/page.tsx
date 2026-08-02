@@ -20,22 +20,23 @@ import {
   X,
   Bookmark,
   BookmarkCheck,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
   ArrowLeft,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import {
-  listMbsItemsAction,
+  listSavedMbsItemsAction,
   searchMbsAction,
   toggleMbsFavouriteAction,
-  fetchMbsItemPageAction,
+  getMbsItemDetailAction,
   type MbsSearchHit,
-  type MbsItemPage,
+  type MbsItemDetail,
+  type MbsDetailSection,
 } from "@/actions/mbs.actions";
 import { MBS_RESULT_LIMIT } from "@/lib/mbs/constants";
+import { useUserAccess } from "@/hooks/useUserAccess";
+import UpgradeModal from "@/components/UpgradeModal";
+import { Lock, Sparkles } from "lucide-react";
 
 /** Wait after the last keystroke before spending an API call. */
 const DEBOUNCE_MS = 350;
@@ -44,6 +45,9 @@ const DEBOUNCE_MS = 350;
 const MIN_QUERY_LENGTH = 3;
 
 export default function MbsBillingPage() {
+  const { hasPaidAccess, loading: accessLoading } = useUserAccess();
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<MbsSearchHit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,18 +55,12 @@ export default function MbsBillingPage() {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Pagination works differently for the two modes.
-   *
-   * Browse pages server-side — 6,000 items cannot sit in client state. Search
-   * fetches its whole ranked pool in one request and pages through it locally,
-   * so clicking "next" on results costs no further embedding call.
+   * With no query the grid shows every item the user has saved; a query replaces
+   * it with the top MBS_RESULT_LIMIT ranked matches. Neither view paginates.
    */
-  const [page, setPage] = useState(1);
-  const [browseTotalPages, setBrowseTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
 
-  /** Detail view. Non-null replaces the grid with the government page. */
-  const [detail, setDetail] = useState<MbsItemPage | null>(null);
+  /** Detail view. Non-null replaces the grid with the structured item detail. */
+  const [detail, setDetail] = useState<MbsItemDetail | null>(null);
   const [detailFor, setDetailFor] = useState<number | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -72,7 +70,7 @@ export default function MbsBillingPage() {
     setDetailError(null);
     window.scrollTo({ top: 0 });
     try {
-      setDetail(await fetchMbsItemPageAction(itemNum));
+      setDetail(await getMbsItemDetailAction(itemNum));
     } catch {
       setDetailError(`Could not load item ${itemNum} from MBS Online.`);
     }
@@ -97,36 +95,30 @@ export default function MbsBillingPage() {
   const trimmed = query.trim();
   const isSearching = trimmed.length >= MIN_QUERY_LENGTH;
 
-  const loadPage = useCallback((p: number) => {
+  const loadSavedItems = useCallback(() => {
     const seq = ++seqRef.current;
-    return listMbsItemsAction(p)
-      .then((res) => {
+    return listSavedMbsItemsAction()
+      .then((rows) => {
         if (seq !== seqRef.current) return;
-        setItems(res.items);
-        setTotal(res.total);
-        setBrowseTotalPages(res.totalPages);
-        setPage(res.page);
+        setItems(rows);
         setError(null);
       })
-      .catch(() => setError("Could not load billing items."));
+      .catch(() => setError("Could not load your saved items."));
   }, []);
 
   /**
-   * Browse listing. Depends on `isSearching` rather than the raw query so
-   * typing "c" then "ca" — both below the search threshold — does not refetch
-   * the browse page on each keystroke.
+   * Default listing — the user's saved items. Depends on `isSearching` rather
+   * than the raw query so typing "c" then "ca" — both below the search
+   * threshold — does not refetch the saved list on each keystroke.
    */
   useEffect(() => {
     if (isSearching) return;
-    void loadPage(page).finally(() => setLoading(false));
-  }, [page, isSearching, loadPage]);
+    void loadSavedItems().finally(() => setLoading(false));
+  }, [isSearching, loadSavedItems]);
 
   /**
-   * Debounced search.
-   *
-   * Deliberately does NOT depend on `page`. Search results are paged on the
-   * client, so including it would re-run the whole search — and spend another
-   * embedding API call — every time someone clicked "next".
+   * Debounced search. Returns only the top MBS_SEARCH_POOL (15) ranked matches,
+   * which the grid shows in full — no pagination.
    */
   useEffect(() => {
     const text = query.trim();
@@ -144,9 +136,6 @@ export default function MbsBillingPage() {
         .then((rows) => {
           if (seq !== seqRef.current) return;
           setItems(rows);
-          // A new query invalidates the old position — landing on page 4 of a
-          // fresh result set would hide the best matches.
-          setPage(1);
           setError(null);
         })
         .catch(() => {
@@ -176,20 +165,51 @@ export default function MbsBillingPage() {
     try {
       const { saved } = await toggleMbsFavouriteAction(itemNum);
       flip(saved);
+      // In the saved-items listing an unsaved item no longer belongs, so drop
+      // it once the server confirms. In search results it stays put — only the
+      // bookmark icon changes.
+      if (!isSearching && !saved) {
+        setItems((prev) => prev.filter((i) => i.itemNum !== itemNum));
+      }
     } catch {
       flip(); // revert
     }
-  }, []);
+  }, [isSearching]);
 
-  // Browse already holds exactly one page; search holds the whole pool and is
-  // sliced here.
-  const visibleItems = isSearching
-    ? items.slice((page - 1) * MBS_RESULT_LIMIT, page * MBS_RESULT_LIMIT)
-    : items;
+  // Saved listing shows every saved item; search is capped to the top
+  // MBS_RESULT_LIMIT (the slice is a safety net — search already returns at
+  // most that many).
+  const visibleItems = isSearching ? items.slice(0, MBS_RESULT_LIMIT) : items;
 
-  const totalPages = isSearching
-    ? Math.max(1, Math.ceil(items.length / MBS_RESULT_LIMIT))
-    : browseTotalPages;
+  /* ── Paywall for non-paid users ────────────────────────────────────────── */
+  if (!accessLoading && !hasPaidAccess) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 px-4 text-center">
+        <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-955/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto mb-6">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-3">
+          MBS Billing Search is Locked
+        </h1>
+        <p className="text-base text-slate-600 dark:text-slate-400 max-w-lg mx-auto mb-8">
+          Semantic searching and saved items across all 6,000+ Medicare Benefits Schedule items are available exclusively to paid subscribers.
+        </p>
+        <button
+          onClick={() => setUpgradeModalOpen(true)}
+          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all cursor-pointer"
+        >
+          <Sparkles className="w-4 h-4" />
+          Upgrade to Access MBS Search
+        </button>
+        <UpgradeModal
+          open={upgradeModalOpen}
+          onClose={() => setUpgradeModalOpen(false)}
+          featureName="MBS Billing Search"
+          requiredTier="paid"
+        />
+      </div>
+    );
+  }
 
   /* ── Detail view — replaces the grid entirely ─────────────────────────── */
   if (detailFor !== null) {
@@ -234,14 +254,7 @@ export default function MbsBillingPage() {
             ))}
           </div>
         ) : (
-          /* Markup comes from MBS Online with scripts, forms, inline handlers
-             and javascript: URLs already stripped server-side (stripUnsafe).
-             overflow-x-auto contains the government page's wide tables rather
-             than letting them scroll the whole dashboard sideways. */
-          <div
-            className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 overflow-x-auto text-sm text-slate-700 dark:text-slate-300"
-            dangerouslySetInnerHTML={{ __html: detail.html }}
-          />
+          <ItemDetail detail={detail} />
         )}
       </div>
     );
@@ -282,15 +295,17 @@ export default function MbsBillingPage() {
           : trimmed.length > 0 && trimmed.length < MIN_QUERY_LENGTH
             ? `Type at least ${MIN_QUERY_LENGTH} characters to search`
             : isSearching
-              ? `${items.length} match${items.length === 1 ? "" : "es"} · page ${page} of ${totalPages}`
-              : `${total.toLocaleString()} items · page ${page.toLocaleString()} of ${totalPages.toLocaleString()}`}
+              ? `Top ${visibleItems.length} match${visibleItems.length === 1 ? "" : "es"}`
+              : visibleItems.length > 0
+                ? `${visibleItems.length} saved item${visibleItems.length === 1 ? "" : "s"}`
+                : ""}
       </div>
 
       {error && (
         <p className="text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>
       )}
 
-      {/* ── Grid: 3 columns x 4 rows ───────────────────────────────────── */}
+      {/* ── Grid: saved items, or top 15 search matches (3 columns) ──────── */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: MBS_RESULT_LIMIT }).map((_, i) => (
@@ -302,7 +317,9 @@ export default function MbsBillingPage() {
         </div>
       ) : visibleItems.length === 0 ? (
         <p className="py-16 text-center text-sm text-slate-500 dark:text-slate-400">
-          No items matched that search.
+          {isSearching
+            ? "No items matched that search."
+            : "You haven't saved any items yet. Search above, then tap the bookmark on an item to keep it here."}
         </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -316,76 +333,147 @@ export default function MbsBillingPage() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {!loading && totalPages > 1 && (
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+/* ── Detail ───────────────────────────────────────────────────────────── */
+
+/**
+ * Render a section's text as tight paragraphs.
+ *
+ * The scraped MBS notes wrap almost every sentence in its own <p>, so the stored
+ * value is riddled with blank-line ("\n\n") paragraph breaks. Rendered raw with
+ * `whitespace-pre-line` each of those became a full empty line, leaving the
+ * detail view very airy. Instead we split on blank lines into real paragraphs
+ * with a small, consistent gap, and keep single newlines inside each paragraph
+ * (via `whitespace-pre-line`) so fee tables and condition lists still break.
+ */
+function SectionValue({ value }: { value: string }) {
+  const paragraphs = value
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="mt-1.5 space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      {paragraphs.map((p, i) => (
+        <p key={i} className="whitespace-pre-line">
+          {p}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/** A field spans the full width (single column) only when its value is
+ *  multi-line (fee tables, condition lists, descriptors) or exceptionally long;
+ *  single-line values — including longer ones like Group — pack two per row. */
+function isWideValue(value: string): boolean {
+  return value.includes("\n") || value.trim().length > 100;
+}
+
+/**
+ * Associated explanatory notes carry a note code as their label (e.g.
+ * "AN.0.9 — …", "GN.4.13 — …") or the fallback "Associated Explanatory Notes".
+ * These bodies run to thousands of words, so they render as collapsed
+ * accordions below the compact structured fields rather than always-open rows.
+ */
+const NOTE_LABEL = /^[A-Z]{2,4}(?:\.\d+)+\s*—/;
+function isNoteLabel(label: string): boolean {
+  return NOTE_LABEL.test(label) || /associated explanatory notes/i.test(label);
+}
+
+/** One collapsible explanatory note. Collapsed by default so the page opens on
+ *  the compact fields, not a wall of note text. */
+function NoteAccordion({ section }: { section: MbsDetailSection }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 p-5 text-left"
+      >
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {section.label}
+        </h3>
+        <ChevronDown
+          className={`w-4 h-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="px-5 pb-5 -mt-1">
+          <SectionValue value={section.value} />
+        </div>
       )}
     </div>
   );
 }
 
-/* ── Pagination ───────────────────────────────────────────────────────── */
-
-function Pagination({
-  page,
-  totalPages,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  onChange: (p: number) => void;
-}) {
-  const go = (p: number) => {
-    onChange(Math.min(totalPages, Math.max(1, p)));
-    // Paging without this leaves the viewport at the bottom of the old grid,
-    // so the new page appears to load already scrolled past its first rows.
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  /**
-   * A five-page window around the current page.
-   *
-   * 6,000 items is ~500 pages, so rendering every number is not an option —
-   * the window keeps the control a fixed width at any position in the range.
-   */
-  const windowStart = Math.max(1, Math.min(page - 2, totalPages - 4));
-  const windowEnd = Math.min(totalPages, windowStart + 4);
-  const pages: number[] = [];
-  for (let p = windowStart; p <= windowEnd; p++) pages.push(p);
-
-  const arrow =
-    "p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors";
+/**
+ * Item detail: the structured data as titled fields, followed by the
+ * associated explanatory notes as collapsible accordions. Compact metadata
+ * (item number, dates, group…) stays flat; long note bodies collapse.
+ */
+function ItemDetail({ detail }: { detail: MbsItemDetail }) {
+  const fields = detail.sections.filter((s) => !isNoteLabel(s.label));
+  const notes = detail.sections.filter((s) => isNoteLabel(s.label));
 
   return (
-    <div className="flex items-center justify-center gap-1 pt-2">
-      <button onClick={() => go(1)} disabled={page === 1} aria-label="First page" className={arrow}>
-        <ChevronsLeft className="w-4 h-4" />
-      </button>
-      <button onClick={() => go(page - 1)} disabled={page === 1} aria-label="Previous page" className={arrow}>
-        <ChevronLeft className="w-4 h-4" />
-      </button>
+    <div className="space-y-6">
+      {/* Structured data — one titled field per section. */}
+      <div>
+        <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Structured data
+        </h2>
+        {fields.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No structured fields were extracted for this item.
+          </p>
+        ) : (
+          // Compact single-line fields pack two per row; long/multi-line ones
+          // span the full width as a single column.
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {fields.map((section, i) => (
+              <div
+                key={`${section.label}-${i}`}
+                className={`rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 ${
+                  isWideValue(section.value) ? "sm:col-span-2" : ""
+                }`}
+              >
+                {/* title */}
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  {section.label}
+                </h3>
+                {/* description — split blank-line paragraph breaks into tight
+                    paragraphs while keeping single line breaks inside each
+                    (fee tables, condition lists). */}
+                <SectionValue value={section.value} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {pages.map((p) => (
-        <button
-          key={p}
-          onClick={() => go(p)}
-          aria-current={p === page ? "page" : undefined}
-          className={`min-w-[36px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-            p === page
-              ? "bg-emerald-600 text-white"
-              : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          }`}
-        >
-          {p.toLocaleString()}
-        </button>
-      ))}
+      {/* Associated explanatory notes — collapsible, one accordion per note. */}
+      {notes.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            Explanatory notes
+          </h2>
+          <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800">
+            {notes.map((section, i) => (
+              <NoteAccordion key={`${section.label}-${i}`} section={section} />
+            ))}
+          </div>
+        </div>
+      )}
 
-      <button onClick={() => go(page + 1)} disabled={page === totalPages} aria-label="Next page" className={arrow}>
-        <ChevronRight className="w-4 h-4" />
-      </button>
-      <button onClick={() => go(totalPages)} disabled={page === totalPages} aria-label="Last page" className={arrow}>
-        <ChevronsRight className="w-4 h-4" />
-      </button>
+      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+        {detail.cached ? "Cached" : "Fetched"} from MBS Online on{" "}
+        {new Date(detail.fetchedAt).toLocaleDateString()}.
+      </p>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
+import { fetchAutofillTemplatesFromDbAction, toggleTemplateFreeStatus } from "@/actions/autofill.actions";
 import {
   themeBorder,
   themeBtnGhost,
@@ -57,6 +58,7 @@ export default function AutofillPage() {
   const [newSystem, setNewSystem] = useState("Respiratory");
   const [newCategory, setNewCategory] = useState("Acute");
   const [newName, setNewName] = useState("");
+  const [newIsFree, setNewIsFree] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<number | null>(null);
   const [savedTemplateId, setSavedTemplateId] = useState<number | null>(null);
   const [tempFields, setTempFields] = useState<{ name: string; type: string; required: boolean }[]>([]);
@@ -242,7 +244,7 @@ export default function AutofillPage() {
   };
 
   useEffect(() => {
-    setTemplates(getAutofillTemplates());
+    fetchAutofillTemplatesFromDbAction().then(setTemplates);
   }, []);
 
   const handleDeleteTemplate = (id: number) => {
@@ -253,10 +255,41 @@ export default function AutofillPage() {
     saveAutofillTemplates(updated);
   };
 
-  const handleOpenEdit = (template: AutofillTemplate) => {    setEditingTemplateId(template.id);
+  const handleToggleTemplateFree = async (template: AutofillTemplate, newIsFree: boolean) => {
+    if (isReadOnly) return;
+
+    // Optimistic state update
+    const updated = templates.map((t) =>
+      t.id === template.id ? { ...t, isFree: newIsFree } : t
+    );
+    setTemplates(updated);
+    saveAutofillTemplates(updated);
+
+    const res = await toggleTemplateFreeStatus((template as any).dbId ?? template.id, newIsFree);
+    if (!res.success) {
+      // Revert state on failure
+      const reverted = templates.map((t) =>
+        t.id === template.id ? { ...t, isFree: !newIsFree } : t
+      );
+      setTemplates(reverted);
+      saveAutofillTemplates(reverted);
+      alert(res.error || "Failed to update template free status.");
+    } else {
+      addUserNotification(
+        `Template Status Updated`,
+        `"${template.name}" is now ${newIsFree ? "Free Access" : "Paid Only"}.`,
+        1,
+        "custom"
+      );
+    }
+  };
+
+  const handleOpenEdit = (template: AutofillTemplate) => {
+    setEditingTemplateId(template.id);
     setNewName(template.name);
     setNewSystem(template.system);
     setNewCategory(template.category);
+    setNewIsFree(template.isFree ?? false);
     setTempFields(template.sampleFields);
     setShowEditor(true);
   };
@@ -277,6 +310,7 @@ export default function AutofillPage() {
               name: newName,
               system: newSystem,
               category: newCategory,
+              isFree: newIsFree,
               fields: 0,
               sampleFields: [],
             }
@@ -288,6 +322,7 @@ export default function AutofillPage() {
         name: newName,
         system: newSystem,
         category: newCategory,
+        isFree: newIsFree,
         fields: 0,
         usageCount: 0,
         lastUsed: "Just now",
@@ -430,6 +465,23 @@ export default function AutofillPage() {
                       {template.category}
                     </span>
                     <StatusBadge variant={template.status === "active" ? "published" : template.status === "suspended" ? "review" : "draft"} />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleTemplateFree(template, !template.isFree);
+                      }}
+                      disabled={isReadOnly}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                        template.isFree
+                          ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                          : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                      title={template.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${template.isFree ? "bg-emerald-500" : "bg-slate-400"}`} />
+                      {template.isFree ? "Free" : "Paid"}
+                    </button>
                   </div>
                   <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium shrink-0">{template.lastUsed}</span>
                 </div>
@@ -611,7 +663,19 @@ export default function AutofillPage() {
                       </div>
                     </div>
 
-
+                    <div className="pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newIsFree}
+                          onChange={(e) => setNewIsFree(e.target.checked)}
+                          className="w-4 h-4 rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500/20"
+                        />
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                          Free Access Template (Allow Free Tier access)
+                        </span>
+                      </label>
+                    </div>
 
                     <div className="flex justify-end gap-3 pt-2">
                       <button onClick={() => setShowEditor(false)} className={`px-4 py-2.5 text-sm font-medium ${themeBtnGhost}`}>Cancel</button>

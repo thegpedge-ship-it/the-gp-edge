@@ -62,6 +62,7 @@ interface AdminUser {
   role: "Super Admin" | "Admin";
   permissions: string[];
   lastLogin: string;
+  lastActiveAt?: number;
   status: "active" | "inactive";
   username: string;
   forgotPasswordEnabled: boolean;
@@ -70,42 +71,27 @@ interface AdminUser {
   mustResetPassword?: boolean;
 }
 
-const auditLogs = [
-  { timestamp: "28 May 2026, 11:45 PM", admin: "Siddhant Udavant", action: "Published Question #2850 to live bank", category: "Questions", severity: "info" },
-  { timestamp: "28 May 2026, 11:30 PM", admin: "Siddhant Udavant", action: "Suspended account — policy violation", category: "Users", severity: "warning" },
-  { timestamp: "28 May 2026, 10:15 PM", admin: "Arun Mehta", action: "Bulk imported 142 Cardiology questions", category: "Questions", severity: "info" },
-  { timestamp: "28 May 2026, 9:25 PM", admin: "Jessica Park", action: "Published new Cardiology approach — Hypertension Management", category: "Approaches", severity: "info" },
-  { timestamp: "28 May 2026, 9:00 PM", admin: "Jessica Park", action: "Approved Question #2853 for review queue", category: "Questions", severity: "info" },
-  { timestamp: "28 May 2026, 6:30 PM", admin: "Siddhant Udavant", action: "Published new Respiratory autofill template", category: "Content", severity: "info" },
-  { timestamp: "28 May 2026, 5:10 PM", admin: "Arun Mehta", action: "Created draft approach 'Approach to Dyspnoea'", category: "Approaches", severity: "info" },
-  { timestamp: "28 May 2026, 4:00 PM", admin: "Arun Mehta", action: "Deleted Question #2839 — duplicate entry", category: "Questions", severity: "warning" },
-  { timestamp: "27 May 2026, 11:00 PM", admin: "Siddhant Udavant", action: "Enabled maintenance mode for 30 minutes", category: "System", severity: "warning" },
-  { timestamp: "27 May 2026, 8:00 PM", admin: "Jessica Park", action: "Approved refund $24.00 — policy criteria met", category: "Billing", severity: "info" },
-];
-
-const softDeleted = [
-  { item: "Question #2839", type: "Question", deletedBy: "Arun Mehta", date: "28 May 2026", reason: "Duplicate" },
-  { item: "Approach to Syncope v1", type: "Clinical Approach", deletedBy: "Arun Mehta", date: "26 May 2026", reason: "Replaced by updated guidelines" },
-  { item: "GORD Template v1", type: "Autofill", deletedBy: "Jessica Park", date: "25 May 2026", reason: "Outdated" },
-  { item: "Test Account #9999", type: "User", deletedBy: "Siddhant Udavant", date: "20 May 2026", reason: "Test data cleanup" },
-];
+function getRelativeLastActive(timestampMs?: number, isCurrentLoggedIn?: boolean): string {
+  if (isCurrentLoggedIn) return "Active now";
+  if (!timestampMs) return "Never";
+  const diffSec = Math.floor((Date.now() - timestampMs) / 1000);
+  if (diffSec < 5) return "Just now";
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDays = Math.floor(diffHr / 24);
+  return `${diffDays}d ago`;
+}
 
 export default function AuditPage() {
   const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin } = useAdminRole();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
+  const [nowTick, setNowTick] = useState(Date.now());
 
-  const [activeTab, setActiveTab] = useState<"accounts" | "logs" | "deleted" | "policies">("accounts");
   const [searchQuery, setSearchQuery] = useState("");
-  const [logFilter, setLogFilter] = useState("all");
-
-  // Policy configurations states
-  const [passwordMinLength, setPasswordMinLength] = useState(8);
-  const [lockoutAttempts, setLockoutAttempts] = useState(5);
-  const [mfaEnforcedGlobal, setMfaEnforcedGlobal] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(true);
-  const [preventBulk, setPreventBulk] = useState(true);
-  const [archiveInstead, setArchiveInstead] = useState(false);
 
   /* Modal state */
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
@@ -136,6 +122,14 @@ export default function AuditPage() {
   const [addOauth, setAddOauth] = useState(false);
   const [addMfa, setAddMfa] = useState(false);
 
+  // Live real-time ticker to update relative active timestamps every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTick(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const syncAdminsFromStorage = async () => {
     try {
       const dbAdmins = await getAdminsFromDbAction();
@@ -149,6 +143,16 @@ export default function AuditPage() {
     }
 
     if (typeof window !== "undefined") {
+      const activeId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+      
+      let lastActiveMap: Record<string, number> = {};
+      const storedMap = localStorage.getItem("gpedge_admin_last_active_map");
+      if (storedMap) {
+        try { lastActiveMap = JSON.parse(storedMap); } catch (e) {}
+      }
+      lastActiveMap[activeId] = Date.now();
+      localStorage.setItem("gpedge_admin_last_active_map", JSON.stringify(lastActiveMap));
+
       const stored = localStorage.getItem("gpedge_admin_credentials_list");
       if (stored) {
         try {
@@ -164,13 +168,23 @@ export default function AuditPage() {
                 permissions = ["dashboard", "questions", "content", "approaches"];
               }
             }
+
+            const defaultPastTimes: Record<string, number> = {
+              "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00": Date.now(),
+              "b5a452ef-09c3-4d2b-aa58-bf8827f8a101": Date.now() - 7200000,
+              "d7c92b23-1c32-4f8a-9a99-8cb142646202": Date.now() - 86400000,
+            };
+
+            const lastActiveAt = lastActiveMap[u.id] || u.lastActiveAt || defaultPastTimes[u.id] || (u.id === activeId ? Date.now() : undefined);
+
             return {
               id: u.id,
               name: u.name,
               email: u.email,
               role: u.role,
               permissions,
-              lastLogin: u.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00" ? "Just now" : u.id === "b5a452ef-09c3-4d2b-aa58-bf8827f8a101" ? "2 hours ago" : u.id === "d7c92b23-1c32-4f8a-9a99-8cb142646202" ? "1 day ago" : "Never",
+              lastLogin: u.id === activeId ? "Active now" : getRelativeLastActive(lastActiveAt, u.id === activeId),
+              lastActiveAt,
               status: u.status || "active",
               username: u.username || "",
               forgotPasswordEnabled: u.forgotPasswordEnabled ?? true,
@@ -193,22 +207,6 @@ export default function AuditPage() {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
       setCurrentAdminId(stored);
-
-      // Load Security Policies
-      const storedPolicies = localStorage.getItem("gpedge_admin_security_policies");
-      if (storedPolicies) {
-        try {
-          const parsed = JSON.parse(storedPolicies);
-          if (parsed.passwordMinLength) setPasswordMinLength(parsed.passwordMinLength);
-          if (parsed.lockoutAttempts) setLockoutAttempts(parsed.lockoutAttempts);
-          if (parsed.mfaEnforcedGlobal !== undefined) setMfaEnforcedGlobal(parsed.mfaEnforcedGlobal);
-          if (parsed.confirmDelete !== undefined) setConfirmDelete(parsed.confirmDelete);
-          if (parsed.preventBulk !== undefined) setPreventBulk(parsed.preventBulk);
-          if (parsed.archiveInstead !== undefined) setArchiveInstead(parsed.archiveInstead);
-        } catch (e) {
-          // ignore
-        }
-      }
 
       const handleAdminChanged = () => {
         const val = localStorage.getItem("gpedge_active_admin_id") || "1";
@@ -244,8 +242,6 @@ export default function AuditPage() {
       a.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       a.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const filteredLogs = logFilter === "all" ? auditLogs : auditLogs.filter((l) => l.category.toLowerCase() === logFilter);
 
   /* ── Handlers ── */
   function openEdit(admin: AdminUser) {
@@ -367,8 +363,8 @@ export default function AuditPage() {
 
   function requestDeleteAdmin(admin: AdminUser) {
     if (isReadOnly) return;
-    if (admin.id === "1") {
-      alert("Cannot delete primary Super Admin account.");
+    if (admin.role === "Super Admin" || admin.id === "1" || admin.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00") {
+      alert("Cannot delete Super Admin account.");
       return;
     }
     setAdminToDelete(admin);
@@ -379,10 +375,31 @@ export default function AuditPage() {
 
     try {
       await deleteAdminFromDbAction(id);
+
+      if (typeof window !== "undefined") {
+        const stored = localStorage.getItem("gpedge_admin_credentials_list");
+        if (stored) {
+          try {
+            const list = JSON.parse(stored).filter((u: any) => u.id !== id);
+            localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(list));
+          } catch (e) {}
+        }
+        const storedMap = localStorage.getItem("gpedge_admin_last_active_map");
+        if (storedMap) {
+          try {
+            const map = JSON.parse(storedMap);
+            delete map[id];
+            localStorage.setItem("gpedge_admin_last_active_map", JSON.stringify(map));
+          } catch (e) {}
+        }
+      }
+
       const dbAdmins = await getAdminsFromDbAction();
-      localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      if (dbAdmins && dbAdmins.length > 0) {
+        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
-      addUserNotification("Admin Deleted", `Successfully removed credentials for "${name}".`, 1, "custom");
+      addUserNotification("Admin Deleted", `Completely deleted credentials for "${name}" from database.`, 1, "custom");
     } catch (err) {
       console.error("Failed to delete admin from DB:", err);
     }
@@ -411,57 +428,6 @@ export default function AuditPage() {
     }
   }
 
-  function savePoliciesForm() {
-    if (isReadOnly) return;
-    if (typeof window !== "undefined") {
-      const policies = {
-        passwordMinLength,
-        lockoutAttempts,
-        mfaEnforcedGlobal,
-        confirmDelete,
-        preventBulk,
-        archiveInstead,
-      };
-      localStorage.setItem("gpedge_admin_security_policies", JSON.stringify(policies));
-      addUserNotification("Policies Saved", "Security & validation policies updated successfully.", 1, "custom");
-    }
-  }
-
-  const handleTogglePolicy = (key: string, value: boolean) => {
-    if (isReadOnly || !isSuperAdmin) return;
-    
-    let nextConfirmDelete = confirmDelete;
-    let nextPreventBulk = preventBulk;
-    let nextArchiveInstead = archiveInstead;
-    let nextMfaEnforcedGlobal = mfaEnforcedGlobal;
-
-    if (key === "confirmDelete") {
-      setConfirmDelete(value);
-      nextConfirmDelete = value;
-    } else if (key === "preventBulk") {
-      setPreventBulk(value);
-      nextPreventBulk = value;
-    } else if (key === "archiveInstead") {
-      setArchiveInstead(value);
-      nextArchiveInstead = value;
-    } else if (key === "mfaEnforcedGlobal") {
-      setMfaEnforcedGlobal(value);
-      nextMfaEnforcedGlobal = value;
-    }
-
-    if (typeof window !== "undefined") {
-      const policies = {
-        passwordMinLength,
-        lockoutAttempts,
-        mfaEnforcedGlobal: nextMfaEnforcedGlobal,
-        confirmDelete: nextConfirmDelete,
-        preventBulk: nextPreventBulk,
-        archiveInstead: nextArchiveInstead,
-      };
-      localStorage.setItem("gpedge_admin_security_policies", JSON.stringify(policies));
-    }
-  };
-
   /* helper to display permission summary */
   function permSummary(perms: string[]): string {
     if (perms.length === ALL_FEATURE_KEYS.length) return "Full Access";
@@ -483,7 +449,7 @@ export default function AuditPage() {
       <AdminPageHeader
         title="Audit &"
         highlightedText="Security"
-        subtitle="Manage administrator access credentials, security policy parameters, activity logs, and delete protection."
+        subtitle="Manage administrator access credentials, team member roles, and feature permissions."
         variants={itemVariants}
         actions={
           <div className="flex items-center gap-2 bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/50 backdrop-blur-md rounded-xl px-3.5 py-2 shadow-sm text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -511,314 +477,207 @@ export default function AuditPage() {
         </motion.div>
       )}
 
-      {/* Tabs Menu */}
-      <motion.div variants={itemVariants} className="flex border-b border-slate-200 dark:border-slate-850 overflow-x-auto select-none">
-        {[
-          { id: "accounts", label: "Administrator Accounts", icon: <Lucide.Users className="w-4 h-4" /> },
-          { id: "logs", label: "Activity logs", icon: <Lucide.Activity className="w-4 h-4" /> },
-          { id: "deleted", label: "Deleted Items", icon: <Lucide.Trash2 className="w-4 h-4" /> },
-          { id: "policies", label: "Security & Delete Policies", icon: <Lucide.ShieldCheck className="w-4 h-4" /> },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`px-5 py-3 text-sm font-bold border-b-2 bg-transparent border-none cursor-pointer transition-all flex items-center gap-2 whitespace-nowrap ${
-              activeTab === tab.id
-                ? "border-b-teal-700 text-teal-700 dark:text-teal-400"
-                : "border-b-transparent text-slate-450 hover:text-slate-700 dark:text-slate-400"
-            }`}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
-      </motion.div>
-
-      {/* Administrator Accounts Tab */}
-      {activeTab === "accounts" && (
-        <div className="space-y-6">
-          <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none" />
-            <div className="relative z-10">
-              <div className="px-6 py-4 border-b border-slate-200/40 flex items-center justify-between gap-4 flex-wrap">
-                <div className="relative w-full max-w-xs">
-                  <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                  <input
-                    type="text"
-                    placeholder="Search accounts..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50/60 dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-750/10 focus:border-teal-700/50 dark:text-slate-100 transition-all"
-                  />
-                </div>
-                <button
-                  onClick={isSuperAdmin ? openAdd : undefined}
-                  disabled={!isSuperAdmin || isReadOnly}
-                  className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${
-                    isSuperAdmin && !isReadOnly
-                      ? "hover:shadow-md active:scale-[0.97] cursor-pointer hover:opacity-95"
-                      : "opacity-50 cursor-not-allowed"
-                  }`}
-                  style={{ background: isSuperAdmin && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
-                  title={isSuperAdmin ? "Add new administrator" : "Only Super Admins can add team members"}
-                >
-                  <Lucide.Plus className="w-3.5 h-3.5" />
-                  Add Admin
-                </button>
-              </div>
-
-              {!isSuperAdmin && (
-                <div className="mx-6 mt-4 p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
-                  <Lucide.Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
-                  <div>
-                    <p className="font-semibold text-amber-900 dark:text-amber-200">Permissions Locked</p>
-                    <p className="mt-0.5 opacity-90 leading-normal">You are viewing as <span className="font-semibold">{loggedInAdmin?.name} ({loggedInAdmin?.role})</span>. Only Super Administrators are permitted to add team members, modify roles, assign feature permissions, or adjust system security configurations.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-200/40 dark:border-slate-800 text-slate-500">
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-6 py-3">Admin</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Role</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Security Features</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Permissions</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Last Active</th>
-                      <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredAdmins.map((a) => (
-                      <tr
-                        key={a.id}
-                        className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
-                              {a.name.split(" ").map((n) => n[0]).join("")}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
-                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">
-                            {a.role}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap items-center gap-1.5 select-none">
-                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
-                              <Lucide.Key className="w-2.5 h-2.5" />
-                              Pass
-                            </span>
-
-                            {a.mustResetPassword && (
-                              <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
-                                Reset Pending
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`w-1.5 h-1.5 rounded-full ${a.status === "active" ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`} />
-                            <span className="text-xs text-slate-500">{a.lastLogin}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <button
-                              onClick={() => isSuperAdmin && openEdit(a)}
-                              disabled={!isSuperAdmin || isReadOnly}
-                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                                isSuperAdmin && !isReadOnly
-                                  ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
-                                  : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
-                              }`}
-                              title={isSuperAdmin ? "Modify user details & permissions" : "Only Super Admins can modify accounts"}
-                            >
-                              Edit details
-                            </button>
-                            {a.id !== "1" && (
-                              <button
-                                onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
-                                disabled={!isSuperAdmin || isReadOnly}
-                                className={`p-1.5 rounded-lg transition-all ${
-                                  isSuperAdmin && !isReadOnly
-                                    ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
-                                    : "text-slate-300 cursor-not-allowed opacity-50"
-                                }`}
-                                title={isSuperAdmin ? "Remove this admin" : "Only Super Admins can remove team members"}
-                              >
-                                <Lucide.Trash className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Activity Logs Tab */}
-      {activeTab === "logs" && (
+      {/* Administrator Accounts */}
+      <div className="space-y-6">
         <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none" />
           <div className="relative z-10">
-            <div className="px-6 py-4 border-b border-slate-200/40 flex items-center justify-between flex-wrap gap-3">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">Audit Logs Trail</h3>
-              <div className="flex gap-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-lg p-1">
-                {["all", "users", "questions", "billing", "system", "approaches"].map((f) => (
-                  <button key={f} onClick={() => setLogFilter(f)} className={`px-3 py-1 text-xs font-semibold rounded-md transition-all border-none bg-transparent cursor-pointer ${logFilter === f ? "bg-white dark:bg-slate-850 text-teal-700 dark:text-teal-400 shadow-sm" : "text-slate-500 dark:text-slate-450 hover:text-slate-700 dark:hover:text-slate-350"}`}>
-                    {f === "approaches" ? "Clinical Approaches" : f.charAt(0).toUpperCase() + f.slice(1)}
-                  </button>
-                ))}
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative w-full sm:max-w-xs">
+                <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Search accounts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50/60 dark:bg-slate-850 border border-slate-200 dark:border-slate-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-750/10 focus:border-teal-700/50 dark:text-slate-100 transition-all"
+                />
               </div>
+              <button
+                onClick={isSuperAdmin ? openAdd : undefined}
+                disabled={!isSuperAdmin || isReadOnly}
+                className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${
+                  isSuperAdmin && !isReadOnly
+                    ? "hover:shadow-md active:scale-[0.97] cursor-pointer hover:opacity-95"
+                    : "opacity-50 cursor-not-allowed"
+                }`}
+                style={{ background: isSuperAdmin && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
+                title={isSuperAdmin ? "Add new administrator" : "Only Super Admins can add team members"}
+              >
+                <Lucide.Plus className="w-3.5 h-3.5" />
+                Add Admin
+              </button>
             </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[480px] overflow-y-auto">
-              {filteredLogs.map((log, i) => (
-                <div
-                  key={i}
-                  className="px-6 py-3.5 flex items-start gap-4 hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
-                >
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full mt-0.5 bg-teal-50/70 text-teal-850 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-400 dark:border-teal-900/60">{log.category}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 dark:text-slate-300">{log.action}</p>
-                    <p className="text-xs text-slate-400 mt-0.5">by {log.admin} · {log.timestamp}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
 
-      {/* Deleted Items Tab */}
-      {activeTab === "deleted" && (
-        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/10 dark:from-transparent via-transparent to-teal-50/2 dark:to-transparent pointer-events-none" />
-          <div className="relative z-10">
-            <div className="px-6 py-4 border-b border-slate-200/40"><h3 className="text-sm font-bold text-slate-900 dark:text-slate-200">Soft-Deleted Items</h3></div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
-              {softDeleted.map((d, i) => (
-                <div
-                  key={i}
-                  className="px-6 py-4 flex items-center justify-between hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-850 dark:text-slate-200">{d.item}</p>
-                    <p className="text-xs text-slate-450 dark:text-slate-500 mt-0.5">{d.type} · by {d.deletedBy} · {d.date} · {d.reason}</p>
-                  </div>
-                  <div className="flex gap-2 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                    <button className="px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 border border-teal-250 rounded-lg hover:bg-teal-100 transition-all border-none cursor-pointer">Restore</button>
-                    <button className="px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all border-none cursor-pointer">Permanent Delete</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Security & Delete Policies Tab */}
-      {activeTab === "policies" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <div className="space-y-6">
-            {/* Integrity Settings */}
-            <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 p-6 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 relative overflow-hidden">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">Credential Integrity Settings</h3>
-              <div className="space-y-4">
+            {!isSuperAdmin && (
+              <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
+                <Lucide.Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                 <div>
-                  <label className="block text-xs font-semibold text-slate-655 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Minimum Password Length</label>
-                  <input
-                    type="number"
-                    value={passwordMinLength}
-                    disabled={isReadOnly || !isSuperAdmin}
-                    onChange={(e) => setPasswordMinLength(Number(e.target.value))}
-                    className={`w-full px-3.5 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                    min={8}
-                    max={32}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-655 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Account Lockout Threshold</label>
-                  <input
-                    type="number"
-                    value={lockoutAttempts}
-                    disabled={isReadOnly || !isSuperAdmin}
-                    onChange={(e) => setLockoutAttempts(Number(e.target.value))}
-                    className={`w-full px-3.5 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                    min={3}
-                    max={10}
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Maximum failures allowed before account lockout (Default 5)</p>
-                </div>
-
-
-
-                <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    onClick={savePoliciesForm}
-                    disabled={isReadOnly || !isSuperAdmin}
-                    className={`px-4 py-2.5 text-xs font-bold rounded-xl cursor-pointer ${themeBtnPrimary} disabled:opacity-50`}
-                  >
-                    Save Policy Config
-                  </button>
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">Permissions Locked</p>
+                  <p className="mt-0.5 opacity-90 leading-normal">You are viewing as <span className="font-semibold">{loggedInAdmin?.name} ({loggedInAdmin?.role})</span>. Only Super Administrators are permitted to add team members, modify roles, or assign feature permissions.</p>
                 </div>
               </div>
-            </motion.div>
-          </div>
+            )}
 
-          <div className="space-y-6">
-            {/* Delete Protection Policies */}
-            <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 p-6 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 relative overflow-hidden">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-4 border-b border-slate-100 dark:border-slate-800 pb-3">Delete Protection Settings</h3>
-              <div className="space-y-4">
-                {[
-                  { key: "confirmDelete", label: "Require confirmation dialog", desc: "Show prompt verification before any removal action", value: confirmDelete },
-                  { key: "preventBulk", label: "Prevent bulk delete actions", desc: "Forbid deleting more than 5 elements concurrently", value: preventBulk },
-                  { key: "archiveInstead", label: "Archive instead of hard delete", desc: "Soft-delete resources by default to recover them later", value: archiveInstead },
-                ].map((toggle) => (
-                  <div key={toggle.key} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-100/70 dark:border-slate-800">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">{toggle.label}</p>
-                      <p className="text-xs text-slate-450 dark:text-slate-500 mt-0.5">{toggle.desc}</p>
-                    </div>
-                    <button
-                      onClick={() => handleTogglePolicy(toggle.key, !toggle.value)}
-                      disabled={isReadOnly || !isSuperAdmin}
-                      className={`relative w-[51px] h-[31px] rounded-full transition-colors duration-200 shrink-0 ${
-                        toggle.value ? "bg-[#34C759]" : "bg-[#e9e9eb] dark:bg-slate-950/60"
-                      } ${(isReadOnly || !isSuperAdmin) ? "opacity-50 cursor-not-allowed" : "cursor-pointer border-none"}`}
+            {/* Desktop / Tablet Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200/40 dark:border-slate-800 text-slate-500">
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-6 py-3">Admin</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Role</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Security Features</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Permissions</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Last Active</th>
+                    <th className="text-left text-xs font-semibold uppercase tracking-wider px-4 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {filteredAdmins.map((a) => (
+                    <tr
+                      key={a.id}
+                      className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
                     >
-                      <motion.div
-                        animate={{ x: toggle.value ? 20 : 0 }}
-                        className="absolute top-[2px] left-[2px] w-[27px] h-[27px] rounded-full shadow-md bg-white dark:bg-slate-900"
-                      />
-                    </button>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
+                            {a.name.split(" ").map((n) => n[0]).join("")}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">
+                          {a.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-wrap items-center gap-1.5 select-none">
+                          <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
+                            <Lucide.Key className="w-2.5 h-2.5" />
+                            Pass
+                          </span>
+
+                          {a.mustResetPassword && (
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
+                              Reset Pending
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
+                          <span className="text-xs text-slate-500 font-medium">
+                            {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={() => isSuperAdmin && openEdit(a)}
+                            disabled={!isSuperAdmin || isReadOnly}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                              isSuperAdmin && !isReadOnly
+                                ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                                : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                            }`}
+                            title={isSuperAdmin ? "Modify user details & permissions" : "Only Super Admins can modify accounts"}
+                          >
+                            Edit details
+                          </button>
+                          {a.role !== "Super Admin" && (
+                            <button
+                              onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
+                              disabled={!isSuperAdmin || isReadOnly}
+                              className={`p-1.5 rounded-lg transition-all ${
+                                isSuperAdmin && !isReadOnly
+                                  ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
+                                  : "text-slate-300 cursor-not-allowed opacity-50"
+                                }`}
+                              title={isSuperAdmin ? "Remove this admin" : "Only Super Admins can remove team members"}
+                            >
+                              <Lucide.Trash className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards View (small screens < 640px) */}
+            <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredAdmins.map((a) => (
+                <div key={a.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
+                        {a.name.split(" ").map((n) => n[0]).join("")}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{a.name}</p>
+                        <p className="text-[10px] text-slate-400 font-mono truncate">{a.email}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 shrink-0">
+                      {a.role}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </motion.div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
+                      <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                        {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 truncate max-w-[150px]" title={a.permissions.join(", ")}>
+                      {permSummary(a.permissions)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100/60 dark:border-slate-800/60 justify-end">
+                    <button
+                      onClick={() => isSuperAdmin && openEdit(a)}
+                      disabled={!isSuperAdmin || isReadOnly}
+                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                        isSuperAdmin && !isReadOnly
+                          ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                          : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                      }`}
+                    >
+                      Edit details
+                    </button>
+                    {a.role !== "Super Admin" && (
+                      <button
+                        onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
+                        disabled={!isSuperAdmin || isReadOnly}
+                        className={`p-1.5 rounded-lg border transition-all ${
+                          isSuperAdmin && !isReadOnly
+                            ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
+                            : "text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                        }`}
+                      >
+                        <Lucide.Trash className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-
-
-        </div>
-      )}
+        </motion.div>
+      </div>
 
       {/* ═══ Edit Admin Modal ═══ */}
       <AnimatePresence>
@@ -1226,53 +1085,52 @@ export default function AuditPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 pointer-events-auto"
             onClick={() => setAdminToDelete(null)}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 16 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className={`w-full max-w-lg overflow-hidden rounded-3xl border ${themeBorder} ${themePanel} shadow-2xl`}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/80 w-full max-w-lg overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="px-6 py-5 border-b border-slate-100/80 dark:border-slate-800/80 bg-gradient-to-r from-rose-50/80 via-white to-teal-50/40 dark:from-rose-950/20 dark:via-slate-900 dark:to-teal-950/20">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center shrink-0 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/40">
-                    <Lucide.Trash2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Delete administrator?</h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">This action removes the account and its access credentials from the admin list.</p>
-                  </div>
+              {/* Header */}
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-150">Delete Administrator Account</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Confirm removal of administrator account credentials</p>
                 </div>
-              </div>
-
-              <div className="px-6 py-5 space-y-4">
-                <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
-                  <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                    Are you sure you want to delete administrator <span className="font-semibold text-slate-900 dark:text-slate-50">"{adminToDelete.name}"</span>?
-                  </p>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">This cannot be undone. The account will be removed from the admin roster immediately.</p>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <Lucide.Info className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Super Admin accounts are protected and cannot be removed.</span>
-                </div>
-              </div>
-
-              <div className="px-6 py-4 border-t border-slate-100/80 dark:border-slate-800/80 bg-white/70 dark:bg-slate-950/30 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setAdminToDelete(null)}
-                  className={`px-4 py-2 text-xs font-semibold rounded-xl border ${themeBtnGhost}`}
+                  className="p-1.5 border-none bg-transparent rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-850 cursor-pointer transition-colors"
+                >
+                  <Lucide.X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5">
+                <div className="p-4 rounded-xl border border-teal-200/40 dark:border-teal-900/30 bg-teal-50/40 dark:bg-teal-950/20">
+                  <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                    Are you sure you want to delete administrator <span className="font-bold text-teal-800 dark:text-teal-400">"{adminToDelete.name}"</span>?
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setAdminToDelete(null)}
+                  className={`px-4 py-2 text-xs font-semibold ${themeBtnGhost}`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={confirmDeleteAdmin}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-md shadow-rose-600/15 hover:from-rose-500 hover:to-rose-400 transition-all active:scale-[0.98]"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl shadow-sm transition-all duration-200 cursor-pointer hover:opacity-95 active:scale-[0.97]"
+                  style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}
                 >
                   <Lucide.Trash2 className="w-3.5 h-3.5" />
                   Delete Admin

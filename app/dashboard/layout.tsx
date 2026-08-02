@@ -1,7 +1,14 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser, isOnboarded, toDbProfile } from "@/lib/user";
+import { getUserAccess } from "@/lib/access";
 import DashboardShell from "@/components/dashboard/DashboardShell";
+import RoleReevaluationModal from "@/components/RoleReevaluationModal";
+
+// Force a fresh DB read on every request — the layout checks live subscription
+// expiry and must never serve a cached result. Without this, changing
+// access_expires_at in Neon would not revoke access until Next.js cache expires.
+export const dynamic = "force-dynamic";
 
 /**
  * Dashboard layout — intentionally a Server Component.
@@ -26,6 +33,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!isOnboarded(clerkUser)) redirect("/onboarding");
 
   const dbUser = await ensureDbUser();
+  const accessInfo = dbUser?.id ? await getUserAccess(dbUser.id) : null;
 
-  return <DashboardShell profile={toDbProfile(dbUser)} showSidebar>{children}</DashboardShell>;
+  // Determine if we need to prompt the user to re-evaluate their career stage.
+  // Conditions (ALL must be true):
+  //   1. User has previously purchased a Registrar package (permanent flag)
+  //   2. Their Registrar access is no longer active (expired or no active sub row)
+  //   3. Their training_stage is still REGISTRAR (not already upgraded)
+  //   4. They have NOT yet answered the re-evaluation prompt (role_reevaluated = false)
+  const isRegistrarExpired = Boolean(
+    accessInfo &&
+      accessInfo.hasPurchasedRegistrar &&
+      !accessInfo.isRegistrarActive &&
+      accessInfo.trainingStage === "REGISTRAR" &&
+      !accessInfo.roleReevaluated
+  );
+
+  return (
+    <>
+      {isRegistrarExpired && <RoleReevaluationModal open={true} />}
+      <DashboardShell profile={toDbProfile(dbUser)} showSidebar>
+        {children}
+      </DashboardShell>
+    </>
+  );
 }

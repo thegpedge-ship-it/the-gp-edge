@@ -29,6 +29,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
       : new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
     author: row.author || "GP Edge Admin",
     isPremium: row.is_premium || false,
+    isFree: row.is_free || false,
     tags: extra.tags || [],
     overview: extra.overview || "",
     steps: extra.steps || [],
@@ -47,7 +48,7 @@ export async function getApproachCardsFromDbAction(): Promise<ApproachCard[]> {
          LEFT JOIN condition_items ci
            ON ci.condition_id = mc.id AND ci.item_kind = 'full_html'
         WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL
-        ORDER BY mc.updated_at DESC`
+        ORDER BY mc.is_free DESC, mc.updated_at DESC`
     );
     return rows.map(mapRowToApproachCard);
   } catch (error) {
@@ -74,18 +75,19 @@ export async function saveApproachCardToDbAction(card: ApproachCard): Promise<bo
 
     await execute(
       `INSERT INTO medical_conditions
-         (id, slug, name, category, kind, status, is_premium, clinical_notes, author, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,'Approach',$5,$6,$7,$8,NOW(),NOW())
+         (id, slug, name, category, kind, status, is_premium, is_free, clinical_notes, author, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,'Approach',$5,$6,$7,$8,$9,NOW(),NOW())
        ON CONFLICT (id) DO UPDATE SET
          slug = EXCLUDED.slug,
          name = EXCLUDED.name,
          category = EXCLUDED.category,
          status = EXCLUDED.status,
          is_premium = EXCLUDED.is_premium,
+         is_free = EXCLUDED.is_free,
          clinical_notes = EXCLUDED.clinical_notes,
          author = EXCLUDED.author,
          updated_at = NOW()`,
-      [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, extraJson, card.author || "GP Edge Admin"]
+      [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, card.isFree ?? false, extraJson, card.author || "GP Edge Admin"]
     );
 
     // Store fullHtml in condition_items so the approach viewer renders callouts
@@ -153,6 +155,8 @@ export async function getTagsFromDbAction(): Promise<string[]> {
   }
 }
 
+import { revalidatePath } from "next/cache";
+
 export async function addTagToDbAction(label: string): Promise<boolean> {
   try {
     const trimmed = label.trim();
@@ -166,5 +170,43 @@ export async function addTagToDbAction(label: string): Promise<boolean> {
   } catch (error) {
     console.error("Error creating tag in database:", error);
     return false;
+  }
+}
+
+/**
+ * Light, dedicated mutation Server Action to toggle the is_free status of a Medical Content / Library item.
+ */
+export async function toggleLibraryItemFreeStatus(
+  id: string,
+  is_free: boolean
+): Promise<{ success: boolean; item?: any; error?: string }> {
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let dbId = id;
+    if (id.startsWith("CUSTOM-APPROACH-") || id.startsWith("CUSTOM-")) {
+      dbId = id.replace("CUSTOM-APPROACH-", "").replace("CUSTOM-", "");
+    }
+
+    let rows: any[] = [];
+    if (uuidRegex.test(dbId)) {
+      rows = await query<any>(
+        `UPDATE medical_conditions SET is_free = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING *`,
+        [is_free, dbId]
+      );
+    } else {
+      rows = await query<any>(
+        `UPDATE medical_conditions SET is_free = $1, updated_at = NOW() WHERE (name = $2 OR slug = $2) AND deleted_at IS NULL RETURNING *`,
+        [is_free, id]
+      );
+    }
+
+    revalidatePath("/admin/content");
+    revalidatePath("/dashboard/medical-library");
+    revalidatePath("/dashboard");
+
+    return { success: true, item: rows[0] ?? null };
+  } catch (error: any) {
+    console.error("Error toggling library item free status:", error);
+    return { success: false, error: error.message || "Failed to update item free status in database." };
   }
 }

@@ -59,22 +59,32 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+  const content = (
+    <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head />
+      <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`} suppressHydrationWarning>
+        <ThemeProvider>
+          <PageBackground />
+
+          <GlobalLogo />
+
+          <Header />
+          {children}
+          <VisitTracker />
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+
+  if (!publishableKey) {
+    return content;
+  }
+
   return (
-    <ClerkProvider>
-      <html lang="en" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
-        <head />
-        <body className={`${inter.variable} ${lora.variable} font-sans antialiased bg-slate-50 dark:bg-[#0F1115] text-slate-800 dark:text-[#F5F7FA] min-h-screen overflow-x-hidden transition-colors duration-300`}>
-          <ThemeProvider>
-            <PageBackground />
-
-            <GlobalLogo />
-
-            <Header />
-            {children}
-            <VisitTracker />
-          </ThemeProvider>
-        </body>
-      </html>
+    <ClerkProvider publishableKey={publishableKey}>
+      {content}
     </ClerkProvider>
   );
 }

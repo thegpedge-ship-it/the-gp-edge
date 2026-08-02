@@ -14,6 +14,7 @@ export interface Quiz {
   status: QuizStatus;
   examType: "AKT" | "KFP" | "Mixed";
   randomize: boolean;
+  isFree?: boolean;
   questionLimit: number;
   updatedAt: string;
 }
@@ -79,6 +80,7 @@ export function getQuestions(): Question[] {
 export async function fetchQuestions(): Promise<Question[]> {
   try {
     const res = await fetch("/api/questions", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       QUESTION_BANK.length = 0;
@@ -104,7 +106,7 @@ export const QUESTION_BANK: Question[] = [];
 
 const STORAGE_KEY = "gpedge_admin_quizzes";
 
-const DEFAULT_QUIZZES: Quiz[] = [
+export const DEFAULT_QUIZZES: Quiz[] = [
   {
     id: 1,
     name: "AKT Full Mock Exam 2026",
@@ -432,6 +434,7 @@ export interface MedicalContent {
   pdfUrl?: string;
   pdfSize?: string;
   isPremium?: boolean;
+  isFree?: boolean;
 }
 
 // In-memory cache so sync callers (legacy code) can still work
@@ -459,6 +462,7 @@ export function getMedicalContent(): MedicalContent[] {
 export async function fetchMedicalContent(): Promise<MedicalContent[]> {
   try {
     const res = await fetch("/api/medical-content", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) {
       _medicalContentCache = json.data;
@@ -482,6 +486,7 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(item),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) return json.id;
   } catch (err) {
@@ -498,6 +503,7 @@ export async function updateMedicalContentItem(id: string, updates: Partial<Medi
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     return json.success;
   } catch (err) {
@@ -534,6 +540,7 @@ export interface ApproachCard {
   lastUpdated: string;
   author: string;
   isPremium: boolean;
+  isFree?: boolean;
   tags: string[];
   overview: string;
   steps: ApproachStep[];
@@ -579,6 +586,7 @@ export interface AutofillTemplate {
   version: string;
   slug?: string;
   description?: string;
+  isFree?: boolean;
   tags?: string[];
   subjective?: string;
   objective?: string;

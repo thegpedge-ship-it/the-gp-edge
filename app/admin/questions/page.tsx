@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -41,7 +42,7 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
       resolve(base64Str);
       return;
     }
-    const img = new Image();
+    const img = new window.Image();
     img.src = base64Str;
     img.onload = () => {
       let width = img.width;
@@ -895,7 +896,7 @@ export default function QuestionsPage() {
                 {previewQuestion.image && (
                   <div 
                     onClick={() => setZoomImage(previewQuestion.image!)}
-                    className={`relative rounded-2xl overflow-hidden border p-2.5 mb-6 group cursor-zoom-in transition-all ${themeSurface} ${themeBorder} hover:border-teal-300 dark:hover:border-teal-700`}
+                    className={`relative h-64 w-full rounded-2xl overflow-hidden border p-2.5 mb-6 group cursor-zoom-in transition-all ${themeSurface} ${themeBorder} hover:border-teal-300 dark:hover:border-teal-700`}
                   >
                     <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-lg bg-slate-900/90 border border-slate-800 text-[10px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity font-semibold flex items-center gap-1 shadow-lg">
                       <svg className="w-3.5 h-3.5 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -903,10 +904,11 @@ export default function QuestionsPage() {
                       </svg>
                       Click to zoom
                     </div>
-                    <img 
+                    <Image 
                       src={previewQuestion.image} 
                       alt="Clinical diagnostic image" 
-                      className="max-h-64 mx-auto rounded-xl object-contain transition-transform duration-300 group-hover:scale-[1.01]" 
+                      fill
+                      className="object-contain transition-transform duration-300 group-hover:scale-[1.01]" 
                     />
                   </div>
                 )}

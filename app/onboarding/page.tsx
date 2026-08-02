@@ -28,6 +28,7 @@ export default async function OnboardingPage() {
         exams={liveExams}
         defaults={{
           role_title: dbUser?.role_title ?? "",
+          training_stage: (dbUser as any)?.training_stage ?? "REGISTRAR",
           hospital: dbUser?.hospital ?? "",
           location: dbUser?.location ?? "",
           racgp_id: dbUser?.racgp_id ?? "",

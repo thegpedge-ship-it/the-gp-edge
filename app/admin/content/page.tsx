@@ -12,6 +12,8 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { fetchMedicalContent, saveMedicalContent, saveMedicalContentItem, updateMedicalContentItem, MedicalContent } from "@/lib/quizData";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
+import { toggleLibraryItemFreeStatus } from "@/actions/approach.actions";
+import { addUserNotification } from "@/utils/notifications";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -128,6 +130,31 @@ export default function ContentPage() {
     setDeleteTargetId(id);
     setDeleteTargetName(name);
     setShowDeleteModal(true);
+  };
+
+  const handleToggleLibraryItemFree = async (item: MedicalContent, newIsFree: boolean) => {
+    if (isReadOnly) return;
+
+    // Optimistic state update
+    setContent((prev) =>
+      prev.map((c) => (c.id === item.id ? { ...c, isFree: newIsFree } : c))
+    );
+
+    const res = await toggleLibraryItemFreeStatus(item.id, newIsFree);
+    if (!res.success) {
+      // Revert state on failure
+      setContent((prev) =>
+        prev.map((c) => (c.id === item.id ? { ...c, isFree: !newIsFree } : c))
+      );
+      alert(res.error || "Failed to update item free status.");
+    } else {
+      addUserNotification(
+        `Medical Content Status Updated`,
+        `"${item.name}" is now ${newIsFree ? "Free Access" : "Paid Only"}.`,
+        1,
+        "custom"
+      );
+    }
   };
 
   // Reset Modal Form
@@ -599,11 +626,28 @@ export default function ContentPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/60 via-transparent to-slate-50/5 dark:to-teal-950/5 pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${typeColors[item.type]}`}>{item.type}</span>
                   <StatusBadge variant={item.status} />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleLibraryItemFree(item, !item.isFree);
+                    }}
+                    disabled={isReadOnly}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
+                      item.isFree
+                        ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                    } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                    title={item.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${item.isFree ? "bg-emerald-500" : "bg-slate-400"}`} />
+                    {item.isFree ? "Free" : "Paid"}
+                  </button>
                 </div>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{item.lastUpdated}</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium shrink-0">{item.lastUpdated}</span>
               </div>
               <h3 className="font-serif text-base text-slate-900 dark:text-slate-100 mb-1 leading-tight group-hover:text-slate-800 dark:group-hover:text-slate-300 transition-colors">{item.name}</h3>
               <p className="text-xs text-slate-400 dark:text-slate-500 mb-4">{item.system} · {item.category}</p>

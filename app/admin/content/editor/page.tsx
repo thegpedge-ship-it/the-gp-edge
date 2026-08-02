@@ -250,6 +250,7 @@ function ContentEditorContent() {
   const [selectedSystem, setSelectedSystem] = useState("Endocrine");
   const [selectedCategory, setSelectedCategory] = useState("Chronic Disease");
   const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published">("published");
+  const [isFree, setIsFree] = useState(false);
   const [editTriggerCount, setEditTriggerCount] = useState(0);
   const [author, setAuthor] = useState("GP Edge Content Team");
   const [tags, setTags] = useState<string[]>(["Diabetes", "Endocrine", "Chronic", "Pharmacology", "MBS"]);
@@ -925,6 +926,7 @@ function ContentEditorContent() {
         setSelectedSystem(item.system);
         setSelectedCategory(item.category);
         setContentStatus(item.status);
+        setIsFree(item.isFree ?? false);
         setAuthor(item.author);
         setTags(item.tags?.length ? item.tags : [item.system, item.category]);
       }
@@ -1590,6 +1592,7 @@ function ContentEditorContent() {
         system: selectedSystem,
         category: selectedCategory,
         status: "published",
+        isFree,
         author,
         fullHtml: combinedHtml,
       }).catch(console.error);
@@ -1604,6 +1607,7 @@ function ContentEditorContent() {
             system: selectedSystem,
             category: selectedCategory,
             status: "published" as const,
+            isFree,
             lastUpdated: new Date().toISOString().split("T")[0],
             references: docReferences.length,
           };
@@ -1615,7 +1619,7 @@ function ContentEditorContent() {
     }, 1000); // 1-second debounce
 
     return () => clearTimeout(timer);
-  }, [docTitle, selectedSystem, selectedCategory, docReferences, editTriggerCount, activePage]);
+  }, [docTitle, selectedSystem, selectedCategory, isFree, docReferences, editTriggerCount, activePage]);
 
   const handleOptimizePagination = () => {
     const updatedPages = saveCurrentPageToPages();
@@ -4015,6 +4019,20 @@ function ContentEditorContent() {
                           onChange={(e) => setAuthor(e.target.value)}
                           className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-750 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:text-slate-200 transition-all font-medium font-sans"
                         />
+                      </div>
+
+                      <div className="pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer font-sans">
+                          <input
+                            type="checkbox"
+                            checked={isFree}
+                            onChange={(e) => setIsFree(e.target.checked)}
+                            className="w-4 h-4 rounded border-emerald-500 text-emerald-600 focus:ring-emerald-500/20"
+                          />
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                            Free Access Item (Allow Free Tier access)
+                          </span>
+                        </label>
                       </div>
 
                       {/* Tags */}

@@ -7,11 +7,12 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 // GET /api/medical-content — list all conditions
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const rows = await query<any>(
-      `SELECT
-         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.updated_at,
+    const search = req.nextUrl.searchParams.get("search")?.trim() || "";
+
+    let sql = `SELECT
+         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.is_free, mc.updated_at,
          s.name AS subject_name,
          (
            SELECT ARRAY_AGG(t.label)
@@ -27,9 +28,18 @@ export async function GET() {
        LEFT JOIN subjects s ON s.id = mc.subject_id
        LEFT JOIN condition_documents cd ON cd.condition_id = mc.id
        LEFT JOIN files f ON f.id = cd.file_id
-       WHERE mc.deleted_at IS NULL AND mc.kind != 'Approach'
-       ORDER BY mc.created_at DESC`
-    );
+       WHERE mc.deleted_at IS NULL AND mc.kind != 'Approach'`;
+
+    const params: any[] = [];
+    if (search) {
+      sql += ` AND (mc.name ILIKE $1 OR mc.category ILIKE $1 OR s.name ILIKE $1)`;
+      params.push(`%${search}%`);
+      sql += ` ORDER BY mc.name ASC`;
+    } else {
+      sql += ` ORDER BY mc.is_free DESC, mc.created_at DESC`;
+    }
+
+    const rows = await query<any>(sql, params);
 
     const publicBase = (process.env.NEXT_PUBLIC_R2_PUBLIC_URL || "").replace(/\/$/, "");
 
@@ -41,6 +51,7 @@ export async function GET() {
       type: c.kind,
       status: c.status,
       author: c.author ?? "GP Edge Admin",
+      isFree: c.is_free ?? false,
       lastUpdated: new Date(c.updated_at).toISOString().split("T")[0],
       tags: c.tags?.filter(Boolean) ?? [],
       references: c.reference_count ?? 0,
@@ -62,7 +73,8 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, system, category, type, status, author, tags, references, fullHtml, sections, pdfUrl, pdfSize } = body;
+    const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize } = body;
+    const isFreeVal = Boolean(isFree ?? is_free ?? false);
 
     const slug =
       name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +
@@ -86,10 +98,10 @@ export async function POST(req: NextRequest) {
     // Create condition
     const condition = await queryOne<{ id: string; slug: string }>(
       `INSERT INTO medical_conditions
-         (slug, name, subject_id, category, kind, status, author, clinical_notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'')
+         (slug, name, subject_id, category, kind, status, author, is_free, clinical_notes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'')
        RETURNING id, slug`,
-      [slug, name, subject!.id, category ?? "Clinical Reference", type ?? "Document", status ?? "draft", author ?? "GP Edge Admin"]
+      [slug, name, subject!.id, category ?? "Clinical Reference", type ?? "Document", status ?? "draft", author ?? "GP Edge Admin", isFreeVal]
     );
     const conditionId = condition!.id;
 
