@@ -6,11 +6,9 @@
  */
 import Stripe from "stripe";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set in environment variables.");
-}
-
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+// Do not throw at module evaluation time so Next.js static builds pass even if env is not loaded.
+// Stripe will throw when actually used if the key is invalid.
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "sk_test_dummy", {
   apiVersion: "2026-06-24.dahlia" as any,
   typescript: true,
 });
