@@ -587,11 +587,10 @@ export default function ClinicalAutofillsPage() {
       {/* ── SMART COMMAND BAR ────────────────────────────────────────────────── */}
       <div ref={wrapperRef} className="relative w-full max-w-4xl mx-auto mb-8">
         <div
-          className={`w-full bg-white dark:bg-[#151922] border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 py-3 ${
-            showSuggestions
+          className={`w-full bg-white dark:bg-[#151922] border transition-all duration-200 rounded-2xl shadow-sm flex items-center px-4 py-3 ${showSuggestions
               ? "border-teal-500 ring-2 ring-teal-500/20"
               : "border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-          }`}
+            }`}
         >
           <Search className="w-5 h-5 text-slate-400 dark:text-slate-500 mr-3 flex-shrink-0" />
           <input
@@ -705,11 +704,10 @@ export default function ClinicalAutofillsPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 border shadow-sm ${
-                selectedCategory === cat
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 border shadow-sm ${selectedCategory === cat
                   ? "bg-teal-600 text-white border-teal-600"
                   : "bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:bg-teal-900/30"
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -809,9 +807,8 @@ export default function ClinicalAutofillsPage() {
               return (
                 <div
                   key={t.id}
-                  className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col ${
-                    isLocked ? "border-slate-200/70 dark:border-slate-800/70" : "border-slate-200 dark:border-slate-800"
-                  }`}
+                  className={`bg-white dark:bg-slate-900 border rounded-2xl p-5 hover:shadow-md transition-shadow relative group cursor-pointer flex flex-col ${isLocked ? "border-slate-200/70 dark:border-slate-800/70" : "border-slate-200 dark:border-slate-800"
+                    }`}
                   onClick={() => {
                     if (isLocked) {
                       setUpgradeTemplateTitle(t.title);

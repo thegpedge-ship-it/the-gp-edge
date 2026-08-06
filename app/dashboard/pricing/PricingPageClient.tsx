@@ -329,7 +329,7 @@ export default function PricingPageClient({
         onClose={() => setShowDuplicateModal(false)}
       />
 
-      <div className="w-full pb-20 pt-4 px-4 md:px-8 max-w-6xl flex flex-col">
+      <div className="w-full pb-20 pt-4 px-4 md:px-8 max-w-7xl flex flex-col mx-auto">
         {/* ── Section 1: Hero Section ───────────────────────────────────────── */}
         <section className="mb-12 w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-8 md:gap-12">
           {/* Left Side Text Content */}
@@ -370,50 +370,25 @@ export default function PricingPageClient({
         <AccessBanner currentAccessLevel={currentAccessLevel} accessExpiresAt={accessExpiresAt} />
 
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}
-        <section className="mb-16 w-full space-y-10">
-          {!isFellow && examPlans.length > 0 && (
-            <div className="flex justify-center w-full">
-              <div
-                className={`grid gap-6 mx-auto ${
-                  examPlans.length === 1
-                    ? "grid-cols-1 max-w-sm"
-                    : "grid-cols-1 md:grid-cols-2 max-w-4xl"
-                }`}
-              >
-                {examPlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    currentAccessLevel={currentAccessLevel}
-                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {subPlans.length > 0 && (
-            <div className="flex justify-center w-full">
-              <div
-                className={`grid gap-6 mx-auto ${
-                  subPlans.length === 1
-                    ? "grid-cols-1 max-w-sm"
-                    : subPlans.length === 2
-                    ? "grid-cols-1 md:grid-cols-2 max-w-4xl"
-                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl"
-                }`}
-              >
-                {subPlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    currentAccessLevel={currentAccessLevel}
-                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        <section className="mb-16 w-full flex justify-center">
+          <div
+            className={`grid gap-6 w-full mx-auto justify-center ${
+              sanitizedPlans.length === 1
+                ? "grid-cols-1 max-w-md"
+                : sanitizedPlans.length === 2
+                ? "grid-cols-1 md:grid-cols-2 max-w-4xl"
+                : "grid-cols-1 lg:grid-cols-3 max-w-7xl"
+            }`}
+          >
+            {sanitizedPlans.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                currentAccessLevel={currentAccessLevel}
+                onAttemptActivePurchase={() => setShowDuplicateModal(true)}
+              />
+            ))}
+          </div>
         </section>
 
         {/* ── Section 3: Feature Comparison / What's Included Table ──────────── */}

@@ -373,7 +373,7 @@ export default function Footer() {
               </p>
               <span className="hidden md:block w-px h-4 bg-slate-300 dark:bg-[rgba(255,255,255,0.12)]" />
               <p className="footer-copyright text-[13px] text-slate-400">
-                Built for Australian GP Registrars
+                Built for Australian GPs
               </p>
             </div>
 

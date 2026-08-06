@@ -341,10 +341,7 @@ export default function Hero() {
               {/* Inner glow */}
               <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 dark:from-[rgba(255,255,255,0.05)] dark:to-transparent pointer-events-none" />
 
-              {/* Dashboard header */}
-              <div className="relative flex items-center justify-between mb-4 pl-6">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Dashboard Snapshot</span>
-              </div>
+
 
               {/* Stats Grid */}
               <div className="relative grid grid-cols-2 gap-3">
