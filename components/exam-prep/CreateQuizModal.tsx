@@ -24,6 +24,38 @@ const theme = {
 /* ─── Flatten subtopics for lookups / totals ──────────────────────────── */
 type SubtopicEntry = { subtopicId: string; subtopicName: string; questionCount: number; subjectId: string; subjectName: string };
 
+/* Chevron that rotates when its accordion section is open. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 flex-shrink-0 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+/* A subtopic multi-select checkbox — shared between desktop & mobile layouts. */
+function SubtopicCheck({ selected }: { selected: boolean }) {
+  return (
+    <span
+      className={`flex-shrink-0 w-4 h-4 rounded-[5px] border flex items-center justify-center transition-colors ${
+        selected ? "bg-emerald-500 border-emerald-500" : "border-slate-300 dark:border-slate-600"
+      }`}
+    >
+      {selected && (
+        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </span>
+  );
+}
+
 /* ─── Component ───────────────────────────────────────────────────────── */
 export default function CreateQuizModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
@@ -203,8 +235,8 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
               </div>
             </div>
 
-            {/* ── Subject → Subtopic drill (expand/shrink like exam-prep) ── */}
-            <div className="flex-1 min-h-0 flex m-4 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
+            {/* ── Desktop: Subject → Subtopic drill (hidden on mobile) ── */}
+            <div className="hidden lg:flex flex-1 min-h-0 m-4 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
 
               {/* Column 1 — Subjects (full width until a subject is picked, then a rail) */}
               <div
@@ -313,6 +345,75 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
                   </motion.div>
                 </AnimatePresence>
               </div>
+              )}
+            </div>
+
+            {/* ── Mobile: Subject accordion — subtopics expand underneath ── */}
+            <div className="lg:hidden flex-1 min-h-0 overflow-y-auto scrollbar-hide m-4 rounded-xl border border-slate-200/60 dark:border-slate-700/40 bg-white/40 dark:bg-slate-800/20">
+              {tree === null ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-10">
+                  <div className="w-6 h-6 rounded-full border-2 border-emerald-100 dark:border-emerald-900/40 border-t-emerald-500 animate-spin" />
+                  <p className="text-[11px] text-slate-400 dark:text-slate-500">Loading…</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {tree.map((subject) => {
+                    const open = activeSubject?.id === subject.id;
+                    const count = selectedInSubject(subject);
+                    return (
+                      <div key={subject.id}>
+                        <button
+                          onClick={() => handleSubjectClick(subject)}
+                          className={`w-full flex items-center gap-2.5 px-4 py-3 text-left transition-colors ${open ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"}`}
+                        >
+                          <Chevron open={open} />
+                          <span className={`text-[14px] flex-1 min-w-0 truncate ${open ? `font-bold ${theme.text}` : "font-semibold text-slate-900 dark:text-slate-100"}`}>{subject.name}</span>
+                          {count > 0 && (
+                            <span className="flex-shrink-0 text-[10px] font-bold text-white bg-emerald-500 rounded-full px-1.5 min-w-[18px] text-center">{count}</span>
+                          )}
+                        </button>
+
+                        <AnimatePresence initial={false}>
+                          {open && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                              className="overflow-hidden bg-slate-50/40 dark:bg-slate-800/20"
+                            >
+                              <div className="flex items-center justify-between pl-9 pr-4 py-2 border-b border-slate-100 dark:border-slate-800/50">
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Subtopics</span>
+                                <button
+                                  onClick={() => toggleSubjectAll(subject)}
+                                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline whitespace-nowrap"
+                                >
+                                  {allSelectedInSubject(subject) ? "Deselect all" : "Select all"}
+                                </button>
+                              </div>
+                              <div className="divide-y divide-slate-100/70 dark:divide-slate-800/50">
+                                {subject.subtopics.map((st) => {
+                                  const isSelected = selected.has(st.id);
+                                  return (
+                                    <button
+                                      key={st.id}
+                                      onClick={() => toggleSubtopic(st.id)}
+                                      className={`w-full flex items-center gap-2.5 pl-9 pr-4 py-2.5 text-left transition-colors ${isSelected ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"}`}
+                                    >
+                                      <SubtopicCheck selected={isSelected} />
+                                      <span className={`text-[13px] flex-1 min-w-0 truncate ${isSelected ? `font-bold ${theme.text}` : "font-medium text-slate-700 dark:text-slate-200"}`}>{st.name}</span>
+                                      <span className="flex-shrink-0 text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap">{st.questionCount} Qs</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
