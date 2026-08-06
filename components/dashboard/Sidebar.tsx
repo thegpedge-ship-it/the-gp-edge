@@ -38,10 +38,13 @@ import {
   FileEdit,
   Tag,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { user as localUser } from "./data";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useProfile } from "@/contexts/ProfileContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { formatJoined } from "@/lib/format";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
@@ -565,13 +568,15 @@ export default function Sidebar() {
 function MobileDrawer({ pathname }: { pathname: string }) {
   const { mobileOpen: open, setMobileOpen } = useSidebar();
   const setOpen = setMobileOpen;
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   useEffect(() => { setOpen(false); }, [pathname, setOpen]);
   const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
 
   return (
     <div className="lg:hidden">
       <div onClick={() => setOpen(false)} style={{
-        position: "fixed", inset: 0, zIndex: 48,
+        position: "fixed", inset: 0, zIndex: 60,
         background: "rgba(15,23,42,0.3)", backdropFilter: "blur(4px)",
         opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none",
         transition: `opacity 200ms ${ease}`,
@@ -580,7 +585,7 @@ function MobileDrawer({ pathname }: { pathname: string }) {
       <div
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
         style={{
-          position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 49,
+          position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 61,
           width: 270,
           boxShadow: "4px 0 24px rgba(15,23,42,0.14)",
           transform: open ? "translateX(0)" : "translateX(-100%)",
@@ -589,7 +594,16 @@ function MobileDrawer({ pathname }: { pathname: string }) {
         }}
       >
         <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800">
-          <span className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">Navigation</span>
+          <Link href="/" aria-label="Home" className="flex items-center">
+            <Image
+              src="/assets/logo.png"
+              alt="The GP Edge"
+              width={240}
+              height={160}
+              className="w-auto h-9 object-contain"
+              priority
+            />
+          </Link>
           <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -629,6 +643,20 @@ function MobileDrawer({ pathname }: { pathname: string }) {
               <LogOut size={15} /> Log out
             </button>
           </SignOutButton>
+
+          {/* Appearance — last option. A plain button (not a toggle switch),
+              shown only in the mobile drawer since the navbar toggle is hidden
+              on small screens. */}
+          <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="
+              flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
+            "
+          >
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            {isDark ? "Light mode" : "Dark mode"}
+          </button>
         </div>
       </div>
     </div>

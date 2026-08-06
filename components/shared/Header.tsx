@@ -2,6 +2,7 @@
 
 import { memo, useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { SignOutButton, useAuth } from "@clerk/nextjs";
 import { House, Menu } from "lucide-react";
@@ -78,19 +79,20 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
     <header className={outerClass}>
       <div className={innerClass}>
 
-         {/* Mobile-only sidebar toggle — lives in the navbar, hidden on lg+ where
-             the desktop sidebar is shown. Only rendered inside the dashboard
-             (where the SidebarProvider exists). */}
+         {/* Mobile-only logo — sits at the far left of the navbar. On desktop the
+             floating GlobalLogo is used instead, so this is hidden (lg:hidden).
+             Only inside the dashboard shell (where the hamburger also lives). */}
          {sidebar?.hasDrawer && (
-           <button
-             type="button"
-             onClick={() => sidebar.toggleMobile()}
-             aria-label="Open navigation menu"
-             aria-expanded={sidebar.mobileOpen}
-             className="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-slate-600 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
-           >
-             <Menu className="w-5 h-5" />
-           </button>
+           <Link href="/" aria-label="Home" className="lg:hidden flex-shrink-0 flex items-center">
+             <Image
+               src="/assets/logo.png"
+               alt="The GP Edge"
+               width={240}
+               height={160}
+               className="w-auto h-10 object-contain"
+               priority
+             />
+           </Link>
          )}
 
          {/* Navigation */}
@@ -214,7 +216,27 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
               to { transform: rotate(360deg); }
             }
           `}</style>
-          <ThemeToggle />
+
+          {/* Theme toggle — desktop only. On mobile it moves into the drawer
+              (rendered as the last option there). */}
+          <div className="hidden lg:flex items-center">
+            <ThemeToggle />
+          </div>
+
+          {/* Mobile-only sidebar hamburger — sits on the right (the theme
+              toggle's old slot) so it clears the logo on the left. Only inside
+              the dashboard, where the SidebarProvider / drawer exist. */}
+          {sidebar?.hasDrawer && (
+            <button
+              type="button"
+              onClick={() => sidebar.toggleMobile()}
+              aria-label="Open navigation menu"
+              aria-expanded={sidebar.mobileOpen}
+              className="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-slate-600 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
         </div>
       </div>
     </header>
