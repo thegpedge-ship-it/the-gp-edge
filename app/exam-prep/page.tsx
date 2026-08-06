@@ -115,8 +115,7 @@ export default function ExamPrepPage() {
 
   return (
     <div
-      className="relative flex flex-col justify-start overflow-hidden pt-2 lg:pt-4"
-      style={{ height: "calc(100vh - 80px)" }}
+      className="relative flex flex-col justify-start pt-2 lg:pt-4 pb-8 lg:pb-0 overflow-visible lg:overflow-hidden min-h-[calc(100dvh-80px)] lg:min-h-0 lg:h-[calc(100vh-80px)]"
     >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -153,7 +152,7 @@ export default function ExamPrepPage() {
         </div>
 
         {/* Four option cards — 1×4 grid on desktop, 2×2 on sm */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 w-full">
           {OPTIONS.map((opt, i) => {
             const hasFreeMock = mockTests.some(
               (m) => m.isFree === true || (m as any).is_free === true
@@ -176,7 +175,7 @@ export default function ExamPrepPage() {
                     setActive(opt.key);
                   }
                 }}
-                className={`group relative flex flex-col text-left rounded-2xl p-5 lg:p-6 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] border-b-4 ${opt.borderClass} ${
+                className={`group relative flex flex-col text-left rounded-2xl p-3.5 lg:p-6 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] border-b-4 ${opt.borderClass} ${
                   isCardLocked ? "border-slate-200/80 dark:border-slate-800/80 shadow-sm" : ""
                 }`}
               >
@@ -196,9 +195,9 @@ export default function ExamPrepPage() {
                 )}
 
                 {/* Top Row: Icon & Number / Free Badge */}
-                <div className="flex items-center justify-between mb-4 lg:mb-6">
-                  <div className={`w-12 h-12 lg:w-14 lg:h-14 rounded-full flex items-center justify-center ${opt.bgClass}`}>
-                    <opt.icon className={`w-5 h-5 lg:w-6 lg:h-6 ${opt.colorClass}`} strokeWidth={1.5} />
+                <div className="flex items-center justify-between mb-2 lg:mb-6">
+                  <div className={`w-9 h-9 lg:w-14 lg:h-14 rounded-full flex items-center justify-center ${opt.bgClass}`}>
+                    <opt.icon className={`w-4 h-4 lg:w-6 lg:h-6 ${opt.colorClass}`} strokeWidth={1.5} />
                   </div>
                   <div className="flex items-center gap-2">
                     {!isRegistrarActive && opt.key === "mock" && hasFreeMock && (
@@ -206,23 +205,23 @@ export default function ExamPrepPage() {
                         <Unlock className="w-3 h-3" /> Free
                       </span>
                     )}
-                    <span className={`font-serif text-2xl lg:text-3xl font-medium ${opt.colorClass} opacity-80 group-hover:opacity-100 transition-opacity`}>
+                    <span className={`font-serif text-lg lg:text-3xl font-medium ${opt.colorClass} opacity-80 group-hover:opacity-100 transition-opacity`}>
                       {String(i + 1).padStart(2, "0")}
                     </span>
                   </div>
                 </div>
 
                 {/* Title & Description */}
-                <h3 className="font-sans text-lg lg:text-xl font-bold text-[#1E293B] dark:text-slate-100 mb-2 tracking-tight">
+                <h3 className="font-sans text-sm lg:text-xl font-bold text-[#1E293B] dark:text-slate-100 mb-0.5 lg:mb-2 tracking-tight">
                   {opt.title}
                 </h3>
-                <p className="font-sans text-[14px] lg:text-[15px] text-[#64748B] dark:text-slate-400 leading-snug lg:leading-relaxed flex-1">
+                <p className="font-sans text-[12px] lg:text-[15px] text-[#64748B] dark:text-slate-400 leading-snug lg:leading-relaxed flex-1">
                   {opt.description}
                 </p>
 
                 {/* Bottom Row: Arrow */}
-                <div className="mt-4 lg:mt-6 flex justify-end">
-                  <ArrowRight className={`w-5 h-5 lg:w-6 lg:h-6 ${opt.colorClass} transform group-hover:translate-x-1.5 transition-transform duration-300`} strokeWidth={2} />
+                <div className="mt-2 lg:mt-6 flex justify-end">
+                  <ArrowRight className={`w-4 h-4 lg:w-6 lg:h-6 ${opt.colorClass} transform group-hover:translate-x-1.5 transition-transform duration-300`} strokeWidth={2} />
                 </div>
               </button>
             );
