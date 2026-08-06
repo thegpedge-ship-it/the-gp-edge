@@ -922,77 +922,52 @@ export default function TestPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="relative w-auto max-w-[90vw] bg-white dark:bg-slate-900 rounded-[16px] shadow-[0_12px_30px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col"
+              className="relative w-[calc(100vw-2rem)] max-w-[400px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.28)] border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col"
             >
-              <div className="flex flex-col sm:flex-row">
-                {/* Left Section */}
-                <div className="w-full sm:w-[260px] p-6 bg-slate-50/80 dark:bg-slate-800/40 sm:border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-800 flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
-                    </svg>
-                  </div>
-                  <h2 className="text-[22px] font-bold text-slate-900 dark:text-slate-100 mb-2 tracking-tight">Are you sure?</h2>
-                  <div className="space-y-4 text-[14px] leading-[1.6] text-slate-600 dark:text-slate-400">
-                    {config.timed && (
-                      <p>
-                        You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> remaining to complete the test.
-                      </p>
-                    )}
-                    <p>This action cannot be undone.</p>
-                  </div>
+              {/* Header */}
+              <div className="px-6 pt-7 pb-5 text-center">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/25 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
+                  </svg>
                 </div>
+                <h2 className="text-[21px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">Submit your test?</h2>
+                <p className="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 mt-1.5">
+                  {config.timed ? (
+                    <>You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> left. This can&rsquo;t be undone.</>
+                  ) : (
+                    <>This action cannot be undone.</>
+                  )}
+                </p>
+              </div>
 
-                {/* Right Section */}
-                <div className="flex-shrink-0 px-6 py-6 sm:pr-8 flex flex-col justify-center">
-                  <div className="space-y-[14px]">
-                    {/* Answered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{answeredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Answered</span>
-                    </div>
-
-                    {/* Unanswered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-red-500 leading-none w-10">{notAnsweredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Unanswered</span>
-                    </div>
-
-                    {/* Not Visited */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{notVisitedCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Not Visited</span>
-                    </div>
-                  </div>
+              {/* Stats — three compact tiles */}
+              <div className="px-5 grid grid-cols-3 gap-2.5">
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-900/30 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">{answeredCount}</span>
+                  <span className="text-[10px] font-semibold text-emerald-700/80 dark:text-emerald-400/70 uppercase tracking-wide text-center leading-tight">Answered</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-50 dark:bg-red-900/15 border border-red-100 dark:border-red-900/30 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-red-500 dark:text-red-400 leading-none">{notAnsweredCount}</span>
+                  <span className="text-[10px] font-semibold text-red-600/80 dark:text-red-400/70 uppercase tracking-wide text-center leading-tight">Unanswered</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-slate-700 dark:text-slate-200 leading-none">{notVisitedCount}</span>
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center leading-tight">Not Visited</span>
                 </div>
               </div>
 
-              {/* Bottom Buttons */}
-              <div className="px-6 py-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-4">
+              {/* Buttons */}
+              <div className="p-5 flex gap-3">
                 <button
                   onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-[12px] rounded-[10px] border border-slate-200 dark:border-slate-700 text-[15px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[14px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
                 >
                   Keep Working
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="flex-1 py-[12px] rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[14px] font-bold shadow-md shadow-emerald-600/25 transition-all duration-200 hover:-translate-y-0.5"
                 >
                   Yes, Submit
                 </button>
