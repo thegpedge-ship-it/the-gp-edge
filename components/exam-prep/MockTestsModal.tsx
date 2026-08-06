@@ -151,10 +151,12 @@ export default function MockTestsModal({
   open,
   onClose,
   tests,
+  loading = false,
 }: {
   open: boolean;
   onClose: () => void;
   tests: UiMockTest[];
+  loading?: boolean;
 }) {
   const router = useRouter();
   const { isRegistrarActive } = useUserAccess();
@@ -268,7 +270,12 @@ export default function MockTestsModal({
                 className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-4 py-4 sm:px-7 sm:py-5"
                 style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
               >
-                {tests.length === 0 ? (
+                {tests.length === 0 && loading ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                    <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500/25 border-t-emerald-500 animate-spin" />
+                    <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Loading mock tests…</p>
+                  </div>
+                ) : tests.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-3">
                     <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
                       <FileText size={24} strokeWidth={2} />

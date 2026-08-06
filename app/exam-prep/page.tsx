@@ -70,6 +70,7 @@ export default function ExamPrepPage() {
   const { isRegistrarActive, loading: accessLoading } = useUserAccess();
   const [active, setActive] = useState<ModalKey | null>(null);
   const [mockTests, setMockTests] = useState<UiMockTest[]>([]);
+  const [mockLoading, setMockLoading] = useState(true);
   const [hasFreeQuiz, setHasFreeQuiz] = useState<boolean>(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
   const [upgradeFeatureName, setUpgradeFeatureName] = useState<string | undefined>();
@@ -90,9 +91,14 @@ export default function ExamPrepPage() {
 
   useEffect(() => {
     let cancelled = false;
-    cachedMockTests().then((m) => {
-      if (!cancelled) setMockTests(m);
-    });
+    setMockLoading(true);
+    cachedMockTests()
+      .then((m) => {
+        if (!cancelled) setMockTests(m);
+      })
+      .finally(() => {
+        if (!cancelled) setMockLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -104,10 +110,15 @@ export default function ExamPrepPage() {
   useEffect(() => {
     if (active !== "mock") return;
     let cancelled = false;
+    setMockLoading(true);
     clearMockTestsCache();
-    cachedMockTests().then((m) => {
-      if (!cancelled) setMockTests(m);
-    });
+    cachedMockTests()
+      .then((m) => {
+        if (!cancelled) setMockTests(m);
+      })
+      .finally(() => {
+        if (!cancelled) setMockLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -231,7 +242,7 @@ export default function ExamPrepPage() {
 
       {/* ─── Modals — one per option ───────────────────────────────────── */}
       <StudyByTopicModal open={active === "topic"} onClose={() => setActive(null)} />
-      <MockTestsModal open={active === "mock"} onClose={() => setActive(null)} tests={mockTests} />
+      <MockTestsModal open={active === "mock"} onClose={() => setActive(null)} tests={mockTests} loading={mockLoading} />
       <CreateQuizModal open={active === "create"} onClose={() => setActive(null)} />
       <CreatedForYouModal open={active === "foryou"} onClose={() => setActive(null)} />
 
