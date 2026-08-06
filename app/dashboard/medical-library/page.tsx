@@ -110,8 +110,8 @@ const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
   Neurology: {
     glow: "from-teal-500/10 dark:from-teal-500/20",
     border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
-    text: "text-teal-600 dark:text-teal-450",
-    accent: "bg-teal-505",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-500",
     borderLeft: "border-l-teal-500",
     gradient: "from-teal-500 to-teal-600",
   },
@@ -162,17 +162,17 @@ function normalizeSystemName(sys: string): string {
 const getSystemBadgeColor = (system: string): string => {
   const s = normalizeSystemName(system);
   const colors: Record<string, string> = {
-    Cardiology: "bg-emerald-50 text-emerald-700 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
-    Respiratory: "bg-teal-50 text-teal-700 border-teal-250 dark:bg-teal-955/40 dark:text-teal-400 dark:border-teal-900/30",
-    Endocrine: "bg-green-50 text-green-700 border-green-200 dark:bg-green-955/40 dark:text-green-400 dark:border-green-900/30",
-    Gastrointestinal: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-955/40 dark:text-emerald-400 dark:border-emerald-900/30",
-    Psychiatry: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-955/40 dark:text-teal-400 dark:border-teal-900/30",
-    Dermatology: "bg-green-50 text-green-800 border-green-200 dark:bg-green-955/40 dark:text-green-400 dark:border-green-900/30",
+    Cardiology: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Respiratory: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
+    Endocrine: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30",
+    Gastrointestinal: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Psychiatry: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
+    Dermatology: "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30",
     "Women's Health": "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800/30",
-    Paediatrics: "bg-emerald-50 text-emerald-605 border-emerald-200 dark:bg-emerald-955/40 dark:text-emerald-400 dark:border-emerald-900/30",
-    Neurology: "bg-blue-50 text-blue-750 border-blue-200 dark:bg-blue-955/40 dark:text-blue-450 dark:border-blue-900/30",
-    Musculoskeletal: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-955/40 dark:text-indigo-400 dark:border-indigo-900/30",
-    MBS: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-955/40 dark:text-amber-400 dark:border-amber-900/30",
+    Paediatrics: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Neurology: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/30",
+    Musculoskeletal: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/30",
+    MBS: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30",
   };
   return colors[s] || "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
 };
@@ -261,12 +261,12 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       animate="visible"
       whileHover={{ y: isLocked ? 0 : -3 }}
       whileTap={{ scale: isLocked ? 1 : 0.99 }}
-      className={`relative glass dark:glass-strong rounded-3xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+      className={`relative glass dark:glass-strong rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-md hover:shadow-xl transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
       onClick={handleClick}
     >
       {/* Locked overlay */}
       {isLocked && (
-        <div className="absolute inset-0 rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
+        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
             <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
@@ -276,41 +276,43 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       )}
 
       <div className={isLocked ? "opacity-40 select-none" : ""}>
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
+        <div className="flex justify-between items-start mb-2.5 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-950/20 px-2 py-0.5 rounded border border-green-200/30 shrink-0">
               {condition.id}
             </span>
+            {condition.isPremium ? (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
+                <Lucide.Lock className="w-2.5 h-2.5" />
+                Paid Only
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30 shrink-0" title="Open to all general users">
+                <Lucide.Unlock className="w-2.5 h-2.5" />
+                Free Access
+              </span>
+            )}
           </div>
-          <label
-            className="custom-bookmark cursor-pointer"
-            onClick={e => e.stopPropagation()}
+          <button
+            onClick={(e) => toggleFavorite(e, condition.id)}
+            className="p-2 rounded-xl border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500 min-w-[36px] min-h-[36px]"
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <input
-              type="checkbox"
-              checked={isStarred}
-              onChange={(e) => toggleFavorite(e as any, condition.id)}
-            />
-            <div className="bookmark-icon-wrapper">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-              </svg>
-            </div>
-          </label>
+            <Lucide.Heart className={`w-4 h-4 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
+          </button>
         </div>
 
-        <h3 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
+        <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5 line-clamp-2">
           {decodeHtmlEntities(condition.name)}
         </h3>
 
-        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-          <span>{condition.system}</span>
-          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
-          <span>{condition.category}</span>
+        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 flex-wrap">
+          <span className="truncate max-w-[120px]">{condition.system}</span>
+          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+          <span className="truncate max-w-[120px]">{condition.category}</span>
         </div>
 
-        <div className="space-y-1 mb-4">
+        <div className="space-y-1 mb-3">
           {condition.symptoms.slice(0, 2).map((sym, i) => (
             <p key={i} className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
               <span className="text-green-600 dark:text-green-500 font-bold">•</span>
@@ -320,13 +322,13 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
         </div>
       </div>
 
-      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between ${isLocked ? "opacity-40" : ""}`}>
-        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer">
-          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-2.5 mt-auto flex items-center justify-between gap-2 ${isLocked ? "opacity-40" : ""}`}>
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer min-w-0">
+          <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors truncate">{condition.system}</span>
         </div>
-        <div className="flex flex-col text-right">
-          <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+        <div className="flex flex-col text-right shrink-0">
+          <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">Updated</span>
           <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
         </div>
       </div>
@@ -353,11 +355,12 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       animate="visible"
       whileHover={{ y: isLocked ? 0 : -3 }}
       whileTap={{ scale: isLocked ? 1 : 0.99 }}
-      className={`relative bg-white/80 dark:bg-slate-900/80 rounded-3xl p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
+      className={`relative bg-white/80 dark:bg-slate-900/80 rounded-2xl sm:rounded-3xl p-4 sm:p-5 md:p-6 border border-teal-200/40 dark:border-teal-800/60 shadow-sm hover:shadow-lg transition-all duration-200 flex flex-col justify-between group h-full w-full ${isLocked ? "cursor-not-allowed" : "cursor-pointer"}`}
       onClick={handleClick}
     >
+      {/* Locked overlay */}
       {isLocked && (
-        <div className="absolute inset-0 rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
+        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
           <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
             <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
           </div>
@@ -367,54 +370,53 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       )}
 
       <div className={isLocked ? "opacity-40 select-none" : ""}>
-        <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-955/20 px-2 py-0.5 rounded border border-green-200/30">
+        <div className="flex justify-between items-start mb-2.5 gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 shrink-0">
               {condition.id}
             </span>
+            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest shrink-0">
+              Approach
+            </span>
             {condition.isPremium ? (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-955/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30" title="Locked item for paid subscribers">
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
                 Paid Only
               </span>
-            ) : null}
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30 shrink-0" title="Open to all general users">
+                <Lucide.Unlock className="w-2.5 h-2.5" />
+                Free Access
+              </span>
+            )}
           </div>
-          <label
-            className="custom-bookmark cursor-pointer"
-            onClick={e => e.stopPropagation()}
+          <button
+            onClick={(e) => toggleFavorite(e, condition.id)}
+            className="p-2 rounded-xl border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500 min-w-[36px] min-h-[36px]"
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <input
-              type="checkbox"
-              checked={isStarred}
-              onChange={(e) => toggleFavorite(e as any, condition.id)}
-            />
-            <div className="bookmark-icon-wrapper">
-              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-              </svg>
-            </div>
-          </label>
+            <Lucide.Heart className={`w-4 h-4 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
+          </button>
         </div>
 
-        <h4 className="text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5">
+        <h4 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5 line-clamp-2">
           {decodeHtmlEntities(condition.name)}
         </h4>
 
-        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">
-          <span>{condition.system}</span>
-          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300" />
-          <span>{condition.category}</span>
+        <div className="flex items-center gap-1 text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 flex-wrap">
+          <span className="truncate max-w-[120px]">{condition.system}</span>
+          <Lucide.ChevronRight className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+          <span className="truncate max-w-[120px]">{condition.category}</span>
         </div>
       </div>
 
-      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-3 mt-auto flex items-center justify-between ${isLocked ? "opacity-40" : ""}`}>
-        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer">
-          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-350 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors">{condition.system}</span>
+      <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-2.5 mt-auto flex items-center justify-between gap-2 ${isLocked ? "opacity-40" : ""}`}>
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer min-w-0">
+          <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors truncate">{condition.system}</span>
         </div>
-        <div className="flex flex-col text-right">
-          <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">Last Updated</span>
+        <div className="flex flex-col text-right shrink-0">
+          <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">Updated</span>
           <span className={`text-xs font-bold ${sys.text}`}>{condition.lastUpdated}</span>
         </div>
       </div>
@@ -539,6 +541,7 @@ function MedicalLibraryContent() {
 
   // Split Workspace Layout States
   const [paneConfig, setPaneConfig] = useState<"3-0" | "2-1" | "1-2" | "0-3">("2-1");
+  const [mobileTab, setMobileTab] = useState<"all" | "conditions" | "approaches">("all");
   const [isDragging, setIsDragging] = useState(false);
   const splitPaneRef = useRef<HTMLDivElement>(null);
 
@@ -1016,24 +1019,24 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
             exit="exit"
             className="space-y-6"
           >
-            {/* Side-by-Side Dual Search boxes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full select-none">
+            {/* Dual Search boxes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full select-none">
               {/* Box 1: Condition search */}
-              <div className="flex flex-col gap-1.5 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">search by medical condition</span>
-                <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
-                  <Lucide.Search className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Search by medical condition</span>
+                <div className="relative flex items-center bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/80 rounded-xl sm:rounded-2xl shadow-sm">
+                  <Lucide.Search className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
                     type="text"
                     value={searchCondition}
                     onChange={(e) => setSearchCondition(e.target.value)}
-                    placeholder="Enter symptoms or condition name..."
-                    className="w-full pl-11 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+                    placeholder="Search symptoms or conditions..."
+                    className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm"
                   />
                   {searchCondition && (
                     <button
                       onClick={() => setSearchCondition("")}
-                      className="absolute right-4 p-1 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      className="absolute right-3 p-1.5 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                     >
                       <Lucide.X className="w-3.5 h-3.5" />
                     </button>
@@ -1041,21 +1044,21 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                 </div>
               </div>
               {/* Box 2: Approach search */}
-              <div className="flex flex-col gap-1.5 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-455 dark:text-slate-500 tracking-wider">search by approach</span>
-                <div className="relative flex items-center bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-sm">
-                  <Lucide.SlidersHorizontal className="absolute left-4 w-4.5 h-4.5 text-slate-400 dark:text-slate-550 pointer-events-none" />
+              <div className="flex flex-col gap-1 flex-1">
+                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Search by approach</span>
+                <div className="relative flex items-center bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/80 rounded-xl sm:rounded-2xl shadow-sm">
+                  <Lucide.SlidersHorizontal className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
                   <input
                     type="text"
                     value={searchApproach}
                     onChange={(e) => setSearchApproach(e.target.value)}
-                    placeholder="Enter management type, guideline, category..."
-                    className="w-full pl-11 pr-10 py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-sm"
+                    placeholder="Search guidelines or management..."
+                    className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm"
                   />
                   {searchApproach && (
                     <button
                       onClick={() => setSearchApproach("")}
-                      className="absolute right-4 p-1 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      className="absolute right-3 p-1.5 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                     >
                       <Lucide.X className="w-3.5 h-3.5" />
                     </button>
@@ -1064,161 +1067,257 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </div>
             </div>
 
-                  {/* Split Workspace Container */}
-                  <div 
-                    ref={splitPaneRef}
-                    className="relative w-full rounded-3xl border border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/20 overflow-hidden flex select-none"
-                    style={{ height: "calc(100vh - 300px)", minHeight: "650px" }}
-                    onPointerMove={isDragging ? handleDrag : undefined}
-                    onPointerUp={isDragging ? handleDragEnd : undefined}
-                    onPointerLeave={isDragging ? handleDragEnd : undefined}
+            {/* Mobile Touch-Scrollable System Filters Bar */}
+            <div className="flex flex-col gap-2 select-none">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Filter by System</span>
+                {selectedSystem !== "all" && (
+                  <button
+                    onClick={() => setSelectedSystem("all")}
+                    className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent"
                   >
-                    {/* Grid Layout definition based on paneConfig */}
-                    <div className="w-full h-full grid grid-cols-3">
-                      {/* Left Pane (Medical Conditions) */}
-                      {paneConfig !== "0-3" && (
-                        <div className={`h-full bg-slate-50/80 dark:bg-slate-950/40 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative ${paneConfig === "3-0" ? "col-span-3" : paneConfig === "2-1" ? "col-span-2" : "col-span-1"}`}>
-                           <div className="p-6 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-4">
-                             <div className="flex items-center justify-between">
-                               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({mcConditions.length})</h3>
-                               <button 
-                                 onClick={() => setShowMCFilters(!showMCFilters)}
-                                 className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                               >
-                                 <Lucide.Filter className="w-3 h-3" />
-                                 Filter by System
-                               </button>
-                             </div>
-                             
-                             <AnimatePresence>
-                               {showMCFilters && (
-                                 <motion.div
-                                   initial={{ opacity: 0, height: 0 }}
-                                   animate={{ opacity: 1, height: "auto" }}
-                                   exit={{ opacity: 0, height: 0 }}
-                                   className="overflow-hidden"
-                                 >
-                                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                      <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
-                                      {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-green-600 text-white border-green-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
-                                      ))}
-                                   </div>
-                                 </motion.div>
-                               )}
-                             </AnimatePresence>
-                           </div>
-                           <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "3-0" ? "grid-cols-3" : paneConfig === "2-1" ? "grid-cols-2" : "grid-cols-1"}`}>
-                             {mcConditions.map(condition => (
-                               <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
-                             ))}
-                             {mcConditions.length === 0 && (
-                               <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
-                             )}
-                           </div>
-                        </div>
-                      )}
+                    Reset Filter
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full">
+                <button
+                  onClick={() => setSelectedSystem("all")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                >
+                  All Systems
+                </button>
+                {[...primarySystems, ...secondarySystems].map((sys) => (
+                  <button
+                    key={sys.id}
+                    onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                  >
+                    {sys.name} ({systemCounts.get(sys.name) || 0})
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                      {/* Right Pane (Approaches) */}
-                      {paneConfig !== "3-0" && (
-                        <div className={`h-full bg-slate-100/50 dark:bg-slate-900/30 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] relative ${paneConfig === "0-3" ? "col-span-3" : paneConfig === "1-2" ? "col-span-2" : "col-span-1"}`}>
-                           <div className="p-6 sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-4">
-                             <div className="flex items-center justify-between">
-                               <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({approachConditions.length})</h3>
-                               <button 
-                                 onClick={() => setShowApproachFilters(!showApproachFilters)}
-                                 className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showApproachFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                               >
-                                 <Lucide.Filter className="w-3 h-3" />
-                                 Filter by System
-                               </button>
-                             </div>
+            {/* Mobile View Switcher Tabs (Only visible on small screens < md) */}
+            <div className="flex md:hidden flex-col gap-3 w-full select-none">
+              <div className="grid grid-cols-3 bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-2xl gap-1 border border-slate-300/40 dark:border-slate-700/40 text-center">
+                <button
+                  onClick={() => setMobileTab("all")}
+                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "all" ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+                >
+                  All ({mcConditions.length + approachConditions.length})
+                </button>
+                <button
+                  onClick={() => setMobileTab("conditions")}
+                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "conditions" ? "bg-white dark:bg-slate-900 text-green-700 dark:text-green-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+                >
+                  Conditions ({mcConditions.length})
+                </button>
+                <button
+                  onClick={() => setMobileTab("approaches")}
+                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "approaches" ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
+                >
+                  Approaches ({approachConditions.length})
+                </button>
+              </div>
 
-                             <AnimatePresence>
-                               {showApproachFilters && (
-                                 <motion.div
-                                   initial={{ opacity: 0, height: 0 }}
-                                   animate={{ opacity: 1, height: "auto" }}
-                                   exit={{ opacity: 0, height: 0 }}
-                                   className="overflow-hidden"
-                                 >
-                                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                      <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
-                                      {[...primarySystems, ...secondarySystems].map(sys => (
-                                        <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-green-600 text-white border-green-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
-                                      ))}
-                                   </div>
-                                 </motion.div>
-                               )}
-                             </AnimatePresence>
-                           </div>
-                           <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "0-3" ? "grid-cols-3" : paneConfig === "1-2" ? "grid-cols-2" : "grid-cols-1"}`}>
-                             {approachConditions.map(condition => (
-                               <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
-                             ))}
-                             {approachConditions.length === 0 && (
-                               <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
-                             )}
-                           </div>
-                        </div>
+              {/* Mobile Full-width Cards Grid */}
+              <div className="space-y-6 pt-1">
+                {(mobileTab === "all" || mobileTab === "conditions") && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        Medical Conditions ({mcConditions.length})
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+                      {mcConditions.map((condition) => (
+                        <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
+                      ))}
+                      {mcConditions.length === 0 && (
+                        <div className="w-full text-center py-8 text-slate-400 text-xs bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">No conditions match your search.</div>
                       )}
                     </div>
-
-                    {/* Draggable Divider */}
-                    {paneConfig !== "3-0" && paneConfig !== "0-3" && (
-                      <div
-                        className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-col-resize flex items-center justify-center group"
-                        style={{ left: paneConfig === "2-1" ? "66.666%" : "33.333%" }}
-                        onPointerDown={handleDragStart}
-                      >
-                        <div className={`h-full w-0.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-green-500 dark:group-hover:bg-green-400 transition-colors ${isDragging ? "bg-green-500 dark:bg-green-400 w-1" : ""}`} />
-                        {/* Handle Grip */}
-                        <div className={`absolute w-1.5 h-8 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-green-500 dark:group-hover:bg-green-400 transition-colors shadow-sm ${isDragging ? "bg-green-500 dark:bg-green-400 scale-y-125" : ""}`} />
-                      </div>
-                    )}
-
-                    {/* Pop Arrow (Left Edge) */}
-                    <AnimatePresence>
-                      {paneConfig === "0-3" && (
-                        <motion.button
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          onClick={() => setPaneConfig("1-2")}
-                          className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all cursor-pointer group"
-                        >
-                          <Lucide.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-green-500 transition-colors" />
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
-
-                    {/* Pop Arrow (Right Edge) */}
-                    <AnimatePresence>
-                      {paneConfig === "3-0" && (
-                        <motion.button
-                          initial={{ opacity: 0, x: 10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 10 }}
-                          onClick={() => setPaneConfig("2-1")}
-                          className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-green-50 dark:hover:bg-green-950/30 transition-all cursor-pointer group"
-                        >
-                          <Lucide.ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-green-500 transition-colors" />
-                        </motion.button>
-                      )}
-                    </AnimatePresence>
                   </div>
+                )}
 
-                  {hasMore && (
-                    <div className="flex justify-center pt-4 select-none">
-                      <button
-                        onClick={() => setVisibleLimit((prev) => prev + 9)}
-                        className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 hover:border-green-500/50 dark:hover:border-green-500/30 text-slate-700 dark:text-slate-200 font-bold text-xs rounded-full shadow-md hover:shadow-lg hover:shadow-green-500/5 active:scale-95 transition-all flex items-center gap-2 group border-dashed cursor-pointer"
-                      >
-                        <span>See More Notes</span>
-                        <Lucide.ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-green-500 group-hover:translate-y-0.5 transition-all duration-300" />
-                      </button>
+                {(mobileTab === "all" || mobileTab === "approaches") && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-teal-500" />
+                        Clinical Approaches ({approachConditions.length})
+                      </h3>
                     </div>
-                  )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+                      {approachConditions.map((condition) => (
+                        <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
+                      ))}
+                      {approachConditions.length === 0 && (
+                        <div className="w-full text-center py-8 text-slate-400 text-xs bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">No clinical approaches match your search.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Desktop Workspace Container — auto-expands to full page height */}
+            <div 
+              ref={splitPaneRef}
+              className="hidden md:flex relative w-full rounded-3xl border border-slate-200/50 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-900/20 select-none min-h-[450px]"
+              onPointerMove={isDragging ? handleDrag : undefined}
+              onPointerUp={isDragging ? handleDragEnd : undefined}
+              onPointerLeave={isDragging ? handleDragEnd : undefined}
+            >
+              {/* Grid Layout definition based on paneConfig */}
+              <div className="w-full grid grid-cols-3 items-start">
+                {/* Left Pane (Medical Conditions) */}
+                {paneConfig !== "0-3" && (
+                  <div className={`bg-slate-50/80 dark:bg-slate-950/40 relative ${paneConfig === "3-0" ? "col-span-3" : paneConfig === "2-1" ? "col-span-2" : "col-span-1"}`}>
+                     <div className="p-5 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-3 rounded-tl-3xl">
+                       <div className="flex items-center justify-between">
+                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({mcConditions.length})</h3>
+                         <button 
+                           onClick={() => setShowMCFilters(!showMCFilters)}
+                           className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                         >
+                           <Lucide.Filter className="w-3 h-3" />
+                           Filter by System
+                         </button>
+                       </div>
+                       
+                       <AnimatePresence>
+                         {showMCFilters && (
+                           <motion.div
+                             initial={{ opacity: 0, height: 0 }}
+                             animate={{ opacity: 1, height: "auto" }}
+                             exit={{ opacity: 0, height: 0 }}
+                             className="overflow-hidden"
+                           >
+                             <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                {[...primarySystems, ...secondarySystems].map(sys => (
+                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                ))}
+                             </div>
+                           </motion.div>
+                         )}
+                       </AnimatePresence>
+                     </div>
+                     <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "3-0" ? "grid-cols-3" : paneConfig === "2-1" ? "grid-cols-2" : "grid-cols-1"}`}>
+                       {mcConditions.map(condition => (
+                         <MedicalConditionCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
+                       ))}
+                       {mcConditions.length === 0 && (
+                         <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
+                       )}
+                     </div>
+                  </div>
+                )}
+
+                {/* Right Pane (Approaches) */}
+                {paneConfig !== "3-0" && (
+                  <div className={`bg-slate-100/50 dark:bg-slate-900/30 relative ${paneConfig === "0-3" ? "col-span-3" : paneConfig === "1-2" ? "col-span-2" : "col-span-1"}`}>
+                     <div className="p-5 sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-3 rounded-tr-3xl">
+                       <div className="flex items-center justify-between">
+                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({approachConditions.length})</h3>
+                         <button 
+                           onClick={() => setShowApproachFilters(!showApproachFilters)}
+                           className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showApproachFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                         >
+                           <Lucide.Filter className="w-3 h-3" />
+                           Filter by System
+                         </button>
+                       </div>
+
+                       <AnimatePresence>
+                         {showApproachFilters && (
+                           <motion.div
+                             initial={{ opacity: 0, height: 0 }}
+                             animate={{ opacity: 1, height: "auto" }}
+                             exit={{ opacity: 0, height: 0 }}
+                             className="overflow-hidden"
+                           >
+                             <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                {[...primarySystems, ...secondarySystems].map(sys => (
+                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                ))}
+                             </div>
+                           </motion.div>
+                         )}
+                       </AnimatePresence>
+                     </div>
+                     <div className={`p-4 grid gap-4 items-stretch ${paneConfig === "0-3" ? "grid-cols-3" : paneConfig === "1-2" ? "grid-cols-2" : "grid-cols-1"}`}>
+                       {approachConditions.map(condition => (
+                         <ClinicalApproachCard key={condition.id} condition={condition} favorites={favorites} toggleFavorite={toggleFavorite} handleOpenCondition={handleOpenCondition} handleTagClick={handleTagClick} sys={getSystem(condition.system)} hasPaidAccess={hasPaidAccess} onUpgradeClick={handleUpgradeClick} />
+                       ))}
+                       {approachConditions.length === 0 && (
+                         <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
+                       )}
+                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Draggable Divider */}
+              {paneConfig !== "3-0" && paneConfig !== "0-3" && (
+                <div
+                  className="absolute top-0 bottom-0 w-4 -ml-2 z-20 cursor-col-resize flex items-center justify-center group"
+                  style={{ left: paneConfig === "2-1" ? "66.666%" : "33.333%" }}
+                  onPointerDown={handleDragStart}
+                >
+                  <div className={`h-full w-0.5 bg-slate-300 dark:bg-slate-700 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors ${isDragging ? "bg-teal-500 dark:bg-teal-400 w-1" : ""}`} />
+                  {/* Handle Grip */}
+                  <div className={`absolute w-1.5 h-8 rounded-full bg-slate-400 dark:bg-slate-600 group-hover:bg-teal-500 dark:group-hover:bg-teal-400 transition-colors shadow-sm ${isDragging ? "bg-teal-500 dark:bg-teal-400 scale-y-125" : ""}`} />
+                </div>
+              )}
+
+              {/* Pop Arrow (Left Edge) */}
+              <AnimatePresence>
+                {paneConfig === "0-3" && (
+                  <motion.button
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    onClick={() => setPaneConfig("1-2")}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-l-0 rounded-r-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
+                  >
+                    <Lucide.ChevronRight className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+
+              {/* Pop Arrow (Right Edge) */}
+              <AnimatePresence>
+                {paneConfig === "3-0" && (
+                  <motion.button
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    onClick={() => setPaneConfig("2-1")}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-32 w-8 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.1)] dark:shadow-[0_0_20px_rgba(0,0,0,0.3)] border border-slate-200/50 dark:border-slate-700/50 border-r-0 rounded-l-2xl flex flex-col items-center justify-center gap-2 hover:w-10 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer group"
+                  >
+                    <Lucide.ChevronLeft className="w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center pt-6 pb-2 select-none">
+                <button
+                  onClick={() => setVisibleLimit((prev) => prev + 9)}
+                  className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <span>See More Notes</span>
+                  <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+            )}
           </motion.div>
         ) : (
           /* ─── DETAIL VIEW ────────────────────────────────────────────────── */
@@ -1621,13 +1720,15 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         color: #334155 !important;
                       }
                       .print-area table {
+                        display: block !important;
+                        overflow-x: auto !important;
+                        max-width: 100% !important;
                         width: 100% !important;
                         border-collapse: collapse !important;
                         text-align: left !important;
                         margin-bottom: 1.25rem !important;
                         border: 1px solid #cbd5e1 !important;
                         border-radius: 0.75rem !important;
-                        overflow: hidden !important;
                       }
                       .print-area th {
                         text-align: left !important;
