@@ -23,17 +23,11 @@ export default function GlobalLogo() {
     return null;
   }
 
-  // Pages that render inside the DashboardShell navbar (home, dashboard, main
-  // exam-prep) now show the logo INSIDE the navbar on mobile, so the floating
-  // logo is hidden there below lg to avoid overlapping the navbar. On desktop it
-  // is unchanged. Every other page keeps the floating logo at all sizes.
-  const usesShellNavbar =
-    pathname === "/" ||
-    pathname.startsWith("/dashboard") ||
-    isMainExamPrep;
-
+  // On mobile the logo lives INSIDE the navbar (see Header.tsx), so the floating
+  // logo is desktop-only (hidden below lg) to avoid a duplicate. On desktop it is
+  // unchanged.
   return (
-    <div className={`fixed top-3 left-0 md:top-4 md:left-0 z-[60] pointer-events-auto ${usesShellNavbar ? "hidden lg:block" : ""}`}>
+    <div className="fixed top-3 left-0 md:top-4 md:left-0 z-[60] pointer-events-auto hidden lg:block">
       <Link href="/">
         <Image
           src="/assets/logo.png"
