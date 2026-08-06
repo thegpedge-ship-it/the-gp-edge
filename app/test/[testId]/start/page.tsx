@@ -173,6 +173,81 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
+/* Palette contents — progress donut, legend, and the question grid.
+   Shared between the desktop sidebar and the mobile slide-in drawer. */
+function QuestionPalette({
+  progressPercent,
+  questions,
+  current,
+  getStatus,
+  onGoTo,
+}: {
+  progressPercent: number;
+  questions: QuizQuestion[];
+  current: number;
+  getStatus: (index: number) => QuestionStatus;
+  onGoTo: (index: number) => void;
+}) {
+  return (
+    <>
+      {/* Progress & Legend */}
+      <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
+        <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
+
+        {/* Circular Progress */}
+        <div className="relative w-20 h-20 mb-6">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <path
+              className="text-slate-100 dark:text-slate-800"
+              strokeWidth="2"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+            <path
+              className="text-emerald-500 transition-all duration-500 ease-out"
+              strokeDasharray={`${progressPercent}, 100`}
+              strokeWidth="2"
+              strokeLinecap="round"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
+            <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
+            <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="w-full space-y-3">
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable Palette Grid */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        <div className="grid grid-cols-5 gap-2.5">
+          {questions.map((_, i) => (
+            <button key={i} onClick={() => onGoTo(i)} className={paletteClasses(getStatus(i), i === current)}>
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function TestPage() {
   const router = useRouter();
   const { testId } = useParams<{ testId: string }>();
@@ -188,6 +263,7 @@ export default function TestPage() {
   const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false); // mobile palette drawer
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
@@ -602,81 +678,83 @@ export default function TestPage() {
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-4 lg:p-6 gap-4 overflow-hidden">
-      
-      {/* ── Left Sidebar (Question Palette) ────────────────────────── */}
-      <div className="w-[260px] lg:w-[280px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
-        
-        {/* Progress & Legend */}
-        <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
-          <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
-          
-          {/* Circular Progress */}
-          <div className="relative w-20 h-20 mb-6">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-100 dark:text-slate-800"
-                strokeWidth="2"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="text-emerald-500 transition-all duration-500 ease-out"
-                strokeDasharray={`${progressPercent}, 100`}
-                strokeWidth="2"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
-              <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-3 sm:p-4 lg:p-6 gap-4 overflow-hidden">
 
-          {/* Legend */}
-          <div className="w-full space-y-3">
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Palette Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          <div className="grid grid-cols-5 gap-2.5">
-            {questions.map((_, i) => (
-              <button key={i} onClick={() => goTo(i)} className={paletteClasses(getStatus(i), i === current)}>
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* ── Desktop Sidebar (Question Palette) — hidden on mobile ──── */}
+      <div className="hidden lg:flex w-[280px] flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
+        <QuestionPalette
+          progressPercent={progressPercent}
+          questions={questions}
+          current={current}
+          getStatus={getStatus}
+          onGoTo={goTo}
+        />
       </div>
+
+      {/* ── Mobile Palette Drawer (slides in from the right) ───────── */}
+      <AnimatePresence>
+        {paletteOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-0 z-[65] flex justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setPaletteOpen(false)} />
+            <motion.div
+              className="relative w-[280px] max-w-[85vw] h-full flex flex-col bg-white dark:bg-slate-900 shadow-2xl"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Palette</span>
+                <button
+                  onClick={() => setPaletteOpen(false)}
+                  aria-label="Close palette"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <QuestionPalette
+                progressPercent={progressPercent}
+                questions={questions}
+                current={current}
+                getStatus={getStatus}
+                onGoTo={(i) => { goTo(i); setPaletteOpen(false); }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Right Main Area (Question Card) ───────────────────────── */}
       <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 min-w-0 overflow-hidden">
         
         {/* Header & Progress Bar */}
-        <div className="flex-shrink-0 px-8 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[20px] font-bold text-emerald-700 dark:text-emerald-400">
+        <div className="flex-shrink-0 px-4 sm:px-8 pt-4 sm:pt-5 pb-3">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-[15px] sm:text-[20px] font-bold text-emerald-700 dark:text-emerald-400 truncate">
               Question {current + 1} of {questions.length}
             </h2>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              {/* Mobile-only: open the question palette drawer */}
+              <button
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Open question palette"
+                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </button>
               {config.timed && (
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold tabular-nums transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-bold tabular-nums transition-colors ${
                     timeLeft <= 60
                       ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                       : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
@@ -690,9 +768,9 @@ export default function TestPage() {
               )}
               <button
                 onClick={() => setShowConfirm(true)}
-                className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                className="px-3 sm:px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] sm:text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap"
               >
-                Submit Test
+                Submit<span className="hidden sm:inline"> Test</span>
               </button>
             </div>
           </div>
@@ -712,7 +790,7 @@ export default function TestPage() {
         </div>
 
         {/* Scrollable Question Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
@@ -721,7 +799,7 @@ export default function TestPage() {
               exit={{ opacity: 0, x: -12 }}
               transition={{ duration: 0.15 }}
             >
-              <p className="text-[17px] leading-[1.6] text-slate-800 dark:text-slate-100 mb-6 max-w-4xl font-medium">
+              <p className="text-[14px] sm:text-[17px] leading-[1.55] sm:leading-[1.6] text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 max-w-4xl font-medium">
                 {question.text}
               </p>
 
@@ -736,7 +814,7 @@ export default function TestPage() {
                   <img
                     src={question.image}
                     alt="Question illustration"
-                    className="max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
+                    className="max-h-48 sm:max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
                   />
                   <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
@@ -750,21 +828,21 @@ export default function TestPage() {
                 </button>
               )}
 
-              <div className="space-y-3 max-w-4xl">
+              <div className="space-y-2.5 sm:space-y-3 max-w-4xl">
                 {question.options.map((option, i) => {
                   const isSelected = selectedOption === i;
                   return (
                     <button
                       key={i}
                       onClick={() => selectOption(i)}
-                      className={`w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-200 ${
+                      className={`w-full flex items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 ${
                         isSelected
                           ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/20 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                           : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:bg-emerald-50/20 dark:hover:bg-emerald-900/10"
                       }`}
                     >
                       <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[13px] font-bold transition-colors ${
+                        className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border flex items-center justify-center text-[12px] sm:text-[13px] font-bold transition-colors ${
                           isSelected
                             ? "bg-emerald-500 border-emerald-500 text-white"
                             : "border-slate-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20"
@@ -772,7 +850,7 @@ export default function TestPage() {
                       >
                         {String.fromCharCode(65 + i)}
                       </span>
-                      <span className={`text-[16px] leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
+                      <span className={`text-[13px] sm:text-[16px] leading-snug sm:leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
                         {option}
                       </span>
                     </button>
@@ -784,11 +862,11 @@ export default function TestPage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="flex-shrink-0 px-8 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+        <div className="flex-shrink-0 px-4 sm:px-8 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-white dark:bg-slate-900">
           <button
             onClick={clearResponse}
             disabled={selectedOption === undefined}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
               selectedOption === undefined
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
@@ -797,25 +875,26 @@ export default function TestPage() {
             <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Clear Response
+            <span className="hidden sm:inline">Clear Response</span>
+            <span className="sm:hidden">Clear</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => goTo(current - 1)}
               disabled={current === 0}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg border text-[14px] font-semibold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-3.5 sm:px-6 py-2 rounded-lg border text-[13px] sm:text-[14px] font-semibold whitespace-nowrap transition-all duration-200 ${
                 current === 0
                   ? "border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed"
                   : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm"
               }`}
             >
-              &larr; Previous
+              &larr;<span className="hidden sm:inline"> Previous</span>
             </button>
             <button
               onClick={() => goTo(current + 1)}
               disabled={current === questions.length - 1}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-[14px] font-bold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2 rounded-lg text-[13px] sm:text-[14px] font-bold whitespace-nowrap transition-all duration-200 ${
                 current === questions.length - 1
                   ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                   : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 hover:-translate-y-0.5"
