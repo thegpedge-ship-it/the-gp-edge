@@ -18,7 +18,7 @@
 //   • "ready" flag   → all transitions suppressed on first render (no flash)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -559,30 +559,17 @@ export default function Sidebar() {
 }
 
 // ─── Mobile Drawer ────────────────────────────────────────────────────────────
+// The open/close trigger (hamburger) lives in the navbar (see Header.tsx) and
+// drives this drawer through SidebarContext. This component renders only the
+// overlay + slide-in panel.
 function MobileDrawer({ pathname }: { pathname: string }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setOpen(false); }, [pathname]);
+  const { mobileOpen: open, setMobileOpen } = useSidebar();
+  const setOpen = setMobileOpen;
+  useEffect(() => { setOpen(false); }, [pathname, setOpen]);
   const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
 
   return (
     <div className="lg:hidden">
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Open navigation"
-        style={{
-          position: "fixed", top: 90, left: 12, zIndex: 40,
-          width: 38, height: 38, borderRadius: 10,
-          background: "#fff", border: "1px solid #e2e8f0",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#64748b", cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(15,23,42,0.1)",
-        }}
-      >
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
       <div onClick={() => setOpen(false)} style={{
         position: "fixed", inset: 0, zIndex: 48,
         background: "rgba(15,23,42,0.3)", backdropFilter: "blur(4px)",

@@ -4,9 +4,10 @@ import { memo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, useAuth } from "@clerk/nextjs";
-import { House } from "lucide-react";
+import { House, Menu } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
+import { useSidebarOptional } from "@/contexts/SidebarContext";
 
 // Custom reactive authentication state wrappers since SignedIn/SignedOut are removed in this Clerk version
 function SignedIn({ children }: { children: React.ReactNode }) {
@@ -26,6 +27,9 @@ interface HeaderProps {
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
+  // null on pages without a SidebarProvider (landing, auth, etc.) — the mobile
+  // sidebar hamburger only renders inside the dashboard where this exists.
+  const sidebar = useSidebarOptional();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -73,7 +77,22 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   return (
     <header className={outerClass}>
       <div className={innerClass}>
- 
+
+         {/* Mobile-only sidebar toggle — lives in the navbar, hidden on lg+ where
+             the desktop sidebar is shown. Only rendered inside the dashboard
+             (where the SidebarProvider exists). */}
+         {sidebar?.hasDrawer && (
+           <button
+             type="button"
+             onClick={() => sidebar.toggleMobile()}
+             aria-label="Open navigation menu"
+             aria-expanded={sidebar.mobileOpen}
+             className="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-slate-600 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+           >
+             <Menu className="w-5 h-5" />
+           </button>
+         )}
+
          {/* Navigation */}
          <nav className="hidden md:flex items-center gap-5 lg:gap-7 transition-all duration-500 flex-wrap lg:flex-nowrap">
            <Link
