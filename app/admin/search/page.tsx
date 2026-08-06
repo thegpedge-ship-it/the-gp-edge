@@ -15,6 +15,7 @@ import {
   saveCustomTags,
   TopicItem,
   getAdminUsers,
+  fetchAdminUsersFromDb,
   AdminUser,
   getMedicalContent,
   MedicalContent,
@@ -90,7 +91,7 @@ export default function SearchPage() {
     });
     setTopicsList(getTopics());
     setCustomTags(getCustomTags());
-    setUsersList(getAdminUsers());
+    fetchAdminUsersFromDb().then(setUsersList);
     setContentList(getMedicalContent());
     setAutofillList(getAutofillTemplates());
   }, []);

@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
-import { getAdminUsers, saveAdminUsers, AdminUser } from "@/lib/quizData";
+import { getAdminUsers, saveAdminUsers, fetchAdminUsersFromDb, AdminUser } from "@/lib/quizData";
+import { toggleUserStatusInDbAction } from "@/actions/admin.actions";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = {
@@ -24,15 +25,27 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [confirmUser, setConfirmUser] = useState<AdminUser | null>(null);
 
   useEffect(() => {
+    // Load local cache immediately for instant UI
     setUsers(getAdminUsers());
+
+    // Fetch real users from Neon DB
+    fetchAdminUsersFromDb()
+      .then((realUsers) => {
+        setUsers(realUsers);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(u.id).includes(searchQuery);
+      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(u.id).toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter =
       filter === "all" ||
       (filter === "active" && u.status === "active") ||
@@ -42,15 +55,29 @@ export default function UsersPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const toggleSuspend = (userId: number) => {
+  const visibleUsers = filteredUsers.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredUsers.length;
+
+  const promptToggleSuspend = (user: AdminUser) => {
     if (isReadOnly) return;
+    setConfirmUser(user);
+  };
+
+  const executeToggleSuspend = async () => {
+    if (!confirmUser) return;
+    const targetUser = confirmUser;
+    const newStatus = targetUser.status === "active" ? ("suspended" as const) : ("active" as const);
+
+    // Optimistic UI update
     const updated = users.map((u) =>
-      u.id === userId
-        ? { ...u, status: u.status === "active" ? ("suspended" as const) : ("active" as const) }
-        : u
+      u.id === targetUser.id ? { ...u, status: newStatus } : u
     );
     setUsers(updated);
     saveAdminUsers(updated);
+    setConfirmUser(null);
+
+    // Sync to DB
+    await toggleUserStatusInDbAction(String(targetUser.id), newStatus);
   };
 
   const premiumCount = users.filter((u) => u.plan === "premium").length;
@@ -215,13 +242,7 @@ export default function UsersPage() {
                   Plan
                 </th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-                  Last Active
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
                   Joined
-                </th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
-                  Status
                 </th>
                 <th className="text-right text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-6 py-3">
                   Actions
@@ -229,7 +250,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {filteredUsers.map((user) => (
+              {visibleUsers.map((user) => (
                 <tr
                   key={user.id}
                   className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
@@ -251,35 +272,30 @@ export default function UsersPage() {
                     <StatusBadge variant={user.plan} showDot={false} />
                   </td>
                   <td className="px-4 py-4">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">{user.lastActive}</span>
-                  </td>
-                  <td className="px-4 py-4">
                     <span className="text-sm text-slate-500 dark:text-slate-400">{user.joined}</span>
                   </td>
-                  <td className="px-4 py-4">
-                    <StatusBadge variant={user.status} />
-                  </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
                       <button
-                        onClick={() => !isReadOnly && toggleSuspend(user.id)}
+                        onClick={() => !isReadOnly && promptToggleSuspend(user)}
                         disabled={isReadOnly}
-                        className={`p-1.5 rounded-lg transition-all ${
+                        className={`p-1.5 rounded-lg transition-all cursor-pointer ${
                           isReadOnly
                             ? "opacity-30 cursor-not-allowed text-slate-300"
                             : user.status === "active"
                               ? "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
                               : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                         }`}
-                        title={isReadOnly ? "View-Only Mode" : user.status === "active" ? "Suspend account" : "Reinstate account"}
+                        title={isReadOnly ? "View-Only Mode" : user.status === "active" ? "Suspend user account" : "Reinstate user account"}
                       >
                         {user.status === "active" ? (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                          <svg className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                           </svg>
                         ) : (
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         )}
                       </button>
@@ -295,16 +311,98 @@ export default function UsersPage() {
             <p className="text-sm text-slate-400">No accounts match the selected filter.</p>
           </div>
         )}
+        {/* See More button at bottom */}
+        {hasMore && (
+          <div className="p-4 flex justify-center border-t border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-800/10 select-none">
+            <button
+              onClick={() => setVisibleCount((prev) => prev + 10)}
+              className="px-6 py-2.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-400 dark:bg-teal-950/40 dark:hover:bg-teal-900/50 border border-teal-200/60 dark:border-teal-900/50 rounded-xl transition-all shadow-sm cursor-pointer flex items-center gap-2 active:scale-95"
+            >
+              <span>See More Accounts</span>
+              <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
         {/* Table footer with count */}
         <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex items-center justify-between">
           <p className="text-xs text-slate-400">
-            Showing {filteredUsers.length} of {users.length} accounts
+            Showing {visibleUsers.length} of {filteredUsers.length} accounts
           </p>
           <p className="text-xs text-slate-400">
             {premiumCount} premium · {freeCount} free · {suspendedCount} suspended
           </p>
         </div>
       </motion.div>
+
+      {/* Confirmation Warning Modal */}
+      <AnimatePresence>
+        {confirmUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                    confirmUser.status === "active"
+                      ? "bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                      : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50"
+                  }`}
+                >
+                  {confirmUser.status === "active" ? (
+                    <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    {confirmUser.status === "active" ? "Confirm Account Suspension" : "Confirm Account Activation"}
+                  </h3>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Final Confirmation Required</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                {confirmUser.status === "active" ? (
+                  <>Are you sure you want to suspend <strong className="text-slate-900 dark:text-slate-100">{confirmUser.name}</strong> ({confirmUser.email})? This user will be restricted from accessing GP Edge resources until reinstated.</>
+                ) : (
+                  <>Are you sure you want to reactivate <strong className="text-slate-900 dark:text-slate-100">{confirmUser.name}</strong> ({confirmUser.email})?</>
+                )}
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setConfirmUser(null)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeToggleSuspend}
+                  className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ${
+                    confirmUser.status === "active"
+                      ? "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                      : "bg-teal-600 hover:bg-teal-700 shadow-teal-500/20"
+                  }`}
+                >
+                  {confirmUser.status === "active" ? "Yes, Suspend Account" : "Yes, Activate Account"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
