@@ -421,11 +421,16 @@ export default function TestPage() {
       window.history.pushState(null, "", window.location.href);
     };
 
-    // Native close/reload warning (best-effort; lets an accidental close be
-    // cancelled). Browsers require returnValue to be set to trigger the prompt.
+    // Native close/reload warning: tells the user leaving will submit the exam,
+    // and lets an accidental close be cancelled. Modern browsers show their own
+    // generic wording and ignore this text, but the API still requires
+    // returnValue to be set for the prompt to appear at all.
+    const LEAVE_MESSAGE =
+      "If you leave now your exam will be submitted automatically. Are you sure?";
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = "";
+      e.returnValue = LEAVE_MESSAGE;
+      return LEAVE_MESSAGE;
     };
 
     // Leaving the tab (closing, minimising, or switching away) is treated as
