@@ -80,7 +80,10 @@ export function getQuestions(): Question[] {
 export async function fetchQuestions(): Promise<Question[]> {
   try {
     const res = await fetch("/api/questions", { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      console.warn(`fetchQuestions API status: ${res.status}`);
+      return QUESTION_BANK;
+    }
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       QUESTION_BANK.length = 0;
@@ -90,7 +93,7 @@ export async function fetchQuestions(): Promise<Question[]> {
   } catch (err) {
     console.error("fetchQuestions error:", err);
   }
-  return [];
+  return QUESTION_BANK;
 }
 
 /**
