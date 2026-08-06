@@ -17,6 +17,7 @@ import type { LiveExam } from "./actions";
 
 export type OnboardingDefaults = {
   role_title: string;
+  training_stage?: string;
   hospital: string;
   location: string;
   racgp_id: string;
@@ -120,6 +121,36 @@ export default function OnboardingForm({
               <p className="text-[13px] font-medium">{error}</p>
             </div>
           )}
+
+          <div>
+            <label
+              htmlFor="training_stage"
+              className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1"
+            >
+              Select your current career stage <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <Stethoscope size={14} />
+              </span>
+              <select
+                id="training_stage"
+                name="training_stage"
+                required
+                defaultValue={defaults.training_stage || "REGISTRAR"}
+                className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50
+                           text-sm text-slate-800 appearance-none cursor-pointer font-medium
+                           focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500
+                           hover:border-slate-300 transition-all duration-150"
+              >
+                <option value="REGISTRAR">Registrar</option>
+                <option value="FELLOW">Post-Registrar / Fellow</option>
+              </select>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <ChevronDown size={14} />
+              </span>
+            </div>
+          </div>
 
           <Field
             id="role_title"

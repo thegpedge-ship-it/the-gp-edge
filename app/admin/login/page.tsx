@@ -81,11 +81,15 @@ export default function AdminLoginPage() {
   }, [router]);
 
   useEffect(() => {
-    syncLocalAdminsWithDbAction(FALLBACK_USERS).then(dbAdmins => {
-      if (dbAdmins && dbAdmins.length > 0) {
-        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
-      }
-    });
+    syncLocalAdminsWithDbAction(FALLBACK_USERS)
+      .then((dbAdmins) => {
+        if (dbAdmins && dbAdmins.length > 0) {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to sync local admins with DB:", err);
+      });
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -104,9 +108,13 @@ export default function AdminLoginPage() {
 
       const foundUser = result.user;
 
-      const dbAdmins = await getAdminsFromDbAction();
-      if (dbAdmins && dbAdmins.length > 0) {
-        localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+      try {
+        const dbAdmins = await getAdminsFromDbAction();
+        if (dbAdmins && dbAdmins.length > 0) {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+        }
+      } catch (adminFetchErr) {
+        console.warn("Failed to fetch admin list post-login:", adminFetchErr);
       }
 
       if (foundUser.mustResetPassword) {
@@ -123,7 +131,14 @@ export default function AdminLoginPage() {
       router.push("/admin/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
-      setError("An error occurred during authentication. Please try again.");
+      const isServerActionMismatch =
+        err?.message?.includes("Invalid Server Actions request") ||
+        err?.message?.includes("Server Action");
+      if (isServerActionMismatch) {
+        setError("Dev server updated. Please refresh the page (F5) and try logging in again.");
+      } else {
+        setError("An error occurred during authentication. Please try again.");
+      }
       setLoading(false);
     }
   };

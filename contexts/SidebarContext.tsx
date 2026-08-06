@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 
@@ -82,8 +83,13 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     (pref === "auto" && !autoCollapsed) ||
     isHovered;
 
+  const contextValue = useMemo(
+    () => ({ isExpanded, ready, toggle, setHovered }),
+    [isExpanded, ready, toggle, setHovered]
+  );
+
   return (
-    <SidebarContext.Provider value={{ isExpanded, ready, toggle, setHovered }}>
+    <SidebarContext.Provider value={contextValue}>
       {children}
     </SidebarContext.Provider>
   );

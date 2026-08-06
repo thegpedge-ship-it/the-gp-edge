@@ -28,76 +28,90 @@ type DbUserRow = NonNullable<Awaited<ReturnType<typeof ensureDbUser>>>;
  * Returns the DB user, or `null` if there is no authenticated user (or the
  * Clerk account somehow has no email address).
  */
-export async function ensureDbUser() {
-  const clerkUser = await currentUser();
-  if (!clerkUser) return null;
+import { cache } from "react";
 
-  // Account is mid-deletion. During the delete flow the DB row is removed while
-  // the Clerk session is still briefly valid, and a concurrent server render
-  // (e.g. the dashboard layout revalidating after Clerk's reverification) would
-  // otherwise resurrect a skeleton row here. `deleteOwnAccountData` sets this
-  // flag before deleting the row, so we must not recreate it.
-  if (clerkUser.publicMetadata?.accountDeleted) return null;
-
-  const email =
-    clerkUser.primaryEmailAddress?.emailAddress ??
-    clerkUser.emailAddresses[0]?.emailAddress ??
-    null;
-
-  // `email` is NOT NULL + unique in the schema — we can't create a row without it.
-  if (!email) return null;
-
-  const identity = {
-    first_name: clerkUser.firstName,
-    last_name: clerkUser.lastName,
-  };
-
-  // Both `clerk_user_id` AND `email` are unique. A plain upsert keyed on
-  // `clerk_user_id` would take the `create` branch for a never-seen Clerk id and
-  // then collide on `email` (P2002) whenever a row with that email already
-  // exists under a *different* clerk id — e.g. the user deleted their Clerk
-  // account and signed up again, or has both an email/password and a Google
-  // identity sharing one email. So reconcile on both keys explicitly.
-
-  // 1. Known Clerk identity → just keep email/name fresh.
-  const byClerk = await prisma.users.findUnique({
-    where: { clerk_user_id: clerkUser.id },
-  });
-  if (byClerk) {
-    return prisma.users.update({
-      where: { clerk_user_id: clerkUser.id },
-      data: { email, ...identity },
-    });
-  }
-
-  // 2. No row for this Clerk id, but one already exists for this email under a
-  //    stale clerk id — reclaim it rather than creating a duplicate.
-  const byEmail = await prisma.users.findUnique({ where: { email } });
-  if (byEmail) {
-    return prisma.users.update({
-      where: { id: byEmail.id },
-      data: { clerk_user_id: clerkUser.id, ...identity },
-    });
-  }
-
-  // 3. Brand-new user.
+export const ensureDbUser = cache(async () => {
   try {
-    return await prisma.users.create({
-      data: { clerk_user_id: clerkUser.id, email, ...identity },
+    const clerkUser = await currentUser();
+    if (!clerkUser) return null;
+
+    // Account is mid-deletion. During the delete flow the DB row is removed while
+    // the Clerk session is still briefly valid, and a concurrent server render
+    // (e.g. the dashboard layout revalidating after Clerk's reverification) would
+    // otherwise resurrect a skeleton row here. `deleteOwnAccountData` sets this
+    // flag before deleting the row, so we must not recreate it.
+    if (clerkUser.publicMetadata?.accountDeleted) return null;
+
+    const email =
+      clerkUser.primaryEmailAddress?.emailAddress ??
+      clerkUser.emailAddresses[0]?.emailAddress ??
+      null;
+
+    // `email` is NOT NULL + unique in the schema — we can't create a row without it.
+    if (!email) return null;
+
+    const identity = {
+      first_name: clerkUser.firstName,
+      last_name: clerkUser.lastName,
+    };
+
+    // Both `clerk_user_id` AND `email` are unique. A plain upsert keyed on
+    // `clerk_user_id` would take the `create` branch for a never-seen Clerk id and
+    // then collide on `email` (P2002) whenever a row with that email already
+    // exists under a *different* clerk id — e.g. the user deleted their Clerk
+    // account and signed up again, or has both an email/password and a Google
+    // identity sharing one email. So reconcile on both keys explicitly.
+
+    // 1. Known Clerk identity → just keep email/name fresh.
+    const byClerk = await prisma.users.findUnique({
+      where: { clerk_user_id: clerkUser.id },
     });
-  } catch (err) {
-    // Lost a race with a concurrent ensureDbUser for the same identity (two
-    // requests both saw no row and both tried to create). The row now exists, so
-    // return it instead of surfacing the unique-constraint error.
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      const existing =
-        (await prisma.users.findUnique({ where: { clerk_user_id: clerkUser.id } })) ??
-        (await prisma.users.findUnique({ where: { email } }));
-      if (existing) return existing;
+    if (byClerk) {
+      if (
+        byClerk.email === email &&
+        byClerk.first_name === identity.first_name &&
+        byClerk.last_name === identity.last_name
+      ) {
+        return byClerk;
+      }
+      return await prisma.users.update({
+        where: { clerk_user_id: clerkUser.id },
+        data: { email, ...identity },
+      });
     }
-    throw err;
+
+    // 2. No row for this Clerk id, but one already exists for this email under a
+    //    stale clerk id — reclaim it rather than creating a duplicate.
+    const byEmail = await prisma.users.findUnique({ where: { email } });
+    if (byEmail) {
+      return await prisma.users.update({
+        where: { id: byEmail.id },
+        data: { clerk_user_id: clerkUser.id, ...identity },
+      });
+    }
+
+    // 3. Brand-new user.
+    try {
+      return await prisma.users.create({
+        data: { clerk_user_id: clerkUser.id, email, ...identity },
+      });
+    } catch (err) {
+      // Lost a race with a concurrent ensureDbUser for the same identity (two
+      // requests both saw no row and both tried to create). The row now exists, so
+      // return it instead of surfacing the unique-constraint error.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const existing =
+          (await prisma.users.findUnique({ where: { clerk_user_id: clerkUser.id } })) ??
+          (await prisma.users.findUnique({ where: { email } }));
+        if (existing) return existing;
+      }
+      throw err;
+    }
+  } catch (err) {
+    console.error("[ensureDbUser] Error resolving user profile:", err);
+    return null;
   }
-}
+});
 
 /** Whether this Clerk user has finished the onboarding form. */
 export function isOnboarded(clerkUser: User | null): boolean {

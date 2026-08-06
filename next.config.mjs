@@ -14,6 +14,14 @@ const nextConfig = {
     optimizePackageImports: ["lucide-react", "framer-motion"],
     serverActions: {
       bodySizeLimit: "20mb",
+      allowedOrigins: [
+        "localhost:3000",
+        "127.0.0.1:3000",
+        "192.168.226.1:3000",
+        "192.168.226.1",
+        "localhost",
+        "127.0.0.1",
+      ],
     },
   },
 

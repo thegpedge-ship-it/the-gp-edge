@@ -4,6 +4,7 @@ import { memo, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton, useAuth } from "@clerk/nextjs";
+import { House } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
 
@@ -74,7 +75,16 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
       <div className={innerClass}>
  
          {/* Navigation */}
-         <nav className="hidden md:flex items-center gap-6 lg:gap-8 transition-all duration-500 flex-wrap lg:flex-nowrap">
+         <nav className="hidden md:flex items-center gap-5 lg:gap-7 transition-all duration-500 flex-wrap lg:flex-nowrap">
+           <Link
+             href="/"
+             title="Home"
+             aria-label="Home Landing Page"
+             className="text-slate-500 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-200 flex items-center justify-center hover:scale-110 transition-transform p-1 rounded-lg"
+           >
+             <House className="w-4 h-4 xl:w-[18px] xl:h-[18px]" />
+           </Link>
+
            <Link
              href="/exam-prep"
              className="text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"

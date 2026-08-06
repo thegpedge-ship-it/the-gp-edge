@@ -1,6 +1,8 @@
 import { ensureDbUser, toDbProfile } from "@/lib/user";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
+export const dynamic = "force-dynamic";
+
 /* Exam-prep is a single non-scrolling screen. Override the shell's default
    `min-h-screen … pb-12` (which, stacked under the sticky header, always
    overflows the viewport) with min-h-0 and no bottom padding so the page fits

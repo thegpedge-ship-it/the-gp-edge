@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, useContext, useMemo } from "react";
 
 /**
  * The user's own-profile fields that live in our Neon `users` table (collected
@@ -36,7 +36,20 @@ export function ProfileProvider({
   value: DbProfile;
   children: React.ReactNode;
 }) {
-  return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
+  const memoizedValue = useMemo(
+    () => value,
+    [
+      value.roleTitle,
+      value.hospital,
+      value.location,
+      value.bio,
+      value.racgpId,
+      value.examTarget,
+      value.joinedAt,
+    ]
+  );
+
+  return <ProfileContext.Provider value={memoizedValue}>{children}</ProfileContext.Provider>;
 }
 
 export function useProfile(): DbProfile {

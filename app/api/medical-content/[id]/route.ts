@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
+import { currentUser } from "@clerk/nextjs/server";
+import { getUserAccess } from "@/lib/access";
+import prisma from "@/lib/prisma";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -64,6 +67,48 @@ export async function GET(
 
     if (!condition) {
       return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    }
+
+    // ── Access control: paid items are locked for free users ──────────────
+    if (!condition.is_free) {
+      try {
+        const clerkUser = await currentUser();
+        if (clerkUser) {
+          // Find the DB user by clerk_user_id
+          const dbUser = await prisma.users.findUnique({
+            where: { clerk_user_id: clerkUser.id },
+            select: { id: true },
+          });
+          if (dbUser) {
+            const access = await getUserAccess(dbUser.id);
+            if (!access?.hasPaidAccess) {
+              return NextResponse.json(
+                { success: false, error: "Upgrade required to access this content." },
+                { status: 403 }
+              );
+            }
+          } else {
+            // No DB user row yet → treat as free
+            return NextResponse.json(
+              { success: false, error: "Upgrade required to access this content." },
+              { status: 403 }
+            );
+          }
+        } else {
+          // Not signed in
+          return NextResponse.json(
+            { success: false, error: "Authentication required." },
+            { status: 401 }
+          );
+        }
+      } catch (accessErr) {
+        console.error("[medical-content/[id] GET] access check error:", accessErr);
+        // Fail open — return 403 to be safe
+        return NextResponse.json(
+          { success: false, error: "Access check failed." },
+          { status: 403 }
+        );
+      }
     }
 
     const items = await query<any>(
@@ -138,6 +183,7 @@ export async function GET(
         type: condition.kind,
         status: condition.status,
         author: condition.author ?? "GP Edge Admin",
+        isFree: condition.is_free ?? false,
         lastUpdated: new Date(condition.updated_at).toISOString().split("T")[0],
         tags: tagRows.map((r: any) => r.label),
         references: referencesData,
@@ -160,7 +206,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, category, type, status, author, fullHtml, sections } = body;
+    const { name, category, type, status, author, isFree, is_free, fullHtml, sections } = body;
 
     // Verify condition exists
     const exists = await queryOne<{ id: string }>(
@@ -180,6 +226,10 @@ export async function PATCH(
     if (type)   { updates.push(`kind = $${idx++}`);     vals.push(type); }
     if (status) { updates.push(`status = $${idx++}`);   vals.push(status); }
     if (author) { updates.push(`author = $${idx++}`);   vals.push(author); }
+    if (isFree !== undefined || is_free !== undefined) {
+      updates.push(`is_free = $${idx++}`);
+      vals.push(Boolean(isFree ?? is_free));
+    }
     vals.push(id);
     await execute(
       `UPDATE medical_conditions SET ${updates.join(", ")} WHERE id = $${idx}`,
