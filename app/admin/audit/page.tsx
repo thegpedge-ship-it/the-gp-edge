@@ -271,13 +271,22 @@ export default function AuditPage() {
       return;
     }
 
-    const isTargetSuperAdmin = editRole === "Super Admin";
+    const isTargetSuperAdmin = editRole === "Super Admin" || editRole.includes("SA");
+    const derivedRoles = editRole.includes("SA") ? ["SA"] :
+      editRole.includes("CE") ? ["CE"] :
+      editRole.includes("OM") ? ["OM"] :
+      editRole.includes("DR") ? ["DR"] :
+      editRole.includes("PR") ? ["PR"] :
+      editRole.includes("SUB") ? ["SUB"] :
+      editRole === "Super Admin" ? ["SA", "CE", "OM"] : [editRole];
+
     const updatedUser = {
       id: editingAdmin.id,
       name: editName.trim(),
       email: editEmail.trim(),
       username: editUsername.trim(),
       role: editRole,
+      roles: derivedRoles,
       permissions: [...editPermissions],
       lastChanged: "Just now",
       ...(editPassword.trim() ? { password: editPassword } : {}),
@@ -442,11 +451,19 @@ export default function AuditPage() {
     return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
   }
 
-  // Lock role selections strictly to Admin only (not Super Admin, Moderator, or Viewer)
-  const addRoleOptions = [{ value: "Admin", label: "Admin" }];
-  const editRoleOptions = editingAdmin?.role === "Super Admin"
-    ? [{ value: "Super Admin", label: "Super Admin" }]
-    : [{ value: "Admin", label: "Admin" }];
+  const ALL_ROLE_OPTIONS = [
+    { value: "SA (Super Admin)", label: "SA — Super Admin (Founder / Clinical Director)" },
+    { value: "CE (Clinical Editor)", label: "CE — Clinical Editor (Senior GP)" },
+    { value: "OM (Operations Manager)", label: "OM — Operations Manager (Pipeline & Finance)" },
+    { value: "DR (Drafter)", label: "DR — Drafter (Assigned Items)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Peer Reviewer (Review Management)" },
+    { value: "SUB (Subscriber)", label: "SUB — Subscriber" },
+    { value: "Super Admin", label: "Super Admin" },
+    { value: "Admin", label: "Admin" },
+  ];
+
+  const addRoleOptions = ALL_ROLE_OPTIONS;
+  const editRoleOptions = ALL_ROLE_OPTIONS;
 
   /* ── Render ── */
   return (
@@ -793,8 +810,8 @@ export default function AuditPage() {
                       <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
                         <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold">Credential Restrictions Apply</p>
-                          <p className="mt-0.5">Admin, Moderator, and Viewer roles are restricted to username/password login recovery. OAuth, SAML SSO, and physical authenticators are disabled.</p>
+                          <p className="font-bold">Security & Relational Validation Rules</p>
+                          <p className="mt-0.5">SA and CE roles require mandatory 2FA. OM, DR, and PR roles are governed by item-scoped relational permissions.</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 font-semibold">
@@ -990,8 +1007,8 @@ export default function AuditPage() {
                       <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
                         <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold">Credential Restrictions Apply</p>
-                          <p className="mt-0.5">Admin, Moderator, and Viewer roles are restricted to username/password login recovery. OAuth, SAML SSO, and physical authenticators are disabled.</p>
+                          <p className="font-bold">Security & Relational Validation Rules</p>
+                          <p className="mt-0.5">SA and CE roles require mandatory 2FA. OM, DR, and PR roles are governed by item-scoped relational permissions.</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 font-semibold">
