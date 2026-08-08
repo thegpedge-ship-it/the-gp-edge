@@ -277,7 +277,6 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
 
   return result;
 });
-});
 
 // ─── Per-module & Item access checks ──────────────────────────────────────────
 
