@@ -9,7 +9,7 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { CheckCircle2, Clock, Zap, Star, Repeat, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, Zap, Star, Repeat, AlertCircle, Calendar, Award, CreditCard } from "lucide-react";
 import DuplicatePurchaseModal from "@/components/dashboard/DuplicatePurchaseModal";
 
 export interface PricingPlan {
@@ -95,30 +95,30 @@ function PlanCard({
     });
   }
 
-  const billingIcon =
-    plan.billingType === "one-time" ? (
-      <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-    ) : plan.billingType === "yearly" ? (
-      <Repeat className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+  const cardHeaderIcon =
+    plan.id === "post_registrar_upgrade" || plan.id === "fellowship_monthly" ? (
+      <Clock className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
+    ) : plan.id === "registrar_6mo" ? (
+      <Calendar className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
     ) : (
-      <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+      <Award className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
     );
 
   return (
     <div
       className={`
-        relative flex flex-col justify-between w-full max-w-[440px] p-7 
-        transition-all duration-500 backdrop-blur-md rounded-[17px] select-none
-        hover:scale-105 active:scale-95 active:rotate-[1.7deg]
+        relative flex flex-col justify-between w-full max-w-md mx-auto p-6 md:p-7 
+        transition-all duration-500 rounded-[20px] select-none
+        hover:scale-[1.02] active:scale-[0.99]
         ${plan.highlight
-          ? "bg-white/90 dark:bg-slate-900/90 border-[1.5px] border-emerald-500/70 dark:border-emerald-500/50 shadow-[12px_17px_51px_rgba(16,185,129,0.15)] dark:shadow-[12px_17px_51px_rgba(0,0,0,0.3)] hover:border-emerald-500"
-          : "bg-white/60 dark:bg-slate-900/60 border border-white dark:border-slate-700/50 shadow-[12px_17px_51px_rgba(0,0,0,0.08)] dark:shadow-[12px_17px_51px_rgba(0,0,0,0.22)] hover:border-slate-300 dark:hover:border-slate-500"
+          ? "bg-white dark:bg-slate-900 border-2 border-[#387e59] dark:border-emerald-500 shadow-xl shadow-emerald-900/10 dark:shadow-emerald-900/20"
+          : "bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-md hover:border-slate-300 dark:hover:border-slate-700"
         }
       `}
     >
       {/* Top Badge for Featured Plan */}
       {plan.badge && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-600 text-white text-[10px] font-bold tracking-wider uppercase shadow-sm whitespace-nowrap">
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#387e59] dark:bg-emerald-600 text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap">
           <Star className="w-3 h-3 fill-current" />
           {plan.badge}
         </div>
@@ -126,37 +126,52 @@ function PlanCard({
 
       <div>
         {/* Header */}
-        <div className="mb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              {plan.name}
-            </h3>
-            {isCurrentPlan && (
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
-                Current Plan
-              </span>
-            )}
+        <div className="flex items-start gap-3.5 mb-4">
+          <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-955/40 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-center shrink-0 mt-0.5">
+            {cardHeaderIcon}
           </div>
-          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">
-            {plan.tagline}
-          </p>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug">
+                {plan.name}
+              </h3>
+              {isCurrentPlan && (
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                  Current Plan
+                </span>
+              )}
+            </div>
+            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+              {plan.tagline}
+            </p>
+          </div>
         </div>
 
         {/* Price Display */}
         <div className="my-5">
-          <div className="flex items-baseline gap-2 mb-1 flex-wrap">
+          <div className="flex items-baseline gap-2 mb-1.5 flex-wrap">
             {plan.strikeThroughPrice && (
               <span className="text-xl md:text-2xl font-bold text-slate-400 dark:text-slate-500 line-through decoration-red-500/80 mr-1">
-                A${plan.strikeThroughPrice}
+                AUD {plan.strikeThroughPrice}
               </span>
             )}
-            <span className="text-sm font-bold text-slate-500 dark:text-slate-400">A$</span>
-            <span className="text-4xl md:text-5xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
+            <span className="text-sm font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider">AUD</span>
+            <span className="text-4xl md:text-5xl font-extrabold tracking-tight text-emerald-700 dark:text-emerald-400">
               {plan.priceDisplay}
             </span>
+            {plan.billingType === "monthly" && (
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">/month</span>
+            )}
+            {plan.billingType === "yearly" && (
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">/year</span>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">
-            {billingIcon}
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">
+            {plan.billingType === "one-time" ? (
+              <CreditCard className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+            ) : (
+              <Calendar className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+            )}
             <span>{plan.priceNote}</span>
           </div>
         </div>
@@ -171,20 +186,19 @@ function PlanCard({
             return (
               <li
                 key={feature}
-                className={`flex items-start gap-2.5 text-xs md:text-sm ${
+                className={`flex items-start gap-3 text-xs md:text-sm ${
                   isMuted
                     ? "text-slate-400 dark:text-slate-600 line-through"
                     : "text-slate-700 dark:text-slate-300"
                 }`}
               >
-                {isMuted ? (
-                  <span className="w-4 h-4 shrink-0" />
-                ) : (
-                  <CheckCircle2
-                    className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5"
-                    strokeWidth={2.2}
-                  />
-                )}
+                <span
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 mt-2 ${
+                    isMuted
+                      ? "bg-slate-300 dark:bg-slate-700"
+                      : "bg-emerald-600 dark:bg-emerald-400"
+                  }`}
+                />
                 <span>{feature}</span>
               </li>
             );
@@ -205,13 +219,13 @@ function PlanCard({
         onClick={handleClick}
         disabled={isPending}
         className={`
-          w-full py-3.5 px-5 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer
+          w-full py-3.5 px-5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer
           disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]
           ${isCurrentPlan
             ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80 shadow-sm"
             : plan.highlight
-            ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-sm shadow-emerald-600/20"
-            : "bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-sm"
+            ? "bg-[#387e59] hover:bg-[#2d6648] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
+            : "bg-[#111827] hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white shadow-sm"
           }
         `}
       >
@@ -315,11 +329,9 @@ export default function PricingPageClient({
     ? plans.filter((p) => p.id !== "registrar_6mo" && p.id !== "registrar_12mo")
     : plans.filter((p) => p.id !== "fellowship_monthly" && p.id !== "fellowship_yearly");
 
-  const moduleRows = MODULE_ACCESS[isFellow ? "FELLOW" : "REGISTRAR"] ?? MODULE_ACCESS.REGISTRAR;
+  const orderedPlans = [...sanitizedPlans].sort((a, b) => a.amountAUD - b.amountAUD);
 
-  // Separate exam packages from recurring subscriptions
-  const examPlans = isFellow ? [] : sanitizedPlans.filter((p) => p.id === "registrar_6mo" || p.id === "registrar_12mo");
-  const subPlans = sanitizedPlans.filter((p) => p.id !== "registrar_6mo" && p.id !== "registrar_12mo");
+  const moduleRows = MODULE_ACCESS[isFellow ? "FELLOW" : "REGISTRAR"] ?? MODULE_ACCESS.REGISTRAR;
 
   return (
     <>
@@ -329,7 +341,7 @@ export default function PricingPageClient({
         onClose={() => setShowDuplicateModal(false)}
       />
 
-      <div className="w-full pb-20 pt-4 px-4 md:px-8 max-w-6xl flex flex-col">
+      <div className="w-full pb-20 pt-4 px-4 md:px-8 max-w-7xl flex flex-col mx-auto">
         {/* ── Section 1: Hero Section ───────────────────────────────────────── */}
         <section className="mb-12 w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-8 md:gap-12">
           {/* Left Side Text Content */}
@@ -370,50 +382,25 @@ export default function PricingPageClient({
         <AccessBanner currentAccessLevel={currentAccessLevel} accessExpiresAt={accessExpiresAt} />
 
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}
-        <section className="mb-16 w-full space-y-10">
-          {!isFellow && examPlans.length > 0 && (
-            <div className="flex justify-center w-full">
-              <div
-                className={`grid gap-6 mx-auto ${
-                  examPlans.length === 1
-                    ? "grid-cols-1 max-w-sm"
-                    : "grid-cols-1 md:grid-cols-2 max-w-4xl"
-                }`}
-              >
-                {examPlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    currentAccessLevel={currentAccessLevel}
-                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {subPlans.length > 0 && (
-            <div className="flex justify-center w-full">
-              <div
-                className={`grid gap-6 mx-auto ${
-                  subPlans.length === 1
-                    ? "grid-cols-1 max-w-sm"
-                    : subPlans.length === 2
-                    ? "grid-cols-1 md:grid-cols-2 max-w-4xl"
-                    : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl"
-                }`}
-              >
-                {subPlans.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    currentAccessLevel={currentAccessLevel}
-                    onAttemptActivePurchase={() => setShowDuplicateModal(true)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+        <section className="mb-16 w-full flex justify-center">
+          <div
+            className={`grid gap-6 w-full mx-auto justify-center ${
+              orderedPlans.length === 1
+                ? "grid-cols-1 max-w-md"
+                : orderedPlans.length === 2
+                ? "grid-cols-1 md:grid-cols-2 max-w-4xl"
+                : "grid-cols-1 md:grid-cols-3 max-w-7xl"
+            }`}
+          >
+            {orderedPlans.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                currentAccessLevel={currentAccessLevel}
+                onAttemptActivePurchase={() => setShowDuplicateModal(true)}
+              />
+            ))}
+          </div>
         </section>
 
         {/* ── Section 3: Feature Comparison / What's Included Table ──────────── */}

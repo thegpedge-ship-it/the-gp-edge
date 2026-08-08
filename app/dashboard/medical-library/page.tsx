@@ -44,68 +44,68 @@ interface SystemStyle {
 
 const SYSTEM_CONFIG: Record<SystemId, SystemStyle> = {
   Cardiology: {
-    glow: "from-green-500/10 dark:from-green-500/20",
-    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
-    text: "text-green-600 dark:text-green-400",
-    accent: "bg-green-500",
-    borderLeft: "border-l-green-500",
-    gradient: "from-green-500 to-green-600",
+    glow: "from-teal-500/10 dark:from-teal-500/20",
+    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-500",
+    borderLeft: "border-l-teal-500",
+    gradient: "from-teal-500 to-teal-600",
   },
   Respiratory: {
-    glow: "from-green-500/10 dark:from-green-500/20",
-    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
-    text: "text-green-600 dark:text-green-400",
-    accent: "bg-green-500",
-    borderLeft: "border-l-green-500",
-    gradient: "from-green-500 to-green-600",
+    glow: "from-teal-500/10 dark:from-teal-500/20",
+    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-500",
+    borderLeft: "border-l-teal-500",
+    gradient: "from-teal-500 to-teal-600",
   },
   Endocrine: {
-    glow: "from-green-500/10 dark:from-green-500/20",
-    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
-    text: "text-green-600 dark:text-green-400",
-    accent: "bg-green-500",
-    borderLeft: "border-l-green-500",
-    gradient: "from-green-500 to-green-600",
+    glow: "from-teal-500/10 dark:from-teal-500/20",
+    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-500",
+    borderLeft: "border-l-teal-500",
+    gradient: "from-teal-500 to-teal-600",
   },
   Gastrointestinal: {
-    glow: "from-green-600/10 dark:from-green-600/20",
-    border: "hover:border-green-500/80 dark:hover:border-green-600/40",
-    text: "text-green-700 dark:text-green-400",
-    accent: "bg-green-600",
-    borderLeft: "border-l-green-600",
-    gradient: "from-green-600 to-green-700",
+    glow: "from-teal-600/10 dark:from-teal-600/20",
+    border: "hover:border-teal-500/80 dark:hover:border-teal-600/40",
+    text: "text-teal-700 dark:text-teal-400",
+    accent: "bg-teal-600",
+    borderLeft: "border-l-teal-600",
+    gradient: "from-teal-600 to-teal-700",
   },
   Psychiatry: {
-    glow: "from-green-600/10 dark:from-green-600/20",
-    border: "hover:border-green-500/80 dark:hover:border-green-600/40",
-    text: "text-green-700 dark:text-green-400",
-    accent: "bg-green-600",
-    borderLeft: "border-l-green-600",
-    gradient: "from-green-600 to-green-700",
+    glow: "from-teal-600/10 dark:from-teal-600/20",
+    border: "hover:border-teal-500/80 dark:hover:border-teal-600/40",
+    text: "text-teal-700 dark:text-teal-400",
+    accent: "bg-teal-600",
+    borderLeft: "border-l-teal-600",
+    gradient: "from-teal-600 to-teal-700",
   },
   Dermatology: {
-    glow: "from-green-600/10 dark:from-green-600/20",
-    border: "hover:border-green-500/80 dark:hover:border-green-600/40",
-    text: "text-green-700 dark:text-green-400",
-    accent: "bg-green-600",
-    borderLeft: "border-l-green-600",
-    gradient: "from-green-600 to-green-700",
+    glow: "from-teal-600/10 dark:from-teal-600/20",
+    border: "hover:border-teal-500/80 dark:hover:border-teal-600/40",
+    text: "text-teal-700 dark:text-teal-400",
+    accent: "bg-teal-600",
+    borderLeft: "border-l-teal-600",
+    gradient: "from-teal-600 to-teal-700",
   },
   "Women's Health": {
-    glow: "from-green-500/10 dark:from-green-500/20",
-    border: "hover:border-green-400/80 dark:hover:border-green-500/40",
-    text: "text-green-600 dark:text-green-400",
-    accent: "bg-green-500",
-    borderLeft: "border-l-green-500",
-    gradient: "from-green-500 to-green-600",
+    glow: "from-teal-500/10 dark:from-teal-500/20",
+    border: "hover:border-teal-400/80 dark:hover:border-teal-500/40",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-500",
+    borderLeft: "border-l-teal-500",
+    gradient: "from-teal-500 to-teal-600",
   },
   Paediatrics: {
-    glow: "from-green-400/10 dark:from-green-400/20",
-    border: "hover:border-green-300/80 dark:hover:border-green-400/40",
-    text: "text-green-600 dark:text-green-400",
-    accent: "bg-green-400",
-    borderLeft: "border-l-green-400",
-    gradient: "from-green-400 to-green-500",
+    glow: "from-teal-400/10 dark:from-teal-400/20",
+    border: "hover:border-teal-300/80 dark:hover:border-teal-400/40",
+    text: "text-teal-600 dark:text-teal-400",
+    accent: "bg-teal-400",
+    borderLeft: "border-l-teal-400",
+    gradient: "from-teal-400 to-teal-500",
   },
   Neurology: {
     glow: "from-teal-500/10 dark:from-teal-500/20",
@@ -162,14 +162,14 @@ function normalizeSystemName(sys: string): string {
 const getSystemBadgeColor = (system: string): string => {
   const s = normalizeSystemName(system);
   const colors: Record<string, string> = {
-    Cardiology: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Cardiology: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
     Respiratory: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
-    Endocrine: "bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30",
-    Gastrointestinal: "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Endocrine: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
+    Gastrointestinal: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
     Psychiatry: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
-    Dermatology: "bg-green-50 text-green-800 border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900/30",
+    Dermatology: "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
     "Women's Health": "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900/40 dark:text-slate-400 dark:border-slate-800/30",
-    Paediatrics: "bg-emerald-50 text-emerald-600 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900/30",
+    Paediatrics: "bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/30",
     Neurology: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-900/30",
     Musculoskeletal: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-900/30",
     MBS: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900/30",
@@ -180,19 +180,19 @@ const getSystemBadgeColor = (system: string): string => {
 const getBrightSystemColor = (system: string): string => {
   const s = normalizeSystemName(system);
   const colors: Record<string, string> = {
-    Cardiology: "text-emerald-400",
+    Cardiology: "text-teal-400",
     Respiratory: "text-teal-400",
-    Endocrine: "text-green-405",
-    Gastrointestinal: "text-emerald-400",
+    Endocrine: "text-teal-400",
+    Gastrointestinal: "text-teal-400",
     Psychiatry: "text-teal-400",
-    Dermatology: "text-green-400",
+    Dermatology: "text-teal-400",
     "Women's Health": "text-slate-300",
-    Paediatrics: "text-emerald-400",
+    Paediatrics: "text-teal-400",
     Neurology: "text-blue-400",
     Musculoskeletal: "text-indigo-400",
     MBS: "text-amber-400",
   };
-  return colors[s] || "text-green-400";
+  return colors[s] || "text-teal-400";
 };
 
 
@@ -278,31 +278,35 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-start mb-2.5 gap-2">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span className="text-[10px] font-bold font-mono text-green-600 dark:text-green-400 bg-green-50/50 dark:bg-green-950/20 px-2 py-0.5 rounded border border-green-200/30 shrink-0">
+            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 shrink-0">
               {condition.id}
             </span>
-            {condition.isPremium ? (
+            {condition.isPremium && (
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
                 Paid Only
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30 shrink-0" title="Open to all general users">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                Free Access
-              </span>
             )}
           </div>
-          <button
-            onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-2 rounded-xl border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500 min-w-[36px] min-h-[36px]"
+          <label
+            className="custom-bookmark cursor-pointer shrink-0"
+            onClick={(e) => e.stopPropagation()}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-4 h-4 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
-          </button>
+            <input
+              type="checkbox"
+              checked={isStarred}
+              onChange={(e) => toggleFavorite(e as any, condition.id)}
+            />
+            <div className="bookmark-icon-wrapper p-1">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+          </label>
         </div>
 
-        <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-green-600 dark:group-hover:text-green-500 transition-colors mb-1.5 line-clamp-2">
+        <h3 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5 line-clamp-2">
           {decodeHtmlEntities(condition.name)}
         </h3>
 
@@ -315,7 +319,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
         <div className="space-y-1 mb-3">
           {condition.symptoms.slice(0, 2).map((sym, i) => (
             <p key={i} className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1.5">
-              <span className="text-green-600 dark:text-green-500 font-bold">•</span>
+              <span className="text-teal-600 dark:text-teal-500 font-bold">•</span>
               <span className="truncate">{sym}</span>
             </p>
           ))}
@@ -325,7 +329,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-2.5 mt-auto flex items-center justify-between gap-2 ${isLocked ? "opacity-40" : ""}`}>
         <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer min-w-0">
           <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
-          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-green-600 dark:group-hover/footer:text-green-500 transition-colors truncate">{condition.system}</span>
+          <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors truncate">{condition.system}</span>
         </div>
         <div className="flex flex-col text-right shrink-0">
           <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">Updated</span>
@@ -375,28 +379,29 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
             <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 shrink-0">
               {condition.id}
             </span>
-            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded border border-slate-200/50 dark:border-slate-700/50 uppercase tracking-widest shrink-0">
-              Approach
-            </span>
-            {condition.isPremium ? (
+            {condition.isPremium && (
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
                 Paid Only
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200/30 shrink-0" title="Open to all general users">
-                <Lucide.Unlock className="w-2.5 h-2.5" />
-                Free Access
-              </span>
             )}
           </div>
-          <button
-            onClick={(e) => toggleFavorite(e, condition.id)}
-            className="p-2 rounded-xl border-none bg-transparent hover:bg-slate-100 dark:hover:bg-slate-800 active:bg-slate-200 dark:active:bg-slate-700 transition-colors shrink-0 cursor-pointer flex items-center justify-center text-slate-400 hover:text-rose-500 min-w-[36px] min-h-[36px]"
+          <label
+            className="custom-bookmark cursor-pointer shrink-0"
+            onClick={(e) => e.stopPropagation()}
             title={isStarred ? "Remove from Saved Notes" : "Bookmark Note"}
           >
-            <Lucide.Heart className={`w-4 h-4 ${isStarred ? "fill-rose-500 text-rose-500" : "text-slate-400"}`} />
-          </button>
+            <input
+              type="checkbox"
+              checked={isStarred}
+              onChange={(e) => toggleFavorite(e as any, condition.id)}
+            />
+            <div className="bookmark-icon-wrapper p-1">
+              <svg viewBox="0 0 24 24" className="w-5 h-5 bookmark-svg" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+              </svg>
+            </div>
+          </label>
         </div>
 
         <h4 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-200 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-500 transition-colors mb-1.5 line-clamp-2">
@@ -436,7 +441,7 @@ export default function MedicalLibraryPage() {
         .custom-bookmark {
           --icon-color: #94a3b8; /* Soft Slate Gray */
           --icon-hover: #64748b; 
-          --icon-active: #22c55e; /* Green matching GP Edge */
+          --icon-active: #0d9488; /* Teal matching Clinical Autofills */
         }
         .dark .custom-bookmark {
           --icon-color: #64748b; /* Muted Gray */
@@ -525,9 +530,72 @@ export default function MedicalLibraryPage() {
   );
 }
 
+function SystemFilterTooltip({ onDismiss, show }: { onDismiss: () => void; show: boolean }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "calc(100% + 10px)",
+        right: 0,
+        opacity: show ? 1 : 0,
+        transform: show ? "translateY(0)" : "translateY(-8px)",
+        transition: "opacity 380ms ease, transform 380ms ease",
+        zIndex: 100,
+        pointerEvents: show ? "auto" : "none",
+      }}
+    >
+      {/* Arrow nub pointing upward to the button */}
+      <div
+        style={{
+          position: "absolute",
+          top: -5,
+          right: 20,
+          width: 10,
+          height: 10,
+          background: "#1e293b",
+          borderRadius: 2,
+          transform: "rotate(45deg)",
+        }}
+      />
+      {/* Tooltip card */}
+      <div className="bg-slate-800 text-white rounded-xl px-3.5 py-2.5 shadow-2xl flex items-start gap-2.5 max-w-[220px] select-none text-left">
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-bold text-teal-400 mb-0.5 uppercase tracking-wide">New Feature</p>
+          <p className="text-[12px] leading-snug text-slate-200 font-medium">
+            Tip: Filter by system options available here.
+          </p>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+          className="flex-shrink-0 mt-0.5 text-slate-400 hover:text-white transition-colors cursor-pointer border-none bg-transparent"
+          aria-label="Dismiss tip"
+        >
+          <Lucide.X className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MedicalLibraryContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Tooltip — shows 1s after load and visible for 3s
+  const [showFilterTip, setShowFilterTip] = useState(false);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setShowFilterTip(true), 1000);
+    const t2 = setTimeout(() => setShowFilterTip(false), 4000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, []);
+
+  const dismissFilterTip = useCallback(() => {
+    setShowFilterTip(false);
+  }, []);
 
   // Access control
   const { hasPaidAccess, loading: accessLoading } = useUserAccess();
@@ -1067,23 +1135,40 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </div>
             </div>
 
-            {/* Mobile Touch-Scrollable System Filters Bar */}
+            {/* Mobile & Desktop Touch-Scrollable System Filters Bar + Saved Bookmarks Button */}
             <div className="flex flex-col gap-2 select-none">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Filter by System</span>
-                {selectedSystem !== "all" && (
+                <div className="flex items-center gap-2">
+                  {selectedSystem !== "all" && (
+                    <button
+                      onClick={() => setSelectedSystem("all")}
+                      className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent mr-1"
+                    >
+                      Reset Filter
+                    </button>
+                  )}
                   <button
-                    onClick={() => setSelectedSystem("all")}
-                    className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent"
+                    onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+                      showFavoritesOnly
+                        ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-600 dark:hover:text-teal-400"
+                    }`}
                   >
-                    Reset Filter
+                    {showFavoritesOnly ? (
+                      <Lucide.BookmarkCheck className="w-3.5 h-3.5" />
+                    ) : (
+                      <Lucide.Bookmark className="w-3.5 h-3.5" />
+                    )}
+                    Saved Templates
                   </button>
-                )}
+                </div>
               </div>
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full">
                 <button
                   onClick={() => setSelectedSystem("all")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-slate-900 dark:border-white shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                 >
                   All Systems
                 </button>
@@ -1180,13 +1265,16 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                      <div className="p-5 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-3 rounded-tl-3xl">
                        <div className="flex items-center justify-between">
                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({mcConditions.length})</h3>
-                         <button 
-                           onClick={() => setShowMCFilters(!showMCFilters)}
-                           className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                         >
-                           <Lucide.Filter className="w-3 h-3" />
-                           Filter by System
-                         </button>
+                         <div className="relative">
+                            <button 
+                              onClick={() => setShowMCFilters(!showMCFilters)}
+                              className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                            >
+                              <Lucide.Filter className="w-3 h-3" />
+                              Filter by System
+                            </button>
+                            <SystemFilterTooltip onDismiss={dismissFilterTip} show={showFilterTip} />
+                          </div>
                        </div>
                        
                        <AnimatePresence>

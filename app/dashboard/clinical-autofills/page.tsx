@@ -720,7 +720,7 @@ export default function ClinicalAutofillsPage() {
       <div className="flex items-center justify-between mb-4">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
           <FileText className="w-3 h-3" />
-          {showBookmarks ? "Saved Bookmarks" : "All Templates"}
+          {showBookmarks ? "Saved Templates" : "All Templates"}
           {searchQuery && (
             <span className="ml-2 bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
               {filteredTemplates.length} result{filteredTemplates.length !== 1 ? "s" : ""}
@@ -755,15 +755,7 @@ export default function ClinicalAutofillsPage() {
                 ? <BookmarkCheck className="w-3.5 h-3.5" />
                 : <Bookmark className="w-3.5 h-3.5" />
               }
-              Saved Bookmarks
-              {savedTemplates.length > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 text-slate-500"
-                  }`}>
-                  {savedTemplates.length}
-                </span>
-              )}
+              Saved Templates
             </button>
 
             {/* Feature discovery tooltip — always rendered, show prop drives visibility */}
@@ -869,15 +861,6 @@ export default function ClinicalAutofillsPage() {
                     <span className="inline-block font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
                       {t.category}
                     </span>
-                    {isFree ? (
-                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/50 px-2 py-0.5 rounded-md">
-                        <Unlock className="w-2.5 h-2.5" /> FREE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/30 border border-amber-200/50 px-2 py-0.5 rounded-md">
-                        <Lock className="w-2.5 h-2.5" /> PAID
-                      </span>
-                    )}
                   </div>
 
                   {/* Description — 2-line clamp */}
