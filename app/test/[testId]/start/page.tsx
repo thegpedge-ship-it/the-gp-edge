@@ -173,6 +173,81 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
+/* Palette contents — progress donut, legend, and the question grid.
+   Shared between the desktop sidebar and the mobile slide-in drawer. */
+function QuestionPalette({
+  progressPercent,
+  questions,
+  current,
+  getStatus,
+  onGoTo,
+}: {
+  progressPercent: number;
+  questions: QuizQuestion[];
+  current: number;
+  getStatus: (index: number) => QuestionStatus;
+  onGoTo: (index: number) => void;
+}) {
+  return (
+    <>
+      {/* Progress & Legend */}
+      <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
+        <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
+
+        {/* Circular Progress */}
+        <div className="relative w-20 h-20 mb-6">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <path
+              className="text-slate-100 dark:text-slate-800"
+              strokeWidth="2"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+            <path
+              className="text-emerald-500 transition-all duration-500 ease-out"
+              strokeDasharray={`${progressPercent}, 100`}
+              strokeWidth="2"
+              strokeLinecap="round"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
+            <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
+            <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="w-full space-y-3">
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable Palette Grid */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        <div className="grid grid-cols-5 gap-2.5">
+          {questions.map((_, i) => (
+            <button key={i} onClick={() => onGoTo(i)} className={paletteClasses(getStatus(i), i === current)}>
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function TestPage() {
   const router = useRouter();
   const { testId } = useParams<{ testId: string }>();
@@ -188,6 +263,7 @@ export default function TestPage() {
   const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false); // mobile palette drawer
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
@@ -421,11 +497,16 @@ export default function TestPage() {
       window.history.pushState(null, "", window.location.href);
     };
 
-    // Native close/reload warning (best-effort; lets an accidental close be
-    // cancelled). Browsers require returnValue to be set to trigger the prompt.
+    // Native close/reload warning: tells the user leaving will submit the exam,
+    // and lets an accidental close be cancelled. Modern browsers show their own
+    // generic wording and ignore this text, but the API still requires
+    // returnValue to be set for the prompt to appear at all.
+    const LEAVE_MESSAGE =
+      "If you leave now your exam will be submitted automatically. Are you sure?";
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = "";
+      e.returnValue = LEAVE_MESSAGE;
+      return LEAVE_MESSAGE;
     };
 
     // Leaving the tab (closing, minimising, or switching away) is treated as
@@ -597,81 +678,83 @@ export default function TestPage() {
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-4 lg:p-6 gap-4 overflow-hidden">
-      
-      {/* ── Left Sidebar (Question Palette) ────────────────────────── */}
-      <div className="w-[260px] lg:w-[280px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
-        
-        {/* Progress & Legend */}
-        <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
-          <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
-          
-          {/* Circular Progress */}
-          <div className="relative w-20 h-20 mb-6">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-100 dark:text-slate-800"
-                strokeWidth="2"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="text-emerald-500 transition-all duration-500 ease-out"
-                strokeDasharray={`${progressPercent}, 100`}
-                strokeWidth="2"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
-              <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-3 sm:p-4 lg:p-6 gap-4 overflow-hidden">
 
-          {/* Legend */}
-          <div className="w-full space-y-3">
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Palette Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          <div className="grid grid-cols-5 gap-2.5">
-            {questions.map((_, i) => (
-              <button key={i} onClick={() => goTo(i)} className={paletteClasses(getStatus(i), i === current)}>
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* ── Desktop Sidebar (Question Palette) — hidden on mobile ──── */}
+      <div className="hidden lg:flex w-[280px] flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
+        <QuestionPalette
+          progressPercent={progressPercent}
+          questions={questions}
+          current={current}
+          getStatus={getStatus}
+          onGoTo={goTo}
+        />
       </div>
+
+      {/* ── Mobile Palette Drawer (slides in from the right) ───────── */}
+      <AnimatePresence>
+        {paletteOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-0 z-[65] flex justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setPaletteOpen(false)} />
+            <motion.div
+              className="relative w-[280px] max-w-[85vw] h-full flex flex-col bg-white dark:bg-slate-900 shadow-2xl"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Palette</span>
+                <button
+                  onClick={() => setPaletteOpen(false)}
+                  aria-label="Close palette"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <QuestionPalette
+                progressPercent={progressPercent}
+                questions={questions}
+                current={current}
+                getStatus={getStatus}
+                onGoTo={(i) => { goTo(i); setPaletteOpen(false); }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Right Main Area (Question Card) ───────────────────────── */}
       <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 min-w-0 overflow-hidden">
         
         {/* Header & Progress Bar */}
-        <div className="flex-shrink-0 px-8 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[20px] font-bold text-emerald-700 dark:text-emerald-400">
+        <div className="flex-shrink-0 px-4 sm:px-8 pt-4 sm:pt-5 pb-3">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-[15px] sm:text-[20px] font-bold text-emerald-700 dark:text-emerald-400 truncate">
               Question {current + 1} of {questions.length}
             </h2>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+              {/* Mobile-only: open the question palette drawer */}
+              <button
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Open question palette"
+                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </button>
               {config.timed && (
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold tabular-nums transition-colors ${
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-bold tabular-nums transition-colors ${
                     timeLeft <= 60
                       ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
                       : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
@@ -685,9 +768,9 @@ export default function TestPage() {
               )}
               <button
                 onClick={() => setShowConfirm(true)}
-                className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                className="px-3 sm:px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] sm:text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap"
               >
-                Submit Test
+                Submit<span className="hidden sm:inline"> Test</span>
               </button>
             </div>
           </div>
@@ -707,7 +790,7 @@ export default function TestPage() {
         </div>
 
         {/* Scrollable Question Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
@@ -716,7 +799,7 @@ export default function TestPage() {
               exit={{ opacity: 0, x: -12 }}
               transition={{ duration: 0.15 }}
             >
-              <p className="text-[17px] leading-[1.6] text-slate-800 dark:text-slate-100 mb-6 max-w-4xl font-medium">
+              <p className="text-[14px] sm:text-[17px] leading-[1.55] sm:leading-[1.6] text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 max-w-4xl font-medium">
                 {question.text}
               </p>
 
@@ -731,7 +814,7 @@ export default function TestPage() {
                   <img
                     src={question.image}
                     alt="Question illustration"
-                    className="max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
+                    className="max-h-48 sm:max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
                   />
                   <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
@@ -745,21 +828,21 @@ export default function TestPage() {
                 </button>
               )}
 
-              <div className="space-y-3 max-w-4xl">
+              <div className="space-y-2.5 sm:space-y-3 max-w-4xl">
                 {question.options.map((option, i) => {
                   const isSelected = selectedOption === i;
                   return (
                     <button
                       key={i}
                       onClick={() => selectOption(i)}
-                      className={`w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-200 ${
+                      className={`w-full flex items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 ${
                         isSelected
                           ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/20 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                           : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:bg-emerald-50/20 dark:hover:bg-emerald-900/10"
                       }`}
                     >
                       <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[13px] font-bold transition-colors ${
+                        className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border flex items-center justify-center text-[12px] sm:text-[13px] font-bold transition-colors ${
                           isSelected
                             ? "bg-emerald-500 border-emerald-500 text-white"
                             : "border-slate-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20"
@@ -767,7 +850,7 @@ export default function TestPage() {
                       >
                         {String.fromCharCode(65 + i)}
                       </span>
-                      <span className={`text-[16px] leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
+                      <span className={`text-[13px] sm:text-[16px] leading-snug sm:leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
                         {option}
                       </span>
                     </button>
@@ -779,11 +862,11 @@ export default function TestPage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="flex-shrink-0 px-8 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+        <div className="flex-shrink-0 px-4 sm:px-8 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-white dark:bg-slate-900">
           <button
             onClick={clearResponse}
             disabled={selectedOption === undefined}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
               selectedOption === undefined
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
@@ -792,25 +875,26 @@ export default function TestPage() {
             <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Clear Response
+            <span className="hidden sm:inline">Clear Response</span>
+            <span className="sm:hidden">Clear</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => goTo(current - 1)}
               disabled={current === 0}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg border text-[14px] font-semibold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-3.5 sm:px-6 py-2 rounded-lg border text-[13px] sm:text-[14px] font-semibold whitespace-nowrap transition-all duration-200 ${
                 current === 0
                   ? "border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed"
                   : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm"
               }`}
             >
-              &larr; Previous
+              &larr;<span className="hidden sm:inline"> Previous</span>
             </button>
             <button
               onClick={() => goTo(current + 1)}
               disabled={current === questions.length - 1}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-[14px] font-bold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 sm:px-6 py-2 rounded-lg text-[13px] sm:text-[14px] font-bold whitespace-nowrap transition-all duration-200 ${
                 current === questions.length - 1
                   ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                   : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 hover:-translate-y-0.5"
@@ -838,77 +922,52 @@ export default function TestPage() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 16 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="relative w-auto max-w-[90vw] bg-white dark:bg-slate-900 rounded-[16px] shadow-[0_12px_30px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col"
+              className="relative w-[calc(100vw-2rem)] max-w-[400px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.28)] border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col"
             >
-              <div className="flex flex-col sm:flex-row">
-                {/* Left Section */}
-                <div className="w-full sm:w-[260px] p-6 bg-slate-50/80 dark:bg-slate-800/40 sm:border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-800 flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
-                    </svg>
-                  </div>
-                  <h2 className="text-[22px] font-bold text-slate-900 dark:text-slate-100 mb-2 tracking-tight">Are you sure?</h2>
-                  <div className="space-y-4 text-[14px] leading-[1.6] text-slate-600 dark:text-slate-400">
-                    {config.timed && (
-                      <p>
-                        You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> remaining to complete the test.
-                      </p>
-                    )}
-                    <p>This action cannot be undone.</p>
-                  </div>
+              {/* Header */}
+              <div className="px-6 pt-7 pb-5 text-center">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/25 flex items-center justify-center mb-4">
+                  <svg className="w-7 h-7 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
+                  </svg>
                 </div>
+                <h2 className="text-[21px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">Submit your test?</h2>
+                <p className="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 mt-1.5">
+                  {config.timed ? (
+                    <>You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> left. This can&rsquo;t be undone.</>
+                  ) : (
+                    <>This action cannot be undone.</>
+                  )}
+                </p>
+              </div>
 
-                {/* Right Section */}
-                <div className="flex-shrink-0 px-6 py-6 sm:pr-8 flex flex-col justify-center">
-                  <div className="space-y-[14px]">
-                    {/* Answered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{answeredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Answered</span>
-                    </div>
-
-                    {/* Unanswered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-red-500 leading-none w-10">{notAnsweredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Unanswered</span>
-                    </div>
-
-                    {/* Not Visited */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{notVisitedCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Not Visited</span>
-                    </div>
-                  </div>
+              {/* Stats — three compact tiles */}
+              <div className="px-5 grid grid-cols-3 gap-2.5">
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-900/30 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">{answeredCount}</span>
+                  <span className="text-[10px] font-semibold text-emerald-700/80 dark:text-emerald-400/70 uppercase tracking-wide text-center leading-tight">Answered</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-50 dark:bg-red-900/15 border border-red-100 dark:border-red-900/30 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-red-500 dark:text-red-400 leading-none">{notAnsweredCount}</span>
+                  <span className="text-[10px] font-semibold text-red-600/80 dark:text-red-400/70 uppercase tracking-wide text-center leading-tight">Unanswered</span>
+                </div>
+                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 py-3.5 px-1">
+                  <span className="text-[24px] font-bold text-slate-700 dark:text-slate-200 leading-none">{notVisitedCount}</span>
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center leading-tight">Not Visited</span>
                 </div>
               </div>
 
-              {/* Bottom Buttons */}
-              <div className="px-6 py-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-4">
+              {/* Buttons */}
+              <div className="p-5 flex gap-3">
                 <button
                   onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-[12px] rounded-[10px] border border-slate-200 dark:border-slate-700 text-[15px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[14px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
                 >
                   Keep Working
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="flex-1 py-[12px] rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[14px] font-bold shadow-md shadow-emerald-600/25 transition-all duration-200 hover:-translate-y-0.5"
                 >
                   Yes, Submit
                 </button>

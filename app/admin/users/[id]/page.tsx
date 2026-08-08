@@ -2,23 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getAdminUsers, saveAdminUsers, AdminUser } from "@/lib/quizData";
-import {
-  themeBorder,
-  themeBtnGhost,
-  themeBtnPrimary,
-  themeDot,
-  themeIconBtn,
-  themeInput,
-  themeLabel,
-  themeMuted,
-  themeSelected,
-  themeSurface,
-  themeText,
-} from "@/lib/adminTheme";
+import { getAdminUsers, saveAdminUsers, fetchAdminUsersFromDb, AdminUser } from "@/lib/quizData";
+import { toggleUserStatusInDbAction } from "@/actions/admin.actions";
+import { themeBorder, themeBtnPrimary } from "@/lib/adminTheme";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -41,22 +30,33 @@ const avatarGradients = [
 export default function UserDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const userId = Number(params.id);
+  const rawId = params.id ? (Array.isArray(params.id) ? params.id[0] : params.id) : "";
+  const userId = rawId;
 
   const [user, setUser] = useState<AdminUser | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [sessionResetMsg, setSessionResetMsg] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   useEffect(() => {
     const loaded = getAdminUsers();
     setUsers(loaded);
-    const found = loaded.find((u) => u.id === userId);
+    const found = loaded.find((u) => String(u.id) === String(userId));
     if (found) {
       setUser(found);
     }
+
+    fetchAdminUsersFromDb()
+      .then((realUsers) => {
+        setUsers(realUsers);
+        const match = realUsers.find((u) => String(u.id) === String(userId));
+        if (match) setUser(match);
+      })
+      .finally(() => setLoading(false));
   }, [userId]);
 
-  if (!user) {
+  if (!user && !loading) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-500 dark:text-slate-400">User not found.</p>
@@ -67,14 +67,27 @@ export default function UserDetailPage() {
     );
   }
 
-  const toggleSuspend = () => {
+  if (!user && loading) {
+    return (
+      <div className="p-12 text-center text-slate-400 text-sm">
+        Loading user profile details...
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  const handleConfirmToggleSuspend = async () => {
     const updatedStatus = user.status === "active" ? ("suspended" as const) : ("active" as const);
     const updatedUser = { ...user, status: updatedStatus };
-    const updatedUsers = users.map((u) => (u.id === user.id ? updatedUser : u));
+    const updatedUsers = users.map((u) => (String(u.id) === String(user.id) ? updatedUser : u));
 
     setUser(updatedUser);
     setUsers(updatedUsers);
     saveAdminUsers(updatedUsers);
+    setShowConfirmModal(false);
+
+    await toggleUserStatusInDbAction(String(user.id), updatedStatus);
   };
 
   const handleResetSessions = () => {
@@ -82,7 +95,7 @@ export default function UserDetailPage() {
     setTimeout(() => setSessionResetMsg(false), 3000);
   };
 
-  const avatarIndex = user.id % avatarGradients.length;
+  const avatarIndex = Math.abs(String(user.id).split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)) % avatarGradients.length;
   const gradient = avatarGradients[avatarIndex];
 
   return (
@@ -108,7 +121,6 @@ export default function UserDetailPage() {
         actions={
           <div className="flex gap-2">
             <StatusBadge variant={user.plan} showDot={false} />
-            <StatusBadge variant={user.status} />
           </div>
         }
         variants={itemVariants}
@@ -131,10 +143,6 @@ export default function UserDetailPage() {
               <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Joined Date</p>
               <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{user.joined}</p>
             </div>
-            <div>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider mb-0.5">Last Active</p>
-              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{user.lastActive}</p>
-            </div>
           </div>
         </motion.div>
 
@@ -148,8 +156,8 @@ export default function UserDetailPage() {
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Operations & Control</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
-                onClick={toggleSuspend}
-                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                onClick={() => setShowConfirmModal(true)}
+                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold transition-all cursor-pointer ${
                   user.status === "active"
                     ? "border-red-200/60 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/15"
                     : "border-emerald-200/60 dark:border-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/15"
@@ -157,24 +165,25 @@ export default function UserDetailPage() {
               >
                 {user.status === "active" ? (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                    <svg className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                     </svg>
-                    Suspend User Account
+                    <span>Suspend User Account</span>
                   </>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Activate User Account
+                    <span>Activate User Account</span>
                   </>
                 )}
               </button>
 
               <button
                 onClick={handleResetSessions}
-                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -195,6 +204,74 @@ export default function UserDetailPage() {
           </motion.div>
         </div>
       </div>
+
+      {/* Confirmation Warning Modal */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 select-none"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                    user.status === "active"
+                      ? "bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                      : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50"
+                  }`}
+                >
+                  {user.status === "active" ? (
+                    <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+                    </svg>
+                  ) : (
+                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    {user.status === "active" ? "Confirm Account Suspension" : "Confirm Account Activation"}
+                  </h3>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Final Confirmation Required</p>
+                </div>
+              </div>
+
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                {user.status === "active" ? (
+                  <>Are you sure you want to suspend <strong className="text-slate-900 dark:text-slate-100">{user.name}</strong> ({user.email})? This user will be restricted from accessing GP Edge platform resources until reinstated.</>
+                ) : (
+                  <>Are you sure you want to reactivate <strong className="text-slate-900 dark:text-slate-100">{user.name}</strong> ({user.email})?</>
+                )}
+              </p>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all border border-slate-200 dark:border-slate-700 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmToggleSuspend}
+                  className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ${
+                    user.status === "active"
+                      ? "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                      : "bg-teal-600 hover:bg-teal-700 shadow-teal-500/20"
+                  }`}
+                >
+                  {user.status === "active" ? "Yes, Suspend Account" : "Yes, Activate Account"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

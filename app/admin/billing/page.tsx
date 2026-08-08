@@ -25,6 +25,7 @@ export default function BillingPage() {
   const [data, setData] = useState<BillingPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refunds, setRefunds] = useState<RefundRequestItem[]>([]);
+  const [visibleSubsCount, setVisibleSubsCount] = useState(10);
 
   const [activeRefund, setActiveRefund] = useState<RefundRequestItem | null>(null);
   const [actionType, setActionType] = useState<"approve" | "deny" | null>(null);
@@ -322,7 +323,7 @@ export default function BillingPage() {
                     </td>
                   </tr>
                 ) : (
-                  data.subscriptions.map((s, i) => (
+                  data.subscriptions.slice(0, visibleSubsCount).map((s, i) => (
                     <tr
                       key={i}
                       className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
@@ -338,6 +339,28 @@ export default function BillingPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* See More button for Subscriptions */}
+          {visibleSubsCount < data.subscriptions.length && (
+            <div className="p-4 flex justify-center border-t border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-800/10 select-none">
+              <button
+                onClick={() => setVisibleSubsCount((prev) => prev + 10)}
+                className="px-6 py-2.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-400 dark:bg-teal-950/40 dark:hover:bg-teal-900/50 border border-teal-200/60 dark:border-teal-900/50 rounded-xl transition-all shadow-sm cursor-pointer flex items-center gap-2 active:scale-95"
+              >
+                <span>See More Subscriptions</span>
+                <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Table footer with count */}
+          <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Showing {Math.min(visibleSubsCount, data.subscriptions.length)} of {data.subscriptions.length} active subscriptions
+            </p>
           </div>
         </div>
       </motion.div>

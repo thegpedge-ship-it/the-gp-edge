@@ -23,8 +23,11 @@ export default function GlobalLogo() {
     return null;
   }
 
+  // On mobile the logo lives INSIDE the navbar (see Header.tsx), so the floating
+  // logo is desktop-only (hidden below lg) to avoid a duplicate. On desktop it is
+  // unchanged.
   return (
-    <div className="fixed top-3 left-0 md:top-4 md:left-0 z-[60] pointer-events-auto">
+    <div className="fixed top-3 left-0 md:top-4 md:left-0 z-[60] pointer-events-auto hidden lg:block">
       <Link href="/">
         <Image
           src="/assets/logo.png"

@@ -3,7 +3,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
-import { ensureDbUser } from "@/lib/user";
+import { clearAccessCookie } from "@/lib/access-cookie";
 
 export async function updateCareerStageAction(
   stage: "REGISTRAR" | "FELLOW"
@@ -48,6 +48,10 @@ export async function updateCareerStageAction(
       console.warn("[updateCareerStageAction] Clerk metadata update warning:", clerkErr);
     }
 
+    // Career stage changes which plans/access the user gets — bust the cached
+    // access cookie so the next read reflects it immediately (rather than after
+    // the cookie's TTL).
+    await clearAccessCookie();
     revalidatePath("/dashboard/profile");
     revalidatePath("/dashboard/pricing");
     revalidatePath("/dashboard/exam-prep");

@@ -129,6 +129,7 @@ export default function DashboardPage() {
           </h2>
         </div>
         <DashboardAnalytics 
+          timeframe={timeframe}
           monthlyStats={monthlyStats} 
           planDistribution={stats?.planDistribution} 
           dauCount={stats?.dauCount}

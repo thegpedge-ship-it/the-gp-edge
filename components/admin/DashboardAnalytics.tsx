@@ -68,6 +68,7 @@ interface PlanBreakdown {
 }
 
 interface DashboardAnalyticsProps {
+  timeframe?: string;
   monthlyStats: MonthlyStats[];
   planDistribution?: PlanBreakdown[];
   dauCount?: number;
@@ -75,7 +76,7 @@ interface DashboardAnalyticsProps {
   avgSessionMinutes?: number;
 }
 
-export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, mauCount, avgSessionMinutes }: DashboardAnalyticsProps) {
+export function DashboardAnalytics({ timeframe = "30d", monthlyStats, planDistribution, dauCount, mauCount, avgSessionMinutes }: DashboardAnalyticsProps) {
   const [activeTab, setActiveTab] = useState<"revenue" | "growth" | "visitors">("revenue");
 
   const ratioVal = (dauCount && mauCount && mauCount > 0) ? `${((dauCount * 100) / mauCount).toFixed(1)}%` : "0.0%";
@@ -83,15 +84,21 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
 
   const plansData = planDistribution || [];
   
-  // Format data for chart. We map monthlyStats or empty array.
-  const chartData = monthlyStats && monthlyStats.length > 0 ? monthlyStats.map((item) => ({
+  // Slice monthlyStats based on timeframe ("7d" -> 2 points, "30d" -> 4 points, "90d" -> all 6+ points)
+  const rangeSliceCount = timeframe === "7d" ? 2 : timeframe === "90d" ? 6 : 4;
+  const filteredMonthlyStats = (monthlyStats && monthlyStats.length > 0)
+    ? monthlyStats.slice(-rangeSliceCount)
+    : [];
+
+  // Format data for chart.
+  const chartData = filteredMonthlyStats.map((item) => ({
     month: item.month,
     mrr: item.mrr,
     oneOff: 0,
     subscribers: item.subscribers,
     totalUsers: item.totalUsers,
     visitors: item.attempts, // Map attempts to visitors for activity visualization
-  })) : [];
+  }));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -138,7 +145,7 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 4, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -150,9 +157,10 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                       <YAxis
                         tickLine={false}
                         axisLine={false}
+                        width={52}
                         tick={{ fontSize: 11, fill: "currentColor" }}
                         className="text-slate-400 dark:text-slate-500 font-medium"
-                        tickFormatter={(v) => `$${v / 1000}k`}
+                        tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`}
                       />
                       <Tooltip content={<CustomTooltip />} />
                       <Line
@@ -187,7 +195,7 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 4, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -199,6 +207,7 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                       <YAxis
                         tickLine={false}
                         axisLine={false}
+                        width={44}
                         tick={{ fontSize: 11, fill: "currentColor" }}
                         className="text-slate-400 dark:text-slate-500 font-medium"
                       />
@@ -235,7 +244,7 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                   className="w-full h-full"
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 4, bottom: 0 }}>
                       <CartesianGrid vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
                       <XAxis
                         dataKey="month"
@@ -247,6 +256,7 @@ export function DashboardAnalytics({ monthlyStats, planDistribution, dauCount, m
                       <YAxis
                         tickLine={false}
                         axisLine={false}
+                        width={44}
                         tick={{ fontSize: 11, fill: "currentColor" }}
                         className="text-slate-400 dark:text-slate-500 font-medium"
                       />

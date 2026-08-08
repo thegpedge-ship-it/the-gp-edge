@@ -10,33 +10,16 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/questions
  * Returns all non-deleted questions with their options and tags from Neon.
- * Requires an active Registrar plan — all other tiers receive 403.
+ * Requires an authenticated user.
  */
 export async function GET(_req: NextRequest) {
-  // ── Access control: Registrar-only ──────────────────────────────────────────
+  // ── Access control: Authenticated users ──────────────────────────────────
   try {
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json(
         { success: false, error: "Authentication required." },
         { status: 401 }
-      );
-    }
-    const dbUser = await prisma.users.findUnique({
-      where: { clerk_user_id: clerkUser.id },
-      select: { id: true },
-    });
-    if (!dbUser) {
-      return NextResponse.json({ success: false, error: "User not found." }, { status: 403 });
-    }
-    const access = await getUserAccess(dbUser.id);
-    if (!access?.isRegistrarActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "An active Registrar plan is required to access exam questions.",
-        },
-        { status: 403 }
       );
     }
   } catch (accessErr) {

@@ -14,6 +14,7 @@
 import prisma from "@/lib/prisma";
 import { unstable_noStore } from "next/cache";
 import { cache } from "react";
+import { readAccessCookie, writeAccessCookie } from "@/lib/access-cookie";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,12 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
 
   if (!userId) return null;
 
+  // 0. Fast path: serve from the signed access cookie when it is fresh and the
+  //    subscription has not expired — this avoids the two DB queries below on the
+  //    vast majority of authenticated requests. See lib/access-cookie.ts.
+  const cached = await readAccessCookie(userId);
+  if (cached) return cached;
+
   // 1. Fetch user by internal Postgres ID, Clerk ID, or Email address
   let user: any = null;
   try {
@@ -75,6 +82,8 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
       },
       select: {
         id: true,
+        clerk_user_id: true,
+        email: true,
         user_role: true,
         training_stage: true,
         has_purchased_registrar: true,
@@ -96,6 +105,8 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
       },
       select: {
         id: true,
+        clerk_user_id: true,
+        email: true,
         user_role: true,
         has_purchased_registrar: true,
         free_questions_left: true,
@@ -234,7 +245,7 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
 
   const stage = (user.training_stage || (user.user_role === "FELLOW" ? "FELLOW" : "REGISTRAR")) as TrainingStage;
 
-  return {
+  const result: UserAccessInfo = {
     userId: user.id,
     userRole: user.user_role as UserRole,
     trainingStage: stage,
@@ -249,6 +260,23 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
     cancelAtPeriodEnd: activeSub?.cancel_at != null,
     currentPeriodEnd: activeSub?.current_period_end ?? null,
   };
+
+  // Refresh the signed cookie so subsequent requests can skip the DB. This is a
+  // no-op when we're in a pure Server Component render (writes are only allowed
+  // in Server Actions / Route Handlers); the correct result is still returned.
+  // `activeSub.access_expires_at` is embedded so expiry is re-checked on read.
+  await writeAccessCookie(
+    result,
+    {
+      internalId: user.id,
+      clerkUserId: user.clerk_user_id ?? null,
+      email: user.email ?? null,
+    },
+    activeSub?.access_expires_at ?? null,
+  );
+
+  return result;
+});
 });
 
 // ─── Per-module & Item access checks ──────────────────────────────────────────

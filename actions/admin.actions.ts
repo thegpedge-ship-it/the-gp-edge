@@ -318,3 +318,100 @@ export async function syncLocalAdminsWithDbAction(
     return localAdmins;
   }
 }
+
+export interface RealAdminUser {
+  id: string;
+  name: string;
+  email: string;
+  plan: "premium" | "free";
+  lastActive: string;
+  status: "active" | "suspended";
+  joined: string;
+}
+
+export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
+  try {
+    const rows = await query<any>(
+      `SELECT 
+         u.id,
+         u.first_name,
+         u.last_name,
+         u.email,
+         u.status,
+         u.created_at,
+         u.joined_at,
+         u.last_active_at,
+         u.has_purchased_registrar,
+         s.access_level,
+         s.status AS sub_status
+       FROM users u
+       LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status IN ('active', 'trialing')
+       WHERE u.deleted_at IS NULL
+       ORDER BY u.created_at DESC`
+    );
+
+    return rows.map((row) => {
+      const firstName = (row.first_name || "").trim();
+      const lastName = (row.last_name || "").trim();
+      let fullName = `${firstName} ${lastName}`.trim();
+      if (!fullName) {
+        fullName = row.email ? row.email.split("@")[0] : `User #${row.id.slice(0, 8)}`;
+      }
+
+      const isPremium =
+        (row.access_level && row.access_level !== "FREE") ||
+        row.has_purchased_registrar ||
+        row.sub_status === "active";
+
+      const joinedDate = row.joined_at || row.created_at;
+      const joinedFormatted = joinedDate
+        ? new Date(joinedDate).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "Unknown";
+
+      let lastActiveFormatted = "Recently";
+      if (row.last_active_at) {
+        const diffMs = Date.now() - new Date(row.last_active_at).getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffMins < 5) lastActiveFormatted = "Just now";
+        else if (diffMins < 60) lastActiveFormatted = `${diffMins} mins ago`;
+        else if (diffHours < 24) lastActiveFormatted = `${diffHours} ${diffHours === 1 ? "hour" : "hours"} ago`;
+        else if (diffDays < 30) lastActiveFormatted = `${diffDays} ${diffDays === 1 ? "day" : "days"} ago`;
+        else lastActiveFormatted = new Date(row.last_active_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      }
+
+      return {
+        id: row.id,
+        name: fullName,
+        email: row.email || "No email",
+        plan: isPremium ? ("premium" as const) : ("free" as const),
+        status: row.status === "suspended" ? ("suspended" as const) : ("active" as const),
+        joined: joinedFormatted,
+        lastActive: lastActiveFormatted,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching real users from DB:", error);
+    return [];
+  }
+}
+
+export async function toggleUserStatusInDbAction(userId: string, newStatus: "active" | "suspended"): Promise<{ success: boolean; error?: string }> {
+  try {
+    await execute(
+      `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
+      [newStatus, userId]
+    );
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating user status in DB:", error);
+    return { success: false, error: error.message || "Failed to update user status." };
+  }
+}
+

@@ -27,15 +27,22 @@ interface SidebarCtx {
   ready:      boolean;
   toggle:     () => void;
   setHovered: (h: boolean) => void;
+  /** Mobile (< lg) slide-in drawer open state. */
+  mobileOpen:    boolean;
+  setMobileOpen: (open: boolean) => void;
+  toggleMobile:  () => void;
+  /** Whether a mobile drawer is actually mounted for this shell. */
+  hasDrawer:     boolean;
 }
 
 const SidebarContext = createContext<SidebarCtx | null>(null);
 
-export function SidebarProvider({ children }: { children: ReactNode }) {
+export function SidebarProvider({ children, hasDrawer = false }: { children: ReactNode; hasDrawer?: boolean }) {
   const [pref,          setPref]          = useState<SidebarPref>("auto");
   const [autoCollapsed, setAutoCollapsed] = useState(false);
   const [isHovered,     setIsHoveredRaw]  = useState(false);
   const [ready,         setReady]         = useState(false);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
 
   // ── Hydrate + set initial state ──────────────────────────────────────────
   useEffect(() => {
@@ -77,6 +84,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   }, [autoCollapsed]);
 
   const setHovered = useCallback((h: boolean) => setIsHoveredRaw(h), []);
+  const toggleMobile = useCallback(() => setMobileOpen(prev => !prev), []);
 
   const isExpanded =
     pref === "expanded" ||
@@ -84,8 +92,8 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     isHovered;
 
   const contextValue = useMemo(
-    () => ({ isExpanded, ready, toggle, setHovered }),
-    [isExpanded, ready, toggle, setHovered]
+    () => ({ isExpanded, ready, toggle, setHovered, mobileOpen, setMobileOpen, toggleMobile, hasDrawer }),
+    [isExpanded, ready, toggle, setHovered, mobileOpen, toggleMobile, hasDrawer]
   );
 
   return (
@@ -99,4 +107,13 @@ export function useSidebar() {
   const ctx = useContext(SidebarContext);
   if (!ctx) throw new Error("useSidebar must be used inside SidebarProvider");
   return ctx;
+}
+
+/**
+ * Like useSidebar() but returns null instead of throwing when there is no
+ * provider. Use in shared components (e.g. Header) that render both inside and
+ * outside the dashboard.
+ */
+export function useSidebarOptional() {
+  return useContext(SidebarContext);
 }
