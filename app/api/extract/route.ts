@@ -296,7 +296,7 @@ async function extractPdfViaSubprocess(buffer: Buffer): Promise<{
  * Extract plain text from a PDF buffer.
  * Tries subprocess first, then in-process PDFParse, then byte-scan fallback.
  */
-export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Try subprocess first
   try {
     const subResult = await extractPdfViaSubprocess(buffer);
@@ -632,7 +632,7 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
  *   3. Fall back to text-only extraction
  *   4. Last resort: byte-scan fallback with base64 filtering + image carving
  */
-export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
+async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Carve images from raw binary once (used as fallback when pdf-parse finds 0 images)
   let carvedImageUrls: string[] | null = null;
   function getCarvedImages(): string[] {

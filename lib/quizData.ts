@@ -478,12 +478,28 @@ export async function fetchMedicalContent(): Promise<MedicalContent[]> {
 // Async save to Neon via API
 export async function saveMedicalContentItem(item: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<string | null> {
   try {
+    let adminUser: any = (item as any).adminUser;
+    if (!adminUser && typeof window !== "undefined") {
+      const activeId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+      const credsStr = localStorage.getItem("gpedge_admin_credentials_list");
+      if (credsStr) {
+        try {
+          const creds = JSON.parse(credsStr);
+          const found = creds.find((u: any) => u.id === activeId);
+          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "SA", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
+        } catch (e) {}
+      }
+    }
     const res = await fetch("/api/medical-content", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
+      body: JSON.stringify({ ...item, adminUser }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      console.warn(`[saveMedicalContentItem] Permission or server response: HTTP ${res.status}`, errJson.error || errJson);
+      return null;
+    }
     const json = await res.json();
     if (json.success) return json.id;
   } catch (err) {
@@ -495,12 +511,29 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
 // Async update existing item in Neon
 export async function updateMedicalContentItem(id: string, updates: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<boolean> {
   try {
+    let adminUser: any = (updates as any).adminUser;
+    if (!adminUser && typeof window !== "undefined") {
+      const activeId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+      const credsStr = localStorage.getItem("gpedge_admin_credentials_list");
+      if (credsStr) {
+        try {
+          const creds = JSON.parse(credsStr);
+          const found = creds.find((u: any) => u.id === activeId);
+          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "SA", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
+        } catch (e) {}
+      }
+    }
+
     const res = await fetch(`/api/medical-content/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates),
+      body: JSON.stringify({ ...updates, adminUser }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      console.warn(`[updateMedicalContentItem] Permission denied or server error: HTTP ${res.status}`, json.error || json);
+      return false;
+    }
     const json = await res.json();
     return json.success;
   } catch (err) {

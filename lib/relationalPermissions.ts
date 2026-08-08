@@ -23,7 +23,15 @@ export type Capability =
   | "view_pipeline_metadata"
   | "archive_item"
   | "restore_item"
-  | "bulk_flag_superseded";
+  | "bulk_flag_superseded"
+  | "assign_review_task"
+  | "complete_rubric"
+  | "record_review_outcome"
+  | "save_draft_rubric"
+  | "edit_unsubmitted_rubric"
+  | "edit_submitted_rubric"
+  | "submit_correcting_review"
+  | "reopen_review";
 
 export type ItemType =
   | "question"
@@ -70,6 +78,7 @@ export interface RelationalPermissionResult {
     | "RESTRICTION_GOVERNS_DENIED"
     | "ACCOUNT_STATE_DENIED"
     | "AUDIT_LOG_IMMUTABLE_DENIED"
+    | "SUBMITTED_RUBRIC_IMMUTABLE_DENIED"
     | "HISTORY_CONFLICT_DENIED"
     | "ITEM_NOT_FOUND"
     | "INVALID_INPUT";
@@ -138,13 +147,19 @@ function getUserRoles(user: PermissionUser): string[] {
  * Enforces:
  * 1. Account state check (Deactivated / Suspended access freeze).
  * 2. Absolute Audit Log Immutability.
- * 3. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
- * 4. Load-bearing OM controls (Cannot accept work; Cannot amend rate cards; Cannot attach source references).
- * 5. Section 3A Content Matrix:
+ * 3. Absolute Submitted Rubric Immutability (Rule R13 - No role can edit a submitted rubric).
+ * 4. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
+ * 5. Load-bearing OM controls (Cannot accept work; Cannot amend rate cards; Cannot attach source references).
+ * 6. Section 3A Content Matrix:
  *    - restore_item: SA ONLY.
  *    - create_item & create_bulk_items: SA and CE ONLY.
  *    - edit_post_review & archive_item: SA and CE ONLY.
- * 6. History-scoped prior involvement check (Self-review prohibition).
+ * 7. Section 3B Peer Review Matrix:
+ *    - assign_review_task: SA, CE, PR.
+ *    - complete_rubric, record_review_outcome, save_draft_rubric, submit_correcting_review: Conditional R12 (Self-review prohibition).
+ *    - edit_submitted_rubric: ABSOLUTELY DENIED for all roles (Rule R13).
+ *    - reopen_review: SA and CE ONLY.
+ * 8. History-scoped prior involvement check (Self-review prohibition).
  */
 export async function evaluateRelationalPermission(params: {
   user: PermissionUser;
@@ -189,6 +204,15 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
+  // 3. RULE R13: SUBMITTED RUBRIC IMMUTABILITY CHECK
+  if (capability === "edit_submitted_rubric") {
+    return {
+      allowed: false,
+      code: "SUBMITTED_RUBRIC_IMMUTABLE_DENIED",
+      reason: "Rule R13 Violation: A submitted review rubric is strictly immutable. No user or role (including Super Admin) can edit a submitted rubric.",
+    };
+  }
+
   const assignedRoles = getUserRoles(user);
   const isSuperAdmin = assignedRoles.includes("SA") || assignedRoles.includes("Super Admin");
   const isClinicalEditor = assignedRoles.includes("CE") || assignedRoles.includes("Clinical Editor");
@@ -197,7 +221,7 @@ export async function evaluateRelationalPermission(params: {
   const isPeerReviewer = assignedRoles.includes("PR") || assignedRoles.includes("Peer Reviewer");
   const isSubscriber = assignedRoles.includes("SUB") || assignedRoles.includes("Subscriber");
 
-  // 3. RESTORE IS SA-ONLY
+  // 4. RESTORE IS SA-ONLY
   if (capability === "restore_item") {
     if (!isSuperAdmin) {
       return {
@@ -209,7 +233,18 @@ export async function evaluateRelationalPermission(params: {
     return { allowed: true, code: "ALLOWED" };
   }
 
-  // 4. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
+  // 5. REOPEN REVIEW IS SA & CE ONLY
+  if (capability === "reopen_review") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Reopening a completed review is strictly restricted to Super Admin (SA) and Clinical Editor (CE).",
+      };
+    }
+  }
+
+  // 6. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
   // Check if ANY assigned role contains a specific prohibition for the requested capability:
 
   // Prohibition A: Operations Manager (OM) load-bearing & content restrictions
@@ -249,6 +284,19 @@ export async function evaluateRelationalPermission(params: {
         reason: "Attaching source references is a clinical attestation. Operations Manager (OM) cannot attach source references.",
       };
     }
+    if (
+      capability === "assign_review_task" ||
+      capability === "complete_rubric" ||
+      capability === "record_review_outcome" ||
+      capability === "save_draft_rubric" ||
+      capability === "submit_correcting_review"
+    ) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "OM does not exercise clinical judgment and cannot participate in clinical peer review rubrics.",
+      };
+    }
   }
 
   // Prohibition B: Drafter (DR) scope restriction (own assigned items only)
@@ -271,7 +319,19 @@ export async function evaluateRelationalPermission(params: {
 
   // Prohibition C: Peer Reviewer (PR) scope restriction
   const isOnlyPeerReviewer = assignedRoles.length === 1 && isPeerReviewer;
-  if (isOnlyPeerReviewer && capability !== "read" && capability !== "review" && capability !== "attach_references" && capability !== "view_pipeline_metadata") {
+  if (
+    isOnlyPeerReviewer &&
+    capability !== "read" &&
+    capability !== "review" &&
+    capability !== "attach_references" &&
+    capability !== "view_pipeline_metadata" &&
+    capability !== "assign_review_task" &&
+    capability !== "complete_rubric" &&
+    capability !== "record_review_outcome" &&
+    capability !== "save_draft_rubric" &&
+    capability !== "edit_unsubmitted_rubric" &&
+    capability !== "submit_correcting_review"
+  ) {
     return {
       allowed: false,
       code: "RESTRICTION_GOVERNS_DENIED",
@@ -357,10 +417,17 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 5. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION
+  // 7. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION (Rule R12 Self-Review Prohibition)
   if (item && item.id) {
     const isReviewOrApprove =
-      capability === "review" || capability === "approve" || capability === "publish" || capability === "accept_work";
+      capability === "review" ||
+      capability === "approve" ||
+      capability === "publish" ||
+      capability === "accept_work" ||
+      capability === "complete_rubric" ||
+      capability === "record_review_outcome" ||
+      capability === "save_draft_rubric" ||
+      capability === "submit_correcting_review";
 
     // HISTORY IS THE SOURCE OF TRUTH:
     // User cannot review or approve an item where they appear in version/task history as author or editor.
@@ -384,7 +451,7 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // 6. BASE ROLE PERMISSION GRANT CHECK
+  // 8. BASE ROLE PERMISSION GRANT CHECK
   if (capability === "accept_work" && !(isSuperAdmin || isClinicalEditor)) {
     return {
       allowed: false,
