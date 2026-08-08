@@ -5,6 +5,8 @@ import { importQuestionsAction } from "./question.actions";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { DEFAULT_QUIZZES } from "@/lib/quizData";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 
 export interface SyncQuizInput {
   name: string;
@@ -25,7 +27,8 @@ export interface SyncQuizInput {
 export async function syncQuizToDbAction(
   quiz: SyncQuizInput,
   questionsList: any[],
-  createdBy?: string
+  createdBy?: string,
+  adminUser?: PermissionUser
 ) {
   try {
     const statusMap: Record<string, string> = {
@@ -39,7 +42,7 @@ export async function syncQuizToDbAction(
 
     // Sync questions first
     if (qCount > 0) {
-      await importQuestionsAction(questionsList);
+      await importQuestionsAction(questionsList, adminUser);
     }
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -50,6 +53,17 @@ export async function syncQuizToDbAction(
       `SELECT id FROM quizzes WHERE name = $1 LIMIT 1`,
       [quiz.name]
     );
+
+    if (adminUser) {
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: quiz.status === "active" ? "publish" : dbQuiz ? "edit" : "create",
+        item: dbQuiz ? { id: dbQuiz.id, type: "quiz" } : undefined,
+      });
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+    }
 
     if (dbQuiz) {
       await execute(
@@ -93,6 +107,16 @@ export async function syncQuizToDbAction(
         ]
       );
     }
+
+    await recordAuditLog({
+      adminUserId: adminUser?.id || creatorId,
+      action: dbQuiz ? "update" : "create",
+      category: "quiz",
+      entityType: "quiz",
+      entityId: dbQuiz!.id,
+      metadata: { name: quiz.name, status: dbStatus },
+    });
+
 
     // Pre-fetch all matching questions in a single query
     const questionMap = new Map<string, string>(); // stem -> id

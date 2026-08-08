@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { queryOne, query } from "@/lib/db";
+import { queryOne, query, execute } from "@/lib/db";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -57,7 +59,6 @@ export async function GET(
         isPremium: row.is_premium || false,
         tags: tagRows.map((r: any) => r.label),
         overview: extra.overview || "",
-        steps: extra.steps || [],
         keyPoints: extra.keyPoints || [],
         redFlags: extra.redFlags || [],
         references: extra.references || [],
@@ -69,3 +70,115 @@ export async function GET(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+// PATCH /api/approach/[id]
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { status, author, adminUser } = body;
+
+    const row = await queryOne<any>(
+      `SELECT mc.id, mc.author, mc.status FROM medical_conditions mc WHERE mc.id = $1 AND mc.kind = 'Approach'`,
+      [id]
+    );
+
+    if (!row) {
+      return NextResponse.json({ success: false, error: "Approach not found" }, { status: 404 });
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: author || "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const isReview = status === "published" || status === "review";
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability: isReview ? "review" : "edit",
+      item: { id, type: "approach", author: row.author },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
+    if (status) {
+      await execute(`UPDATE medical_conditions SET status = $1, updated_at = NOW() WHERE id = $2`, [status, id]);
+    }
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: isReview ? "review" : "update",
+      category: "approach",
+      entityType: "approach",
+      entityId: id,
+      metadata: { status, reviewer: userContext.name },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("PATCH /api/approach/[id] error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+// DELETE /api/approach/[id]
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    let adminUser: PermissionUser | undefined;
+    try {
+      const body = await req.json();
+      adminUser = body?.adminUser;
+    } catch {
+      // Body may be empty
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability: "delete",
+      item: { id, type: "approach" },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
+    await execute(`UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`, [id]);
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: "delete",
+      category: "approach",
+      entityType: "approach",
+      entityId: id,
+      metadata: { deletedBy: userContext.name },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("DELETE /api/approach/[id] error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+

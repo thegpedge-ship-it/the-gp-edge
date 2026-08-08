@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { AutofillTemplate, DEFAULT_AUTOFILL_TEMPLATES } from "@/lib/quizData";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
 
 /**
  * Database-first fetcher for Autofill Note Templates.
@@ -74,10 +75,12 @@ export async function fetchAutofillTemplatesFromDbAction(): Promise<AutofillTemp
 
 /**
  * Enforces real database mutation for is_free attribute in Neon PostgreSQL via Prisma.
+ * Evaluates relational permissions server-side.
  */
 export async function toggleTemplateFreeStatus(
   id: string | number,
-  is_free: boolean
+  is_free: boolean,
+  adminUser?: PermissionUser
 ): Promise<{ success: boolean; template?: any; error?: string }> {
   try {
     const idStr = String(id);
@@ -129,9 +132,29 @@ export async function toggleTemplateFreeStatus(
       }
     }
 
+    if (adminUser) {
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: "edit",
+        item: { id: targetId, type: "autofill_template" },
+      });
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+    }
+
     const updated = await prisma.autofill_templates.update({
       where: { id: targetId },
       data: { is_free, updated_at: new Date() },
+    });
+
+    await recordAuditLog({
+      adminUserId: adminUser?.id,
+      action: "toggle_free",
+      category: "autofill_template",
+      entityType: "autofill_template",
+      entityId: targetId,
+      metadata: { is_free, user: adminUser?.name || adminUser?.email },
     });
 
     revalidatePath("/admin/autofill");
@@ -144,3 +167,4 @@ export async function toggleTemplateFreeStatus(
     return { success: false, error: error.message || "Failed to update template free status in database." };
   }
 }
+

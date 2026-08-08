@@ -4,13 +4,15 @@ import { query, queryOne, execute } from "@/lib/db";
 import { r2 } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 
 /**
  * Syncs a list of questions to the Neon PostgreSQL database via raw pg.
  * If a question with the exact same stem exists it updates it,
  * otherwise it creates a new row.
  */
-export async function importQuestionsAction(questionsList: any[]) {
+export async function importQuestionsAction(questionsList: any[], adminUser?: PermissionUser) {
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
@@ -276,6 +278,16 @@ export async function importQuestionsAction(questionsList: any[]) {
       }
 
       if (questionId) {
+        if (adminUser) {
+          const permCheck = await evaluateRelationalPermission({
+            user: adminUser,
+            capability: status === "published" || status === "review" ? "review" : "edit",
+            item: { id: questionId, type: "question" },
+          });
+          if (!permCheck.allowed) {
+            throw new Error(permCheck.reason || "Permission denied for updating question.");
+          }
+        }
         await execute(
           `UPDATE questions
              SET stem = $1, rationale = $2, difficulty = $3, status = $4,
@@ -284,6 +296,14 @@ export async function importQuestionsAction(questionsList: any[]) {
            WHERE id = $9`,
           [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
         );
+        await recordAuditLog({
+          adminUserId: adminUser?.id,
+          action: "update",
+          category: "question",
+          entityType: "question",
+          entityId: questionId,
+          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem },
+        });
       } else {
         const newQ = await queryOne<{ id: string }>(
           `INSERT INTO questions
@@ -293,6 +313,14 @@ export async function importQuestionsAction(questionsList: any[]) {
           [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
         );
         questionId = newQ!.id;
+        await recordAuditLog({
+          adminUserId: adminUser?.id,
+          action: "create",
+          category: "question",
+          entityType: "question",
+          entityId: questionId,
+          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem },
+        });
       }
 
       // Replace options
@@ -350,22 +378,91 @@ export async function importQuestionsAction(questionsList: any[]) {
   }
 }
 
+/**
+ * Reviews or approves a question.
+ * Strictly checks relational history: users cannot review items they authored or edited.
+ */
+export async function reviewQuestionAction(
+  questionId: string,
+  newStatus: "published" | "review" | "draft",
+  adminUser: PermissionUser
+) {
+  try {
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "review",
+      item: { id: questionId, type: "question" },
+    });
+
+    if (!check.allowed) {
+      return { success: false, error: check.reason };
+    }
+
+    await execute(
+      `UPDATE questions SET status = $1, updated_at = NOW() WHERE id = $2`,
+      [newStatus, questionId]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "review",
+      category: "question",
+      entityType: "question",
+      entityId: questionId,
+      metadata: { newStatus, reviewer: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error reviewing question:", error);
+    return { success: false, error: error.message };
+  }
+}
 
 /**
- * Deletes a question from the database by stem text.
+ * Deletes a question from the database by stem text or UUID.
  */
-export async function deleteQuestionAction(idOrText: string) {
+export async function deleteQuestionAction(idOrText: string, adminUser?: PermissionUser) {
   try {
     if (!idOrText?.trim()) return { success: false, error: "Empty identifier" };
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let targetId = idOrText;
+
     if (uuidRegex.test(idOrText)) {
-      await execute(`DELETE FROM questions WHERE id = $1`, [idOrText]);
+      targetId = idOrText;
     } else {
-      await execute(`DELETE FROM questions WHERE stem = $1`, [idOrText]);
+      const found = await queryOne<{ id: string }>(`SELECT id FROM questions WHERE stem = $1`, [idOrText]);
+      if (found) targetId = found.id;
     }
+
+    if (adminUser) {
+      const check = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: "delete",
+        item: { id: targetId, type: "question" },
+      });
+      if (!check.allowed) {
+        return { success: false, error: check.reason };
+      }
+    }
+
+    await execute(`DELETE FROM questions WHERE id = $1 OR stem = $1`, [idOrText]);
+
+    if (uuidRegex.test(idOrText)) {
+      await recordAuditLog({
+        adminUserId: adminUser?.id,
+        action: "delete",
+        category: "question",
+        entityType: "question",
+        entityId: targetId,
+        metadata: { deletedBy: adminUser?.name || adminUser?.email },
+      });
+    }
+
     return { success: true };
   } catch (error: any) {
     console.error("Error deleting question:", error);
     return { success: false, error: error.message };
   }
 }
+

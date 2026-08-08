@@ -8,14 +8,15 @@ export interface CredentialUser {
   id: string;
   name: string;
   username: string;
-  role: "Super Admin" | "Admin" | "Moderator" | "Viewer";
+  role: "Super Admin" | "Admin" | "Clinical Editor" | "Operations Manager" | "Drafter" | "Peer Reviewer" | "Moderator" | "Viewer" | "SA" | "CE" | "OM" | "DR" | "PR";
+  roles?: string[];
   email: string;
   password?: string;
   forgotPasswordEnabled: boolean;
   oauthEnabled?: boolean;
   mfaEnabled?: boolean;
   mustResetPassword?: boolean;
-  status?: string;
+  status?: "active" | "deactivated" | "suspended" | "trial" | "lapsed" | string;
   permissions?: string[];
   lastChanged?: string;
 }

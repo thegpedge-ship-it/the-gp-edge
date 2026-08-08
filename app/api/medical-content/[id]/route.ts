@@ -4,6 +4,8 @@ import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { currentUser } from "@clerk/nextjs/server";
 import { getUserAccess } from "@/lib/access";
 import prisma from "@/lib/prisma";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -206,15 +208,37 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, category, type, status, author, isFree, is_free, fullHtml, sections } = body;
+    const { name, category, type, status, author, isFree, is_free, fullHtml, sections, adminUser } = body;
 
     // Verify condition exists
-    const exists = await queryOne<{ id: string }>(
-      `SELECT id FROM medical_conditions WHERE id = $1`,
+    const exists = await queryOne<{ id: string; author: string; status: string }>(
+      `SELECT id, author, status FROM medical_conditions WHERE id = $1`,
       [id]
     );
     if (!exists) {
       return NextResponse.json({ success: false, error: "Condition not found" }, { status: 404 });
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: author || "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const isReviewAction = status === "published" || status === "review";
+    const capability = isReviewAction ? "review" : "edit";
+
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability,
+      item: { id, type: "medical_condition", author: exists.author },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
     }
 
     // Update metadata fields that were provided
@@ -235,6 +259,16 @@ export async function PATCH(
       `UPDATE medical_conditions SET ${updates.join(", ")} WHERE id = $${idx}`,
       vals
     );
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: isReviewAction ? "review" : "update",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { name, status, author: author || userContext.name },
+    });
+
 
     // Upsert full_html (sanitized before storing)
     if (fullHtml !== undefined) {
@@ -306,18 +340,56 @@ export async function PATCH(
 
 // DELETE /api/medical-content/[id] — soft delete
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    let adminUser: PermissionUser | undefined;
+    try {
+      const body = await req.json();
+      adminUser = body?.adminUser;
+    } catch {
+      // Body may be empty on DELETE
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability: "delete",
+      item: { id, type: "medical_condition" },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
     await execute(
       `UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`,
       [id]
     );
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: "delete",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { deletedBy: userContext.name },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("DELETE /api/medical-content/[id] error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
