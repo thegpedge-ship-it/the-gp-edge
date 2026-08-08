@@ -4,6 +4,7 @@ import { auth, clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { clearAccessCookie } from "@/lib/access-cookie";
+import { ensureDbUser } from "@/lib/user";
 
 export async function updateCareerStageAction(
   stage: "REGISTRAR" | "FELLOW"
