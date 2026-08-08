@@ -147,6 +147,7 @@ export default function UpgradeModal({
                   >
                     Maybe later
                   </button>
+                </div>
               </div>
             </div>
           </motion.div>
