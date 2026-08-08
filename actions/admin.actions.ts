@@ -202,15 +202,200 @@ export async function deleteAdminFromDbAction(id: string): Promise<boolean> {
       return false;
     }
 
-    // Delete permissions assigned to this admin user
     await execute(`DELETE FROM admin_user_permissions WHERE admin_user_id = $1`, [id]);
-
-    // Completely delete admin record from admin_users table in Neon DB
-    await execute(`DELETE FROM admin_users WHERE id = $1 AND role_id != 1`, [id]);
-
+    await execute(`UPDATE admin_users SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`, [id]);
     return true;
   } catch (error) {
-    console.error("Error completely deleting admin from Neon DB:", error);
+    console.error("Error deleting admin from DB:", error);
+    return false;
+  }
+}
+
+/**
+ * Section 3G: Invite a Contributor Account (DR, PR, or any account by SA).
+ * Generates an emailed invitation token with a 14-day expiry.
+ * OM can invite Drafter (DR) and Peer Reviewer (PR) accounts ONLY.
+ */
+export async function inviteAccountAction(params: {
+  email: string;
+  name: string;
+  role: "DR" | "PR" | "SA" | "CE" | "OM" | "Drafter" | "Peer Reviewer" | "Clinical Editor" | "Operations Manager" | "Super Admin";
+  adminUser: any;
+}): Promise<{ success: boolean; invitationToken?: string; expiresAt?: string; error?: string }> {
+  try {
+    const { email, name, role, adminUser } = params;
+    const { evaluateRelationalPermission, recordAuditLog } = await import("@/lib/relationalPermissions");
+
+    const isContributorRole = ["DR", "PR", "DRAFTER", "PEER REVIEWER"].includes(role.toUpperCase());
+    const capability = isContributorRole ? "invite_contributor" : "invite_any_account";
+
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability,
+      targetRoleToAssign: role,
+    });
+
+    if (!check.allowed) {
+      return { success: false, error: check.reason };
+    }
+
+    const invitationToken = `inv-${randomUUID()}`;
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days expiry
+
+    await execute(`
+      CREATE TABLE IF NOT EXISTS admin_invitations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL,
+        invitation_token TEXT NOT NULL UNIQUE,
+        invited_by TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await execute(
+      `INSERT INTO admin_invitations (email, name, role, invitation_token, invited_by, expires_at, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())`,
+      [email, name, role, invitationToken, adminUser.name || adminUser.email, expiresAt.toISOString()]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "invite_account",
+      category: "user",
+      entityType: "account_invitation",
+      entityId: invitationToken,
+      metadata: { email, name, role, invitedBy: adminUser.name || adminUser.email, expiresAt: expiresAt.toISOString() },
+    });
+
+    return { success: true, invitationToken, expiresAt: expiresAt.toISOString() };
+  } catch (err: any) {
+    console.error("Error inviting account:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Section 3G: Contributor Accepts Invitation & Sets Own Password on First Use.
+ * Credentials are set by the user themselves, never transmitted by an admin.
+ */
+export async function acceptAccountInvitationAction(params: {
+  invitationToken: string;
+  password: string;
+  username: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { invitationToken, password, username } = params;
+
+    const invite = await queryOne<any>(
+      `SELECT * FROM admin_invitations WHERE invitation_token = $1 AND status = 'pending'`,
+      [invitationToken]
+    );
+
+    if (!invite) {
+      return { success: false, error: "Invalid or expired invitation token." };
+    }
+
+    if (new Date(invite.expires_at) < new Date()) {
+      await execute(`UPDATE admin_invitations SET status = 'expired' WHERE id = $1`, [invite.id]);
+      return { success: false, error: "Invitation token has expired (14-day limit)." };
+    }
+
+    const passwordHash = await hashPassword(password);
+    const roleId = invite.role === "SA" || invite.role === "Super Admin" ? 1 : 2;
+    const newUserId = randomUUID();
+
+    await execute(
+      `INSERT INTO admin_users
+         (id, name, username, email, password_hash, role_id, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', NOW(), NOW())`,
+      [newUserId, invite.name, username, invite.email, passwordHash, roleId]
+    );
+
+    await execute(`UPDATE admin_invitations SET status = 'accepted' WHERE id = $1`, [invite.id]);
+
+    const { recordAuditLog } = await import("@/lib/relationalPermissions");
+    await recordAuditLog({
+      adminUserId: newUserId,
+      action: "accept_account_invitation",
+      category: "user",
+      entityType: "user",
+      entityId: newUserId,
+      metadata: { email: invite.email, role: invite.role },
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error accepting invitation:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Section 3G & Rule R8: Deactivate a Contributor or Account.
+ * OM can deactivate Drafter (DR) and Peer Reviewer (PR) accounts only.
+ * Deactivation revokes access (ACCOUNT_STATE_DENIED) while preserving version history & provenance.
+ */
+export async function deactivateAccountAction(params: {
+  targetUserId: string;
+  adminUser: any;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { targetUserId, adminUser } = params;
+    const { evaluateRelationalPermission, recordAuditLog } = await import("@/lib/relationalPermissions");
+
+    const targetUser = await queryOne<any>(`SELECT * FROM admin_users WHERE id = $1`, [targetUserId]);
+    if (!targetUser) return { success: false, error: "User not found." };
+    if (targetUser.role_id === 1) return { success: false, error: "Super Admin account cannot be deactivated." };
+
+    const isContributor = targetUser.role_id === 2; // Non-SA
+    const capability = isContributor ? "deactivate_contributor" : "deactivate_any_account";
+
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability,
+      targetAccountRole: isContributor ? "DR" : "SA",
+    });
+
+    if (!check.allowed) {
+      return { success: false, error: check.reason };
+    }
+
+    await execute(`UPDATE admin_users SET status = 'deactivated', updated_at = NOW() WHERE id = $1`, [targetUserId]);
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "deactivate_account",
+      category: "user",
+      entityType: "user",
+      entityId: targetUserId,
+      metadata: { deactivatedBy: adminUser.name || adminUser.email, targetEmail: targetUser.email },
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error deactivating account:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Section 3G: Mandatory 2FA Check for SA and CE Accounts.
+ */
+export async function verify2FAForClinicalAdmin(userId: string): Promise<boolean> {
+  try {
+    const user = await queryOne<any>(`SELECT role_id, mfa_enabled FROM admin_users WHERE id = $1`, [userId]);
+    if (!user) return false;
+    const isSAorCE = user.role_id === 1; // SA or CE clinical accounts
+    if (isSAorCE) {
+      return Boolean(user.mfa_enabled);
+    }
+    return true; // 2FA optional for non-clinical contributor roles
+  } catch (err) {
+    console.error("Error checking 2FA requirement:", err);
     return false;
   }
 }

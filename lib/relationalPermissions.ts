@@ -31,7 +31,26 @@ export type Capability =
   | "edit_unsubmitted_rubric"
   | "edit_submitted_rubric"
   | "submit_correcting_review"
-  | "reopen_review";
+  | "reopen_review"
+  | "configure_audit_params"
+  | "view_audit_findings"
+  | "raise_audit_finding"
+  | "close_audit_finding"
+  | "export_provenance"
+  | "run_audit"
+  | "assign_review_task_check"
+  | "close_audit_finding_check"
+  | "classify_republication"
+  | "invite_contributor"
+  | "invite_any_account"
+  | "assign_revoke_role"
+  | "edit_role_bundle"
+  | "deactivate_contributor"
+  | "deactivate_any_account"
+  | "reset_own_password"
+  | "view_access_log"
+  | "read_audit_log"
+  | "export_audit_log";
 
 export type ItemType =
   | "question"
@@ -79,6 +98,9 @@ export interface RelationalPermissionResult {
     | "ACCOUNT_STATE_DENIED"
     | "AUDIT_LOG_IMMUTABLE_DENIED"
     | "SUBMITTED_RUBRIC_IMMUTABLE_DENIED"
+    | "ASSIGNMENT_SELF_REVIEW_BREACH_DENIED"
+    | "SAME_USER_CLOSURE_DENIED"
+    | "R9_SELF_AUDIT_PROHIBITION_DENIED"
     | "HISTORY_CONFLICT_DENIED"
     | "ITEM_NOT_FOUND"
     | "INVALID_INPUT";
@@ -145,28 +167,27 @@ function getUserRoles(user: PermissionUser): string[] {
  * Single place in the codebase where permission is decided.
  *
  * Enforces:
- * 1. Account state check (Deactivated / Suspended access freeze).
- * 2. Absolute Audit Log Immutability.
- * 3. Absolute Submitted Rubric Immutability (Rule R13 - No role can edit a submitted rubric).
- * 4. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
- * 5. Load-bearing OM controls (Cannot accept work; Cannot amend rate cards; Cannot attach source references).
- * 6. Section 3A Content Matrix:
- *    - restore_item: SA ONLY.
- *    - create_item & create_bulk_items: SA and CE ONLY.
- *    - edit_post_review & archive_item: SA and CE ONLY.
- * 7. Section 3B Peer Review Matrix:
- *    - assign_review_task: SA, CE, PR.
- *    - complete_rubric, record_review_outcome, save_draft_rubric, submit_correcting_review: Conditional R12 (Self-review prohibition).
- *    - edit_submitted_rubric: ABSOLUTELY DENIED for all roles (Rule R13).
- *    - reopen_review: SA and CE ONLY.
- * 8. History-scoped prior involvement check (Self-review prohibition).
+ * 1. Rule R8 & Account state check (Deactivated / Suspended access freeze).
+ * 2. Absolute Audit Log Immutability (Append-only; SA cannot edit/delete).
+ * 3. Rule R13 Absolute Submitted Rubric Immutability.
+ * 4. Rule R1 Assignment-Point Check.
+ * 5. Rule R9 Auditor Independence (Self-auditing prohibition & different user closure).
+ * 6. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
+ * 7. Section 3G Administration & Audit Matrix:
+ *    - OM can invite/deactivate DR & PR ONLY.
+ *    - SA-only: invite_any_account, assign_revoke_role, edit_role_bundle, deactivate_any_account, read_audit_log, export_audit_log, view_access_log.
+ *    - Password reset self-service for all active roles.
  */
 export async function evaluateRelationalPermission(params: {
   user: PermissionUser;
   capability: Capability;
   item?: PermissionTargetItem;
+  targetAssignee?: PermissionUser;
+  targetRoleToAssign?: string;
+  targetAccountRole?: string;
+  findingRaiserId?: string;
 }): Promise<RelationalPermissionResult> {
-  const { user, capability, item } = params;
+  const { user, capability, item, targetAssignee, targetRoleToAssign, targetAccountRole, findingRaiserId } = params;
 
   if (!user || (!user.id && !user.email && !user.name)) {
     return {
@@ -176,13 +197,13 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 1. NON-ROLE STATES CHECK
+  // 1. RULE R8 & ACCOUNT STATES CHECK
   const status = (user.status || "active").toLowerCase();
   if (status === "deactivated") {
     return {
       allowed: false,
       code: "ACCOUNT_STATE_DENIED",
-      reason: "Account is Deactivated. Access is revoked. Attribution, version history, and sign-offs remain permanently intact.",
+      reason: "Account is Deactivated. Access is revoked. Attribution, version history, and sign-offs remain permanently intact under Rule R8.",
     };
   }
   if (status === "suspended") {
@@ -193,13 +214,13 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 2. AUDIT LOG IMMUTABILITY CHECK
+  // 2. ABSOLUTE DATABASE APPEND-ONLY AUDIT LOG IMMUTABILITY CHECK
   if ((item && item.type === "audit_log") || capability === "edit_audit_log") {
     if (capability !== "read") {
       return {
         allowed: false,
         code: "AUDIT_LOG_IMMUTABLE_DENIED",
-        reason: "Audit log records are strictly immutable. No user or role (including Super Admin) can edit or delete audit logs.",
+        reason: "Section 3G Rule Violation: Audit logs are strictly append-only. No role, including Super Admin, can edit or delete an audit log entry.",
       };
     }
   }
@@ -213,6 +234,41 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
+  // 4. RULE R1: ASSIGNMENT-POINT ENFORCEMENT CHECK
+  if (capability === "assign_review_task" || capability === "assign_review_task_check") {
+    const assignee = targetAssignee || user;
+    if (item && item.id) {
+      const isAssigneeInvolved = await checkUserInvolvementHistory({
+        userId: assignee.id,
+        userName: assignee.name,
+        userEmail: assignee.email,
+        userUsername: assignee.username,
+        itemId: item.id,
+        itemType: item.type,
+        itemAuthor: item.author,
+      });
+
+      if (isAssigneeInvolved) {
+        return {
+          allowed: false,
+          code: "ASSIGNMENT_SELF_REVIEW_BREACH_DENIED",
+          reason: `Rule R1 Violation: Assigned reviewer '${assignee.name || assignee.email || assignee.id}' appears in version/task history as author or editor, and cannot be assigned a review task on ${item.type} '${item.id}'. Assignment rejected at point of assignment.`,
+        };
+      }
+    }
+  }
+
+  // 5. RULE R9: DIFFERENT USER CLOSURE REQUIREMENT CHECK
+  if (capability === "close_audit_finding") {
+    if (findingRaiserId && findingRaiserId === user.id) {
+      return {
+        allowed: false,
+        code: "SAME_USER_CLOSURE_DENIED",
+        reason: "Rule R9 Violation: The user who raised an audit finding may not close it. Closure requires a different eligible user.",
+      };
+    }
+  }
+
   const assignedRoles = getUserRoles(user);
   const isSuperAdmin = assignedRoles.includes("SA") || assignedRoles.includes("Super Admin");
   const isClinicalEditor = assignedRoles.includes("CE") || assignedRoles.includes("Clinical Editor");
@@ -221,7 +277,7 @@ export async function evaluateRelationalPermission(params: {
   const isPeerReviewer = assignedRoles.includes("PR") || assignedRoles.includes("Peer Reviewer");
   const isSubscriber = assignedRoles.includes("SUB") || assignedRoles.includes("Subscriber");
 
-  // 4. RESTORE IS SA-ONLY
+  // 6. RESTORE IS SA-ONLY
   if (capability === "restore_item") {
     if (!isSuperAdmin) {
       return {
@@ -233,7 +289,75 @@ export async function evaluateRelationalPermission(params: {
     return { allowed: true, code: "ALLOWED" };
   }
 
-  // 5. REOPEN REVIEW IS SA & CE ONLY
+  // 7. SECTION 3G ADMINISTRATION CAPABILITIES
+  // SA-Only Privilege Management Capabilities
+  const saOnlyAdminCapabilities: Capability[] = [
+    "invite_any_account",
+    "assign_revoke_role",
+    "edit_role_bundle",
+    "deactivate_any_account",
+    "view_access_log",
+    "read_audit_log",
+    "export_audit_log",
+    "configure_audit_params",
+  ];
+
+  if (saOnlyAdminCapabilities.includes(capability)) {
+    if (!isSuperAdmin) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: `Section 3G Rule Violation: '${capability}' is privilege management and is strictly restricted to Super Admin (SA) alone.`,
+      };
+    }
+    return { allowed: true, code: "ALLOWED" };
+  }
+
+  // Delegated Contributor Invitations & Deactivation (OM & SA Allowed for DR and PR only)
+  if (capability === "invite_contributor" || capability === "deactivate_contributor") {
+    if (!isSuperAdmin && !isOMRole) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Inviting or deactivating contributors is restricted to Super Admin (SA) and Operations Manager (OM).",
+      };
+    }
+    if (isOMRole && !isSuperAdmin) {
+      const roleToCheck = (targetRoleToAssign || targetAccountRole || "").toUpperCase();
+      const isAllowedContributorRole =
+        roleToCheck === "DR" || roleToCheck === "PR" || roleToCheck === "DRAFTER" || roleToCheck === "PEER REVIEWER";
+
+      if (targetRoleToAssign || targetAccountRole) {
+        if (!isAllowedContributorRole) {
+          return {
+            allowed: false,
+            code: "RESTRICTION_GOVERNS_DENIED",
+            reason: "Section 3G Rule Violation: Operations Manager (OM) can invite and deactivate Drafter (DR) and Peer Reviewer (PR) accounts ONLY. OM cannot create or deactivate SA, CE, or OM accounts.",
+          };
+        }
+      }
+    }
+    return { allowed: true, code: "ALLOWED" };
+  }
+
+  // Password Reset Self-Service for All Roles
+  if (capability === "reset_own_password") {
+    return { allowed: true, code: "ALLOWED" };
+  }
+
+  // 8. PROVENANCE EXPORT IS SA & CE ONLY
+  if (capability === "export_provenance") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Exporting item provenance records is strictly restricted to SA and CE.",
+      };
+    }
+    return { allowed: true, code: "ALLOWED" };
+  }
+
+  // 9. REOPEN REVIEW IS SA & CE ONLY
   if (capability === "reopen_review") {
     if (!isSuperAdmin && !isClinicalEditor) {
       return {
@@ -244,7 +368,7 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // 6. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
+  // 10. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
   // Check if ANY assigned role contains a specific prohibition for the requested capability:
 
   // Prohibition A: Operations Manager (OM) load-bearing & content restrictions
@@ -253,7 +377,7 @@ export async function evaluateRelationalPermission(params: {
       return {
         allowed: false,
         code: "RESTRICTION_GOVERNS_DENIED",
-        reason: "Load-bearing Control Violation: Operations Manager (OM) role cannot mark work accepted. Acceptance creates payment liability and sits strictly with SA and CE.",
+        reason: "Rule R5 Load-bearing Control Violation: Operations Manager (OM) role cannot mark work accepted. Acceptance creates payment liability and sits strictly with SA and CE.",
       };
     }
     if (capability === "amend_rate_card") {
@@ -285,16 +409,17 @@ export async function evaluateRelationalPermission(params: {
       };
     }
     if (
-      capability === "assign_review_task" ||
       capability === "complete_rubric" ||
       capability === "record_review_outcome" ||
       capability === "save_draft_rubric" ||
-      capability === "submit_correcting_review"
+      capability === "submit_correcting_review" ||
+      capability === "raise_audit_finding" ||
+      capability === "close_audit_finding"
     ) {
       return {
         allowed: false,
         code: "RESTRICTION_GOVERNS_DENIED",
-        reason: "OM does not exercise clinical judgment and cannot participate in clinical peer review rubrics.",
+        reason: "OM does not exercise clinical judgment and cannot participate in clinical peer review rubrics or raise/close audit findings.",
       };
     }
   }
@@ -361,8 +486,31 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // Capability: View Unpublished Item Content (SA: ✓, CE: ✓, OM: ✓, DR: C R12, PR: C R12, SUB: ✗)
-  if (capability === "view_unpublished") {
+  // Capability: View Audit Findings (SA: ✓, CE: ✓, OM: S, DR: ✗, PR: ✗, SUB: ✗)
+  if (capability === "view_audit_findings") {
+    if (isSubscriber || isDrafter || isPeerReviewer) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Drafters, Peer Reviewers, and Subscribers cannot view audit findings.",
+      };
+    }
+    if (isOMRole && !(isSuperAdmin || isClinicalEditor)) {
+      if (item && item.id) {
+        const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
+        if (!isAssigned) {
+          return {
+            allowed: false,
+            code: "RESTRICTION_GOVERNS_DENIED",
+            reason: "Operations Manager (OM) can only view audit findings for assigned items (Scope S).",
+          };
+        }
+      }
+    }
+  }
+
+  // Rule R12: View Unpublished Content & Historical Read Access
+  if (capability === "view_unpublished" || capability === "read") {
     if (isSubscriber) {
       return {
         allowed: false,
@@ -370,14 +518,24 @@ export async function evaluateRelationalPermission(params: {
         reason: "Subscribers cannot view unpublished item content.",
       };
     }
-    if (isDrafter || isPeerReviewer) {
+    if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor || isOMRole)) {
       if (item && item.id) {
         const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
-        if (!isAssigned) {
+        const hasHistory = await checkUserInvolvementHistory({
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          userUsername: user.username,
+          itemId: item.id,
+          itemType: item.type,
+          itemAuthor: item.author,
+        });
+
+        if (!isAssigned && !hasHistory) {
           return {
             allowed: false,
             code: "RESTRICTION_GOVERNS_DENIED",
-            reason: "Drafters and Peer Reviewers can only view unpublished content for their assigned items (Rule R12).",
+            reason: "Rule R12 Violation: Contributors have full access to active tasks and historical read access to completed tasks on their payment statements. Access to unassigned items with no task history is denied.",
           };
         }
       }
@@ -417,7 +575,7 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 7. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION (Rule R12 Self-Review Prohibition)
+  // 11. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION (Rule R1 & Rule R9)
   if (item && item.id) {
     const isReviewOrApprove =
       capability === "review" ||
@@ -429,9 +587,9 @@ export async function evaluateRelationalPermission(params: {
       capability === "save_draft_rubric" ||
       capability === "submit_correcting_review";
 
-    // HISTORY IS THE SOURCE OF TRUTH:
-    // User cannot review or approve an item where they appear in version/task history as author or editor.
-    if (isReviewOrApprove) {
+    const isAuditAction = capability === "raise_audit_finding" || capability === "close_audit_finding";
+
+    if (isReviewOrApprove || isAuditAction) {
       const isUserInvolvedInHistory = await checkUserInvolvementHistory({
         userId: user.id,
         userName: user.name,
@@ -439,24 +597,33 @@ export async function evaluateRelationalPermission(params: {
         userUsername: user.username,
         itemId: item.id,
         itemType: item.type,
+        itemAuthor: item.author,
       });
 
       if (isUserInvolvedInHistory) {
+        if (isAuditAction) {
+          return {
+            allowed: false,
+            code: "R9_SELF_AUDIT_PROHIBITION_DENIED",
+            reason: `Rule R9 Violation: User '${user.name || user.email || user.id}' appears in version or task history as author/editor of ${item.type} '${item.id}', and is strictly forbidden from assessing or closing audit findings on their own work.`,
+          };
+        }
+
         return {
           allowed: false,
           code: "HISTORY_CONFLICT_DENIED",
-          reason: `Relational permission denied: User '${user.name || user.email || user.id}' appears in the version or task history of ${item.type} '${item.id}' as author or editor, and is forbidden from reviewing or approving their own work.`,
+          reason: `Rule R1 Violation: User '${user.name || user.email || user.id}' appears in version or task history of ${item.type} '${item.id}' as author or editor, and has no review permission on this item.`,
         };
       }
     }
   }
 
-  // 8. BASE ROLE PERMISSION GRANT CHECK
+  // 12. BASE ROLE PERMISSION GRANT CHECK
   if (capability === "accept_work" && !(isSuperAdmin || isClinicalEditor)) {
     return {
       allowed: false,
       code: "ROLE_DENIED",
-      reason: "Acceptance of work is strictly restricted to Super Admin (SA) and Clinical Editor (CE).",
+      reason: "Rule R5 Violation: Acceptance of work is strictly restricted to Super Admin (SA) and Clinical Editor (CE).",
     };
   }
 
@@ -482,8 +649,21 @@ async function checkUserInvolvementHistory(params: {
   userUsername?: string;
   itemId: string;
   itemType: ItemType;
+  itemAuthor?: string;
 }): Promise<boolean> {
-  const { userId, userName, userEmail, userUsername, itemId, itemType } = params;
+  const { userId, userName, userEmail, userUsername, itemId, itemType, itemAuthor } = params;
+
+  if (itemAuthor) {
+    const authorLower = itemAuthor.toLowerCase();
+    if (
+      (userName && authorLower.includes(userName.toLowerCase())) ||
+      (userEmail && authorLower.includes(userEmail.toLowerCase())) ||
+      (userUsername && authorLower.includes(userUsername.toLowerCase())) ||
+      (userId && authorLower.includes(userId.toLowerCase()))
+    ) {
+      return true;
+    }
+  }
 
   try {
     // 1. Query audit_logs for any previous authoring/editing actions by this user on this item
@@ -564,6 +744,10 @@ export async function assertRelationalPermission(params: {
   user: PermissionUser;
   capability: Capability;
   item?: PermissionTargetItem;
+  targetAssignee?: PermissionUser;
+  targetRoleToAssign?: string;
+  targetAccountRole?: string;
+  findingRaiserId?: string;
 }): Promise<void> {
   const result = await evaluateRelationalPermission(params);
   if (!result.allowed) {

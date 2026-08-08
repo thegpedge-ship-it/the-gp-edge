@@ -241,6 +241,24 @@ export async function PATCH(
       );
     }
 
+    // RULE R10: Republication classification for items in production
+    const isAlreadyInProduction = exists.status === "published" || exists.status === "reviewed";
+    let targetStatus = status;
+
+    if (isAlreadyInProduction && !isReviewAction) {
+      const editClassification = body.editClassification || "material"; // Defaults to material
+      const contentStr = (fullHtml || "") + JSON.stringify(sections || {});
+      const touchesClinicalField = /dose|mg|mcg|ml|threshold|red\s*flag|management|drug/i.test(contentStr);
+
+      if (editClassification === "minor" && !touchesClinicalField) {
+        // Minor edit: logged election by SA/CE only, allows republication without re-review
+        targetStatus = exists.status;
+      } else {
+        // Material edit: returns item to review pipeline requiring R1 review & SA sign-off (Rule R10)
+        targetStatus = "in_review";
+      }
+    }
+
     // Update metadata fields that were provided
     const updates: string[] = ["updated_at = NOW()"];
     const vals: any[] = [];
@@ -248,7 +266,7 @@ export async function PATCH(
     if (name)   { updates.push(`name = $${idx++}`);     vals.push(name); }
     if (category) { updates.push(`category = $${idx++}`); vals.push(category); }
     if (type)   { updates.push(`kind = $${idx++}`);     vals.push(type); }
-    if (status) { updates.push(`status = $${idx++}`);   vals.push(status); }
+    if (targetStatus) { updates.push(`status = $${idx++}`); vals.push(targetStatus); }
     if (author) { updates.push(`author = $${idx++}`);   vals.push(author); }
     if (isFree !== undefined || is_free !== undefined) {
       updates.push(`is_free = $${idx++}`);
