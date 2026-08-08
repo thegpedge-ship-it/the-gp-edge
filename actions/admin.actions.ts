@@ -8,7 +8,7 @@ export interface CredentialUser {
   id: string;
   name: string;
   username: string;
-  role: "Super Admin" | "Admin" | "Clinical Editor" | "Operations Manager" | "Drafter" | "Peer Reviewer" | "Moderator" | "Viewer" | "SA" | "CE" | "OM" | "DR" | "PR";
+  role: string;
   roles?: string[];
   email: string;
   password?: string;

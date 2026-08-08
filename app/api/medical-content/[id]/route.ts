@@ -361,7 +361,7 @@ export async function DELETE(
 
     const permCheck = await evaluateRelationalPermission({
       user: userContext,
-      capability: "delete",
+      capability: "archive_item",
       item: { id, type: "medical_condition" },
     });
 
@@ -379,11 +379,11 @@ export async function DELETE(
 
     await recordAuditLog({
       adminUserId: userContext.id,
-      action: "delete",
+      action: "archive",
       category: "medical_condition",
       entityType: "medical_condition",
       entityId: id,
-      metadata: { deletedBy: userContext.name },
+      metadata: { archivedBy: userContext.name },
     });
 
     return NextResponse.json({ success: true });
@@ -392,4 +392,56 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+// POST /api/medical-content/[id] — restore archived condition (SA-ONLY)
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { adminUser } = body;
+
+    if (!adminUser) {
+      return NextResponse.json(
+        { success: false, error: "Admin user context required for restore." },
+        { status: 400 }
+      );
+    }
+
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id, type: "medical_condition" },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
+    await execute(
+      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { restoredBy: adminUser.name },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("POST /api/medical-content/[id]/restore error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
 

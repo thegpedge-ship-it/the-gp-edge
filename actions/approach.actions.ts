@@ -153,7 +153,7 @@ export async function deleteApproachCardFromDbAction(id: string, adminUser?: Per
     if (adminUser) {
       const permCheck = await evaluateRelationalPermission({
         user: adminUser,
-        capability: "delete",
+        capability: "archive_item",
         item: { id: dbId, type: "approach" },
       });
       if (!permCheck.allowed) {
@@ -168,19 +168,59 @@ export async function deleteApproachCardFromDbAction(id: string, adminUser?: Per
 
     await recordAuditLog({
       adminUserId: adminUser?.id,
-      action: "delete",
+      action: "archive",
       category: "approach",
       entityType: "approach",
       entityId: dbId,
-      metadata: { deletedBy: adminUser?.name || adminUser?.email },
+      metadata: { archivedBy: adminUser?.name || adminUser?.email },
     });
 
     return { success: true };
   } catch (error: any) {
-    console.error("Error deleting approach card from DB:", error);
+    console.error("Error archiving approach card from DB:", error);
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Restores an archived approach card.
+ * SA-ONLY (Super Admin)!
+ */
+export async function restoreApproachCardFromDbAction(id: string, adminUser: PermissionUser): Promise<{ success: boolean; error?: string }> {
+  try {
+    const dbId = toUUID(id);
+
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id: dbId, type: "approach" },
+    });
+
+    if (!permCheck.allowed) {
+      return { success: false, error: permCheck.reason };
+    }
+
+    await execute(
+      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [dbId]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "approach",
+      entityType: "approach",
+      entityId: dbId,
+      metadata: { restoredBy: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error restoring approach card from DB:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 
 
 export async function syncApproachCardsToDbAction(cards: ApproachCard[]): Promise<boolean> {

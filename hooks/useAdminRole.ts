@@ -7,6 +7,8 @@ export interface AdminProfile {
   name: string;
   email: string;
   role: string;
+  roles?: string[];
+  status?: string;
   permissions: string[];
 }
 
@@ -16,6 +18,8 @@ export function useAdminRole() {
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
+    roles: ["SA", "CE", "OM"],
+    status: "active",
     permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
   });
 
@@ -45,8 +49,9 @@ export function useAdminRole() {
         }
         if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
           const defaultCreds = [
-            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
-            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" }
+            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA", "CE", "OM"], email: "admin@gpedge.com", status: "active", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", status: "active", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
+            { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Operations Lead (OM)", username: "ops_lead", role: "Operations Manager", roles: ["OM"], email: "ops@gpedge.com", status: "active", lastChanged: "5 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "ops123" }
           ];
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(defaultCreds));
           credsList = defaultCreds;
@@ -54,21 +59,18 @@ export function useAdminRole() {
         const foundUser = credsList.find((u: any) => u.id === storedId);
         if (foundUser) {
           let permissions: string[] = foundUser.permissions || [];
-          if (foundUser.role === "Super Admin" || permissions.length === 0) {
-            if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
-            } else if (foundUser.role === "Admin") {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
-            } else if (foundUser.role === "Moderator") {
-              permissions = ["dashboard", "questions", "content", "approaches"];
-            }
+          const userRoles = foundUser.roles || [foundUser.role || "SA"];
+          if (userRoles.includes("SA") || userRoles.includes("Super Admin") || permissions.length === 0) {
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
           }
 
           setCurrentAdmin({
             id: foundUser.id,
             name: foundUser.name,
             email: foundUser.email,
-            role: foundUser.role,
+            role: foundUser.role || userRoles[0] || "Super Admin",
+            roles: userRoles,
+            status: foundUser.status || "active",
             permissions
           });
         }
@@ -84,11 +86,17 @@ export function useAdminRole() {
   }, []);
 
   const isReadOnly = false;
-  const isSuperAdmin = currentAdmin.role === "Super Admin";
+  const userRoles = currentAdmin.roles || [currentAdmin.role || "SA"];
+  const isSuperAdmin = userRoles.includes("SA") || userRoles.includes("Super Admin") || currentAdmin.role === "Super Admin";
+  const isClinicalEditor = userRoles.includes("CE") || userRoles.includes("Clinical Editor") || currentAdmin.role === "Clinical Editor";
+  const isOperationsManager = userRoles.includes("OM") || userRoles.includes("Operations Manager") || currentAdmin.role === "Operations Manager";
 
   return {
     currentAdmin,
     isReadOnly,
     isSuperAdmin,
+    isClinicalEditor,
+    isOperationsManager,
+    userRoles,
   };
 }

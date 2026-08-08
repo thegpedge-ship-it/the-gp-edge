@@ -13,7 +13,17 @@ export type Capability =
   | "amend_rate_card"
   | "generate_statement"
   | "mark_statement_paid"
-  | "edit_audit_log";
+  | "edit_audit_log"
+  | "create_item"
+  | "create_bulk_items"
+  | "edit_draft"
+  | "edit_post_review"
+  | "attach_references"
+  | "view_unpublished"
+  | "view_pipeline_metadata"
+  | "archive_item"
+  | "restore_item"
+  | "bulk_flag_superseded";
 
 export type ItemType =
   | "question"
@@ -129,8 +139,12 @@ function getUserRoles(user: PermissionUser): string[] {
  * 1. Account state check (Deactivated / Suspended access freeze).
  * 2. Absolute Audit Log Immutability.
  * 3. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
- * 4. Load-bearing OM controls (Cannot accept work; Cannot amend rate cards).
- * 5. History-scoped prior involvement check (Self-review prohibition).
+ * 4. Load-bearing OM controls (Cannot accept work; Cannot amend rate cards; Cannot attach source references).
+ * 5. Section 3A Content Matrix:
+ *    - restore_item: SA ONLY.
+ *    - create_item & create_bulk_items: SA and CE ONLY.
+ *    - edit_post_review & archive_item: SA and CE ONLY.
+ * 6. History-scoped prior involvement check (Self-review prohibition).
  */
 export async function evaluateRelationalPermission(params: {
   user: PermissionUser;
@@ -176,13 +190,30 @@ export async function evaluateRelationalPermission(params: {
   }
 
   const assignedRoles = getUserRoles(user);
+  const isSuperAdmin = assignedRoles.includes("SA") || assignedRoles.includes("Super Admin");
+  const isClinicalEditor = assignedRoles.includes("CE") || assignedRoles.includes("Clinical Editor");
+  const isOMRole = assignedRoles.includes("OM") || assignedRoles.includes("Operations Manager");
+  const isDrafter = assignedRoles.includes("DR") || assignedRoles.includes("Drafter");
+  const isPeerReviewer = assignedRoles.includes("PR") || assignedRoles.includes("Peer Reviewer");
+  const isSubscriber = assignedRoles.includes("SUB") || assignedRoles.includes("Subscriber");
 
-  // 3. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
+  // 3. RESTORE IS SA-ONLY
+  if (capability === "restore_item") {
+    if (!isSuperAdmin) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Restoration of an archived item is strictly SA-only (Super Admin). Clinical Editors, Operations Managers, Drafters, and Reviewers cannot restore archived items.",
+      };
+    }
+    return { allowed: true, code: "ALLOWED" };
+  }
+
+  // 4. MULTI-ROLE CONFLICT RESOLUTION: "Where roles conflict, the most restrictive applicable rule governs."
   // Check if ANY assigned role contains a specific prohibition for the requested capability:
 
-  // Prohibition A: Operations Manager (OM) load-bearing controls
-  const hasOMRole = assignedRoles.includes("OM") || assignedRoles.includes("Operations Manager");
-  if (hasOMRole) {
+  // Prohibition A: Operations Manager (OM) load-bearing & content restrictions
+  if (isOMRole) {
     if (capability === "accept_work") {
       return {
         allowed: false,
@@ -197,12 +228,33 @@ export async function evaluateRelationalPermission(params: {
         reason: "Load-bearing Control Violation: Operations Manager (OM) role cannot amend rate cards. Rates are set by Super Admin (SA) alone.",
       };
     }
+    if (capability === "create_item" || capability === "create_bulk_items" || capability === "create") {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Item creation is a clinical act, not an administrative one. Operations Manager (OM) cannot create item records.",
+      };
+    }
+    if (capability === "edit_draft" || capability === "edit_post_review" || capability === "edit") {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "OM moves items; OM does not judge them. Operations Manager (OM) cannot alter item content.",
+      };
+    }
+    if (capability === "attach_references") {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Attaching source references is a clinical attestation. Operations Manager (OM) cannot attach source references.",
+      };
+    }
   }
 
   // Prohibition B: Drafter (DR) scope restriction (own assigned items only)
-  const isOnlyDrafter = assignedRoles.length === 1 && (assignedRoles.includes("DR") || assignedRoles.includes("Drafter"));
+  const isOnlyDrafter = assignedRoles.length === 1 && isDrafter;
   if (isOnlyDrafter && item && item.id) {
-    if (capability !== "read" && capability !== "create") {
+    if (capability !== "read" && capability !== "view_pipeline_metadata" && capability !== "create") {
       const isOwner =
         (item.author && (item.author.includes(user.name || "") || item.author.includes(user.email || ""))) ||
         (item.created_by && item.created_by === user.id) ||
@@ -218,13 +270,81 @@ export async function evaluateRelationalPermission(params: {
   }
 
   // Prohibition C: Peer Reviewer (PR) scope restriction
-  const isOnlyPeerReviewer = assignedRoles.length === 1 && (assignedRoles.includes("PR") || assignedRoles.includes("Peer Reviewer"));
-  if (isOnlyPeerReviewer && capability !== "read" && capability !== "review") {
+  const isOnlyPeerReviewer = assignedRoles.length === 1 && isPeerReviewer;
+  if (isOnlyPeerReviewer && capability !== "read" && capability !== "review" && capability !== "attach_references" && capability !== "view_pipeline_metadata") {
     return {
       allowed: false,
       code: "RESTRICTION_GOVERNS_DENIED",
       reason: "Role 'Peer Reviewer' (PR) scope is strictly restricted to assigned review tasks.",
     };
+  }
+
+  // Prohibition D: Clinician-only Creation (SA & CE Only)
+  if (capability === "create_item" || capability === "create_bulk_items") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Item creation (and bulk creation) is a clinical act resting strictly with SA (Super Admin) and CE (Clinical Editor) only.",
+      };
+    }
+  }
+
+  // Prohibition E: Edit Post-Review and Archiving (SA & CE Only)
+  if (capability === "edit_post_review" || capability === "archive_item" || capability === "archive") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Editing post-review content and archiving items is restricted to SA and CE.",
+      };
+    }
+  }
+
+  // Capability: View Unpublished Item Content (SA: ✓, CE: ✓, OM: ✓, DR: C R12, PR: C R12, SUB: ✗)
+  if (capability === "view_unpublished") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Subscribers cannot view unpublished item content.",
+      };
+    }
+    if (isDrafter || isPeerReviewer) {
+      if (item && item.id) {
+        const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
+        if (!isAssigned) {
+          return {
+            allowed: false,
+            code: "RESTRICTION_GOVERNS_DENIED",
+            reason: "Drafters and Peer Reviewers can only view unpublished content for their assigned items (Rule R12).",
+          };
+        }
+      }
+    }
+  }
+
+  // Capability: View Pipeline Status Metadata (SA: ✓, CE: ✓, OM: ✓, DR: S, PR: S, SUB: ✗)
+  if (capability === "view_pipeline_metadata") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Subscribers cannot view pipeline status metadata.",
+      };
+    }
+    if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor || isOMRole)) {
+      if (item && item.id) {
+        const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
+        if (!isAssigned) {
+          return {
+            allowed: false,
+            code: "RESTRICTION_GOVERNS_DENIED",
+            reason: "Drafters and Peer Reviewers can only view pipeline status metadata for assigned items (Scope S).",
+          };
+        }
+      }
+    }
   }
 
   // Viewer role restriction
@@ -237,7 +357,7 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 4. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION
+  // 5. ITEM-SCOPED HISTORY & RELATIONAL EVALUATION
   if (item && item.id) {
     const isReviewOrApprove =
       capability === "review" || capability === "approve" || capability === "publish" || capability === "accept_work";
@@ -264,12 +384,7 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // 5. BASE ROLE PERMISSION GRANT CHECK
-  // Check if at least one assigned role grants the base permission
-  const isSuperAdmin = assignedRoles.includes("SA") || assignedRoles.includes("Super Admin");
-  const isClinicalEditor = assignedRoles.includes("CE") || assignedRoles.includes("Clinical Editor");
-  const isAdmin = assignedRoles.includes("Admin");
-
+  // 6. BASE ROLE PERMISSION GRANT CHECK
   if (capability === "accept_work" && !(isSuperAdmin || isClinicalEditor)) {
     return {
       allowed: false,

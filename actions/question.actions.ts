@@ -420,7 +420,8 @@ export async function reviewQuestionAction(
 }
 
 /**
- * Deletes a question from the database by stem text or UUID.
+ * Soft-archives a question from the database by stem text or UUID.
+ * Hides item and withdraws from production while retaining all versions, reviews, and audit trails permanently.
  */
 export async function deleteQuestionAction(idOrText: string, adminUser?: PermissionUser) {
   try {
@@ -438,7 +439,7 @@ export async function deleteQuestionAction(idOrText: string, adminUser?: Permiss
     if (adminUser) {
       const check = await evaluateRelationalPermission({
         user: adminUser,
-        capability: "delete",
+        capability: "archive_item",
         item: { id: targetId, type: "question" },
       });
       if (!check.allowed) {
@@ -446,23 +447,59 @@ export async function deleteQuestionAction(idOrText: string, adminUser?: Permiss
       }
     }
 
-    await execute(`DELETE FROM questions WHERE id = $1 OR stem = $1`, [idOrText]);
+    // NO HARD DELETE: Soft-archive by setting deleted_at = NOW()
+    await execute(`UPDATE questions SET deleted_at = NOW() WHERE id = $1 OR stem = $1`, [idOrText]);
 
     if (uuidRegex.test(idOrText)) {
       await recordAuditLog({
         adminUserId: adminUser?.id,
-        action: "delete",
+        action: "archive",
         category: "question",
         entityType: "question",
         entityId: targetId,
-        metadata: { deletedBy: adminUser?.name || adminUser?.email },
+        metadata: { archivedBy: adminUser?.name || adminUser?.email },
       });
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error("Error deleting question:", error);
+    console.error("Error archiving question:", error);
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Restores an archived question.
+ * SA-ONLY (Super Admin)!
+ */
+export async function restoreQuestionAction(questionId: string, adminUser: PermissionUser) {
+  try {
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id: questionId, type: "question" },
+    });
+
+    if (!check.allowed) {
+      return { success: false, error: check.reason };
+    }
+
+    await execute(`UPDATE questions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`, [questionId]);
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "question",
+      entityType: "question",
+      entityId: questionId,
+      metadata: { restoredBy: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error restoring question:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 

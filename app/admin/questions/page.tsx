@@ -27,7 +27,7 @@ import {
 import { addUserNotification } from "@/utils/notifications";
 import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
-import { importQuestionsAction, deleteQuestionAction } from "@/actions/question.actions";
+import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction } from "@/actions/question.actions";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -69,8 +69,24 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 }
 
 export default function QuestionsPage() {
-  const { isReadOnly } = useAdminRole();
+  const { isReadOnly, isSuperAdmin, currentAdmin } = useAdminRole();
   const [questions, setQuestions] = useState<Question[]>([]);
+
+  const handleRestoreQuestion = async (q: Question) => {
+    if (!isSuperAdmin) {
+      showAlert("Restoration of archived items is strictly SA-only (Super Admin).", "Permission Denied", "error");
+      return;
+    }
+    const targetId = q.dbId || String(q.id);
+    const res = await restoreQuestionAction(targetId, currentAdmin);
+    if (res.success) {
+      showAlert("Question successfully restored from archive.", "Restored", "success");
+      const data = await fetchQuestions();
+      setQuestions(data);
+    } else {
+      showAlert(res.error || "Failed to restore question.", "Error", "error");
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");
   const [newQuestionTopics, setNewQuestionTopics] = useState<string[]>(["Cardiology"]);

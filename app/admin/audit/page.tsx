@@ -49,21 +49,26 @@ const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 
 /* ── Role presets ── */
 const ROLE_PRESETS: Record<string, string[]> = {
+  "SA (Super Admin)": [...ALL_FEATURE_KEYS],
+  "CE (Clinical Editor)": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"],
+  "OM (Operations Manager)": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"],
+  "DR (Drafter)": ["dashboard", "questions", "content", "approaches"],
+  "PR (Peer Reviewer)": ["dashboard", "questions", "content", "approaches"],
+  "SUB (Subscriber)": ["dashboard"],
   "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
-  Moderator: ["dashboard", "questions", "content", "approaches"],
-  Viewer: ["dashboard"],
+  "Admin": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
 };
 
 interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "Super Admin" | "Admin";
+  role: string;
+  roles?: string[];
   permissions: string[];
   lastLogin: string;
   lastActiveAt?: number;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "deactivated" | "suspended";
   username: string;
   forgotPasswordEnabled: boolean;
   oauthEnabled: boolean;
@@ -104,7 +109,7 @@ export default function AuditPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
-  const [editRole, setEditRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [editRole, setEditRole] = useState<string>("Admin");
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editForgotPassword, setEditForgotPassword] = useState(true);
   const [editOauth, setEditOauth] = useState(false);
@@ -116,7 +121,7 @@ export default function AuditPage() {
   const [addUsername, setAddUsername] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [showAddPassword, setShowAddPassword] = useState(false);
-  const [addRole, setAddRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [addRole, setAddRole] = useState<string>("Admin");
   const [addPermissions, setAddPermissions] = useState<string[]>([...ALL_FEATURE_KEYS]);
   const [addForgotPassword, setAddForgotPassword] = useState(true);
   const [addOauth, setAddOauth] = useState(false);
