@@ -4,7 +4,72 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
+import { CheckCircle2, FileText, Clock, Download } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
+
+function AnimatedScoreCircle({ score }: { score: number }) {
+  const [animatedScore, setAnimatedScore] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    const duration = 1300; // 1.3s ease-out animation
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      setAnimatedScore(Math.round(easedProgress * score));
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animationFrame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [score]);
+
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
+
+  return (
+    <div className="relative flex flex-col items-center justify-center shrink-0">
+      <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 150 150">
+          <circle
+            cx="75"
+            cy="75"
+            r={radius}
+            className="stroke-slate-100 dark:stroke-slate-800"
+            strokeWidth="11"
+            fill="transparent"
+          />
+          <circle
+            cx="75"
+            cy="75"
+            r={radius}
+            className="stroke-emerald-600 dark:stroke-emerald-400 transition-all duration-75 ease-out"
+            strokeWidth="11"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="transparent"
+          />
+        </svg>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+          <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+            {animatedScore}%
+          </span>
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">
+            Your Score
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
 import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
 import type { QuizQuestion, SaveAttemptInput } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
@@ -577,95 +642,123 @@ export default function TestPage() {
     );
     const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
     return (
-      <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col items-center overflow-y-auto px-4 py-6 sm:p-8">
+      <div className="fixed inset-0 z-50 bg-[#FAFBFC] dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-[650px] flex flex-col items-center my-auto bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 pb-6"
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-[760px] bg-white dark:bg-slate-900 rounded-[28px] shadow-xl sm:shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 md:p-10 my-auto flex flex-col gap-6 sm:gap-8"
         >
-          {/* Banner Container */}
-          <div className="relative w-full h-[160px] sm:h-[180px] rounded-t-[24px] overflow-hidden flex flex-col items-center justify-center bg-emerald-600">
+          {/* Top Section: Donut Score + Header & Unified Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] items-center gap-6 sm:gap-8">
             
-            {/* Success Content Overlay */}
-            <div className="relative z-10 text-center px-4 flex flex-col items-center pb-4">
-              <h1 className="text-[24px] sm:text-[28px] font-bold text-white tracking-tight leading-tight mb-1.5 drop-shadow-sm">
-                {timedOut ? "Time's Up!" : "Test Submitted Successfully!"}
-              </h1>
-              <p className="text-[13px] sm:text-[15px] text-white/90 font-medium drop-shadow-sm">
-                {timedOut 
-                  ? `Your time ran out, so ${config.name} was submitted automatically.` 
-                  : "Thanks for completing the test."}
-              </p>
+            {/* Left Column: Animated Donut Score Circle */}
+            <div className="flex justify-center">
+              <AnimatedScoreCircle score={score} />
             </div>
+
+            {/* Right Column: Header & Unified Stats Bar */}
+            <div className="flex flex-col justify-between gap-5 text-center sm:text-left">
+              {/* Header */}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
+                  {timedOut ? "Time's Up!" : "Test Submitted Successfully!"}
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
+                  {timedOut 
+                    ? `Your time ran out, so ${config.name} was submitted automatically.` 
+                    : "Thanks for completing the test."}
+                </p>
+              </div>
+
+              {/* Unified Statistics Container */}
+              <div className="bg-slate-50/80 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-800 p-3.5 sm:p-4 w-full">
+                <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-slate-700/80 text-center">
+                  
+                  {/* Correct */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
+                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
+                        {correct}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
+                        Correct
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Attempted */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
+                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
+                        {answeredCount}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
+                        Attempted
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Time Taken */}
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
+                    </div>
+                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
+                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
+                        {formatTime(elapsed)}
+                      </span>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
+                        Time Taken
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          {/* Floating Statistics Card */}
-          <div className="relative z-20 -mt-6 w-[92%] sm:w-[85%] bg-white dark:bg-slate-900 rounded-[20px] shadow-[0_12px_30px_rgba(15,23,42,0.10)] dark:shadow-[0_12px_30px_rgba(0,0,0,0.30)] border border-slate-100 dark:border-slate-800 p-5 sm:p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 sm:divide-x divide-slate-100 dark:divide-slate-800">
-              
-              {/* Score */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-emerald-600 dark:text-emerald-500 leading-none mb-1.5">{score}%</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Your Score</span>
-              </div>
-              
-              {/* Correct */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-emerald-500 dark:text-emerald-400 leading-none mb-1.5">{correct}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Correct</span>
-              </div>
-              
-              {/* Attempted */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-slate-800 dark:text-slate-200 leading-none mb-1.5">{answeredCount}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Attempted</span>
-              </div>
-              
-              {/* Time Taken */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-slate-500 dark:text-slate-300 leading-none mb-1.5">{formatTime(elapsed)}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Time Taken</span>
-              </div>
-              
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="w-[92%] sm:w-[85%] mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Action Buttons Row */}
+          <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full pt-2 border-t border-slate-100 dark:border-slate-800/80">
             <button
               onClick={handleDownloadReport}
               disabled={reportState === "generating"}
-              className="flex-1 w-full flex items-center justify-center gap-2 px-6 py-[11px] rounded-[10px] border border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 text-[13px] sm:text-[14px] font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
+              className="flex-1 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 text-sm font-bold hover:bg-emerald-50 dark:hover:bg-emerald-955/30 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait shadow-sm cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <Download className="w-4 h-4" />
               {reportState === "generating" ? "Saving report…" : "Download Report"}
             </button>
             
             <button
               onClick={() => router.push("/exam-prep")}
-              className="flex-1 w-full px-6 py-[11px] rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] sm:text-[14px] font-semibold shadow-[0_4px_14px_rgba(16,185,129,0.25)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.3)] transition-all duration-200 hover:-translate-y-0.5"
+              className="flex-1 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
             >
-              Back to Exam Prep
+              <span>Back to Exam Prep</span>
             </button>
           </div>
 
-          {/* Supporting Information */}
-          <div className="mt-4 text-center px-4 h-[30px]">
+          {/* Supporting Information Message */}
+          <div className="text-center px-2 min-h-[20px]">
              {reportState === "error" && (
-                <p className="text-[12px] text-red-500 dark:text-red-400">
+                <p className="text-xs font-medium text-red-500 dark:text-red-400">
                   Couldn't save the report. Tap the download button to try again.
                 </p>
               )}
               {reportState === "ready" && (
-                <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   Your detailed report has been generated and is ready for download.
                 </p>
               )}
           </div>
-          
+
         </motion.div>
       </div>
     );

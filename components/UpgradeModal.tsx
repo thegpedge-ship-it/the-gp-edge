@@ -10,7 +10,18 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Lock, Sparkles, X, CheckCircle2, ArrowRight, Shield } from "lucide-react";
+import {
+  Lock,
+  X,
+  ClipboardCheck,
+  FileText,
+  Folder,
+  BarChart3,
+  BookOpen,
+  Search,
+  Zap,
+  Award,
+} from "lucide-react";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -21,19 +32,20 @@ interface UpgradeModalProps {
   requiredTier?: "paid" | "registrar";
 }
 
-const PAID_FEATURES = [
-  "Unlimited Medical Library access",
-  "All Clinical Autofill templates",
-  "MBS Billing search & favourites",
-  "Priority content updates",
+const REGISTRAR_GRID_FEATURES = [
+  { text: "Create unlimited custom quizzes", icon: ClipboardCheck },
+  { text: "Access advanced question types", icon: FileText },
+  { text: "Save and manage your quizzes", icon: Folder },
+  { text: "Track performance and analytics", icon: BarChart3 },
+  { text: "Access full question bank (AKT + KFP)", icon: BookOpen, fullWidth: true },
 ];
 
-const REGISTRAR_FEATURES = [
-  "Everything in Fellowship plans",
-  "Full Exam Prep access",
-  "All quizzes (AKT + KFP)",
-  "Unlimited practice questions",
-  "6 or 12-month registrar support",
+const PAID_GRID_FEATURES = [
+  { text: "Unlimited Medical Library access", icon: BookOpen },
+  { text: "All Clinical Autofill templates", icon: FileText },
+  { text: "MBS Billing search & favourites", icon: Search },
+  { text: "Priority content updates", icon: Zap },
+  { text: "Full Exam Prep & practice questions", icon: Award, fullWidth: true },
 ];
 
 export default function UpgradeModal({
@@ -49,6 +61,8 @@ export default function UpgradeModal({
     onClose();
     router.push("/dashboard/pricing");
   };
+
+  const features = isRegistrar ? REGISTRAR_GRID_FEATURES : PAID_GRID_FEATURES;
 
   return (
     <AnimatePresence>
@@ -73,81 +87,93 @@ export default function UpgradeModal({
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
             className="fixed inset-0 z-[61] flex items-center justify-center p-4 pointer-events-none"
           >
-            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden pointer-events-auto">
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden pointer-events-auto p-6 sm:p-7">
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="absolute top-5 right-5 p-2 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
-              {/* Gradient header */}
-              <div className={`px-6 pt-8 pb-6 ${isRegistrar ? "bg-gradient-to-br from-teal-950 via-slate-900 to-amber-950 border-b border-amber-500/20" : "bg-gradient-to-br from-teal-800 to-emerald-900"}`}>
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 p-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 ${isRegistrar ? "bg-amber-500/20 border border-amber-400/30 text-amber-400" : "bg-white/20 text-white"}`}>
-                  {isRegistrar ? (
-                    <Shield className="w-6 h-6 text-amber-400" />
-                  ) : (
-                    <Sparkles className="w-6 h-6 text-white" />
-                  )}
+              {/* Top Lock Badge Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-800/50 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-xs">
+                  <Lock className="w-6 h-6 stroke-[2.2]" />
                 </div>
+              </div>
 
-                <h2 className="text-xl font-bold text-white mb-1">
+              {/* Title & Subtitle */}
+              <div className="text-center mb-5">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-1.5">
                   {isRegistrar ? "Registrar Plan Required" : "Upgrade to Unlock"}
                 </h2>
-                <p className="text-sm text-white/80">
+                <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
                   {featureName
                     ? `"${featureName}" requires a ${isRegistrar ? "Registrar" : "paid"} plan.`
-                    : `This content is locked behind a ${isRegistrar ? "Registrar" : "paid"} plan.`}
+                    : `This feature is available for ${isRegistrar ? "Registrar" : "paid"} plan users only.`}
                 </p>
               </div>
 
-              {/* Body */}
-              <div className="px-6 py-5">
-                {/* Lock badge */}
-                <div className="flex items-center gap-2 mb-4 px-3 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl">
-                  <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                  <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
-                    {isRegistrar
-                      ? "Available exclusively to active Registrar plan holders."
-                      : "Available on Fellowship ($15/mo), Annual ($300/yr), or Registrar plans."}
-                  </p>
+              {/* Lock Callout Banner */}
+              <div className="flex items-center gap-3 p-3.5 mb-5 bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-800/40 rounded-2xl">
+                <div className="w-8 h-8 rounded-xl bg-teal-100 dark:bg-teal-900/50 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                  <Lock className="w-4 h-4" />
                 </div>
-
-                {/* Feature list */}
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-3">
-                  {isRegistrar ? "Registrar plan includes" : "Paid plans include"}
+                <p className="text-xs font-semibold text-teal-900 dark:text-teal-200 leading-snug">
+                  {isRegistrar
+                    ? "Available exclusively to active Registrar plan holders."
+                    : "Available on Fellowship ($15/mo), Annual ($300/yr), or Registrar plans."}
                 </p>
-                <ul className="space-y-2 mb-6">
-                  {(isRegistrar ? REGISTRAR_FEATURES : PAID_FEATURES).map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-slate-700 dark:text-slate-300">
-                      <CheckCircle2 className={`w-4 h-4 shrink-0 ${isRegistrar ? "text-amber-500" : "text-emerald-500"}`} />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+              </div>
 
-                {/* CTAs */}
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={handleUpgrade}
-                    className={`w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold transition-all shadow-lg hover:shadow-xl active:scale-[0.98] ${
-                      isRegistrar
-                        ? "bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20"
-                        : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20"
-                    }`}
-                  >
-                    View Plans & Pricing
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="w-full px-5 py-2.5 rounded-2xl text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    Maybe later
-                  </button>
+              {/* Section Header with Divider Lines */}
+              <div className="relative flex items-center justify-center mb-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-200 dark:border-slate-800" />
                 </div>
+                <span className="relative bg-white dark:bg-slate-900 px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  {isRegistrar ? "Registrar plan includes" : "Paid plans include"}
+                </span>
+              </div>
+
+              {/* Feature Cards 2-Column Grid */}
+              <div className="grid grid-cols-2 gap-2.5 mb-6">
+                {features.map((f) => {
+                  const Icon = f.icon;
+                  return (
+                    <div
+                      key={f.text}
+                      className={`bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800/80 rounded-2xl p-3 flex items-center gap-2.5 transition-all hover:border-teal-300 dark:hover:border-teal-700 ${
+                        f.fullWidth ? "col-span-2" : ""
+                      }`}
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-teal-100/70 dark:bg-teal-955/60 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="text-[11px] sm:text-xs font-semibold text-slate-700 dark:text-slate-200 leading-tight">
+                        {f.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Bottom Action Buttons Row */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleUpgrade}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 text-white font-bold text-xs sm:text-sm shadow-sm transition-all active:scale-[0.98] cursor-pointer text-center"
+                >
+                  View Plans & Pricing
+                </button>
+                <button
+                  onClick={onClose}
+                  className="flex-1 py-3 px-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-xs sm:text-sm transition-all cursor-pointer text-center"
+                >
+                  Maybe later
+                </button>
               </div>
             </div>
           </motion.div>

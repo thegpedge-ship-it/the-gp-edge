@@ -146,9 +146,8 @@ export default function Hero() {
 
   return (
     <section className="relative flex items-center min-h-[92vh] pb-4">
-      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 lg:pb-10 ${
-        isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
-      }`}>
+      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 lg:pb-10 ${isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
+        }`}>
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -164,7 +163,7 @@ export default function Hero() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
               <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] uppercase tracking-wider">
-                Built for GP Registrars
+                Built for GPs
               </span>
             </motion.div>
 
