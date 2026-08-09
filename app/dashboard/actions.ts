@@ -599,7 +599,6 @@ function buildData(a: BuildArgs): DashboardData {
     { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald", badge: `${withCommas(a.mbsCount)} items` },
     { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet", badge: `${a.savedTemplates} saved` },
     { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan", badge: `${withCommas(a.conditionCount)} entries` },
-    { key: "notes", title: "Notes & Flags", caption: "Your bookmarked items", accent: "amber", badge: `${a.bookmarks} flagged` },
   ];
 
   return {
@@ -819,7 +818,6 @@ function emptyDashboard(): DashboardData {
       { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald", badge: "" },
       { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet", badge: "" },
       { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan", badge: "" },
-      { key: "notes", title: "Notes & Flags", caption: "Your bookmarked items", accent: "amber", badge: "" },
     ],
   };
 }

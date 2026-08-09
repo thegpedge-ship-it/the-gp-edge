@@ -46,7 +46,6 @@ export default async function DashboardPage() {
     { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald", badge: "" },
     { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet", badge: "" },
     { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan", badge: "" },
-    { key: "notes", title: "Notes & Flags", caption: "Your bookmarked items", accent: "amber", badge: "" },
   ];
 
   return (
