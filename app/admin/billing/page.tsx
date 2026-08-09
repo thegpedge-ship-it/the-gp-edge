@@ -426,6 +426,43 @@ export default function BillingPage() {
         </div>
       </motion.div>
 
+      {/* Cancellation Feedback Section */}
+      <motion.div variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-red-50/5 dark:to-red-950/10 pointer-events-none rounded-2xl" />
+        <div className="relative z-10">
+          <div className="px-6 py-4 border-b border-slate-200/40 dark:border-slate-800 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancellation Feedback</h3>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.cancellationFeedback.length === 0 ? (
+              <div className="px-6 py-8 text-center text-xs font-medium text-slate-450 dark:text-slate-500">
+                No cancellation feedback recorded.
+              </div>
+            ) : (
+              data.cancellationFeedback.map((fb, i) => (
+                <div key={i} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{fb.user}</p>
+                    <span className="text-[11px] font-semibold text-slate-400">{fb.date}</span>
+                  </div>
+                  <div className="flex items-start flex-col gap-1.5">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded border tracking-wider bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 uppercase">
+                      {fb.reason}
+                    </span>
+                    {fb.feedback && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 pl-3 border-l-2 border-red-200 dark:border-red-800/50 italic whitespace-pre-wrap">
+                        "{fb.feedback}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </motion.div>
+
       {/* Action modal for refund reason note */}
       <AnimatePresence>
         {activeRefund && (
