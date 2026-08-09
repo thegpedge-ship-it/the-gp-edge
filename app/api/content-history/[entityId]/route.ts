@@ -225,13 +225,16 @@ export async function POST(
       );
       const nextVersion = (maxVersion?.max ?? 0) + 1;
 
-      const autoLabel =
-        label ||
-        `v${nextVersion} – ${new Date().toLocaleDateString("en-AU", {
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}`;
+      const timeStr = new Date().toLocaleString("en-AU", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      const autoLabel = label || `v${nextVersion} – ${timeStr}`;
 
       const result = await queryOne<{ id: string }>(
         `INSERT INTO content_versions

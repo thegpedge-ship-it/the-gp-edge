@@ -120,18 +120,18 @@ interface EditHistorySidebarProps {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function relativeTime(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(isoDate).toLocaleDateString("en-AU", {
-    day: "numeric", month: "short",
+function formatExactTime(isoDate: string): string {
+  if (!isoDate) return "";
+  return new Date(isoDate).toLocaleString("en-AU", {
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
+function formatFullDateTime(isoDate: string): string {
+  if (!isoDate) return "";
+  return new Date(isoDate).toLocaleString("en-AU", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
   });
 }
 
@@ -290,7 +290,9 @@ function HistoryRow({
           </div>
 
           <div className="text-right shrink-0">
-            <span className="text-[9.5px] text-slate-400 block">{relativeTime(entry.createdAt)}</span>
+            <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block" title={formatFullDateTime(entry.createdAt)}>
+              {formatExactTime(entry.createdAt)}
+            </span>
           </div>
         </div>
 
@@ -339,9 +341,7 @@ function VersionRow({
   version: VersionInfo;
   onPreview: (v: VersionInfo) => void;
 }) {
-  const formattedDate = new Date(version.createdAt).toLocaleDateString("en-AU", {
-    day: "numeric", month: "short", year: "numeric",
-  });
+  const formattedDate = formatFullDateTime(version.createdAt);
 
   const isRestored = version.label?.toLowerCase().includes("restored");
 

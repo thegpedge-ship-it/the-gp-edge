@@ -13,15 +13,65 @@ function tokenize(text: string): string[] {
   return text.match(/[\w']+|[^\w\s]|\s+/g) ?? [];
 }
 
+function decodeEntities(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+function htmlToDiffText(html: string): string {
+  if (!html) return "";
+  let processed = html;
+
+  // 1. Convert <img> tags to [Image: filename/alt]
+  processed = processed.replace(/<img[^>]*src=["']([^"']+)["'][^>]*alt=["']([^"']+)["'][^>]*\/?>/gi, " [Image: $2] ");
+  processed = processed.replace(/<img[^>]*alt=["']([^"']+)["'][^>]*src=["']([^"']+)["'][^>]*\/?>/gi, " [Image: $1] ");
+  processed = processed.replace(/<img[^>]*src=["']([^"']+)["'][^>]*\/?>/gi, (_, src) => {
+    const filename = src.split("/").pop() || src;
+    return ` [Image: ${filename}] `;
+  });
+  processed = processed.replace(/<img[^>]*\/?>/gi, " [Image] ");
+
+  // 2. Convert Callout blocks (<div class="callout-block" ...>)
+  processed = processed.replace(/<div[^>]*class=["'][^"']*callout-block[^"']*["'][^>]*>/gi, "\n[Callout Box]\n");
+
+  // 3. Convert Table elements to clean readable table rows (• Cell 1 │ Cell 2)
+  processed = processed.replace(/<tr[^>]*>([\s\S]*?)<\/tr>/gi, (_, rowContent) => {
+    const cells: string[] = [];
+    const cellRegex = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+    let match;
+    while ((match = cellRegex.exec(rowContent)) !== null) {
+      const cellText = decodeEntities(match[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
+      if (cellText) cells.push(cellText);
+    }
+    return cells.length > 0 ? `\n• ${cells.join(" │ ")}\n` : "";
+  });
+  processed = processed.replace(/<\/?(table|thead|tbody|tfoot)[^>]*>/gi, "\n");
+
+  // 4. Convert headers and block elements to line breaks
+  processed = processed.replace(/<br\s*\/?>/gi, "\n");
+  processed = processed.replace(/<\/p>/gi, "\n");
+  processed = processed.replace(/<\/h[1-6]>/gi, "\n");
+  processed = processed.replace(/<\/li>/gi, "\n");
+
+  // 5. Strip any remaining HTML tags and decode HTML entities
+  processed = decodeEntities(processed.replace(/<[^>]*>/g, " "));
+
+  // 6. Clean up extra spaces while preserving line breaks
+  return processed
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
 function stripHtmlTags(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/h[1-6]>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]*>/g, " ")
-    .replace(/[ \t]+/g, " ")
-    .trim();
+  return htmlToDiffText(html);
 }
 
 function computeDiff(oldText: string, newText: string): DiffOp[] {
@@ -131,8 +181,16 @@ export default function DiffViewer({
     let a = oldContent || "";
     let b = newContent || "";
     if (stripHtml) {
-      a = stripHtmlTags(a);
-      b = stripHtmlTags(b);
+      const strippedA = stripHtmlTags(a);
+      const strippedB = stripHtmlTags(b);
+      // Fallback to raw HTML diffing if text content is identical but HTML markup/formatting changed
+      if (strippedA === strippedB && a.trim() !== b.trim()) {
+        a = a.trim();
+        b = b.trim();
+      } else {
+        a = strippedA;
+        b = strippedB;
+      }
     }
     if (a.length > maxChars) a = a.slice(0, maxChars) + "… [truncated]";
     if (b.length > maxChars) b = b.slice(0, maxChars) + "… [truncated]";
@@ -218,7 +276,7 @@ function HunksInline({ hunks }: { hunks: Hunk[] }) {
               Change {hi + 1}
             </span>
           </div>
-          <div className="p-3 text-[12.5px] leading-relaxed break-words font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+          <div className="p-3 text-[13px] leading-relaxed break-words font-sans text-slate-700 dark:text-slate-200 whitespace-pre-wrap">
             {hunk.map((op, i) => {
               if (op.type === "equal") {
                 return (
@@ -320,7 +378,7 @@ function HunksSideBySide({ hunks }: { hunks: Hunk[] }) {
                   <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
                   <span className="text-[9px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider">Before</span>
                 </div>
-                <div className="p-3 text-[12px] leading-relaxed font-mono break-words whitespace-pre-wrap text-slate-600 dark:text-slate-400 bg-red-50/20 dark:bg-red-950/5">
+                <div className="p-3.5 text-[12.5px] leading-relaxed font-sans break-words whitespace-pre-wrap text-slate-700 dark:text-slate-300 bg-red-50/20 dark:bg-red-950/5">
                   {oldParts}
                 </div>
               </div>
@@ -331,7 +389,7 @@ function HunksSideBySide({ hunks }: { hunks: Hunk[] }) {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
                   <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">After</span>
                 </div>
-                <div className="p-3 text-[12px] leading-relaxed font-mono break-words whitespace-pre-wrap text-slate-600 dark:text-slate-400 bg-emerald-50/20 dark:bg-emerald-950/5">
+                <div className="p-3.5 text-[12.5px] leading-relaxed font-sans break-words whitespace-pre-wrap text-slate-700 dark:text-slate-300 bg-emerald-50/20 dark:bg-emerald-950/5">
                   {newParts}
                 </div>
               </div>
