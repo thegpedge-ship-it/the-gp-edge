@@ -1609,6 +1609,45 @@ function ContentEditorContent() {
         isFree,
         author,
         fullHtml: combinedHtml,
+      }).then(() => {
+        // Auto-create history entry and version snapshot on content change
+        if (previousHtmlRef.current && previousHtmlRef.current !== combinedHtml) {
+          const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
+          fetch(`/api/content-history/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "history",
+              entityType,
+              fieldName: "full_html",
+              changeType: "modified",
+              oldContent: previousHtmlRef.current,
+              newContent: combinedHtml,
+              adminUserId: currentAdmin?.id,
+              adminUserName: currentAdmin?.name || author,
+            }),
+          }).catch(console.error);
+
+          fetch(`/api/content-history/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "version",
+              entityType,
+              fullHtml: combinedHtml,
+              metadata: {
+                name: docTitle.trim(),
+                status: "published",
+                author,
+                tags,
+              },
+              createdBy: currentAdmin?.id,
+              createdByName: currentAdmin?.name || author,
+            }),
+          }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
+
+          previousHtmlRef.current = combinedHtml;
+        }
       }).catch(console.error);
 
       // Update local storage cache
@@ -2800,7 +2839,8 @@ function ContentEditorContent() {
 
     if (id && !String(id).startsWith("local")) {
       const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
-      if (previousHtmlRef.current && previousHtmlRef.current !== combinedHtml) {
+      if (previousHtmlRef.current !== combinedHtml) {
+        // Record edit history
         fetch(`/api/content-history/${id}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2809,12 +2849,32 @@ function ContentEditorContent() {
             entityType,
             fieldName: "full_html",
             changeType: "modified",
-            oldContent: previousHtmlRef.current,
+            oldContent: previousHtmlRef.current || null,
             newContent: combinedHtml,
             adminUserId: currentAdmin?.id,
             adminUserName: currentAdmin?.name || author,
           }),
+        }).catch(console.error);
+
+        // Auto-save a version snapshot
+        fetch(`/api/content-history/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "version",
+            entityType,
+            fullHtml: combinedHtml,
+            metadata: {
+              name: docTitle.trim(),
+              status: finalStatus,
+              author,
+              tags,
+            },
+            createdBy: currentAdmin?.id,
+            createdByName: currentAdmin?.name || author,
+          }),
         }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
+
         previousHtmlRef.current = combinedHtml;
       }
     }
@@ -2833,13 +2893,45 @@ function ContentEditorContent() {
       }
       if (verRes.success && verRes.versions) {
         setVersionList(verRes.versions);
+        // If no versions exist yet, auto-create v1 from current editor content
+        if (verRes.versions.length === 0) {
+          const currentContent = previousHtmlRef.current || (editorRef.current ? editorRef.current.innerHTML : "");
+          if (currentContent && currentContent.trim()) {
+            fetch(`/api/content-history/${entityId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                resource: "version",
+                entityType,
+                fullHtml: currentContent,
+                label: "v1 – Initial Version",
+                metadata: {
+                  name: docTitle || "Document",
+                  status: contentStatus || "published",
+                  author: author || "GP Edge Admin",
+                },
+                createdBy: currentAdmin?.id,
+                createdByName: currentAdmin?.name || author,
+              }),
+            })
+              .then((r) => r.json())
+              .then((j) => {
+                if (j.success) {
+                  fetch(`/api/content-history/${entityId}?resource=versions&type=${entityType}`)
+                    .then((r) => r.json())
+                    .then((v) => { if (v.success && v.versions) setVersionList(v.versions); });
+                }
+              })
+              .catch(console.error);
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to load history or versions:", err);
     } finally {
       setIsHistoryLoading(false);
     }
-  }, []);
+  }, [docTitle, contentStatus, author, currentAdmin]);
 
   const handleSaveVersion = async () => {
     if (!id || String(id).startsWith("local")) {

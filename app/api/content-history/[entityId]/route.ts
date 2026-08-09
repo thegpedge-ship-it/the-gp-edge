@@ -29,7 +29,7 @@ export async function GET(
       const versions = await query<any>(
         `SELECT
             cv.id, cv.entity_id, cv.entity_type, cv.version_number, cv.label,
-            cv.metadata, cv.created_by, cv.created_by_name, cv.restored_from,
+            cv.full_html, cv.metadata, cv.created_by, cv.created_by_name, cv.restored_from,
             cv.created_at,
             LENGTH(cv.full_html) AS html_size
           FROM content_versions cv
@@ -52,6 +52,7 @@ export async function GET(
           entityType: v.entity_type,
           versionNumber: v.version_number,
           label: v.label,
+          fullHtml: v.full_html,
           metadata: v.metadata,
           createdBy: v.created_by,
           createdByName: v.created_by_name,
