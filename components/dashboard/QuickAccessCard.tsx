@@ -1,6 +1,6 @@
 import { memo } from "react";
 import Link from "next/link";
-import { Receipt, FileEdit, BookOpen, ArrowRight, LucideIcon } from "lucide-react";
+import { Receipt, FileEdit, BookOpen, ChevronRight, LucideIcon } from "lucide-react";
 import { quickAccess as fallbackQuickAccess } from "./data";
 
 type QuickAccessItem = {
@@ -89,8 +89,9 @@ const QuickAccessCard = memo(function QuickAccessCard({
                 </div>
               </div>
 
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-slate-100/80 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200 ease-out">
-                <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
+              {/* Refined Chevron Navigation Indicator */}
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50/80 dark:group-hover:bg-emerald-950/40 transition-all duration-200 ease-out">
+                <ChevronRight className="w-4 h-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" strokeWidth={2.2} />
               </div>
             </Link>
           );
