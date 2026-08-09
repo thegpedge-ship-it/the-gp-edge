@@ -38,12 +38,6 @@ export default function BentoGrid() {
               Everything a GP needs
             </h2>
           </div>
-          <a href="#all-tools" className="text-sm font-medium text-slate-500 dark:text-[#7D8795] hover:text-blue-600 dark:hover:text-[#60A5FA] active:scale-[0.98] transition-all flex items-center gap-1.5 group">
-            View all
-            <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </a>
         </motion.div>
 
         {/* Premium Bento Grid */}

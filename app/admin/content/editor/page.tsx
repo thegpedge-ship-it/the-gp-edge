@@ -22,6 +22,8 @@ import { addUserNotification } from "@/utils/notifications";
 import { uploadToR2 } from "@/lib/r2Client";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { syncQuizToDbAction } from "@/actions/quiz.actions";
+import EditHistorySidebar, { EditHistoryEntry } from "@/components/admin/EditHistorySidebar";
+import { VersionInfo } from "@/components/admin/VersionPreviewModal";
 
 // ─────────────────────────────────────────────────────────────
 // Ribbon button helpers
@@ -259,7 +261,14 @@ function ContentEditorContent() {
 
   const [previewMode, setPreviewMode] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
-  const [sidebarTab, setSidebarTab] = useState<"meta" | "refs" | "pages">("meta");
+  const [sidebarTab, setSidebarTab] = useState<"meta" | "refs" | "pages" | "history">("meta");
+
+  // Edit History & Version History state
+  const [historyLog, setHistoryLog] = useState<EditHistoryEntry[]>([]);
+  const [versionList, setVersionList] = useState<VersionInfo[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isSavingVersion, setIsSavingVersion] = useState(false);
+  const previousHtmlRef = useRef<string>("");
 
   // Multi-page support
   const [pages, setPages] = useState<string[]>([""]);  // Array of page HTML
@@ -931,6 +940,10 @@ function ContentEditorContent() {
         setTags(item.tags?.length ? item.tags : [item.system, item.category]);
       }
 
+      if (id && !String(id).startsWith("local")) {
+        loadHistoryAndVersions(String(id), item?.type === "Approach" ? "approach" : "medical_condition");
+      }
+
       if (!savedHtml && item) {
         if (item.type === "Approach") {
           const lowerName = item.name.toLowerCase();
@@ -1445,6 +1458,7 @@ function ContentEditorContent() {
         setPages(parsedPages);
         setActivePage(0);
         editorRef.current.innerHTML = parsedPages[0] || "";
+        previousHtmlRef.current = cleanedHtml;
       }
 
       // Load linked questions from localStorage (not yet migrated)
@@ -1595,6 +1609,52 @@ function ContentEditorContent() {
         isFree,
         author,
         fullHtml: combinedHtml,
+      }).then(() => {
+        // Establish baseline if empty
+        if (!previousHtmlRef.current) {
+          previousHtmlRef.current = combinedHtml;
+          return;
+        }
+
+        // Auto-create history entry and version snapshot on any content change
+        if (previousHtmlRef.current !== combinedHtml) {
+          const oldHtml = previousHtmlRef.current;
+          previousHtmlRef.current = combinedHtml;
+          const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
+
+          fetch(`/api/content-history/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "history",
+              entityType,
+              fieldName: "full_html",
+              changeType: "modified",
+              oldContent: oldHtml,
+              newContent: combinedHtml,
+              adminUserId: currentAdmin?.id,
+              adminUserName: currentAdmin?.name || author,
+            }),
+          }).catch(console.error);
+
+          fetch(`/api/content-history/${id}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              resource: "version",
+              entityType,
+              fullHtml: combinedHtml,
+              metadata: {
+                name: docTitle.trim(),
+                status: "published",
+                author,
+                tags,
+              },
+              createdBy: currentAdmin?.id,
+              createdByName: currentAdmin?.name || author,
+            }),
+          }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
+        }
       }).catch(console.error);
 
       // Update local storage cache
@@ -2783,6 +2843,177 @@ function ContentEditorContent() {
       "custom"
     );
     setShowSaveToast(true);
+
+    if (id && !String(id).startsWith("local")) {
+      const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
+      if (previousHtmlRef.current !== combinedHtml) {
+        // Record edit history
+        fetch(`/api/content-history/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "history",
+            entityType,
+            fieldName: "full_html",
+            changeType: "modified",
+            oldContent: previousHtmlRef.current || null,
+            newContent: combinedHtml,
+            adminUserId: currentAdmin?.id,
+            adminUserName: currentAdmin?.name || author,
+          }),
+        }).catch(console.error);
+
+        // Auto-save a version snapshot
+        fetch(`/api/content-history/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resource: "version",
+            entityType,
+            fullHtml: combinedHtml,
+            metadata: {
+              name: docTitle.trim(),
+              status: finalStatus,
+              author,
+              tags,
+            },
+            createdBy: currentAdmin?.id,
+            createdByName: currentAdmin?.name || author,
+          }),
+        }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
+
+        previousHtmlRef.current = combinedHtml;
+      }
+    }
+  };
+
+  const loadHistoryAndVersions = useCallback(async (entityId: string, entityType: string = "medical_condition") => {
+    if (!entityId || entityId.startsWith("local")) return;
+    setIsHistoryLoading(true);
+    try {
+      const [histRes, verRes] = await Promise.all([
+        fetch(`/api/content-history/${entityId}?resource=history&type=${entityType}`).then((r) => r.ok ? r.json() : { success: false }),
+        fetch(`/api/content-history/${entityId}?resource=versions&type=${entityType}`).then((r) => r.ok ? r.json() : { success: false }),
+      ]);
+      if (histRes.success && histRes.history) {
+        setHistoryLog(histRes.history);
+      }
+      if (verRes.success && verRes.versions) {
+        setVersionList(verRes.versions);
+        // If no versions exist yet, auto-create v1 from current editor content
+        if (verRes.versions.length === 0) {
+          const currentContent = previousHtmlRef.current || (editorRef.current ? editorRef.current.innerHTML : "");
+          if (currentContent && currentContent.trim()) {
+            fetch(`/api/content-history/${entityId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                resource: "version",
+                entityType,
+                fullHtml: currentContent,
+                label: "v1 – Initial Version",
+                metadata: {
+                  name: docTitle || "Document",
+                  status: contentStatus || "published",
+                  author: author || "GP Edge Admin",
+                },
+                createdBy: currentAdmin?.id,
+                createdByName: currentAdmin?.name || author,
+              }),
+            })
+              .then((r) => r.json())
+              .then((j) => {
+                if (j.success) {
+                  fetch(`/api/content-history/${entityId}?resource=versions&type=${entityType}`)
+                    .then((r) => r.json())
+                    .then((v) => { if (v.success && v.versions) setVersionList(v.versions); });
+                }
+              })
+              .catch(console.error);
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load history or versions:", err);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, [docTitle, contentStatus, author, currentAdmin]);
+
+  const handleSaveVersion = async () => {
+    if (!id || String(id).startsWith("local")) {
+      alert("Please save the document first before creating a version snapshot.");
+      return;
+    }
+    setIsSavingVersion(true);
+    try {
+      const allPages = saveCurrentPageToPages();
+      const combinedHtml = allPages.join("");
+      const res = await fetch(`/api/content-history/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "version",
+          entityType: contentItem?.type === "Approach" ? "approach" : "medical_condition",
+          fullHtml: combinedHtml,
+          metadata: {
+            name: docTitle.trim(),
+            status: contentStatus,
+            author,
+            tags,
+          },
+          createdBy: currentAdmin?.id,
+          createdByName: currentAdmin?.name || author,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        addUserNotification("Version Saved", `Saved version snapshot ${json.label}.`, 1, "custom");
+        await loadHistoryAndVersions(String(id), contentItem?.type === "Approach" ? "approach" : "medical_condition");
+      }
+    } catch (err) {
+      console.error("Failed to save version:", err);
+    } finally {
+      setIsSavingVersion(false);
+    }
+  };
+
+  const handleRestoreVersion = async (version: VersionInfo) => {
+    if (!id || String(id).startsWith("local")) return;
+    try {
+      const res = await fetch(`/api/content-history/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "restore",
+          versionId: version.id,
+          entityType: contentItem?.type === "Approach" ? "approach" : "medical_condition",
+          adminUserId: currentAdmin?.id,
+          adminUserName: currentAdmin?.name || author,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.restoredHtml) {
+        const restoredHtml = json.restoredHtml;
+        const parsedPages = splitHtmlIntoPages(restoredHtml);
+        setPages(parsedPages);
+        setActivePage(0);
+        if (editorRef.current) {
+          editorRef.current.innerHTML = parsedPages[0] || "";
+          updateCounts();
+        }
+        previousHtmlRef.current = restoredHtml;
+        if (json.restoredMetadata) {
+          if (json.restoredMetadata.name) setDocTitle(json.restoredMetadata.name);
+          if (json.restoredMetadata.status) setContentStatus(json.restoredMetadata.status);
+          if (json.restoredMetadata.author) setAuthor(json.restoredMetadata.author);
+        }
+        addUserNotification("Version Restored", `Restored content to ${version.label}.`, 1, "custom");
+        await loadHistoryAndVersions(String(id), contentItem?.type === "Approach" ? "approach" : "medical_condition");
+      }
+    } catch (err) {
+      console.error("Failed to restore version:", err);
+    }
   };
 
   const handleAddReference = () => {
@@ -3959,13 +4190,13 @@ function ContentEditorContent() {
               >
                 {/* Sidebar tabs */}
                 <div className="flex border-b border-slate-200 dark:border-slate-800 shrink-0">
-                  {(["pages", "meta", "refs"] as const).map((tab) => (
+                  {(["pages", "meta", "refs", "history"] as const).map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setSidebarTab(tab)}
-                      className={`flex-1 px-2 py-3 text-xs font-semibold text-center transition-all whitespace-nowrap border-none bg-transparent cursor-pointer ${sidebarTab === tab ? "text-teal-700 border-b-2 border-teal-500 bg-teal-50/30 dark:bg-teal-955/10 dark:text-teal-400 font-bold" : "text-slate-500 hover:text-slate-700"}`}
+                      className={`flex-1 px-1.5 py-3 text-[11px] font-semibold text-center transition-all whitespace-nowrap border-none bg-transparent cursor-pointer ${sidebarTab === tab ? "text-teal-700 border-b-2 border-teal-500 bg-teal-50/30 dark:bg-teal-955/10 dark:text-teal-400 font-bold" : "text-slate-500 hover:text-slate-700"}`}
                     >
-                      {tab === "pages" ? "Pages" : tab === "meta" ? "Meta" : "Refs"}
+                      {tab === "pages" ? "Pages" : tab === "meta" ? "Meta" : tab === "refs" ? "Refs" : "History"}
                     </button>
                   ))}
                 </div>
@@ -4265,6 +4496,21 @@ function ContentEditorContent() {
                         Optimize Pagination
                       </button>
                     </div>
+                  )}
+
+                  {sidebarTab === "history" && (
+                    <EditHistorySidebar
+                      entityId={String(id)}
+                      entityType={contentItem?.type === "Approach" ? "approach" : "medical_condition"}
+                      history={historyLog}
+                      versions={versionList}
+                      loading={isHistoryLoading}
+                      currentHtml={pages.join("")}
+                      adminUserName={currentAdmin?.name || author}
+                      onRestore={handleRestoreVersion}
+                      onSaveVersion={handleSaveVersion}
+                      isSavingVersion={isSavingVersion}
+                    />
                   )}
                 </div>
 
