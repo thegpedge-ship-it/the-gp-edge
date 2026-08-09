@@ -25,7 +25,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
     subtitle: extra.subtitle || "",
     system: extra.system || "Cardiology",
     category: row.category || "",
-    status: row.status === "published" ? "published" : row.status === "review" ? "review" : "draft",
+    status: row.deleted_at ? "archived" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft",
     lastUpdated: row.updated_at
       ? new Date(row.updated_at).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
       : new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
@@ -42,14 +42,17 @@ function mapRowToApproachCard(row: any): ApproachCard {
   };
 }
 
-export async function getApproachCardsFromDbAction(): Promise<ApproachCard[]> {
+export async function getApproachCardsFromDbAction(includeArchived: boolean = false): Promise<ApproachCard[]> {
   try {
+    const whereClause = includeArchived
+      ? `WHERE mc.kind = 'Approach'`
+      : `WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL`;
     const rows = await query(
       `SELECT mc.*, ci.content AS full_html
          FROM medical_conditions mc
          LEFT JOIN condition_items ci
            ON ci.condition_id = mc.id AND ci.item_kind = 'full_html'
-        WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL
+        ${whereClause}
         ORDER BY mc.is_free DESC, mc.updated_at DESC`
     );
     return rows.map(mapRowToApproachCard);

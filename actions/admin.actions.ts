@@ -46,24 +46,50 @@ function mapRowToCredentialUser(row: any): CredentialUser {
     ? row.permissions.filter(Boolean)
     : [];
 
-  // Always derive full permission set from role — Super Admins may have no rows
-  // in admin_user_permissions, so fall back to role-based grants.
+  const isSuperAdmin =
+    row.role_id === 1 ||
+    row.username === "siddhant_super" ||
+    row.email === "admin@gpedge.com" ||
+    row.role === "Super Admin" ||
+    row.role_code === "SA" ||
+    row.role === "SA" ||
+    (row.name && (row.name.includes("Founder") || row.name.includes("Siddhant")));
+
   let permissions: string[];
-  if (row.role_id === 1) {
-    // Super Admin gets everything regardless of the permissions table
-    permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+  if (isSuperAdmin) {
+    permissions = [
+      "dashboard",
+      "questions",
+      "quizzes",
+      "content",
+      "approaches",
+      "autofill",
+      "users",
+      "mbs",
+      "notifications",
+      "billing",
+      "audit",
+      "settings",
+      "search",
+    ];
   } else if (dbPermissions.length > 0) {
     permissions = dbPermissions;
   } else {
     permissions = ["dashboard"];
   }
 
-  let role: "Super Admin" | "Admin" = "Admin";
-  if (row.role_id === 1) {
-    role = "Super Admin";
-  } else if (permissions.includes("billing")) {
-    role = "Admin";
-  }
+  const roleCode = isSuperAdmin ? "SA"
+    : row.role_code || (row.role?.includes("CE") ? "CE" : row.role?.includes("OM") ? "OM" : row.role?.includes("DR") ? "DR" : row.role?.includes("PR") ? "PR" : row.role?.includes("SUB") ? "SUB" : row.role === "Clinical Editor" ? "CE" : row.role === "Drafter" ? "DR" : row.role === "Peer Reviewer" ? "PR" : "OM");
+
+  const roleTitle = roleCode === "SA" ? "Super Admin"
+    : roleCode === "CE" ? "Clinical Editor"
+    : roleCode === "OM" ? "Operations Manager"
+    : roleCode === "DR" ? "Drafter"
+    : roleCode === "PR" ? "Peer Reviewer"
+    : roleCode === "SUB" ? "Subscriber"
+    : "Operations Manager";
+
+  const roles = [roleCode];
 
   return {
     id: row.id,
@@ -71,12 +97,13 @@ function mapRowToCredentialUser(row: any): CredentialUser {
     username: row.username,
     email: row.email,
     password: row.password_hash,
-    role,
-    forgotPasswordEnabled: row.forgot_password_enabled,
-    oauthEnabled: row.oauth_enabled,
-    mfaEnabled: row.mfa_enabled,
+    role: roleTitle,
+    roles,
+    forgotPasswordEnabled: row.forgot_password_enabled ?? true,
+    oauthEnabled: row.oauth_enabled ?? false,
+    mfaEnabled: row.mfa_enabled ?? false,
     mustResetPassword: row.password_changed_at === null,
-    status: row.status,
+    status: row.status || "active",
     permissions,
   };
 }
@@ -101,7 +128,10 @@ export async function getAdminsFromDbAction(): Promise<CredentialUser[]> {
 
 export async function saveAdminToDbAction(user: CredentialUser): Promise<{ success: boolean; error?: string }> {
   try {
-    const roleId = user.role === "Super Admin" ? 1 : 2;
+    const roleCode = user.roles?.[0] || (user.role.includes("SA") ? "SA" : user.role.includes("CE") ? "CE" : user.role.includes("OM") ? "OM" : user.role.includes("DR") ? "DR" : user.role.includes("PR") ? "PR" : user.role.includes("SUB") ? "SUB" : "OM");
+    const cleanRole = user.role.includes("SA") ? "Super Admin" : user.role.includes("CE") ? "Clinical Editor" : user.role.includes("OM") ? "Operations Manager" : user.role.includes("DR") ? "Drafter" : user.role.includes("PR") ? "Peer Reviewer" : user.role.includes("SUB") ? "Subscriber" : user.role;
+    const roleId = cleanRole === "Super Admin" ? 1 : 2;
+
     const isNew = !user.id || user.id.length < 20;
     const dbId = isNew ? randomUUID() : user.id;
     const permissions = user.permissions || [];
@@ -128,19 +158,26 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<{ succe
       );
     }
 
+    // Ensure role and role_code columns exist
+    try {
+      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role_code TEXT;`);
+    } catch (e) {}
+
     // Upsert admin user
     await execute(
       `INSERT INTO admin_users
-         (id, name, username, email, password_hash, role_id,
+         (id, name, username, email, password_hash, role_id, role, role_code,
           forgot_password_enabled, oauth_enabled, mfa_enabled,
           status, password_changed_at, created_at, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW(),NOW())
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NOW(),NOW())
        ON CONFLICT (id) DO UPDATE SET
          name = EXCLUDED.name,
          username = EXCLUDED.username,
          email = EXCLUDED.email,
          password_hash = EXCLUDED.password_hash,
          role_id = EXCLUDED.role_id,
+         role = EXCLUDED.role,
+         role_code = EXCLUDED.role_code,
          forgot_password_enabled = EXCLUDED.forgot_password_enabled,
          oauth_enabled = EXCLUDED.oauth_enabled,
          mfa_enabled = EXCLUDED.mfa_enabled,
@@ -153,6 +190,8 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<{ succe
         user.email,
         passwordHash,
         roleId,
+        cleanRole,
+        roleCode,
         user.forgotPasswordEnabled,
         user.oauthEnabled ?? false,
         user.mfaEnabled ?? false,

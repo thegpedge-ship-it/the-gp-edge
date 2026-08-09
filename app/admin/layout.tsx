@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
         if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
           const defaultCreds = [
-            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA", "CE", "OM"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
             { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
             { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Operations Lead (OM)", username: "ops_lead", role: "Operations Manager", roles: ["OM"], email: "ops@gpedge.com", lastChanged: "5 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "ops123" }
           ];
@@ -112,7 +112,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       updateProfile(stored);
 
       const defaultCreds: CredentialUser[] = [
-        { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA", "CE", "OM"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+        { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
         { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
         { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Operations Lead (OM)", username: "ops_lead", role: "Operations Manager", roles: ["OM"], email: "ops@gpedge.com", lastChanged: "5 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "ops123" }
       ];

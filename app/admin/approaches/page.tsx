@@ -16,6 +16,7 @@ import {
   getApproachCardsFromDbAction,
   saveApproachCardToDbAction,
   deleteApproachCardFromDbAction,
+  restoreApproachCardFromDbAction,
   syncApproachCardsToDbAction,
   getTagsFromDbAction,
   addTagToDbAction,
@@ -81,6 +82,7 @@ export default function ApproachesPage() {
     canCreateItem,
     canEditDraft,
     canArchiveItem,
+    canRestoreItem,
     canToggleBilling,
     isOperationsManager,
     isDrafter,
@@ -92,6 +94,7 @@ export default function ApproachesPage() {
   const [cards, setCards] = useState<ApproachCard[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   // Modal states
 
 
@@ -399,7 +402,7 @@ export default function ApproachesPage() {
     setCards(sanitizedLocal);
 
     // 2. Fetch fresh data from Neon Database in background
-    getApproachCardsFromDbAction().then(dbCards => {
+    getApproachCardsFromDbAction(canRestoreItem).then(dbCards => {
       if (dbCards && dbCards.length > 0) {
         const sanitizedDb = dbCards.map(sanitize);
         setCards(sanitizedDb);
@@ -408,26 +411,40 @@ export default function ApproachesPage() {
         // Auto-migrate local storage data to database if DB is empty
       }
     });
-  }, []);
+  }, [canRestoreItem]);
 
   const filtered = useMemo(() => {
     return cards.filter(c => {
       const q = searchQuery.toLowerCase();
       const matchSearch = !q || c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.system.toLowerCase().includes(q);
       const matchSystem = systemFilter === "all" || c.system === systemFilter;
-      return matchSearch && matchSystem;
+      const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
+      return matchSearch && matchSystem && matchStatus;
     });
-  }, [cards, searchQuery, systemFilter]);
+  }, [cards, searchQuery, systemFilter, statusFilter]);
+
+  async function handleRestoreApproach(card: ApproachCard) {
+    if (!canRestoreItem) return;
+    const res = await restoreApproachCardFromDbAction(card.id, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to restore approach card.");
+      return;
+    }
+    const updated = cards.map((c) => (c.id === card.id ? { ...c, status: "published" as const } : c));
+    setCards(updated);
+    saveApproachCards(updated);
+    addUserNotification("Approach Restored", `Successfully restored "${card.title}" (SA-Only action).`, 1, "custom");
+  }
 
   async function deleteCard(id: string) {
     if (!canArchiveItem) return;
-    if (!confirm("Delete this approach card?")) return;
-    const updated = cards.filter(c => c.id !== id);
+    if (!confirm("Archive this approach card? Item will be hidden from production and retained in audit log.")) return;
+    const updated = cards.map(c => c.id === id ? { ...c, status: "archived" as const } : c);
     setCards(updated);
     saveApproachCards(updated);
-    addUserNotification("Approach Deleted", "The approach card has been removed.", 1, "custom");
+    addUserNotification("Approach Archived", "The approach card has been archived and hidden from production.", 1, "custom");
     
-    // Delete from Neon Postgres DB
+    // Soft-delete from Neon Postgres DB
     await deleteApproachCardFromDbAction(id);
   }
 
@@ -489,6 +506,18 @@ export default function ApproachesPage() {
           options={[{ value: "all", label: "All Systems" }, ...SYSTEMS.map(s => ({ value: s, label: s }))]}
           className="min-w-[160px]"
         />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Items" },
+            { value: "published", label: "Published" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "In Review" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="min-w-[160px]"
+        />
       </div>
 
       {/* Cards Grid */}
@@ -544,7 +573,7 @@ export default function ApproachesPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                    {canEditDraft && (
+                    {canEditDraft && card.status !== "archived" && (
                       <Link
                         href={`/admin/content/editor?id=${card.id}`}
                         onClick={(e) => e.stopPropagation()}
@@ -554,10 +583,20 @@ export default function ApproachesPage() {
                         <Lucide.Edit className="w-4 h-4" />
                       </Link>
                     )}
-                    {canArchiveItem && (
+                    {card.status === "archived" && canRestoreItem && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRestoreApproach(card); }}
+                        title="Restore Archived Approach Card (SA Only)"
+                        className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      >
+                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                        Restore
+                      </button>
+                    )}
+                    {canArchiveItem && card.status !== "archived" && (
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
-                        title="Delete Card"
+                        title="Archive Card"
                         className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
                       >
                         <Lucide.Trash2 className="w-4 h-4" />

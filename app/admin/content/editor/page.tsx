@@ -249,7 +249,7 @@ function ContentEditorContent() {
   const [docTitle, setDocTitle] = useState("");
   const [selectedSystem, setSelectedSystem] = useState("Endocrine");
   const [selectedCategory, setSelectedCategory] = useState("Chronic Disease");
-  const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published">("published");
+  const [contentStatus, setContentStatus] = useState<"draft" | "review" | "published" | "archived">("published");
   const [isFree, setIsFree] = useState(false);
   const [editTriggerCount, setEditTriggerCount] = useState(0);
   const [author, setAuthor] = useState("GP Edge Content Team");
@@ -2734,12 +2734,12 @@ function ContentEditorContent() {
   };
 
 
-  const handleSave = (statusOverride?: "published" | "draft" | "review") => {
+  const handleSave = (statusOverride?: "published" | "draft" | "review" | "archived") => {
     if (!docTitle.trim()) {
       alert("Please enter a content title.");
       return;
     }
-    const finalStatus: "published" | "draft" | "review" = statusOverride || contentStatus;
+    const finalStatus: "published" | "draft" | "review" | "archived" = statusOverride || contentStatus;
     if (statusOverride) setContentStatus(statusOverride);
     // Save all pages (update active page first)
     const allPages = saveCurrentPageToPages();

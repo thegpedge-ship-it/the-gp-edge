@@ -35,6 +35,7 @@ export default function ContentPage() {
     canEditDraft,
     canEditPostReview,
     canArchiveItem,
+    canRestoreItem,
     canToggleBilling,
     isOperationsManager,
     isDrafter,
@@ -108,7 +109,7 @@ export default function ContentPage() {
     const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.system.toLowerCase().includes(searchQuery.toLowerCase());
     const matchSystem = systemFilter === "all" || c.system === systemFilter;
     const matchType = typeFilter === "all" || c.type === typeFilter;
-    const matchStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
     return matchSearch && matchSystem && matchType && matchStatus;
   });
 
@@ -133,6 +134,28 @@ export default function ContentPage() {
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
+  };
+
+  const handleRestoreContent = async (item: MedicalContent) => {
+    if (!canRestoreItem) return;
+    try {
+      const res = await fetch(`/api/medical-content/${item.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminUser: currentAdmin }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to restore content.");
+        return;
+      }
+      const updated = content.map((c) => (c.id === item.id ? { ...c, status: "published" as const } : c));
+      setContent(updated);
+      saveMedicalContent(updated);
+      addUserNotification("Content Restored", `Successfully restored "${item.name}" (SA-Only action).`, 1, "custom");
+    } catch (err: any) {
+      alert("Error restoring content.");
+    }
   };
 
   const deleteContent = (id: string, name: string) => {
@@ -624,6 +647,18 @@ export default function ContentPage() {
           ]}
           className="w-48"
         />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Statuses" },
+            { value: "published", label: "Published" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "In Review" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="w-48"
+        />
       </motion.div>
 
       {/* Content cards grid */}
@@ -674,7 +709,7 @@ export default function ContentPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                  {canEditDraft && (
+                  {canEditDraft && item.status !== "archived" && (
                     <Link
                       href={`/admin/content/editor?id=${item.id}`}
                       onClick={(e) => e.stopPropagation()}
@@ -684,8 +719,18 @@ export default function ContentPage() {
                       <Lucide.Edit className="w-4 h-4" />
                     </Link>
                   )}
-                  {canArchiveItem && (
-                    <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
+                  {item.status === "archived" && canRestoreItem && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRestoreContent(item); }}
+                      className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      title="Restore Archived Content Item (SA Only)"
+                    >
+                      <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                      Restore
+                    </button>
+                  )}
+                  {canArchiveItem && item.status !== "archived" && (
+                    <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Archive Content">
                       <Lucide.Trash2 className="w-4 h-4" />
                     </button>
                   )}

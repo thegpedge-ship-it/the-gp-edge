@@ -18,7 +18,7 @@ export function useAdminRole() {
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    roles: ["SA", "CE", "OM"],
+    roles: ["SA"],
     status: "active",
     permissions: [
       "dashboard",
@@ -68,7 +68,7 @@ export function useAdminRole() {
               name: "Siddhant Udavant (Founder)",
               username: "siddhant_super",
               role: "Super Admin",
-              roles: ["SA", "CE", "OM"],
+              roles: ["SA"],
               email: "admin@gpedge.com",
               status: "active",
               forgotPasswordEnabled: true,
@@ -156,37 +156,45 @@ export function useAdminRole() {
     userRoles.includes("SA") ||
     userRoles.includes("Super Admin") ||
     currentAdmin.role === "Super Admin" ||
-    currentAdmin.role === "SA (Super Admin)";
+    currentAdmin.role === "SA (Super Admin)" ||
+    currentAdmin.role === "Admin" ||
+    currentAdmin.email === "admin@gpedge.com" ||
+    currentAdmin.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
 
   const isClinicalEditor =
-    userRoles.includes("CE") ||
-    userRoles.includes("Clinical Editor") ||
-    currentAdmin.role === "Clinical Editor" ||
-    currentAdmin.role === "CE (Clinical Editor)";
+    !isSuperAdmin &&
+    (userRoles.includes("CE") ||
+      userRoles.includes("Clinical Editor") ||
+      currentAdmin.role === "Clinical Editor" ||
+      currentAdmin.role === "CE (Clinical Editor)");
 
   const isOperationsManager =
-    userRoles.includes("OM") ||
-    userRoles.includes("Operations Manager") ||
-    currentAdmin.role === "Operations Manager" ||
-    currentAdmin.role === "OM (Operations Manager)";
+    !isSuperAdmin &&
+    (userRoles.includes("OM") ||
+      userRoles.includes("Operations Manager") ||
+      currentAdmin.role === "Operations Manager" ||
+      currentAdmin.role === "OM (Operations Manager)");
 
   const isDrafter =
-    userRoles.includes("DR") ||
-    userRoles.includes("Drafter") ||
-    currentAdmin.role === "Drafter" ||
-    currentAdmin.role === "DR (Drafter)";
+    !isSuperAdmin &&
+    (userRoles.includes("DR") ||
+      userRoles.includes("Drafter") ||
+      currentAdmin.role === "Drafter" ||
+      currentAdmin.role === "DR (Drafter)");
 
   const isPeerReviewer =
-    userRoles.includes("PR") ||
-    userRoles.includes("Peer Reviewer") ||
-    currentAdmin.role === "Peer Reviewer" ||
-    currentAdmin.role === "PR (Peer Reviewer)";
+    !isSuperAdmin &&
+    (userRoles.includes("PR") ||
+      userRoles.includes("Peer Reviewer") ||
+      currentAdmin.role === "Peer Reviewer" ||
+      currentAdmin.role === "PR (Peer Reviewer)");
 
   const isSubscriber =
-    userRoles.includes("SUB") ||
-    userRoles.includes("Subscriber") ||
-    currentAdmin.role === "Subscriber" ||
-    currentAdmin.role === "SUB (Subscriber)";
+    !isSuperAdmin &&
+    (userRoles.includes("SUB") ||
+      userRoles.includes("Subscriber") ||
+      currentAdmin.role === "Subscriber" ||
+      currentAdmin.role === "SUB (Subscriber)");
 
   // 3A Content Permission Matrix derived capabilities
   const canCreateItem = isSuperAdmin || isClinicalEditor;

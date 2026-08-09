@@ -422,7 +422,7 @@ export interface MedicalContent {
   category: string;
   system: string;
   type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note" | "Approach";
-  status: "published" | "draft" | "review";
+  status: "published" | "draft" | "review" | "archived";
   lastUpdated: string;
   author: string;
   references: number;
@@ -465,7 +465,11 @@ export async function fetchMedicalContent(): Promise<MedicalContent[]> {
       _medicalContentCache = json.data;
       _cacheLoaded = true;
       if (typeof window !== "undefined") {
-        localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(json.data));
+        try {
+          localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(json.data));
+        } catch (err) {
+          console.warn("localStorage quota exceeded for medical content cache:", err);
+        }
       }
       return json.data as MedicalContent[];
     }
@@ -501,7 +505,7 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
       return null;
     }
     const json = await res.json();
-    if (json.success) return json.id;
+    return json.success ? json.id : null;
   } catch (err) {
     console.error("saveMedicalContentItem error:", err);
   }
@@ -546,7 +550,11 @@ export async function updateMedicalContentItem(id: string, updates: Partial<Medi
 export function saveMedicalContent(content: MedicalContent[]): void {
   _medicalContentCache = content;
   if (typeof window !== "undefined") {
-    localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(content));
+    try {
+      localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(content));
+    } catch (err) {
+      console.warn("localStorage quota exceeded for medical content cache:", err);
+    }
   }
 }
 
@@ -566,7 +574,7 @@ export interface ApproachCard {
   subtitle: string;
   system: string;
   category: string;
-  status: "draft" | "review" | "published";
+  status: "draft" | "review" | "published" | "archived";
   lastUpdated: string;
   author: string;
   isPremium: boolean;
@@ -600,7 +608,13 @@ export function getApproachCards(): ApproachCard[] {
 
 export function saveApproachCards(cards: ApproachCard[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(cards));
+  try {
+    // Strip heavy fullHtml before storing in localStorage to prevent QuotaExceededError
+    const lightCards = cards.map(({ fullHtml, ...rest }) => rest);
+    localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(lightCards));
+  } catch (err) {
+    console.warn("localStorage quota exceeded for approach cards cache:", err);
+  }
 }
 
 export interface AutofillTemplate {

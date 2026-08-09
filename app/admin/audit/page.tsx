@@ -203,12 +203,28 @@ export default function AuditPage() {
 
             const lastActiveAt = lastActiveMap[u.id] || u.lastActiveAt || defaultPastTimes[u.id] || (u.id === activeId ? Date.now() : undefined);
 
+            const canonicalTitle = uIsSA ? "Super Admin"
+              : uIsCE ? "Clinical Editor"
+              : uIsOM ? "Operations Manager"
+              : uIsDR ? "Drafter"
+              : uIsPR ? "Peer Reviewer"
+              : uIsSUB ? "Subscriber"
+              : "Operations Manager";
+
+            const canonicalCode = uIsSA ? "SA"
+              : uIsCE ? "CE"
+              : uIsOM ? "OM"
+              : uIsDR ? "DR"
+              : uIsPR ? "PR"
+              : uIsSUB ? "SUB"
+              : "OM";
+
             return {
               id: u.id,
               name: u.name,
               email: u.email,
-              role: u.role,
-              roles: u.roles || [],
+              role: canonicalTitle,
+              roles: [canonicalCode],
               permissions,
               lastLogin: u.id === activeId ? "Active now" : getRelativeLastActive(lastActiveAt, u.id === activeId),
               lastActiveAt,
@@ -282,12 +298,24 @@ export default function AuditPage() {
     );
   }
 
+  function getCanonicalRoleOptionValue(role: string, roles?: string[]): string {
+    const r = role || (roles && roles[0]) || "";
+    if (r.includes("SA") || r === "Super Admin" || roles?.includes("SA")) return "SA (Super Admin)";
+    if (r.includes("CE") || r === "Clinical Editor" || roles?.includes("CE")) return "CE (Clinical Editor)";
+    if (r.includes("OM") || r === "Operations Manager" || roles?.includes("OM")) return "OM (Operations Manager)";
+    if (r.includes("DR") || r === "Drafter" || roles?.includes("DR")) return "DR (Drafter)";
+    if (r.includes("PR") || r === "Peer Reviewer" || roles?.includes("PR")) return "PR (Peer Reviewer)";
+    if (r.includes("SUB") || r === "Subscriber" || roles?.includes("SUB")) return "SUB (Subscriber)";
+    return "OM (Operations Manager)";
+  }
+
   /* ── Handlers ── */
   function openEdit(admin: AdminUser) {
     const canEditTarget = isSuperAdmin || (isOperationsManager && isContributorAccount(admin));
     if (!canEditTarget || isReadOnly) return;
     setEditingAdmin(admin);
-    setEditRole(admin.role);
+    const optionVal = getCanonicalRoleOptionValue(admin.role, admin.roles);
+    setEditRole(optionVal);
     setEditPermissions([...admin.permissions]);
     setEditName(admin.name);
     setEditEmail(admin.email);
@@ -311,14 +339,20 @@ export default function AuditPage() {
       return;
     }
 
-    const isTargetSuperAdmin = editRole === "Super Admin" || editRole.includes("SA");
+    const isTargetSuperAdmin = editRole.includes("SA") || editRole === "Super Admin";
     const derivedRoles = editRole.includes("SA") ? ["SA"] :
       editRole.includes("CE") ? ["CE"] :
       editRole.includes("OM") ? ["OM"] :
       editRole.includes("DR") ? ["DR"] :
       editRole.includes("PR") ? ["PR"] :
-      editRole.includes("SUB") ? ["SUB"] :
-      editRole === "Super Admin" ? ["SA", "CE", "OM"] : [editRole];
+      editRole.includes("SUB") ? ["SUB"] : ["OM"];
+
+    const cleanRoleTitle = editRole.includes("SA") ? "Super Admin" :
+      editRole.includes("CE") ? "Clinical Editor" :
+      editRole.includes("OM") ? "Operations Manager" :
+      editRole.includes("DR") ? "Drafter" :
+      editRole.includes("PR") ? "Peer Reviewer" :
+      editRole.includes("SUB") ? "Subscriber" : "Operations Manager";
 
     // Under 3G, OM cannot alter permission bundles — force preset permissions if non-SA
     const finalPermissions = isSuperAdmin ? [...editPermissions] : [...(ROLE_PRESETS[editRole] || editPermissions)];
@@ -328,7 +362,7 @@ export default function AuditPage() {
       name: editName.trim(),
       email: editEmail.trim(),
       username: editUsername.trim(),
-      role: editRole,
+      role: cleanRoleTitle,
       roles: derivedRoles,
       permissions: finalPermissions,
       lastChanged: "Just now",
@@ -509,17 +543,17 @@ export default function AuditPage() {
   }
 
   const ALL_ROLE_OPTIONS = [
-    { value: "SA (Super Admin)", label: "SA — Super Admin (Founder / Clinical Director)" },
-    { value: "CE (Clinical Editor)", label: "CE — Clinical Editor (Senior GP)" },
-    { value: "OM (Operations Manager)", label: "OM — Operations Manager (Pipeline & Finance)" },
-    { value: "DR (Drafter)", label: "DR — Drafter (Assigned Items)" },
-    { value: "PR (Peer Reviewer)", label: "PR — Peer Reviewer (Review Management)" },
-    { value: "SUB (Subscriber)", label: "SUB — Subscriber" },
+    { value: "SA (Super Admin)", label: "SA — Section 3G Super Admin (Full Privilege Management)" },
+    { value: "CE (Clinical Editor)", label: "CE — Section 3A Clinical Editor (Publishing & Reference Attachment)" },
+    { value: "OM (Operations Manager)", label: "OM — Section 3 Operations Manager (Pipeline & Contributor Delegation)" },
+    { value: "DR (Drafter)", label: "DR — Section 3A Drafter (Assigned Draft Writing)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Section 3A Peer Reviewer (Review Task Management)" },
+    { value: "SUB (Subscriber)", label: "SUB — Section 3 Subscriber (Read Only Access)" },
   ];
 
   const CONTRIBUTOR_ROLE_OPTIONS = [
-    { value: "DR (Drafter)", label: "DR — Drafter (Assigned Items)" },
-    { value: "PR (Peer Reviewer)", label: "PR — Peer Reviewer (Review Management)" },
+    { value: "DR (Drafter)", label: "DR — Section 3A Drafter (Assigned Draft Writing)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Section 3A Peer Reviewer (Review Task Management)" },
   ];
 
   const addRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;

@@ -216,7 +216,7 @@ export async function syncQuizToDbAction(
         [quiz.name]
       );
       if (existingMock) {
-        await execute(`DELETE FROM mock_tests WHERE id = $1`, [existingMock.id]);
+        await execute(`UPDATE mock_tests SET deleted_at = NOW() WHERE id = $1`, [existingMock.id]);
       }
     }
 
@@ -312,25 +312,82 @@ export async function fetchQuizzesFromDbAction(): Promise<
 /**
  * Deletes a quiz from both quizzes and mock_tests tables.
  */
-export async function deleteQuizFromDbAction(quizName: string) {
+export async function deleteQuizFromDbAction(quizName: string, adminUser?: PermissionUser) {
   try {
-    const quiz = await queryOne<{ id: string }>(`SELECT id FROM quizzes WHERE name = $1 LIMIT 1`, [quizName]);
-    const mock = await queryOne<{ id: string }>(`SELECT id FROM mock_tests WHERE name = $1 LIMIT 1`, [quizName]);
+    const quiz = await queryOne<{ id: string }>(`SELECT id FROM quizzes WHERE name = $1 AND deleted_at IS NULL LIMIT 1`, [quizName]);
+    const mock = await queryOne<{ id: string }>(`SELECT id FROM mock_tests WHERE name = $1 AND deleted_at IS NULL LIMIT 1`, [quizName]);
+
+    if (adminUser) {
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: "archive_item",
+        item: { id: quiz?.id || mock?.id || quizName, type: "quiz" },
+      });
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+    }
 
     if (quiz) {
-      await execute(`DELETE FROM test_attempts WHERE quiz_id = $1`, [quiz.id]);
-      await execute(`DELETE FROM quizzes WHERE id = $1`, [quiz.id]);
+      await execute(`UPDATE quizzes SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`, [quiz.id]);
     }
     if (mock) {
-      await execute(`DELETE FROM test_attempts WHERE mock_test_id = $1`, [mock.id]);
-      await execute(`DELETE FROM mock_tests WHERE id = $1`, [mock.id]);
+      await execute(`UPDATE mock_tests SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`, [mock.id]);
+    }
+
+    if (adminUser) {
+      await recordAuditLog({
+        adminUserId: adminUser.id,
+        action: "archive",
+        category: "quiz",
+        entityType: "quiz",
+        entityId: quiz?.id || mock?.id || quizName,
+        metadata: { name: quizName, archivedBy: adminUser.name },
+      });
     }
 
     revalidatePath("/exam-prep");
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error: any) {
-    console.error("Failed to delete quiz from database:", error);
+    console.error("Failed to archive quiz in database:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Restores an archived quiz from the database.
+ * SA-ONLY (Super Admin)!
+ */
+export async function restoreQuizInDbAction(quizName: string, adminUser: PermissionUser) {
+  try {
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id: quizName, type: "quiz" },
+    });
+
+    if (!permCheck.allowed) {
+      return { success: false, error: permCheck.reason };
+    }
+
+    await execute(`UPDATE quizzes SET deleted_at = NULL, updated_at = NOW() WHERE name = $1`, [quizName]);
+    await execute(`UPDATE mock_tests SET deleted_at = NULL, updated_at = NOW() WHERE name = $1`, [quizName]);
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "quiz",
+      entityType: "quiz",
+      entityId: quizName,
+      metadata: { name: quizName, restoredBy: adminUser.name },
+    });
+
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to restore quiz in database:", error);
     return { success: false, error: error.message };
   }
 }
