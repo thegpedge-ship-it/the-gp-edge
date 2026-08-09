@@ -9,24 +9,31 @@ import React, { useMemo } from "react";
 type DiffOp = { type: "equal" | "insert" | "delete"; value: string };
 
 function tokenize(text: string): string[] {
-  // Split on whitespace boundaries, keeping delimiters
-  return text.split(/(\s+)/);
+  // Fine-grained tokenization: split into words/letters, individual punctuation symbols (e.g. '.', ',', '-'), and whitespace
+  return text.match(/[\w']+|[^\w\s]|\s+/g) ?? [];
 }
 
 function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/h[1-6]>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .trim();
 }
 
 function computeDiff(oldText: string, newText: string): DiffOp[] {
   const a = tokenize(oldText);
   const b = tokenize(newText);
-
-  // Simple LCS-based diff (O(n*m) — acceptable for typical edit sizes)
   const m = a.length;
   const n = b.length;
 
-  // Build LCS table
-  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  // LCS table
+  const dp: number[][] = Array.from({ length: m + 1 }, () =>
+    new Array(n + 1).fill(0)
+  );
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       if (a[i - 1] === b[j - 1]) {
@@ -58,19 +65,52 @@ function computeDiff(oldText: string, newText: string): DiffOp[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Hunk extraction — only changed chunks + surrounding context
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CONTEXT_WORDS = 18; // words of context around each change
+
+type Hunk = DiffOp[];
+
+function extractHunks(ops: DiffOp[]): Hunk[] {
+  // Find indices of all non-equal ops
+  const changeIdxs: number[] = [];
+  ops.forEach((op, i) => {
+    if (op.type !== "equal") changeIdxs.push(i);
+  });
+
+  if (changeIdxs.length === 0) return [];
+
+  // Build ranges [start, end] in token index space with context
+  const ranges: [number, number][] = [];
+  let start = Math.max(0, changeIdxs[0] - CONTEXT_WORDS);
+  let end = Math.min(ops.length - 1, changeIdxs[0] + CONTEXT_WORDS);
+
+  for (let k = 1; k < changeIdxs.length; k++) {
+    const nextStart = Math.max(0, changeIdxs[k] - CONTEXT_WORDS);
+    if (nextStart <= end + 1) {
+      // Merge with previous range
+      end = Math.min(ops.length - 1, changeIdxs[k] + CONTEXT_WORDS);
+    } else {
+      ranges.push([start, end]);
+      start = nextStart;
+      end = Math.min(ops.length - 1, changeIdxs[k] + CONTEXT_WORDS);
+    }
+  }
+  ranges.push([start, end]);
+
+  return ranges.map(([s, e]) => ops.slice(s, e + 1));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Component props
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface DiffViewerProps {
-  /** Old (before) content — HTML or plain text */
   oldContent: string;
-  /** New (after) content — HTML or plain text */
   newContent: string;
-  /** If true, strip HTML tags before diffing */
   stripHtml?: boolean;
-  /** Display mode */
-  mode?: "inline" | "sidebyside";
-  /** Max chars to show (truncates very long diffs for performance) */
+  mode?: "inline" | "sidebyside" | "hunks";
   maxChars?: number;
   className?: string;
 }
@@ -83,166 +123,222 @@ export default function DiffViewer({
   oldContent,
   newContent,
   stripHtml = true,
-  mode = "inline",
-  maxChars = 8000,
+  mode = "hunks",
+  maxChars = 12000,
   className = "",
 }: DiffViewerProps) {
-  const { ops, oldText, newText } = useMemo(() => {
+  const { ops, hunks, stats } = useMemo(() => {
     let a = oldContent || "";
     let b = newContent || "";
     if (stripHtml) {
       a = stripHtmlTags(a);
       b = stripHtmlTags(b);
     }
-    // Truncate for very large documents
     if (a.length > maxChars) a = a.slice(0, maxChars) + "… [truncated]";
     if (b.length > maxChars) b = b.slice(0, maxChars) + "… [truncated]";
 
     const ops = computeDiff(a, b);
-    return { ops, oldText: a, newText: b };
+    const hunks = extractHunks(ops);
+    const added = ops.filter((o) => o.type === "insert").reduce((s, o) => s + o.value.trim().length, 0);
+    const removed = ops.filter((o) => o.type === "delete").reduce((s, o) => s + o.value.trim().length, 0);
+    return { ops, hunks, stats: { added, removed } };
   }, [oldContent, newContent, stripHtml, maxChars]);
 
   const hasChanges = ops.some((op) => op.type !== "equal");
 
   if (!hasChanges) {
     return (
-      <div className={`text-xs text-slate-400 italic py-2 ${className}`}>
-        No text differences detected.
+      <div className={`flex flex-col items-center justify-center py-10 gap-3 ${className}`}>
+        <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/40 flex items-center justify-center">
+          <svg className="w-5 h-5 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">No differences found</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">This version is identical to the current content.</p>
       </div>
     );
   }
 
+  // Summary bar
+  const summaryBar = (
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-[11px] font-semibold mb-4">
+      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+        +{stats.added} chars added
+      </div>
+      <div className="w-px h-3 bg-slate-300 dark:bg-slate-600" />
+      <div className="flex items-center gap-1.5 text-red-500 dark:text-red-400">
+        <span className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+        −{stats.removed} chars removed
+      </div>
+      <div className="w-px h-3 bg-slate-300 dark:bg-slate-600" />
+      <div className="text-slate-400 dark:text-slate-500">
+        {hunks.length} changed {hunks.length === 1 ? "section" : "sections"}
+      </div>
+    </div>
+  );
+
   if (mode === "sidebyside") {
-    return <SideBySide ops={ops} oldText={oldText} newText={newText} className={className} />;
+    return (
+      <div className={className}>
+        {summaryBar}
+        <HunksSideBySide hunks={hunks} />
+      </div>
+    );
   }
 
-  return <InlineDiff ops={ops} className={className} />;
+  if (mode === "hunks" || mode === "inline") {
+    return (
+      <div className={className}>
+        {summaryBar}
+        <HunksInline hunks={hunks} />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inline diff view
+// Hunks inline view — shows only changed regions with context
 // ─────────────────────────────────────────────────────────────────────────────
 
-function InlineDiff({ ops, className }: { ops: DiffOp[]; className: string }) {
+function HunksInline({ hunks }: { hunks: Hunk[] }) {
   return (
-    <div className={`text-[13px] leading-relaxed font-mono break-words ${className}`}>
-      {ops.map((op, i) => {
-        if (op.type === "equal") {
-          return (
-            <span key={i} className="text-slate-600 dark:text-slate-400">
-              {op.value}
+    <div className="space-y-3">
+      {hunks.map((hunk, hi) => (
+        <div
+          key={hi}
+          className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+        >
+          {/* Hunk label */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">
+              Change {hi + 1}
             </span>
-          );
-        }
-        if (op.type === "insert") {
-          return (
-            <ins
-              key={i}
-              className="no-underline bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300 rounded px-0.5 mx-px"
-              title="Added"
-            >
-              {op.value}
-            </ins>
-          );
-        }
-        // delete
-        return (
-          <del
-            key={i}
-            className="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 rounded px-0.5 mx-px"
-            title="Removed"
-          >
-            {op.value}
-          </del>
-        );
-      })}
+          </div>
+          <div className="p-3 text-[12.5px] leading-relaxed break-words font-mono text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+            {hunk.map((op, i) => {
+              if (op.type === "equal") {
+                return (
+                  <span key={i} className="text-slate-500 dark:text-slate-500">
+                    {op.value}
+                  </span>
+                );
+              }
+              if (op.type === "insert") {
+                return (
+                  <ins
+                    key={i}
+                    className="no-underline bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded-sm px-0.5 mx-px"
+                    title="Added"
+                  >
+                    {op.value}
+                  </ins>
+                );
+              }
+              return (
+                <del
+                  key={i}
+                  className="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-300 rounded-sm px-0.5 mx-px"
+                  title="Removed"
+                >
+                  {op.value}
+                </del>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Side-by-side diff view
+// Hunks side-by-side view
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SideBySide({
-  ops,
-  oldText,
-  newText,
-  className,
-}: {
-  ops: DiffOp[];
-  oldText: string;
-  newText: string;
-  className: string;
-}) {
-  // Build old and new annotated strings
-  const oldParts = ops
-    .filter((op) => op.type !== "insert")
-    .map((op, i) => {
-      if (op.type === "equal") {
-        return (
-          <span key={i} className="text-slate-600 dark:text-slate-400">
-            {op.value}
-          </span>
-        );
-      }
-      return (
-        <del
-          key={i}
-          className="bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded px-0.5"
-        >
-          {op.value}
-        </del>
-      );
-    });
-
-  const newParts = ops
-    .filter((op) => op.type !== "delete")
-    .map((op, i) => {
-      if (op.type === "equal") {
-        return (
-          <span key={i} className="text-slate-600 dark:text-slate-400">
-            {op.value}
-          </span>
-        );
-      }
-      return (
-        <ins
-          key={i}
-          className="no-underline bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded px-0.5"
-        >
-          {op.value}
-        </ins>
-      );
-    });
-
+function HunksSideBySide({ hunks }: { hunks: Hunk[] }) {
   return (
-    <div className={`grid grid-cols-2 gap-3 ${className}`}>
-      {/* Before */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-2 h-2 rounded-full bg-red-400" />
-          <span className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
-            Before
-          </span>
-        </div>
-        <div className="bg-red-50/60 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 rounded-xl p-3 text-[12px] leading-relaxed font-mono break-words max-h-48 overflow-y-auto">
-          {oldParts}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {hunks.map((hunk, hi) => {
+        const oldParts = hunk
+          .filter((op) => op.type !== "insert")
+          .map((op, i) => {
+            if (op.type === "equal") {
+              return (
+                <span key={i} className="text-slate-500 dark:text-slate-500">
+                  {op.value}
+                </span>
+              );
+            }
+            return (
+              <del
+                key={i}
+                className="bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-300 rounded-sm px-0.5"
+              >
+                {op.value}
+              </del>
+            );
+          });
 
-      {/* After */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-            After
-          </span>
-        </div>
-        <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-3 text-[12px] leading-relaxed font-mono break-words max-h-48 overflow-y-auto">
-          {newParts}
-        </div>
-      </div>
+        const newParts = hunk
+          .filter((op) => op.type !== "delete")
+          .map((op, i) => {
+            if (op.type === "equal") {
+              return (
+                <span key={i} className="text-slate-500 dark:text-slate-500">
+                  {op.value}
+                </span>
+              );
+            }
+            return (
+              <ins
+                key={i}
+                className="no-underline bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 rounded-sm px-0.5"
+              >
+                {op.value}
+              </ins>
+            );
+          });
+
+        return (
+          <div
+            key={hi}
+            className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700">
+              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono">
+                Change {hi + 1}
+              </span>
+            </div>
+            <div className="grid grid-cols-2">
+              {/* Before */}
+              <div className="border-r border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-red-100 dark:border-red-900/30 bg-red-50/40 dark:bg-red-950/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                  <span className="text-[9px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider">Before</span>
+                </div>
+                <div className="p-3 text-[12px] leading-relaxed font-mono break-words whitespace-pre-wrap text-slate-600 dark:text-slate-400 bg-red-50/20 dark:bg-red-950/5">
+                  {oldParts}
+                </div>
+              </div>
+
+              {/* After */}
+              <div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/40 dark:bg-emerald-950/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">After</span>
+                </div>
+                <div className="p-3 text-[12px] leading-relaxed font-mono break-words whitespace-pre-wrap text-slate-600 dark:text-slate-400 bg-emerald-50/20 dark:bg-emerald-950/5">
+                  {newParts}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -251,17 +347,22 @@ function SideBySide({
 // Stats helper — exported for use in sidebar
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function diffStats(oldContent: string, newContent: string): {
-  added: number;
-  removed: number;
-  unchanged: number;
-} {
+export function diffStats(
+  oldContent: string,
+  newContent: string
+): { added: number; removed: number; unchanged: number } {
   const a = stripHtmlTags(oldContent || "");
   const b = stripHtmlTags(newContent || "");
   const ops = computeDiff(a, b);
   return {
-    added: ops.filter((op) => op.type === "insert").reduce((s, op) => s + op.value.length, 0),
-    removed: ops.filter((op) => op.type === "delete").reduce((s, op) => s + op.value.length, 0),
-    unchanged: ops.filter((op) => op.type === "equal").reduce((s, op) => s + op.value.length, 0),
+    added: ops
+      .filter((op) => op.type === "insert")
+      .reduce((s, op) => s + op.value.length, 0),
+    removed: ops
+      .filter((op) => op.type === "delete")
+      .reduce((s, op) => s + op.value.length, 0),
+    unchanged: ops
+      .filter((op) => op.type === "equal")
+      .reduce((s, op) => s + op.value.length, 0),
   };
 }

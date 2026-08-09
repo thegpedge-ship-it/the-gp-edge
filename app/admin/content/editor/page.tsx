@@ -1610,9 +1610,18 @@ function ContentEditorContent() {
         author,
         fullHtml: combinedHtml,
       }).then(() => {
-        // Auto-create history entry and version snapshot on content change
-        if (previousHtmlRef.current && previousHtmlRef.current !== combinedHtml) {
+        // Establish baseline if empty
+        if (!previousHtmlRef.current) {
+          previousHtmlRef.current = combinedHtml;
+          return;
+        }
+
+        // Auto-create history entry and version snapshot on any content change
+        if (previousHtmlRef.current !== combinedHtml) {
+          const oldHtml = previousHtmlRef.current;
+          previousHtmlRef.current = combinedHtml;
           const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
+
           fetch(`/api/content-history/${id}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1621,7 +1630,7 @@ function ContentEditorContent() {
               entityType,
               fieldName: "full_html",
               changeType: "modified",
-              oldContent: previousHtmlRef.current,
+              oldContent: oldHtml,
               newContent: combinedHtml,
               adminUserId: currentAdmin?.id,
               adminUserName: currentAdmin?.name || author,
@@ -1645,8 +1654,6 @@ function ContentEditorContent() {
               createdByName: currentAdmin?.name || author,
             }),
           }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
-
-          previousHtmlRef.current = combinedHtml;
         }
       }).catch(console.error);
 
@@ -2885,8 +2892,8 @@ function ContentEditorContent() {
     setIsHistoryLoading(true);
     try {
       const [histRes, verRes] = await Promise.all([
-        fetch(`/api/content-history/${entityId}?resource=history&type=${entityType}`).then((r) => r.json()),
-        fetch(`/api/content-history/${entityId}?resource=versions&type=${entityType}`).then((r) => r.json()),
+        fetch(`/api/content-history/${entityId}?resource=history&type=${entityType}`).then((r) => r.ok ? r.json() : { success: false }),
+        fetch(`/api/content-history/${entityId}?resource=versions&type=${entityType}`).then((r) => r.ok ? r.json() : { success: false }),
       ]);
       if (histRes.success && histRes.history) {
         setHistoryLog(histRes.history);

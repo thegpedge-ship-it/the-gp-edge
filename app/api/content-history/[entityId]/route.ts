@@ -5,6 +5,51 @@ import { recordAuditLog } from "@/lib/relationalPermissions";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
+let tablesInitialized = false;
+async function ensureTablesExist() {
+  if (tablesInitialized) return;
+  try {
+    await execute(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'edit_change_type') THEN
+          CREATE TYPE edit_change_type AS ENUM ('added','deleted','modified','status_change','meta_change','restored');
+        END IF;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS content_edit_history (
+        id              BIGSERIAL PRIMARY KEY,
+        entity_id       TEXT NOT NULL,
+        entity_type     TEXT NOT NULL,
+        field_name      TEXT NOT NULL,
+        change_type     edit_change_type NOT NULL,
+        old_content     TEXT,
+        new_content     TEXT,
+        admin_user_id   TEXT,
+        admin_user_name TEXT,
+        session_id      TEXT,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS content_versions (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        entity_id       TEXT NOT NULL,
+        entity_type     TEXT NOT NULL,
+        version_number  INT NOT NULL,
+        label           TEXT,
+        full_html       TEXT,
+        metadata        JSONB,
+        created_by      TEXT,
+        created_by_name TEXT,
+        restored_from   UUID,
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+    tablesInitialized = true;
+  } catch (e) {
+    console.error("Auto-init content history tables error:", e);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/content-history/[entityId]
 // ?type=medical_condition|approach   (default: medical_condition)
@@ -17,6 +62,7 @@ export async function GET(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
+    await ensureTablesExist();
     const { entityId } = await params;
     const { searchParams } = req.nextUrl;
     const entityType = searchParams.get("type") || "medical_condition";
@@ -114,6 +160,7 @@ export async function POST(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
+    await ensureTablesExist();
     const { entityId } = await params;
     const body = await req.json();
     const { resource = "history" } = body;

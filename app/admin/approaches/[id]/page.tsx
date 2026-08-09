@@ -165,8 +165,8 @@ export default function ApproachDetailPage() {
           // Load history log
           setLoadingHistory(true);
           Promise.all([
-            fetch(`/api/content-history/${approachId}?resource=history&type=approach`).then(r => r.json()),
-            fetch(`/api/content-history/${approachId}?resource=versions&type=approach`).then(r => r.json()),
+            fetch(`/api/content-history/${approachId}?resource=history&type=approach`).then(r => r.ok ? r.json() : { success: false }),
+            fetch(`/api/content-history/${approachId}?resource=versions&type=approach`).then(r => r.ok ? r.json() : { success: false }),
           ]).then(([hRes, vRes]) => {
             if (hRes.success && hRes.history) setHistoryLog(hRes.history);
             if (vRes.success && vRes.versions) setVersionList(vRes.versions);

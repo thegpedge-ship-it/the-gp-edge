@@ -1,10 +1,87 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import DiffViewer, { diffStats } from "./DiffViewer";
 import VersionPreviewModal, { VersionInfo } from "./VersionPreviewModal";
+import EditDiffModal from "./EditDiffModal";
+
+// ─── Themed inline select ────────────────────────────────────────────────────
+function ThemeSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((p) => !p)}
+        className="flex items-center gap-1.5 pl-2.5 pr-2 py-1 text-[10px] font-semibold rounded-lg border border-teal-200/80 dark:border-teal-800/60 bg-teal-50/60 dark:bg-teal-950/20 text-teal-800 dark:text-teal-300 hover:border-teal-400 dark:hover:border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950/40 transition-all whitespace-nowrap select-none"
+      >
+        <span className="truncate max-w-[90px]">{selected?.label ?? value}</span>
+        <Lucide.ChevronDown
+          className={`w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0 transition-transform duration-150 ${
+            open ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 2, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.96 }}
+            transition={{ duration: 0.13, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute left-0 top-full z-50 min-w-[130px] rounded-xl overflow-hidden shadow-xl border border-teal-200/70 dark:border-teal-800/60 bg-white dark:bg-slate-900 backdrop-blur-xl"
+          >
+            <div className="p-1">
+              {options.map((opt) => {
+                const isActive = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { onChange(opt.value); setOpen(false); }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[10px] font-semibold rounded-lg text-left transition-colors ${
+                      isActive
+                        ? "bg-teal-100/80 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300"
+                        : "text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/30 hover:text-teal-800 dark:hover:text-teal-200"
+                    }`}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isActive && (
+                      <Lucide.Check className="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -160,8 +237,13 @@ function avatarColor(name: string): string {
 // History Entry Row
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HistoryRow({ entry }: { entry: EditHistoryEntry }) {
-  const [expanded, setExpanded] = useState(false);
+function HistoryRow({
+  entry,
+  onInspect,
+}: {
+  entry: EditHistoryEntry;
+  onInspect: (entry: EditHistoryEntry) => void;
+}) {
   const config = CHANGE_TYPE_CONFIG[entry.changeType] ?? CHANGE_TYPE_CONFIG.modified;
   const Icon = config.icon;
 
@@ -175,124 +257,72 @@ function HistoryRow({ entry }: { entry: EditHistoryEntry }) {
   return (
     <div className="relative group">
       {/* Timeline dot */}
-      <div className={`absolute left-[7px] top-[18px] w-2 h-2 rounded-full ${config.dotClass} ring-2 ring-white dark:ring-slate-900`} />
+      <div className={`absolute left-[7px] top-[16px] w-2 h-2 rounded-full ${config.dotClass} ring-2 ring-white dark:ring-slate-900`} />
 
       <div
-        className={`ml-6 rounded-xl border transition-all cursor-pointer ${
-          expanded
-            ? "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/80 shadow-sm"
-            : "border-transparent hover:border-slate-200 dark:hover:border-slate-700 hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
-        }`}
-        onClick={() => hasContent && setExpanded(!expanded)}
+        onClick={() => hasContent && onInspect(entry)}
+        className="ml-6 rounded-xl border border-slate-100 dark:border-slate-800/80 hover:border-teal-200 dark:hover:border-teal-800 bg-white dark:bg-slate-900/60 p-2.5 transition-all cursor-pointer shadow-2xs hover:shadow-xs group/card"
       >
-        {/* Row header */}
-        <div className="flex items-start gap-2.5 p-2.5">
-          {/* User avatar */}
-          <div
-            className={`flex items-center justify-center w-6 h-6 rounded-full ${avatarColor(entry.adminUserName)} text-white text-[9px] font-bold shrink-0 mt-0.5`}
-            title={entry.adminUserName}
-          >
-            {getUserInitials(entry.adminUserName)}
-          </div>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* User avatar */}
+            <div
+              className={`flex items-center justify-center w-5 h-5 rounded-full ${avatarColor(entry.adminUserName)} text-white text-[8px] font-bold shrink-0`}
+              title={entry.adminUserName}
+            >
+              {getUserInitials(entry.adminUserName)}
+            </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate max-w-[90px]">
-                {entry.adminUserName}
-              </span>
-              <span
-                className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${config.badgeClass}`}
-              >
-                <Icon className="w-2.5 h-2.5" />
-                {config.label}
-              </span>
-              <span className="text-[10px] font-medium text-slate-400">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
+                  {entry.adminUserName}
+                </span>
+                <span className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold px-1.5 py-0.2 rounded-full border ${config.badgeClass}`}>
+                  <Icon className="w-2.5 h-2.5" />
+                  {config.label}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                 {fieldLabel(entry.fieldName)}
               </span>
             </div>
+          </div>
 
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[10px] text-slate-400">{relativeTime(entry.createdAt)}</span>
-              {stats && (
-                <>
-                  {stats.added > 0 && (
-                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      +{stats.added}
-                    </span>
-                  )}
-                  {stats.removed > 0 && (
-                    <span className="text-[9px] font-semibold text-red-600 dark:text-red-400">
-                      -{stats.removed}
-                    </span>
-                  )}
-                </>
-              )}
-            </div>
+          <div className="text-right shrink-0">
+            <span className="text-[9.5px] text-slate-400 block">{relativeTime(entry.createdAt)}</span>
+          </div>
+        </div>
 
-            {/* Quick preview for non-html fields */}
-            {!isContentChange && entry.newContent && !expanded && (
-              <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-                {entry.oldContent ? (
-                  <>
-                    <span className="line-through opacity-60">{entry.oldContent}</span>
-                    {" → "}
-                    <span className="font-medium">{entry.newContent}</span>
-                  </>
-                ) : (
-                  <span className="font-medium">{entry.newContent}</span>
+        {/* Change summary stats badge */}
+        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 text-[10px]">
+          <div className="flex items-center gap-1.5">
+            {stats ? (
+              <>
+                {stats.added > 0 && (
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[9px]">
+                    +{stats.added}
+                  </span>
                 )}
-              </p>
+                {stats.removed > 0 && (
+                  <span className="font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded text-[9px]">
+                    −{stats.removed}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-slate-400 text-[9.5px] truncate max-w-[120px]">
+                {entry.newContent ? `Updated ${fieldLabel(entry.fieldName)}` : "Modified"}
+              </span>
             )}
           </div>
 
           {hasContent && (
-            <Lucide.ChevronDown
-              className={`w-3 h-3 text-slate-400 shrink-0 mt-1 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
-            />
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-teal-600 dark:text-teal-400 group-hover/card:underline">
+              Inspect <Lucide.ExternalLink className="w-2.5 h-2.5" />
+            </span>
           )}
         </div>
-
-        {/* Expanded diff */}
-        <AnimatePresence>
-          {expanded && hasContent && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="px-3 pb-3 border-t border-slate-100 dark:border-slate-700 pt-2.5">
-                <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                  Changes
-                </div>
-                {isContentChange ? (
-                  <DiffViewer
-                    oldContent={entry.oldContent ?? ""}
-                    newContent={entry.newContent ?? ""}
-                    mode="sidebyside"
-                    maxChars={3000}
-                  />
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div>
-                      <div className="text-[9px] font-bold text-red-500 uppercase mb-1">Before</div>
-                      <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-2 text-red-700 dark:text-red-300 break-words">
-                        {entry.oldContent || <span className="italic opacity-50">empty</span>}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[9px] font-bold text-emerald-500 uppercase mb-1">After</div>
-                      <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-2 text-emerald-700 dark:text-emerald-300 break-words">
-                        {entry.newContent || <span className="italic opacity-50">empty</span>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
@@ -372,6 +402,7 @@ export default function EditHistorySidebar({
   const [activeTab, setActiveTab] = useState<"history" | "versions">("history");
   const [selectedVersion, setSelectedVersion] = useState<VersionInfo | null>(null);
   const [showVersionModal, setShowVersionModal] = useState(false);
+  const [selectedEditEntry, setSelectedEditEntry] = useState<EditHistoryEntry | null>(null);
   const [filterUser, setFilterUser] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
@@ -457,29 +488,26 @@ export default function EditHistorySidebar({
             <div className="p-3 space-y-1">
               {/* Filters */}
               {history.length > 0 && (
-                <div className="flex gap-2 mb-3 flex-wrap">
-                  <select
+                <div className="flex gap-1.5 mb-3 flex-wrap">
+                  <ThemeSelect
                     value={filterUser}
-                    onChange={(e) => setFilterUser(e.target.value)}
-                    className="text-[10px] border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  >
-                    <option value="all">All users</option>
-                    {uniqueUsers.map((u) => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
-                  </select>
-                  <select
+                    onChange={setFilterUser}
+                    options={[
+                      { value: "all", label: "All users" },
+                      ...uniqueUsers.map((u) => ({ value: u, label: u })),
+                    ]}
+                  />
+                  <ThemeSelect
                     value={filterType}
-                    onChange={(e) => setFilterType(e.target.value)}
-                    className="text-[10px] border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                  >
-                    <option value="all">All changes</option>
-                    {changeTypes.map((t) => (
-                      <option key={t} value={t}>
-                        {CHANGE_TYPE_CONFIG[t]?.label ?? t}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={setFilterType}
+                    options={[
+                      { value: "all", label: "All changes" },
+                      ...changeTypes.map((t) => ({
+                        value: t,
+                        label: CHANGE_TYPE_CONFIG[t]?.label ?? t,
+                      })),
+                    ]}
+                  />
                 </div>
               )}
 
@@ -510,7 +538,7 @@ export default function EditHistorySidebar({
                       </span>
                     </div>
                     {entries.map((entry) => (
-                      <HistoryRow key={entry.id} entry={entry} />
+                      <HistoryRow key={entry.id} entry={entry} onInspect={(e) => setSelectedEditEntry(e)} />
                     ))}
                   </div>
                 ))}
@@ -571,6 +599,13 @@ export default function EditHistorySidebar({
         currentHtml={currentHtml}
         onRestore={handleRestoreVersion}
         adminUserName={adminUserName}
+      />
+
+      {/* Edit Diff Modal (Before & After inspect popup) */}
+      <EditDiffModal
+        isOpen={!!selectedEditEntry}
+        onClose={() => setSelectedEditEntry(null)}
+        entry={selectedEditEntry}
       />
     </>
   );
