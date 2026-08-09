@@ -44,6 +44,8 @@ model admin_users {
   audit_logs                 audit_logs[]
   autofill_template_versions autofill_template_versions[]
   autofill_templates         autofill_templates[]
+  content_edit_history       content_edit_history[]
+  content_versions           content_versions[]
   files                      files[]
   medical_conditions         medical_conditions[]
   mock_tests                 mock_tests[]
@@ -358,6 +360,42 @@ model mbs_items {
   user_favourite_mbs_items user_favourite_mbs_items[]
 
   @@index([embedding], map: "idx_mbs_items_embedding_active", where: raw("(retired_at IS NULL)"))
+}
+
+model content_edit_history {
+  id              BigInt           @id @default(autoincrement())
+  entity_id       String           @db.Uuid
+  entity_type     String
+  field_name      String
+  change_type     edit_change_type
+  old_content     String?
+  new_content     String?
+  admin_user_id   String?          @db.Uuid
+  admin_user_name String?
+  session_id      String?
+  created_at      DateTime         @default(now()) @db.Timestamptz(6)
+  admin_users     admin_users?     @relation(fields: [admin_user_id], references: [id], onUpdate: NoAction)
+
+  @@index([entity_id, created_at(sort: Desc)], map: "idx_edit_history_entity")
+  @@index([admin_user_id], map: "idx_edit_history_admin")
+}
+
+model content_versions {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entity_id       String       @db.Uuid
+  entity_type     String
+  version_number  Int
+  label           String?
+  full_html       String?
+  metadata        Json?
+  created_by      String?      @db.Uuid
+  created_by_name String?
+  restored_from   String?      @db.Uuid
+  created_at      DateTime     @default(now()) @db.Timestamptz(6)
+  admin_users     admin_users? @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+
+  @@unique([entity_id, version_number])
+  @@index([entity_id, created_at(sort: Desc)], map: "idx_versions_entity")
 }
 
 model medical_conditions {
@@ -1215,4 +1253,13 @@ enum TrainingStage {
   REGISTRAR
   FELLOW
   OTHER
+}
+
+enum edit_change_type {
+  added
+  deleted
+  modified
+  status_change
+  meta_change
+  restored
 }

@@ -341,7 +341,11 @@ export default function QuestionsPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const fileList = Array.from(files);
+    let fileList = Array.from(files);
+    if (fileList.length > 10) {
+      showAlert("Batch upload is supported for up to 10 files at a time. Processing the first 10 files.", "Batch File Limit", "info");
+      fileList = fileList.slice(0, 10);
+    }
     setExtractionState("idle");
 
     // Initialize batch tracking for all files

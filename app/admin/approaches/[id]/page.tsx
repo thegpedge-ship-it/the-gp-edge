@@ -130,6 +130,11 @@ export default function ApproachDetailPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
 
+  // Edit History state for approaches
+  const [historyLog, setHistoryLog] = useState<any[]>([]);
+  const [versionList, setVersionList] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // Responsive scale to fit the A4 canvas inside its container
   useEffect(() => {
     if (typeof window === "undefined" || !containerRef.current) return;
@@ -156,6 +161,16 @@ export default function ApproachDetailPage() {
           const html = json.data.fullHtml?.trim() || buildFallbackHtml(json.data);
           setBodyHtml(html);
           setPdfPage(1);
+
+          // Load history log
+          setLoadingHistory(true);
+          Promise.all([
+            fetch(`/api/content-history/${approachId}?resource=history&type=approach`).then(r => r.json()),
+            fetch(`/api/content-history/${approachId}?resource=versions&type=approach`).then(r => r.json()),
+          ]).then(([hRes, vRes]) => {
+            if (hRes.success && hRes.history) setHistoryLog(hRes.history);
+            if (vRes.success && vRes.versions) setVersionList(vRes.versions);
+          }).catch(console.error).finally(() => setLoadingHistory(false));
         }
       } catch (err) {
         console.error("Failed to load approach:", err);
@@ -257,6 +272,56 @@ export default function ApproachDetailPage() {
               <Lucide.ArrowLeft className="w-4 h-4" />
               Back to Approaches
             </button>
+          </motion.div>
+
+          {/* Edit & Version History Card */}
+          <motion.div variants={itemVariants} className={`bg-white dark:bg-slate-900 border ${themeBorder} rounded-2xl p-6 shadow-sm space-y-4`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Lucide.History className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Edit History</h3>
+              </div>
+              {loadingHistory && <Lucide.Loader2 className="w-3.5 h-3.5 animate-spin text-teal-500" />}
+            </div>
+
+            {historyLog.length === 0 && !loadingHistory ? (
+              <p className="text-xs text-slate-400 dark:text-slate-500 italic">No edit history entries yet for this approach.</p>
+            ) : (
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                {historyLog.slice(0, 5).map((entry) => (
+                  <div key={entry.id} className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center justify-between gap-1 text-[10px]">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">{entry.adminUserName}</span>
+                      <span className="text-slate-400">{new Date(entry.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 capitalize">
+                      {entry.fieldName === "full_html" ? "Updated document content" : `${entry.changeType} ${entry.fieldName}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {versionList.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Saved Versions ({versionList.length})</p>
+                <div className="space-y-1.5">
+                  {versionList.slice(0, 3).map((v) => (
+                    <div key={v.id} className="flex items-center justify-between text-xs p-2 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                      <span className="font-semibold text-teal-700 dark:text-teal-400">v{v.versionNumber}</span>
+                      <span className="text-[10px] text-slate-400 truncate max-w-[140px]">{v.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <Link
+              href={`/admin/content/editor?id=${card.id}`}
+              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline block text-center pt-1"
+            >
+              View Full History in Content Editor →
+            </Link>
           </motion.div>
         </div>
 
