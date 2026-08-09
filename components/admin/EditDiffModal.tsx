@@ -12,10 +12,11 @@ export interface EditHistoryEntry {
   entityType: string;
   fieldName: string;
   changeType: "added" | "deleted" | "modified" | "status_change" | "meta_change" | "restored";
-  oldContent: string | null;
-  newContent: string | null;
-  adminUserId?: string;
+  oldContent?: string | null;
+  newContent?: string | null;
+  adminUserId?: string | null;
   adminUserName: string;
+  sessionId?: string | null;
   createdAt: string;
 }
 
