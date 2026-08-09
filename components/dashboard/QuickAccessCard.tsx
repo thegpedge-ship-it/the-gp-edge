@@ -71,8 +71,11 @@ const QuickAccessCard = memo(function QuickAccessCard({
             <Link
               key={q.key}
               href={config.href}
-              className="group relative flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-900/30 border border-slate-200/70 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800/90 hover:border-emerald-300 dark:hover:border-emerald-600/60 hover:shadow-[0_4px_16px_-4px_rgba(16,185,129,0.12)] dark:hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 ease-out"
+              className="group relative overflow-hidden flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-900/30 border border-slate-200/70 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800/90 hover:border-emerald-300 dark:hover:border-emerald-600/60 hover:shadow-[0_4px_16px_-4px_rgba(16,185,129,0.12)] dark:hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 ease-out"
             >
+              {/* Left accent bar — only visible on hover (matches metric cards) */}
+              <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out pointer-events-none" />
+
               <div className="flex items-center min-w-0 pr-3">
                 <div
                   className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${config.bg} ${config.text} border ${config.border} group-hover:scale-105 transition-transform duration-200 ease-out`}
