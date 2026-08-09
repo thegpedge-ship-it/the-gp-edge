@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const search = req.nextUrl.searchParams.get("search")?.trim() || "";
+    const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
 
     let sql = `SELECT
-         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.is_free, mc.updated_at,
+         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.is_free, mc.updated_at, mc.deleted_at,
          s.name AS subject_name,
          (
            SELECT ARRAY_AGG(t.label)
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
        LEFT JOIN subjects s ON s.id = mc.subject_id
        LEFT JOIN condition_documents cd ON cd.condition_id = mc.id
        LEFT JOIN files f ON f.id = cd.file_id
-       WHERE mc.deleted_at IS NULL AND mc.kind != 'Approach'`;
+       WHERE ${includeArchived ? "1=1" : "mc.deleted_at IS NULL"} AND mc.kind != 'Approach'`;
 
     const params: any[] = [];
     if (search) {
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       system: c.subject_name ?? "General",
       category: c.category ?? "Clinical Reference",
       type: c.kind,
-      status: c.status,
+      status: c.deleted_at ? "archived" : c.status,
       author: c.author ?? "GP Edge Admin",
       isFree: c.is_free ?? false,
       lastUpdated: new Date(c.updated_at).toISOString().split("T")[0],

@@ -100,8 +100,8 @@ export default function ContentPage() {
   const [extractedData, setExtractedData] = useState<any>(null);
 
   useEffect(() => {
-    fetchMedicalContent().then(setContent);
-  }, []);
+    fetchMedicalContent(canRestoreItem).then(setContent);
+  }, [canRestoreItem]);
 
   const systems = Array.from(new Set(content.map((c) => c.system)));
 
@@ -1144,7 +1144,7 @@ export default function ContentPage() {
                     if (deleteTargetId !== null) {
                       // API soft-delete
                       fetch(`/api/medical-content/${deleteTargetId}`, { method: "DELETE" }).catch(console.error);
-                      const updated = content.filter((c) => c.id !== deleteTargetId);
+                      const updated = content.map((c) => (c.id === deleteTargetId ? { ...c, status: "archived" as const } : c));
                       setContent(updated);
                       saveMedicalContent(updated);
                       setShowDeleteModal(false);

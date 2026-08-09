@@ -445,7 +445,7 @@ export default function ApproachesPage() {
     addUserNotification("Approach Archived", "The approach card has been archived and hidden from production.", 1, "custom");
     
     // Soft-delete from Neon Postgres DB
-    await deleteApproachCardFromDbAction(id);
+    await deleteApproachCardFromDbAction(id, currentAdmin);
   }
 
   return (

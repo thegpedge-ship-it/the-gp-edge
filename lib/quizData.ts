@@ -456,9 +456,10 @@ export function getMedicalContent(): MedicalContent[] {
 }
 
 // Async fetch from Neon via API (use this in useEffect / server actions)
-export async function fetchMedicalContent(): Promise<MedicalContent[]> {
+export async function fetchMedicalContent(includeArchived: boolean = false): Promise<MedicalContent[]> {
   try {
-    const res = await fetch("/api/medical-content", { cache: "no-store" });
+    const url = includeArchived ? "/api/medical-content?includeArchived=true" : "/api/medical-content";
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) {
