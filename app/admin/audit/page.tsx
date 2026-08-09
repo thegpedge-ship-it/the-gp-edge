@@ -47,7 +47,7 @@ const ALL_FEATURES = [
 
 const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 
-/* ── Role presets ── */
+/* ── Role presets (canonical — no duplicates) ── */
 const ROLE_PRESETS: Record<string, string[]> = {
   "SA (Super Admin)": [...ALL_FEATURE_KEYS],
   "CE (Clinical Editor)": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"],
@@ -55,8 +55,6 @@ const ROLE_PRESETS: Record<string, string[]> = {
   "DR (Drafter)": ["dashboard", "questions", "content", "approaches"],
   "PR (Peer Reviewer)": ["dashboard", "questions", "content", "approaches"],
   "SUB (Subscriber)": ["dashboard"],
-  "Super Admin": [...ALL_FEATURE_KEYS],
-  "Admin": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
 };
 
 interface AdminUser {
@@ -163,10 +161,26 @@ export default function AuditPage() {
         try {
           const credsList = JSON.parse(stored);
           const mappedAdmins = credsList.map((u: any) => {
+            const uRoles: string[] = u.roles || [];
             let permissions = u.permissions || [];
+            const uIsSA = uRoles.includes("SA") || u.role === "Super Admin" || u.role === "SA (Super Admin)";
+            const uIsCE = uRoles.includes("CE") || u.role === "Clinical Editor" || u.role === "CE (Clinical Editor)";
+            const uIsOM = uRoles.includes("OM") || u.role === "Operations Manager" || u.role === "OM (Operations Manager)";
+            const uIsDR = uRoles.includes("DR") || u.role === "Drafter" || u.role === "DR (Drafter)";
+            const uIsPR = uRoles.includes("PR") || u.role === "Peer Reviewer" || u.role === "PR (Peer Reviewer)";
+            const uIsSUB = uRoles.includes("SUB") || u.role === "Subscriber" || u.role === "SUB (Subscriber)";
+
             if (permissions.length === 0) {
-              if (u.role === "Super Admin" || u.role === "Viewer") {
+              if (uIsSA) {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+              } else if (uIsCE) {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+              } else if (uIsOM) {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+              } else if (uIsDR || uIsPR) {
+                permissions = ["dashboard", "questions", "content", "approaches"];
+              } else if (uIsSUB) {
+                permissions = ["dashboard"];
               } else if (u.role === "Admin") {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
               } else if (u.role === "Moderator") {
@@ -187,6 +201,7 @@ export default function AuditPage() {
               name: u.name,
               email: u.email,
               role: u.role,
+              roles: u.roles || [],
               permissions,
               lastLogin: u.id === activeId ? "Active now" : getRelativeLastActive(lastActiveAt, u.id === activeId),
               lastActiveAt,
@@ -458,8 +473,6 @@ export default function AuditPage() {
     { value: "DR (Drafter)", label: "DR — Drafter (Assigned Items)" },
     { value: "PR (Peer Reviewer)", label: "PR — Peer Reviewer (Review Management)" },
     { value: "SUB (Subscriber)", label: "SUB — Subscriber" },
-    { value: "Super Admin", label: "Super Admin" },
-    { value: "Admin", label: "Admin" },
   ];
 
   const addRoleOptions = ALL_ROLE_OPTIONS;
@@ -572,7 +585,19 @@ export default function AuditPage() {
                         </div>
                       </td>
                       <td className="px-4 py-4">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                          (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
+                            ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300 dark:border-purple-900/60"
+                            : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
+                            ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300 dark:border-blue-900/60"
+                            : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
+                            ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300 dark:border-amber-900/60"
+                            : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
+                            ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300 dark:border-green-900/60"
+                            : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
+                            ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300 dark:border-orange-900/60"
+                            : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60"
+                        }`}>
                           {a.role}
                         </span>
                       </td>
@@ -651,7 +676,19 @@ export default function AuditPage() {
                         <p className="text-[10px] text-slate-400 font-mono truncate">{a.email}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 shrink-0">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                      (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
+                        ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300"
+                        : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
+                        ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300"
+                        : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
+                        ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300"
+                        : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
+                        ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300"
+                        : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
+                        ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300"
+                        : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300"
+                    }`}>
                       {a.role}
                     </span>
                   </div>
@@ -805,7 +842,22 @@ export default function AuditPage() {
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Security Validation Rules (Role-based)</span>
                   
-                  {editRole !== "Super Admin" ? (
+                  {(editRole === "Super Admin" || editRole.startsWith("SA")) ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
+                        <button
+                          type="button"
+                          onClick={() => setEditForgotPassword(!editForgotPassword)}
+                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
+                            editForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
+                          }`}
+                        >
+                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${editForgotPassword ? "left-4" : "left-0.5"}`} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="p-3 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/35 dark:border-amber-900/20 rounded-xl space-y-2 text-xs text-slate-500 dark:text-slate-400">
                       <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
                         <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -825,22 +877,6 @@ export default function AuditPage() {
                         </div>
                         <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">Enforced</span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
-                        <button
-                          type="button"
-                          onClick={() => setEditForgotPassword(!editForgotPassword)}
-                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
-                            editForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
-                          }`}
-                        >
-                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${editForgotPassword ? "left-4" : "left-0.5"}`} />
-                        </button>
-                      </div>
-
                     </div>
                   )}
                 </div>
@@ -1002,7 +1038,23 @@ export default function AuditPage() {
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Security Validation Rules (Role-based)</span>
                   
-                  {addRole !== "Super Admin" ? (
+                  {(addRole === "Super Admin" || addRole.startsWith("SA")) ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
+                        <button
+                          type="button"
+                          onClick={() => setAddForgotPassword(!addForgotPassword)}
+                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
+                            addForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
+                          }`}
+                        >
+                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${addForgotPassword ? "left-4" : "left-0.5"}`} />
+                        </button>
+                      </div>
+
+                    </div>
+                  ) : (
                     <div className="p-3 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/35 dark:border-amber-900/20 rounded-xl space-y-2 text-xs text-slate-500 dark:text-slate-400">
                       <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
                         <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -1022,22 +1074,6 @@ export default function AuditPage() {
                         </div>
                         <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">Enforced</span>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
-                        <button
-                          type="button"
-                          onClick={() => setAddForgotPassword(!addForgotPassword)}
-                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
-                            addForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
-                          }`}
-                        >
-                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${addForgotPassword ? "left-4" : "left-0.5"}`} />
-                        </button>
-                      </div>
-
                     </div>
                   )}
                 </div>
