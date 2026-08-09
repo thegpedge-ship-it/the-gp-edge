@@ -399,8 +399,7 @@ export default function EditHistorySidebar({
   return (
     <>
       <div
-        className={`flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden ${className}`}
-        style={{ height: "calc(100vh - 200px)", minHeight: "500px" }}
+        className={`flex flex-col bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden min-h-[340px] max-h-[calc(100vh-320px)] shadow-sm ${className}`}
       >
         {/* Sidebar Header */}
         <div className="px-4 pt-4 pb-0 border-b border-slate-100 dark:border-slate-800 shrink-0">
