@@ -67,6 +67,8 @@ interface AccessSnapshot {
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: number | null; // epoch ms
   accessExpiresAt: number | null; // epoch ms — the exact subscription expiry
+  activePriceId: string | null;
+  currentPeriodStart: number | null; // epoch ms
 }
 
 // ─── Signing ───────────────────────────────────────────────────────────────────
@@ -135,6 +137,8 @@ function toSnapshot(
     cancelAtPeriodEnd: access.cancelAtPeriodEnd,
     currentPeriodEnd: access.currentPeriodEnd ? access.currentPeriodEnd.getTime() : null,
     accessExpiresAt: accessExpiresAt ? accessExpiresAt.getTime() : null,
+    activePriceId: access.activePriceId,
+    currentPeriodStart: access.currentPeriodStart ? access.currentPeriodStart.getTime() : null,
   };
 }
 
@@ -153,6 +157,8 @@ function fromSnapshot(s: AccessSnapshot): UserAccessInfo {
     freeTopicsLeft: s.freeTopicsLeft,
     cancelAtPeriodEnd: s.cancelAtPeriodEnd,
     currentPeriodEnd: s.currentPeriodEnd != null ? new Date(s.currentPeriodEnd) : null,
+    activePriceId: s.activePriceId,
+    currentPeriodStart: s.currentPeriodStart != null ? new Date(s.currentPeriodStart) : null,
   };
 }
 

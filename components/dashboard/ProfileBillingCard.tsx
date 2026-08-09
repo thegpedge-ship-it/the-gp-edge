@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { CreditCard, FileText, ExternalLink, Loader2, CheckCircle2, AlertCircle, Shield } from "lucide-react";
-import { createBillingPortalSessionAction } from "@/actions/stripe.actions";
+import { createBillingPortalSessionAction, getLatestInvoicePdfAction } from "@/actions/stripe.actions";
+import CancellationSurveyModal from "./CancellationSurveyModal";
 
 interface Props {
   accessLevel: string;
@@ -23,15 +24,26 @@ export default function ProfileBillingCard({
 }: Props) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   function handlePortalRedirect(actionType: "invoice" | "cancel") {
     setError(null);
     setPendingAction(actionType);
-    createBillingPortalSessionAction().then((res) => {
+
+    const actionPromise = actionType === "invoice" 
+      ? getLatestInvoicePdfAction() 
+      : createBillingPortalSessionAction();
+
+    actionPromise.then((res) => {
       if (res.url) {
-        window.location.href = res.url;
+        if (actionType === "invoice") {
+          window.open(res.url, '_blank');
+          setPendingAction(null);
+        } else {
+          window.location.href = res.url;
+        }
       } else {
-        setError(res.error || "Could not launch Stripe billing portal.");
+        setError(res.error || (actionType === "invoice" ? "Could not fetch invoice PDF." : "Could not launch Stripe billing portal."));
         setPendingAction(null);
       }
     }).catch(() => {
@@ -142,7 +154,13 @@ export default function ProfileBillingCard({
 
         <button
           type="button"
-          onClick={() => handlePortalRedirect("cancel")}
+          onClick={() => {
+            if (!cancelAtPeriodEnd) {
+              setShowCancelModal(true);
+            } else {
+              handlePortalRedirect("cancel");
+            }
+          }}
           disabled={pendingAction !== null}
           className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-sans text-xs font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
@@ -157,6 +175,11 @@ export default function ProfileBillingCard({
           <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
         </button>
       </div>
+
+      <CancellationSurveyModal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+      />
     </div>
   );
 }

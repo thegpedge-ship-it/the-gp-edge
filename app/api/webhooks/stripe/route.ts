@@ -206,6 +206,10 @@ export async function POST(req: Request) {
         await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
         break;
 
+      case "invoice.payment_succeeded":
+        await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice);
+        break;
+
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
         break;
@@ -465,6 +469,47 @@ async function handleSubscriptionDeleted(stripeSub: Stripe.Subscription) {
     },
   });
   console.log(`[webhook/subscription.deleted] ✅ Subscription ${existing.id} marked canceled`);
+}
+
+/**
+ * invoice.payment_succeeded
+ * Syncs successful recurring subscription renewals to the database.
+ */
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  if (invoice.billing_reason !== "subscription_cycle" && invoice.billing_reason !== "subscription_create") {
+    return;
+  }
+
+  const subscriptionId = (invoice as any).subscription as string | null;
+  if (!subscriptionId) return;
+
+  console.log(`[webhook/invoice.payment_succeeded] Processing renewal for sub ${subscriptionId}`);
+
+  // We could just delegate to stripe.subscriptions.retrieve + upsertSubscriptionRow
+  // to ensure all dates and statuses are perfectly synced.
+  try {
+    const stripeSub = await stripe.subscriptions.retrieve(subscriptionId);
+    
+    // We need the original userId. If the sub is already in the database, we can use it.
+    const existing = await prisma.subscriptions.findUnique({
+      where: { provider_sub_id: subscriptionId },
+      select: { user_id: true, stripe_price_id: true, stripe_checkout_session_id: true }
+    });
+
+    if (existing && existing.stripe_price_id) {
+      await upsertSubscriptionRow(
+        existing.user_id,
+        stripeSub,
+        existing.stripe_price_id,
+        existing.stripe_checkout_session_id
+      );
+      console.log(`[webhook/invoice.payment_succeeded] ✅ Synced renewal for ${subscriptionId}`);
+    } else {
+      console.warn(`[webhook/invoice.payment_succeeded] Could not find existing subscription in DB for ${subscriptionId}`);
+    }
+  } catch (err) {
+    console.error(`[webhook/invoice.payment_succeeded] Error syncing renewal for sub ${subscriptionId}:`, err);
+  }
 }
 
 /**

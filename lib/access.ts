@@ -48,6 +48,8 @@ export interface UserAccessInfo {
   freeTopicsLeft: number;
   cancelAtPeriodEnd: boolean;
   currentPeriodEnd: Date | null;
+  activePriceId: string | null;
+  currentPeriodStart: Date | null;
 }
 
 // ─── Core access resolver ─────────────────────────────────────────────────────
@@ -259,6 +261,8 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
     freeTopicsLeft: user.free_topics_left,
     cancelAtPeriodEnd: activeSub?.cancel_at != null,
     currentPeriodEnd: activeSub?.current_period_end ?? null,
+    activePriceId: activeSub?.stripe_price_id ?? null,
+    currentPeriodStart: activeSub?.current_period_start ?? activeSub?.created_at ?? null,
   };
 
   // Refresh the signed cookie so subsequent requests can skip the DB. This is a

@@ -1022,6 +1022,7 @@ model users {
   user_saved_templates              user_saved_templates[]
   user_subject_mastery              user_subject_mastery[]
   files_users_avatar_file_idTofiles files?                     @relation("users_avatar_file_idTofiles", fields: [avatar_file_id], references: [id], onUpdate: NoAction)
+  cancellationFeedbacks             cancellation_feedback[]
 }
 
 enum account_status {
@@ -1215,4 +1216,14 @@ enum TrainingStage {
   REGISTRAR
   FELLOW
   OTHER
+}
+
+model cancellation_feedback {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  reason     String
+  feedback   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }

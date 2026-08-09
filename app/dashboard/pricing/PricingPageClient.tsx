@@ -9,8 +9,10 @@
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { CheckCircle2, Clock, Zap, Star, Repeat, AlertCircle, Calendar, Award, CreditCard } from "lucide-react";
+import { CheckCircle2, Clock, Zap, Star, Repeat, AlertCircle, Calendar, Award, CreditCard, FileText, Loader2, X } from "lucide-react";
 import DuplicatePurchaseModal from "@/components/dashboard/DuplicatePurchaseModal";
+import CancellationSurveyModal from "@/components/dashboard/CancellationSurveyModal";
+import { createBillingPortalSessionAction, getLatestInvoicePdfAction } from "@/actions/stripe.actions";
 
 export interface PricingPlan {
   id: string;
@@ -34,6 +36,10 @@ interface Props {
   trainingStage?: "REGISTRAR" | "FELLOW" | "OTHER";
   currentAccessLevel: string;
   accessExpiresAt: string | null;
+  cancelAtPeriodEnd?: boolean;
+  activePriceId?: string | null;
+  hasPaidAccess?: boolean;
+  hasPurchasedRegistrar?: boolean;
 }
 
 // ─── Checkout handler ─────────────────────────────────────────────────────────
@@ -59,24 +65,48 @@ async function startCheckout(priceId: string): Promise<void> {
 function PlanCard({
   plan,
   currentAccessLevel,
+  hasPaidAccess,
+  activePriceId,
+  accessExpiresAt,
   onAttemptActivePurchase,
 }: {
   plan: PricingPlan;
   currentAccessLevel: string;
+  hasPaidAccess?: boolean;
+  activePriceId?: string | null;
+  accessExpiresAt?: string | null;
   onAttemptActivePurchase: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const isCurrentPlan =
-    (plan.id === "registrar_6mo" || plan.id === "registrar_12mo") &&
-    currentAccessLevel === "REGISTRAR";
+  const now = new Date();
+  
+  // 1. Check if the user's access term is currently valid
+  const isAccessActive = accessExpiresAt != null && new Date(accessExpiresAt) > now;
+  
+  // 2. Identify the EXACT plan card using the original Price ID
+  const isThisSpecificPlan = isAccessActive && Boolean(activePriceId) && plan.priceId === activePriceId;
+
+  // Formatting expiration string
+  let expiryDisplay = null;
+  if (isThisSpecificPlan && accessExpiresAt) {
+    const expDate = new Date(accessExpiresAt);
+    const diffTime = Math.max(0, expDate.getTime() - now.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const formatter = new Intl.DateTimeFormat("en-AU", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    expiryDisplay = `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'} (${formatter.format(expDate)})`;
+  }
 
   function handleClick() {
     setError(null);
 
     // Active Subscription Guard: Block duplicate checkout if user already has an active paid plan
-    if (currentAccessLevel !== "FREE") {
+    if (hasPaidAccess) {
       onAttemptActivePurchase();
       return;
     }
@@ -117,10 +147,10 @@ function PlanCard({
       `}
     >
       {/* Top Badge for Featured Plan */}
-      {plan.badge && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-[#387e59] dark:bg-emerald-600 text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap">
+      {(plan.badge || isThisSpecificPlan) && (
+        <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap ${isThisSpecificPlan ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-[#387e59] dark:bg-emerald-600'}`}>
           <Star className="w-3 h-3 fill-current" />
-          {plan.badge}
+          {isThisSpecificPlan ? "Your Active Plan" : plan.badge}
         </div>
       )}
 
@@ -135,12 +165,12 @@ function PlanCard({
               <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug">
                 {plan.name}
               </h3>
-              {isCurrentPlan && (
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
-                  Current Plan
-                </span>
-              )}
             </div>
+            {expiryDisplay && (
+              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-full px-2.5 py-0.5 inline-block">
+                {expiryDisplay}
+              </p>
+            )}
             <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               {plan.tagline}
             </p>
@@ -217,11 +247,11 @@ function PlanCard({
       {/* CTA Button */}
       <button
         onClick={handleClick}
-        disabled={isPending}
+        disabled={isPending || isThisSpecificPlan}
         className={`
           w-full py-3.5 px-5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer
           disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]
-          ${isCurrentPlan
+          ${isThisSpecificPlan
             ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80 shadow-sm"
             : plan.highlight
             ? "bg-[#387e59] hover:bg-[#2d6648] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
@@ -237,7 +267,7 @@ function PlanCard({
             </svg>
             Redirecting to checkout…
           </span>
-        ) : isCurrentPlan ? (
+        ) : isThisSpecificPlan ? (
           "Current Active Plan"
         ) : (
           plan.cta
@@ -252,10 +282,42 @@ function PlanCard({
 function AccessBanner({
   currentAccessLevel,
   accessExpiresAt,
+  cancelAtPeriodEnd,
 }: {
   currentAccessLevel: string;
   accessExpiresAt: string | null;
+  cancelAtPeriodEnd?: boolean;
 }) {
+  const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+
+  function handlePortalRedirect(actionType: "invoice" | "cancel") {
+    setError(null);
+    setPendingAction(actionType);
+
+    const actionPromise = actionType === "invoice" 
+      ? getLatestInvoicePdfAction() 
+      : createBillingPortalSessionAction();
+
+    actionPromise.then((res) => {
+      if (res.url) {
+        if (actionType === "invoice") {
+          window.open(res.url, '_blank');
+          setPendingAction(null);
+        } else {
+          window.location.href = res.url;
+        }
+      } else {
+        setError(res.error || (actionType === "invoice" ? "Could not fetch invoice PDF." : "Could not launch Stripe billing portal."));
+        setPendingAction(null);
+      }
+    }).catch(() => {
+      setError("An unexpected error occurred.");
+      setPendingAction(null);
+    });
+  }
+
   if (currentAccessLevel === "FREE") return null;
 
   const levelLabel: Record<string, string> = {
@@ -273,16 +335,64 @@ function AccessBanner({
     : null;
 
   return (
-    <div className="flex items-center gap-3 px-5 py-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/60 dark:border-emerald-800/40 mb-8 select-none max-w-4xl w-full">
-      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={2} />
-      <div>
-        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
-          Active plan: {levelLabel[currentAccessLevel] ?? currentAccessLevel}
-        </p>
-        {expiryText && (
-          <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">{expiryText}</p>
-        )}
+    <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-5 rounded-2xl bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/60 dark:border-emerald-800/40 mb-8 select-none max-w-4xl w-full">
+      <div className="flex items-center gap-3 w-full">
+        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={2} />
+        <div>
+          <p className="text-base font-semibold text-emerald-900 dark:text-emerald-200">
+            Active plan: {levelLabel[currentAccessLevel] ?? currentAccessLevel}
+            {cancelAtPeriodEnd && <span className="ml-2 text-xs font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">Canceled</span>}
+          </p>
+          {expiryText && (
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">{expiryText}</p>
+          )}
+        </div>
       </div>
+      
+      <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
+        <button
+          type="button"
+          onClick={() => handlePortalRedirect("invoice")}
+          disabled={pendingAction !== null}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
+        >
+          {pendingAction === "invoice" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+          Download Invoices
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (!cancelAtPeriodEnd) {
+              setShowCancelModal(true);
+            } else {
+              handlePortalRedirect("cancel");
+            }
+          }}
+          disabled={pendingAction !== null}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
+        >
+          {pendingAction === "cancel" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
+          {cancelAtPeriodEnd ? "Reactivate Subscription" : "Cancel Subscription"}
+        </button>
+      </div>
+
+      {error && (
+        <div className="fixed top-24 right-6 z-[100] max-w-sm p-4 rounded-xl bg-red-50/95 dark:bg-red-950/95 border border-red-500/50 text-red-700 dark:text-red-300 text-sm flex items-start gap-3 backdrop-blur-md shadow-2xl animate-in slide-in-from-top-4 fade-in duration-300">
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Action failed</p>
+            <p className="mt-1 opacity-90">{error}</p>
+          </div>
+          <button onClick={() => setError(null)} className="shrink-0 opacity-50 hover:opacity-100 transition-opacity mt-0.5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <CancellationSurveyModal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+      />
     </div>
   );
 }
@@ -315,6 +425,10 @@ export default function PricingPageClient({
   trainingStage = "REGISTRAR",
   currentAccessLevel,
   accessExpiresAt,
+  cancelAtPeriodEnd,
+  activePriceId,
+  hasPaidAccess,
+  hasPurchasedRegistrar,
 }: Props) {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
@@ -379,7 +493,11 @@ export default function PricingPageClient({
         </section>
 
         {/* ── Active Access Banner ───────────────────────────────────────────── */}
-        <AccessBanner currentAccessLevel={currentAccessLevel} accessExpiresAt={accessExpiresAt} />
+        <AccessBanner 
+          currentAccessLevel={currentAccessLevel} 
+          accessExpiresAt={accessExpiresAt} 
+          cancelAtPeriodEnd={cancelAtPeriodEnd}
+        />
 
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}
         <section className="mb-16 w-full flex justify-center">
@@ -397,6 +515,9 @@ export default function PricingPageClient({
                 key={plan.id}
                 plan={plan}
                 currentAccessLevel={currentAccessLevel}
+                hasPaidAccess={hasPaidAccess}
+                activePriceId={activePriceId}
+                accessExpiresAt={accessExpiresAt}
                 onAttemptActivePurchase={() => setShowDuplicateModal(true)}
               />
             ))}
