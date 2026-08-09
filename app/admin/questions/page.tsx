@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 import { AlertCircle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
@@ -69,11 +70,11 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 }
 
 export default function QuestionsPage() {
-  const { isReadOnly, isSuperAdmin, currentAdmin } = useAdminRole();
+  const { isReadOnly, isSuperAdmin, canRestoreItem, canArchiveItem, currentAdmin } = useAdminRole();
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const handleRestoreQuestion = async (q: Question) => {
-    if (!isSuperAdmin) {
+    if (!canRestoreItem) {
       showAlert("Restoration of archived items is strictly SA-only (Super Admin).", "Permission Denied", "error");
       return;
     }
@@ -81,12 +82,21 @@ export default function QuestionsPage() {
     const res = await restoreQuestionAction(targetId, currentAdmin);
     if (res.success) {
       showAlert("Question successfully restored from archive.", "Restored", "success");
-      const data = await fetchQuestions();
+      const data = await fetchQuestions(canRestoreItem);
       setQuestions(data);
     } else {
       showAlert(res.error || "Failed to restore question.", "Error", "error");
     }
   };
+
+  // Load questions from Neon (no localStorage — Neon is source of truth)
+  useEffect(() => {
+    // Clear old oversized localStorage key that caused quota errors
+    try { localStorage.removeItem("gpedge_admin_questions"); } catch {}
+    fetchQuestions(canRestoreItem).then((list) => {
+      setQuestions(list);
+    });
+  }, [canRestoreItem]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");
   const [newQuestionTopics, setNewQuestionTopics] = useState<string[]>(["Cardiology"]);
@@ -144,14 +154,7 @@ export default function QuestionsPage() {
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load questions from Neon (no localStorage — Neon is source of truth)
-  useEffect(() => {
-    // Clear old oversized localStorage key that caused quota errors
-    try { localStorage.removeItem("gpedge_admin_questions"); } catch {}
-    fetchQuestions().then((list) => {
-      setQuestions(list);
-    });
-  }, []);
+
 
   // Handle optional question pre-viewing via query parameter (e.g. from Search page)
   useEffect(() => {
@@ -225,13 +228,13 @@ export default function QuestionsPage() {
   };
 
   const deleteQuestion = async (id: number) => {
-    if (isReadOnly) return;
+    if (isReadOnly || !canArchiveItem) return;
     const targetQ = questions.find((q) => q.id === id);
-    const updated = questions.filter((q) => q.id !== id);
+    if (!targetQ) return;
+    const updated = questions.map((q) => (q.id === id ? { ...q, status: "archived" as const } : q));
     setQuestions(updated);
-    if (targetQ) {
-      await deleteQuestionAction(targetQ.dbId || targetQ.text);
-    }
+    await deleteQuestionAction(targetQ.dbId || targetQ.text, currentAdmin);
+    showAlert(`Question #${id} has been archived.`, "Question Archived", "info");
   };
 
   const handleCreateQuestion = async () => {
@@ -684,10 +687,13 @@ export default function QuestionsPage() {
         </div>
         <CustomSelect
           value={statusFilter}
-          onChange={(val) => setStatusFilter(val as StatusFilter)}
+          onChange={(val) => setStatusFilter(val as any)}
           options={[
-            { value: "all", label: "All Status" },
+            { value: "all", label: "Active Statuses" },
             { value: "published", label: "Published" },
+            { value: "review", label: "In Review" },
+            { value: "draft", label: "Draft" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
           ]}
           className="w-48"
         />
@@ -797,9 +803,21 @@ export default function QuestionsPage() {
                         </svg>
                       </button>
 
-                      <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Delete">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
+                      {q.status === "archived" && canRestoreItem ? (
+                        <button
+                          onClick={() => handleRestoreQuestion(q)}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
+                          title="Restore Question (SA Only)"
+                        >
+                          <Lucide.RotateCcw className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        canArchiveItem && (
+                          <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Archive Question">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        )
+                      )}
                     </div>
                   </td>
                 </tr>

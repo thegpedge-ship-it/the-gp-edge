@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       system: c.subject_name ?? "General",
       category: c.category ?? "Clinical Reference",
       type: c.kind,
-      status: c.deleted_at ? "archived" : c.status,
+      status: c.deleted_at !== null && c.deleted_at !== undefined ? "archived" : (c.status === "archived" ? "published" : c.status || "published"),
       author: c.author ?? "GP Edge Admin",
       isFree: c.is_free ?? false,
       lastUpdated: new Date(c.updated_at).toISOString().split("T")[0],

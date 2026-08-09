@@ -234,7 +234,7 @@ export async function syncQuizToDbAction(
  * Fetches all quizzes from the Neon database via Prisma first.
  * Falls back to DEFAULT_QUIZZES inside catch block only.
  */
-export async function fetchQuizzesFromDbAction(): Promise<
+export async function fetchQuizzesFromDbAction(includeArchived: boolean = false): Promise<
   {
     id: number;
     dbId: string;
@@ -247,7 +247,7 @@ export async function fetchQuizzesFromDbAction(): Promise<
     passingScore: number;
     attempts: number;
     avgScore: number;
-    status: "active" | "draft" | "suspended";
+    status: "active" | "draft" | "suspended" | "archived";
     examType: "AKT" | "KFP" | "Mixed";
     randomize: boolean;
     isFree: boolean;
@@ -257,7 +257,7 @@ export async function fetchQuizzesFromDbAction(): Promise<
 > {
   try {
     const dbQuizzes = await prisma.quizzes.findMany({
-      where: { deleted_at: null },
+      where: includeArchived ? {} : { deleted_at: null },
       orderBy: [{ is_free: "desc" }, { updated_at: "desc" }],
       include: {
         quiz_questions: {
@@ -282,6 +282,9 @@ export async function fetchQuizzesFromDbAction(): Promise<
         const totalScore = completedAttempts.reduce((acc: number, curr: any) => acc + Number(curr.score_percent || 0), 0);
         const avgScore = completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0;
 
+        const isDeleted = q.deleted_at !== null && q.deleted_at !== undefined;
+        const status = isDeleted ? "archived" : (q.status === "archived" ? "active" : q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended");
+
         return {
           id: idx + 1,
           dbId: q.id,
@@ -294,7 +297,7 @@ export async function fetchQuizzesFromDbAction(): Promise<
           passingScore: q.passing_score ?? 65,
           attempts: q.test_attempts.length,
           avgScore,
-          status: (q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended") as any,
+          status: status as any,
           examType: (q.exam_type_code ?? "AKT") as any,
           randomize: q.randomize,
           isFree: q.is_free,

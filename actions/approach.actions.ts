@@ -25,7 +25,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
     subtitle: extra.subtitle || "",
     system: extra.system || "Cardiology",
     category: row.category || "",
-    status: row.deleted_at ? "archived" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft",
+    status: (row.deleted_at !== null && row.deleted_at !== undefined) ? "archived" : (row.status === "archived" ? "published" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft"),
     lastUpdated: row.updated_at
       ? new Date(row.updated_at).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
       : new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),

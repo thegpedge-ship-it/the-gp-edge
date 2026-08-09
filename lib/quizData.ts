@@ -1,4 +1,4 @@
-export type QuizStatus = "active" | "draft" | "suspended";
+export type QuizStatus = "active" | "draft" | "suspended" | "archived";
 
 export interface Quiz {
   id: number;
@@ -28,7 +28,7 @@ export interface Question {
   topic: string;
   difficulty: "Easy" | "Medium" | "Hard";
   examType: "AKT" | "KFP";
-  status: "draft" | "review" | "published";
+  status: "draft" | "review" | "published" | "archived";
   tags: string[];
   image?: string;
   dbId?: string;
@@ -75,11 +75,12 @@ export function getQuestions(): Question[] {
 
 /**
  * Async fetch from Neon via /api/questions.
- * Returns only DB questions — no mock defaults.
+ * Returns DB questions with optional archived filter.
  */
-export async function fetchQuestions(): Promise<Question[]> {
+export async function fetchQuestions(includeArchived: boolean = false): Promise<Question[]> {
   try {
-    const res = await fetch("/api/questions", { cache: "no-store" });
+    const url = includeArchived ? "/api/questions?includeArchived=true" : "/api/questions";
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
       console.warn(`fetchQuestions API status: ${res.status}`);
       return QUESTION_BANK;
@@ -620,6 +621,7 @@ export function saveApproachCards(cards: ApproachCard[]): void {
 
 export interface AutofillTemplate {
   id: number;
+  dbId?: string;
   name: string;
   category: string;
   system: string;

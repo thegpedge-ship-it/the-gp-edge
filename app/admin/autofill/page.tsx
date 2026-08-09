@@ -12,7 +12,12 @@ import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import StatusBadge from "@/components/admin/StatusBadge";
 import { getAutofillTemplates, saveAutofillTemplates, AutofillTemplate } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
-import { fetchAutofillTemplatesFromDbAction, toggleTemplateFreeStatus } from "@/actions/autofill.actions";
+import {
+  fetchAutofillTemplatesFromDbAction,
+  toggleTemplateFreeStatus,
+  deleteAutofillTemplateAction,
+  restoreAutofillTemplateAction,
+} from "@/actions/autofill.actions";
 import {
   themeBorder,
   themeBtnGhost,
@@ -48,10 +53,38 @@ const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "
 
 
 export default function AutofillPage() {
-  const { isReadOnly } = useAdminRole();
+  const { isReadOnly, canRestoreItem, canArchiveItem, currentAdmin } = useAdminRole();
   const router = useRouter();
   const [templates, setTemplates] = useState<AutofillTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    fetchAutofillTemplatesFromDbAction(canRestoreItem).then(setTemplates);
+  }, [canRestoreItem]);
+
+  const handleDeleteTemplate = async (template: AutofillTemplate) => {
+    if (isReadOnly || !canArchiveItem) return;
+    if (!confirm("Archive this autofill template? Item will be hidden from production and retained in audit log.")) return;
+    const updated = templates.map((t) => (t.id === template.id ? { ...t, status: "archived" as const } : t));
+    setTemplates(updated);
+    saveAutofillTemplates(updated);
+    await deleteAutofillTemplateAction(template.dbId || template.id, currentAdmin);
+    addUserNotification("Template Archived", `"${template.name}" has been archived.`, 1, "custom");
+  };
+
+  const handleRestoreTemplate = async (template: AutofillTemplate) => {
+    if (!canRestoreItem) return;
+    const res = await restoreAutofillTemplateAction(template.dbId || template.id, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to restore template.");
+      return;
+    }
+    const updated = templates.map((t) => (t.id === template.id ? { ...t, status: "active" as const } : t));
+    setTemplates(updated);
+    saveAutofillTemplates(updated);
+    addUserNotification("Template Restored", `Successfully restored "${template.name}".`, 1, "custom");
+  };
 
   const [showEditor, setShowEditor] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
@@ -243,17 +276,7 @@ export default function AutofillPage() {
     }
   };
 
-  useEffect(() => {
-    fetchAutofillTemplatesFromDbAction().then(setTemplates);
-  }, []);
 
-  const handleDeleteTemplate = (id: number) => {
-    if (isReadOnly) return;
-    if (!confirm("Delete this template? This cannot be undone.")) return;
-    const updated = templates.filter((t) => t.id !== id);
-    setTemplates(updated);
-    saveAutofillTemplates(updated);
-  };
 
   const handleToggleTemplateFree = async (template: AutofillTemplate, newIsFree: boolean) => {
     if (isReadOnly) return;
@@ -370,7 +393,9 @@ export default function AutofillPage() {
   }, [showEditor]);
 
   const filtered = templates.filter((t) => {
-    return t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch = !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchStatus = statusFilter === "all" ? (t.status !== "archived") : (t.status === statusFilter);
+    return matchSearch && matchStatus;
   });
 
   return (
@@ -436,11 +461,22 @@ export default function AutofillPage() {
       )}
 
       {/* Filters */}
-      <motion.div variants={itemVariants} className="flex items-center gap-3">
-        <div className="relative w-full max-w-sm">
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
           <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input type="text" placeholder="Search templates..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 text-sm bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700/60 dark:text-slate-100 transition-all" />
         </div>
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Statuses" },
+            { value: "active", label: "Active" },
+            { value: "draft", label: "Draft" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="w-48"
+        />
       </motion.div>
 
       {/* ========== CARD GRID VIEW ========== */}
@@ -520,14 +556,26 @@ export default function AutofillPage() {
                     >
                       <Lucide.FileEdit className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleDeleteTemplate(template.id); }}
-                      disabled={isReadOnly}
-                      className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
-                      title={isReadOnly ? "Viewers cannot delete templates" : "Delete Template"}
-                    >
-                      <Lucide.Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {template.status === "archived" && canRestoreItem ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRestoreTemplate(template); }}
+                        className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
+                        title="Restore Template (SA Only)"
+                      >
+                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      canArchiveItem && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleDeleteTemplate(template); }}
+                          disabled={isReadOnly}
+                          className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                          title={isReadOnly ? "Viewers cannot archive templates" : "Archive Template"}
+                        >
+                          <Lucide.Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
               </div>
