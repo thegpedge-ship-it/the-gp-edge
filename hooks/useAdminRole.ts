@@ -188,6 +188,18 @@ export function useAdminRole() {
     currentAdmin.role === "Subscriber" ||
     currentAdmin.role === "SUB (Subscriber)";
 
+  // 3A Content Permission Matrix derived capabilities
+  const canCreateItem = isSuperAdmin || isClinicalEditor;
+  const canBulkImport = isSuperAdmin || isClinicalEditor;
+  const canEditDraft = isSuperAdmin || isClinicalEditor || isDrafter;
+  const canEditPostReview = isSuperAdmin || isClinicalEditor;
+  const canAttachRefs = isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer;
+  const canViewUnpublished = !isSubscriber;
+  const canViewPipeline = !isSubscriber;
+  const canArchiveItem = isSuperAdmin || isClinicalEditor;
+  const canRestoreItem = isSuperAdmin;
+  const canToggleBilling = isSuperAdmin || isOperationsManager;
+
   return {
     currentAdmin,
     isReadOnly,
@@ -198,5 +210,16 @@ export function useAdminRole() {
     isPeerReviewer,
     isSubscriber,
     userRoles,
+    // 3A capability flags
+    canCreateItem,
+    canBulkImport,
+    canEditDraft,
+    canEditPostReview,
+    canAttachRefs,
+    canViewUnpublished,
+    canViewPipeline,
+    canArchiveItem,
+    canRestoreItem,
+    canToggleBilling,
   };
 }

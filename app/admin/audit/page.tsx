@@ -89,10 +89,17 @@ function getRelativeLastActive(timestampMs?: number, isCurrentLoggedIn?: boolean
 }
 
 export default function AuditPage() {
-  const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin } = useAdminRole();
+  const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin, isOperationsManager } = useAdminRole();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [nowTick, setNowTick] = useState(Date.now());
+
+  /* 3G Governance Capability Flags */
+  const canInviteContributor = isSuperAdmin || isOperationsManager;
+  const canInviteAnyAccount = isSuperAdmin;
+  const canDeactivateContributor = isSuperAdmin || isOperationsManager;
+  const canDeactivateAnyAccount = isSuperAdmin;
+  const canEditPermissionBundle = isSuperAdmin;
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -263,8 +270,22 @@ export default function AuditPage() {
       a.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  function isContributorAccount(u: AdminUser): boolean {
+    const uRoles = u.roles || [];
+    return (
+      uRoles.includes("DR") ||
+      uRoles.includes("PR") ||
+      u.role.includes("DR") ||
+      u.role.includes("PR") ||
+      u.role === "Drafter" ||
+      u.role === "Peer Reviewer"
+    );
+  }
+
   /* ── Handlers ── */
   function openEdit(admin: AdminUser) {
+    const canEditTarget = isSuperAdmin || (isOperationsManager && isContributorAccount(admin));
+    if (!canEditTarget || isReadOnly) return;
     setEditingAdmin(admin);
     setEditRole(admin.role);
     setEditPermissions([...admin.permissions]);
@@ -279,10 +300,14 @@ export default function AuditPage() {
   }
 
   async function saveEdit() {
-    if (!editingAdmin) return;
-    if (isReadOnly) return;
+    if (!editingAdmin || isReadOnly) return;
     if (!editName.trim() || !editEmail.trim() || !editUsername.trim()) {
       alert("Please fill in all required fields.");
+      return;
+    }
+
+    if (!isSuperAdmin && !isContributorAccount(editingAdmin)) {
+      alert("Section 3G Rule Violation: Operations Manager can modify Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
       return;
     }
 
@@ -295,6 +320,9 @@ export default function AuditPage() {
       editRole.includes("SUB") ? ["SUB"] :
       editRole === "Super Admin" ? ["SA", "CE", "OM"] : [editRole];
 
+    // Under 3G, OM cannot alter permission bundles — force preset permissions if non-SA
+    const finalPermissions = isSuperAdmin ? [...editPermissions] : [...(ROLE_PRESETS[editRole] || editPermissions)];
+
     const updatedUser = {
       id: editingAdmin.id,
       name: editName.trim(),
@@ -302,7 +330,7 @@ export default function AuditPage() {
       username: editUsername.trim(),
       role: editRole,
       roles: derivedRoles,
-      permissions: [...editPermissions],
+      permissions: finalPermissions,
       lastChanged: "Just now",
       ...(editPassword.trim() ? { password: editPassword } : {}),
       forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
@@ -333,12 +361,14 @@ export default function AuditPage() {
   }
 
   function openAdd() {
+    if (!canInviteContributor || isReadOnly) return;
     setAddName("");
     setAddEmail("");
     setAddUsername("");
     setAddPassword("");
-    setAddRole("Admin");
-    setAddPermissions([...ALL_FEATURE_KEYS]);
+    const defaultRole = isSuperAdmin ? "SA (Super Admin)" : "DR (Drafter)";
+    setAddRole(defaultRole);
+    setAddPermissions([...(ROLE_PRESETS[defaultRole] || ALL_FEATURE_KEYS)]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);
@@ -347,13 +377,20 @@ export default function AuditPage() {
   }
 
   async function saveAdd() {
-    if (isReadOnly) return;
+    if (!canInviteContributor || isReadOnly) return;
     if (!addName.trim() || !addEmail.trim() || !addUsername.trim() || !addPassword.trim()) {
       alert("Please fill in all required fields.");
       return;
     }
+
+    if (!isSuperAdmin && !["DR (Drafter)", "PR (Peer Reviewer)", "DR", "PR"].includes(addRole)) {
+      alert("Section 3G Rule Violation: Operations Manager can invite Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
+      return;
+    }
     
     const isTargetSuperAdmin = addRole === "Super Admin";
+    const finalPermissions = isSuperAdmin ? [...addPermissions] : [...(ROLE_PRESETS[addRole] || addPermissions)];
+
     const newCred = {
       id: String(Date.now()),
       name: addName.trim(),
@@ -361,7 +398,7 @@ export default function AuditPage() {
       username: addUsername.trim(),
       password: addPassword,
       role: addRole,
-      permissions: [...addPermissions],
+      permissions: finalPermissions,
       lastChanged: "Just now",
       forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
       oauthEnabled: isTargetSuperAdmin ? addOauth : false,
@@ -382,7 +419,7 @@ export default function AuditPage() {
         localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
-      addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
+      addUserNotification("Contributor Account Invited", `Successfully created credentials for "${addName}" (${addRole}). Account set to force password reset on first login.`, 1, "custom");
     } catch (err: any) {
       console.error("Failed to add admin to DB:", err);
       alert(err.message || "An unexpected error occurred.");
@@ -394,6 +431,10 @@ export default function AuditPage() {
     if (isReadOnly) return;
     if (admin.role === "Super Admin" || admin.id === "1" || admin.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00") {
       alert("Cannot delete Super Admin account.");
+      return;
+    }
+    if (!isSuperAdmin && !isContributorAccount(admin)) {
+      alert("Section 3G Rule Violation: Operations Manager can deactivate Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
       return;
     }
     setAdminToDelete(admin);
@@ -443,6 +484,7 @@ export default function AuditPage() {
   }
 
   function togglePermission(perms: string[], key: string, setter: (v: string[]) => void) {
+    if (!canEditPermissionBundle) return;
     setter(perms.includes(key) ? perms.filter((p) => p !== key) : [...perms, key]);
   }
 
@@ -475,8 +517,13 @@ export default function AuditPage() {
     { value: "SUB (Subscriber)", label: "SUB — Subscriber" },
   ];
 
-  const addRoleOptions = ALL_ROLE_OPTIONS;
-  const editRoleOptions = ALL_ROLE_OPTIONS;
+  const CONTRIBUTOR_ROLE_OPTIONS = [
+    { value: "DR (Drafter)", label: "DR — Drafter (Assigned Items)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Peer Reviewer (Review Management)" },
+  ];
+
+  const addRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
+  const editRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
 
   /* ── Render ── */
   return (
@@ -529,18 +576,18 @@ export default function AuditPage() {
                 />
               </div>
               <button
-                onClick={isSuperAdmin ? openAdd : undefined}
-                disabled={!isSuperAdmin || isReadOnly}
+                onClick={canInviteContributor ? openAdd : undefined}
+                disabled={!canInviteContributor || isReadOnly}
                 className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${
-                  isSuperAdmin && !isReadOnly
+                  canInviteContributor && !isReadOnly
                     ? "hover:shadow-md active:scale-[0.97] cursor-pointer hover:opacity-95"
                     : "opacity-50 cursor-not-allowed"
                 }`}
-                style={{ background: isSuperAdmin && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
-                title={isSuperAdmin ? "Add new administrator" : "Only Super Admins can add team members"}
+                style={{ background: canInviteContributor && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
+                title={isSuperAdmin ? "Add team member & assign roles" : isOperationsManager ? "Invite Drafter (DR) or Peer Reviewer (PR) contributor account" : "Account creation is restricted"}
               >
                 <Lucide.Plus className="w-3.5 h-3.5" />
-                Add Admin
+                {isOperationsManager ? "Invite Contributor" : "Add Admin"}
               </button>
             </div>
 
@@ -548,8 +595,12 @@ export default function AuditPage() {
               <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
                 <Lucide.Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                 <div>
-                  <p className="font-semibold text-amber-900 dark:text-amber-200">Permissions Locked</p>
-                  <p className="mt-0.5 opacity-90 leading-normal">You are viewing as <span className="font-semibold">{loggedInAdmin?.name} ({loggedInAdmin?.role})</span>. Only Super Administrators are permitted to add team members, modify roles, or assign feature permissions.</p>
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">Section 3G Governance Mode</p>
+                  <p className="mt-0.5 opacity-90 leading-normal">
+                    {isOperationsManager
+                      ? "As Operations Manager (OM), you can invite and deactivate Drafter (DR) and Peer Reviewer (PR) contributor accounts. Assigning/revoking elevated roles (SA/CE/OM) and editing permission bundles are restricted to Super Admins."
+                      : "Account creation, role modification, access log viewing, and audit log exports are restricted."}
+                  </p>
                 </div>
               </div>
             )}
@@ -568,96 +619,102 @@ export default function AuditPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredAdmins.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
-                            {a.name.split(" ").map((n) => n[0]).join("")}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                          (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
-                            ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300 dark:border-purple-900/60"
-                            : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
-                            ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300 dark:border-blue-900/60"
-                            : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
-                            ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300 dark:border-amber-900/60"
-                            : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
-                            ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300 dark:border-green-900/60"
-                            : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
-                            ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300 dark:border-orange-900/60"
-                            : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60"
-                        }`}>
-                          {a.role}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-1.5 select-none">
-                          <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
-                            <Lucide.Key className="w-2.5 h-2.5" />
-                            Pass
-                          </span>
+                  {filteredAdmins.map((a) => {
+                    const isTargetContributor = isContributorAccount(a);
+                    const canEditTargetUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                    const canDeleteTargetUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
 
-                          {a.mustResetPassword && (
-                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
-                              Reset Pending
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
-                          <span className="text-xs text-slate-500 font-medium">
-                            {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                    return (
+                      <tr
+                        key={a.id}
+                        className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
+                              {a.name.split(" ").map((n) => n[0]).join("")}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                            (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
+                              ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300 dark:border-purple-900/60"
+                              : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
+                              ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300 dark:border-blue-900/60"
+                              : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
+                              ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300 dark:border-amber-900/60"
+                              : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
+                              ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300 dark:border-green-900/60"
+                              : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
+                              ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300 dark:border-orange-900/60"
+                              : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60"
+                          }`}>
+                            {a.role}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={() => isSuperAdmin && openEdit(a)}
-                            disabled={!isSuperAdmin || isReadOnly}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                              isSuperAdmin && !isReadOnly
-                                ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
-                                : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
-                            }`}
-                            title={isSuperAdmin ? "Modify user details & permissions" : "Only Super Admins can modify accounts"}
-                          >
-                            Edit details
-                          </button>
-                          {a.role !== "Super Admin" && (
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap items-center gap-1.5 select-none">
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
+                              <Lucide.Key className="w-2.5 h-2.5" />
+                              Pass
+                            </span>
+
+                            {a.mustResetPassword && (
+                              <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
+                                Reset Pending
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
+                            <span className="text-xs text-slate-500 font-medium">
+                              {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
                             <button
-                              onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
-                              disabled={!isSuperAdmin || isReadOnly}
-                              className={`p-1.5 rounded-lg transition-all ${
-                                isSuperAdmin && !isReadOnly
-                                  ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
-                                  : "text-slate-300 cursor-not-allowed opacity-50"
-                                }`}
-                              title={isSuperAdmin ? "Remove this admin" : "Only Super Admins can remove team members"}
+                              onClick={() => canEditTargetUser && openEdit(a)}
+                              disabled={!canEditTargetUser || isReadOnly}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                                canEditTargetUser && !isReadOnly
+                                  ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                                  : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                              }`}
+                              title={canEditTargetUser ? "Modify user details & permissions" : "Only Super Admins can modify non-contributor accounts"}
                             >
-                              <Lucide.Trash className="w-4 h-4" />
+                              Edit details
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {a.role !== "Super Admin" && (
+                              <button
+                                onClick={() => canDeleteTargetUser && requestDeleteAdmin(a)}
+                                disabled={!canDeleteTargetUser || isReadOnly}
+                                className={`p-1.5 rounded-lg transition-all ${
+                                  canDeleteTargetUser && !isReadOnly
+                                    ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
+                                    : "text-slate-300 cursor-not-allowed opacity-50"
+                                  }`}
+                                title={canDeleteTargetUser ? "Deactivate this account" : "Only Super Admins can deactivate non-contributor accounts"}
+                              >
+                                <Lucide.Trash className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -706,30 +763,39 @@ export default function AuditPage() {
                   </div>
 
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100/60 dark:border-slate-800/60 justify-end">
-                    <button
-                      onClick={() => isSuperAdmin && openEdit(a)}
-                      disabled={!isSuperAdmin || isReadOnly}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                        isSuperAdmin && !isReadOnly
-                          ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
-                          : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
-                      }`}
-                    >
-                      Edit details
-                    </button>
-                    {a.role !== "Super Admin" && (
-                      <button
-                        onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
-                        disabled={!isSuperAdmin || isReadOnly}
-                        className={`p-1.5 rounded-lg border transition-all ${
-                          isSuperAdmin && !isReadOnly
-                            ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
-                            : "text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                        }`}
-                      >
-                        <Lucide.Trash className="w-4 h-4" />
-                      </button>
-                    )}
+                    {(() => {
+                      const isTargetContributor = isContributorAccount(a);
+                      const canEditThisUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                      const canDeleteThisUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                      return (
+                        <>
+                          <button
+                            onClick={() => canEditThisUser && openEdit(a)}
+                            disabled={!canEditThisUser || isReadOnly}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                              canEditThisUser && !isReadOnly
+                                ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                                : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                            }`}
+                          >
+                            Edit details
+                          </button>
+                          {a.role !== "Super Admin" && (
+                            <button
+                              onClick={() => canDeleteThisUser && requestDeleteAdmin(a)}
+                              disabled={!canDeleteThisUser || isReadOnly}
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                canDeleteThisUser && !isReadOnly
+                                  ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
+                                  : "text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                              }`}
+                            >
+                              <Lucide.Trash className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
@@ -884,13 +950,22 @@ export default function AuditPage() {
                 {/* Feature permissions checkbox list */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Feature Permissions</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
-                      <span className="text-slate-300">·</span>
-                      <button onClick={() => setEditPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
-                    </div>
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Feature Permissions {!canEditPermissionBundle && "(Locked by Preset)"}
+                    </label>
+                    {canEditPermissionBundle && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
+                        <span className="text-slate-300">·</span>
+                        <button onClick={() => setEditPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
+                      </div>
+                    )}
                   </div>
+                  {!canEditPermissionBundle && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2.5 bg-amber-50/50 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/40">
+                      Section 3G Governance: Feature permission bundles are locked to predefined role presets. Only Super Admins can customize permission bundles.
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {ALL_FEATURES.map((feature) => {
                       const checked = editPermissions.includes(feature.key);
@@ -898,8 +973,11 @@ export default function AuditPage() {
                         <button
                           key={feature.key}
                           type="button"
+                          disabled={!canEditPermissionBundle}
                           onClick={() => togglePermission(editPermissions, feature.key, setEditPermissions)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 ${
+                            !canEditPermissionBundle ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                          } ${
                             checked
                               ? "bg-teal-50/60 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/40 shadow-sm"
                               : "bg-slate-50/40 dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700"
@@ -1081,13 +1159,22 @@ export default function AuditPage() {
                 {/* Feature Permissions Checkboxes */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Feature Permissions</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setAddPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
-                      <span className="text-slate-300">·</span>
-                      <button onClick={() => setAddPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
-                    </div>
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Feature Permissions {!canEditPermissionBundle && "(Locked by Preset)"}
+                    </label>
+                    {canEditPermissionBundle && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setAddPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
+                        <span className="text-slate-300">·</span>
+                        <button onClick={() => setAddPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
+                      </div>
+                    )}
                   </div>
+                  {!canEditPermissionBundle && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2.5 bg-amber-50/50 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/40">
+                      Section 3G Governance: Feature permission bundles are locked to predefined role presets. Only Super Admins can customize permission bundles.
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {ALL_FEATURES.map((feature) => {
                       const checked = addPermissions.includes(feature.key);
@@ -1095,8 +1182,11 @@ export default function AuditPage() {
                         <button
                           key={feature.key}
                           type="button"
+                          disabled={!canEditPermissionBundle}
                           onClick={() => togglePermission(addPermissions, feature.key, setAddPermissions)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 ${
+                            !canEditPermissionBundle ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                          } ${
                             checked
                               ? "bg-teal-50/60 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/40 shadow-sm"
                               : "bg-slate-50/40 dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700"

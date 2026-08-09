@@ -916,8 +916,6 @@ function polishDocxHtml(rawHtml: string): string {
   );
 
   // ── 2. Style paragraphs ───────────────────────────────────────────────────
-  // [\s\S]*? matches across newlines without the dotAll flag (unavailable below ES2018).
-  // Non-greedy *? stops at the first </p>, so adjacent paragraphs are handled correctly.
   html = html.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, (_m, attrs, inner) => {
     if (inner.includes("<img")) return `<p${attrs}>${inner}</p>`;
     const plain = inner.replace(/<[^>]+>/g, "").trim();
@@ -942,12 +940,27 @@ function polishDocxHtml(rawHtml: string): string {
   // ── 5. Style images ───────────────────────────────────────────────────────
   html = styleHtmlImages(html);
 
-  // ── 6. Apply highlight colours and callout blocks ──────────────────────────
-  html = highlightWarningText(html);
+  // ── 6. Strip emojis BEFORE callout detection (keep ⚠ for warning triggers)
+  html = html.replace(/(?![⚠️⚠])\p{Extended_Pictographic}/gu, "");
+
+  // ── 7. Callout detection — TWO passes to cover both DOCX and plain-text formats
+  // styleHtmlCallouts: converts single-column tables with callout keywords (e.g. a
+  //   one-column table whose cell reads "Key Points:") into coloured callout divs.
+  // convertTextCallouts: converts <p>/<h3>/<h4> elements whose text matches callout
+  //   keywords (e.g. <h3>Key Points:</h3> followed by a <ul>) into callout divs.
+  // Both must run so that callouts created with either document convention are caught.
   html = styleHtmlCallouts(html);
+  html = convertTextCallouts(html);
+
+  // ── 8. Warning text highlight ─────────────────────────────────────────────
+  html = highlightWarningText(html);
+
+  // ── 9. Strip any residual emojis after processing ─────────────────────────
+  html = html.replace(/\p{Extended_Pictographic}/gu, "");
 
   return html.trim();
 }
+
 
 function convertPlainTextToHtml(text: string): string {
   const lines = text.split("\n").map(l => l.trim());
