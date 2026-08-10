@@ -8,7 +8,7 @@ import type { UiMockTest } from "@/app/exam-prep/actions";
 import { cachedMockTestQuestionIds } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import UpgradeModal from "@/components/UpgradeModal";
 
@@ -32,28 +32,26 @@ function TestCard({
   const statusLabel = isTierLocked
     ? "Registrar Only"
     : test.availability === "locked"
-    ? "Locked"
-    : test.completed
-    ? "Completed"
-    : "Available";
+      ? "Locked"
+      : test.completed
+        ? "Completed"
+        : "Available";
   const action = test.completed ? "Retake" : "Start";
 
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border p-4 sm:p-5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        isLocked
+      className={`group relative flex flex-col rounded-2xl border p-4 sm:p-5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isLocked
           ? "border-slate-200 dark:border-slate-700/40 bg-slate-50/60 dark:bg-slate-800/20"
           : "border-slate-200/80 dark:border-slate-700/50 bg-white dark:bg-slate-800/40 hover:-translate-y-0.5 hover:border-emerald-300 dark:hover:border-emerald-600/60 hover:shadow-xl hover:shadow-emerald-500/10"
-      }`}
+        }`}
     >
       {/* Top — icon + name + status pill */}
       <div className="flex items-start gap-3">
         <div
-          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${
-            isLocked
+          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${isLocked
               ? "bg-slate-100 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500"
               : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/25 dark:text-emerald-400"
-          }`}
+            }`}
         >
           {isLocked ? <Lock size={16} strokeWidth={2.2} className="sm:w-[18px] sm:h-[18px]" /> : <FileText size={16} strokeWidth={2.2} className="sm:w-[18px] sm:h-[18px]" />}
         </div>
@@ -81,13 +79,12 @@ function TestCard({
           )}
 
           <span
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-              isLocked
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${isLocked
                 ? "bg-slate-100 text-slate-500 dark:bg-slate-700/40 dark:text-slate-400"
                 : test.completed
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : "bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300"
-            }`}
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : "bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300"
+              }`}
           >
             {test.completed && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
             {statusLabel}
@@ -210,7 +207,7 @@ export default function MockTestsModal({
 
   return (
     <>
-      {startingId && <FullScreenLoader message="Preparing your test" />}
+      {startingId && <ExamLoadingScreen title="Preparing your test" />}
       <AnimatePresence>
         {open && (
           <motion.div

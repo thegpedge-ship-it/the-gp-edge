@@ -8,7 +8,7 @@ import type { ExamSubject, ExamSubtopic, ExamQuiz } from "@/app/exam-prep/action
 import { cachedExamSubjects, cachedSubtopics, cachedQuizzes, cachedMockTests } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
 const theme = {
@@ -181,7 +181,7 @@ export default function SubjectMenu() {
 
   return (
     <div className="flex flex-col h-full">
-      {startingId && <FullScreenLoader message="Preparing your quiz" />}
+      {startingId && <ExamLoadingScreen title="Preparing your quiz" />}
       {/* ─── Desktop: 3-Column Vertical Menu (hidden on mobile) ───────── */}
       <div className="hidden lg:flex flex-1 min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
 

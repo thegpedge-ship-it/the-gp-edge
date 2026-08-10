@@ -8,7 +8,7 @@ import type { ExamTreeSubject } from "@/app/exam-prep/actions";
 import { cachedExamTree } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 /* Default question count when the modal opens — the user can change it,
    but it is always clamped to the pool of selected subtopics. */
@@ -186,7 +186,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
 
   return (
     <>
-      {starting && <FullScreenLoader message="Preparing your quiz" />}
+      {starting && <ExamLoadingScreen title="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div
