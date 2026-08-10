@@ -304,7 +304,6 @@ export default function Sidebar() {
             <Sep />
 
             {/* ── Utility icons ── */}
-            <RailBtn icon={<BarChart2 size={18} strokeWidth={1.8} />} title="Analytics" />
             <RailBtn icon={<HelpCircle size={18} strokeWidth={1.8} />} title="Help &amp; Support" />
             <SignOutButton>
               <button title="Log out" className="sidebar-rail-btn" style={{

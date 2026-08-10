@@ -463,7 +463,6 @@ export default function SettingsPage() {
               {/* Actions */}
               <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800/80 rounded-lg overflow-hidden">
                 {[
-                  { id: "sec-2fa", icon: <Shield size={14} />, label: "Two-Factor Auth", desc: "Extra security layer", onClick: undefined as undefined | (() => void) },
                   { id: "sec-logout", icon: <LogOut size={14} />, label: "Logout All Devices", desc: loggingOut ? "Signing out…" : "End every active session", onClick: handleLogoutAll },
                 ].map((item) => (
                   <button key={item.id} type="button" id={item.id} onClick={item.onClick} disabled={item.id === "sec-logout" && loggingOut}
