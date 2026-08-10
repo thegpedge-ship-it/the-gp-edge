@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
 import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
+import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
+import MaintenanceBanner from "@/components/admin/MaintenanceBanner";
 
 const ADMIN_PROFILES = [
   { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
@@ -259,48 +261,51 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
+    <MaintenanceProvider>
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
 
 
-      {/* Backdrop for mobile sidebar */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[45] lg:hidden cursor-pointer"
-          />
-        )}
-      </AnimatePresence>
-
-      <AdminSidebar
-        collapsed={!isExpanded}
-        onToggle={() => setCollapsed(!collapsed)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      />
-      <AdminTopbar
-        collapsed={!isExpanded}
-        onMenuClick={() => setMobileOpen(!mobileOpen)}
-      />
-
-      {/* Main content area */}
-      <main
-        className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
-      >
-        <div className="p-6 lg:p-8">
-          {hasPermission ? children : (
-            <>
-              {deniedContent}
-              <div style={{ display: "none" }}>{children}</div>
-            </>
+        {/* Backdrop for mobile sidebar */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[45] lg:hidden cursor-pointer"
+            />
           )}
-        </div>
-      </main>
-    </div>
+        </AnimatePresence>
+
+        <AdminSidebar
+          collapsed={!isExpanded}
+          onToggle={() => setCollapsed(!collapsed)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        />
+        <AdminTopbar
+          collapsed={!isExpanded}
+          onMenuClick={() => setMobileOpen(!mobileOpen)}
+        />
+
+        {/* Main content area */}
+        <main
+          className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
+        >
+          <MaintenanceBanner />
+          <div className="p-6 lg:p-8">
+            {hasPermission ? children : (
+              <>
+                {deniedContent}
+                <div style={{ display: "none" }}>{children}</div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+    </MaintenanceProvider>
   );
 }

@@ -12,6 +12,8 @@ import {
   MARGIN_TRANSITION,
 } from "@/contexts/SidebarContext";
 import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
+import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
+import UserMaintenanceGuard from "@/components/dashboard/UserMaintenanceGuard";
 
 /**
  * DashboardInner — reads sidebar context to sync content margin with sidebar width.
@@ -64,7 +66,11 @@ const DashboardInner = memo(function DashboardInner({
         className={`min-h-screen ml-0 lg:ml-[var(--dash-ml)] ${className}`}
       >
         {/* PageTransition wraps route content for smooth, single entry animation */}
-        <PageTransition>{children}</PageTransition>
+        <PageTransition>
+          <UserMaintenanceGuard>
+            {children}
+          </UserMaintenanceGuard>
+        </PageTransition>
       </main>
     </div>
   );
@@ -91,12 +97,14 @@ export default function DashboardShell({
   profile?: DbProfile;
 }) {
   return (
-    <ProfileProvider value={profile}>
-      <SidebarProvider hasDrawer={!hideSidebar && showSidebar}>
-        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
-          {children}
-        </DashboardInner>
-      </SidebarProvider>
-    </ProfileProvider>
+    <MaintenanceProvider>
+      <ProfileProvider value={profile}>
+        <SidebarProvider hasDrawer={!hideSidebar && showSidebar}>
+          <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
+            {children}
+          </DashboardInner>
+        </SidebarProvider>
+      </ProfileProvider>
+    </MaintenanceProvider>
   );
 }
