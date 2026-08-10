@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
-import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, HelpCircle, X } from "lucide-react";
+import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, AlertTriangle, HelpCircle, X } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
 
 function AnimatedScoreCircle({ score }: { score: number }) {
@@ -70,7 +70,7 @@ function AnimatedScoreCircle({ score }: { score: number }) {
     </div>
   );
 }
-import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
+import { getQuestionsByIds, saveQuizAttempt, saveQuestionFeedback } from "@/app/exam-prep/actions";
 import type { QuizQuestion, SaveAttemptInput } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
 import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
@@ -341,6 +341,12 @@ export default function TestPage() {
   const [paletteOpen, setPaletteOpen] = useState(false); // mobile palette drawer
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackQuestionIdx, setFeedbackQuestionIdx] = useState(0);
+  const [timerPaused, setTimerPaused] = useState(false);
+
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
   const reportBlobRef = useRef<Blob | null>(null);
   const reportNameRef = useRef<string>("");
@@ -528,9 +534,10 @@ export default function TestPage() {
     }
   }, [generateAndStore]);
 
-  /* Countdown timer — auto-submit at zero. Mock tests only. */
+  /* Countdown timer — auto-submit at zero. Mock tests only. Pauses when
+     the feedback modal is open (timerPaused). */
   useEffect(() => {
-    if (loading || submitted || !config?.timed) return;
+    if (loading || submitted || !config?.timed || timerPaused) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -543,14 +550,15 @@ export default function TestPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted, handleSubmit, config]);
+  }, [loading, submitted, handleSubmit, config, timerPaused]);
 
-  /* Elapsed count-up — tracks time used for the result screen on every test. */
+  /* Elapsed count-up — tracks time used for the result screen on every test.
+     Also pauses when feedback modal is open on timed tests. */
   useEffect(() => {
-    if (loading || submitted) return;
+    if (loading || submitted || (timerPaused && config?.timed)) return;
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted]);
+  }, [loading, submitted, timerPaused, config]);
 
   /* ─── Exam lockdown: no leaving mid-test ──────────────────────────────
      Active only while a test is in progress (cleans up the moment it is
@@ -623,6 +631,27 @@ export default function TestPage() {
       delete next[current];
       return next;
     });
+  };
+
+  const openFeedback = () => {
+    setFeedbackQuestionIdx(current);
+    setFeedbackText("");
+    setFeedbackOpen(true);
+    if (config?.timed) setTimerPaused(true);
+  };
+
+  const closeFeedback = () => {
+    setFeedbackOpen(false);
+    if (config?.timed) setTimerPaused(false);
+  };
+
+  const submitFeedback = async () => {
+    const q = questions[feedbackQuestionIdx];
+    if (!q || !feedbackText.trim()) return;
+    setFeedbackSubmitting(true);
+    await saveQuestionFeedback({ questionId: q.id, feedback: feedbackText.trim() });
+    setFeedbackSubmitting(false);
+    closeFeedback();
   };
 
   const getStatus = (index: number): QuestionStatus => {
@@ -950,6 +979,17 @@ export default function TestPage() {
               <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 mb-6 max-w-4xl shadow-2xs">
                 <p className="text-[15.5px] sm:text-[17px] leading-[1.65] text-slate-950 dark:text-slate-50 font-medium">
                   {question.text}
+                  {/* Report Issue — inline at end of question text */}
+                  <button
+                    onClick={openFeedback}
+                    title="Report an issue with this question — timer will be paused"
+                    className="group relative inline-flex items-center justify-center w-3.5 h-3.5 ml-1.5 align-middle cursor-pointer"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-rose-500 transition-transform duration-150 group-hover:scale-125" strokeWidth={2.4} fill="rgba(244,63,94,0.15)" />
+                    <span className="pointer-events-none absolute -bottom-7 right-0 whitespace-nowrap rounded-md bg-slate-900 dark:bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-10">
+                      Report issue — we&apos;ll pause the timer
+                    </span>
+                  </button>
                 </p>
               </div>
 
@@ -1056,6 +1096,123 @@ export default function TestPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Question Feedback / Report Issue Modal ─────────────────── */}
+      <AnimatePresence>
+        {feedbackOpen && (() => {
+          const fq = questions[feedbackQuestionIdx];
+          if (!fq) return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[62] flex items-center justify-center p-4"
+            >
+              {/* Blurred backdrop */}
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={closeFeedback} />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="relative w-full max-w-[520px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-100/60 dark:border-rose-900/30 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
+                      <AlertTriangle className="w-5.5 h-5.5" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                        Report an Issue
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {config?.timed ? "Timer paused while you write your feedback." : "Share your feedback about this question."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeFeedback}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+                {/* Question Details */}
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Question ID</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-mono text-xs break-all">{fq.id.slice(0, 8)}…</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subject</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subject}</span>
+                  </div>
+                  {fq.subtopic && (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subtopic</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subtopic}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question Preview */}
+                <div className="mt-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/50">
+                  <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-4">
+                    {fq.text}
+                  </p>
+                </div>
+
+                <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+                {/* Feedback Text Area */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Your Feedback
+                  </label>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
+                    placeholder="Describe the issue — wrong answer, unclear wording, incorrect options, etc."
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 resize-none transition-colors"
+                  />
+                  <div className="flex justify-end mt-1.5">
+                    <span className={`text-[11px] font-semibold tabular-nums ${feedbackText.length >= 480 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"}`}>
+                      {feedbackText.length}/500
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={closeFeedback}
+                    className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitFeedback}
+                    disabled={!feedbackText.trim() || feedbackSubmitting}
+                    className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-md shadow-rose-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* ── Submit confirmation modal ─────────────────────────────── */}
       <AnimatePresence>
