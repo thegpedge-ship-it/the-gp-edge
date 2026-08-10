@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
-import { CheckCircle2, FileText, Clock, Download } from "lucide-react";
+import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
 
 function AnimatedScoreCircle({ score }: { score: number }) {
@@ -77,7 +77,7 @@ import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
 import { generateReportBlob } from "@/lib/report/generateReport";
 import { saveReport } from "@/lib/report/reportStore";
 import TestNotFound from "@/components/test/TestNotFound";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 type QuestionStatus = "answered" | "not-answered" | "not-visited";
 
@@ -92,15 +92,15 @@ function formatTime(totalSeconds: number): string {
 
 function paletteClasses(status: QuestionStatus, isCurrent: boolean): string {
   const base =
-    "w-8 h-8 rounded-full border text-[13px] font-bold flex items-center justify-center transition-all duration-150 hover:scale-110";
-  const ring = isCurrent ? " ring-2 ring-emerald-600 ring-offset-2 dark:ring-offset-slate-900" : "";
+    "w-8 h-8 rounded-lg border text-xs font-semibold flex items-center justify-center transition-all duration-150 hover:scale-105 cursor-pointer";
+  const ring = isCurrent ? " ring-2 ring-teal-600 dark:ring-teal-400 ring-offset-2 dark:ring-offset-slate-900 font-bold" : "";
   switch (status) {
     case "answered":
-      return `${base} bg-emerald-500 border-emerald-500 text-white${ring}`;
+      return `${base} bg-emerald-500 border-emerald-500 text-white shadow-xs${ring}`;
     case "not-answered":
-      return `${base} bg-red-400 border-red-400 text-white${ring}`;
+      return `${base} bg-rose-500 border-rose-500 text-white shadow-xs${ring}`;
     default:
-      return `${base} bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400${ring}`;
+      return `${base} bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400${ring}`;
   }
 }
 
@@ -148,21 +148,32 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const onPointerDown = (e: React.PointerEvent) => {
     if (scale <= 1) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: offset.x, baseY: offset.y };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+    };
     setDragging(true);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
+    if (!dragRef.current || !dragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
     setOffset({
-      x: dragRef.current.baseX + (e.clientX - dragRef.current.startX),
-      y: dragRef.current.baseY + (e.clientY - dragRef.current.startY),
+      x: dragRef.current.baseX + dx,
+      y: dragRef.current.baseY + dy,
     });
   };
 
-  const endDrag = () => {
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragging) return;
     dragRef.current = null;
     setDragging(false);
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
   };
 
   return (
@@ -170,32 +181,31 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[70] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Controls */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-        <button
-          onClick={() => zoomBy(-0.5)}
-          title="Zoom out (-)"
-          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        </button>
-        <span className="min-w-[3.5rem] text-center text-[12px] font-semibold text-white tabular-nums">{Math.round(scale * 100)}%</span>
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
         <button
           onClick={() => zoomBy(0.5)}
-          title="Zoom in (+)"
-          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          title="Zoom In (+)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg font-bold transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          +
+        </button>
+        <button
+          onClick={() => zoomBy(-0.5)}
+          title="Zoom Out (-)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg font-bold transition-colors"
+        >
+          −
         </button>
         <button
           onClick={reset}
-          title="Reset (0)"
-          className="px-3 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition-colors"
+          title="Reset zoom (0)"
+          className="px-2.5 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-semibold transition-colors"
         >
           Reset
         </button>
@@ -256,23 +266,23 @@ function QuestionPalette({
   return (
     <>
       {/* Progress & Legend */}
-      <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
-        <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
+      <div className="flex-shrink-0 p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 flex flex-col items-center">
+        <h3 className="text-[11px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-5">Your Progress</h3>
 
         {/* Circular Progress */}
-        <div className="relative w-20 h-20 mb-6">
+        <div className="relative w-20 h-20 mb-5">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
             <path
               className="text-slate-100 dark:text-slate-800"
-              strokeWidth="2"
+              strokeWidth="2.5"
               stroke="currentColor"
               fill="none"
               d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
             />
             <path
-              className="text-emerald-500 transition-all duration-500 ease-out"
+              className="text-teal-500 transition-all duration-500 ease-out"
               strokeDasharray={`${progressPercent}, 100`}
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               stroke="currentColor"
               fill="none"
@@ -280,28 +290,28 @@ function QuestionPalette({
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
-            <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
-            <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
+            <span className="text-[16px] font-bold text-slate-900 dark:text-slate-100 leading-none">{progressPercent}%</span>
+            <span className="text-[8.5px] font-semibold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wider">Answered</span>
           </div>
         </div>
 
         {/* Legend */}
-        <div className="w-full space-y-3">
-          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
+        <div className="w-full space-y-2.5">
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered
           </div>
-          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-            <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Not Answered
           </div>
-          <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-            <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" /> Not Visited
           </div>
         </div>
       </div>
 
       {/* Scrollable Palette Grid */}
       <div className="flex-1 min-h-0 overflow-y-auto p-5">
-        <div className="grid grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-5 gap-2">
           {questions.map((_, i) => (
             <button key={i} onClick={() => onGoTo(i)} className={paletteClasses(getStatus(i), i === current)}>
               {i + 1}
@@ -628,11 +638,11 @@ export default function TestPage() {
   /* ─── Resolving / unknown test ───────────────────────────────────── */
   // Resolving and fetching are one continuous wait to the user, so both show
   // the same screen — previously this returned null and flashed blank first.
-  if (config === undefined) return <FullScreenLoader message="Preparing your test" />;
+  if (config === undefined) return <ExamLoadingScreen title="Preparing your test" />;
   if (config === null) return <TestNotFound />;
 
   /* ─── Loading state ──────────────────────────────────────────────── */
-  if (loading) return <FullScreenLoader message="Fetching your questions" />;
+  if (loading) return <ExamLoadingScreen title="Preparing your questions" subtitle="Please wait while we load your test." />;
 
   /* ─── Result screen after submission ─────────────────────────────── */
   if (submitted) {
@@ -642,121 +652,163 @@ export default function TestPage() {
     );
     const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
     return (
-      <div className="fixed inset-0 z-50 bg-[#FAFBFC] dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
+      <div className="fixed inset-0 z-50 bg-slate-100/70 dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 15 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-[760px] bg-white dark:bg-slate-900 rounded-[28px] shadow-xl sm:shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-8 md:p-10 my-auto flex flex-col gap-6 sm:gap-8"
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-[780px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 sm:p-9 md:p-10 my-auto flex flex-col gap-6 sm:gap-7"
         >
-          {/* Top Section: Donut Score + Header & Unified Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] items-center gap-6 sm:gap-8">
+          {/* 1. Header with Big Dark Standalone Tick Icon (Centered) */}
+          <div className="flex items-center justify-center gap-3 sm:gap-3.5 pb-6 border-b border-slate-200 dark:border-slate-700/90 text-center">
+            <motion.svg
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="w-6 h-6 sm:w-7 sm:h-7 text-slate-900 dark:text-slate-100 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <motion.path
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.45, delay: 0.1, ease: "easeOut" }}
+                d="M20 6L9 17L4 12"
+              />
+            </motion.svg>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
+              Test Submitted Successfully
+            </h1>
+          </div>
+
+          {/* 2. Score + Performance Section (Horizontal Layout with Visible Dividers) */}
+          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_2fr] gap-6 sm:gap-8 items-center py-1">
             
-            {/* Left Column: Animated Donut Score Circle */}
-            <div className="flex justify-center">
-              <AnimatedScoreCircle score={score} />
-            </div>
+            {/* Left: YOUR SCORE with Centered, Bigger Semi-Circle Gauge */}
+            <div className="flex flex-col items-center justify-center text-center md:border-r md:border-slate-200 md:dark:border-slate-700/90 md:pr-8 py-2">
+              <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1.5">
+                YOUR SCORE
+              </span>
 
-            {/* Right Column: Header & Unified Stats Bar */}
-            <div className="flex flex-col justify-between gap-5 text-center sm:text-left">
-              {/* Header */}
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">
-                  {timedOut ? "Time's Up!" : "Test Submitted Successfully!"}
-                </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
-                  {timedOut 
-                    ? `Your time ran out, so ${config.name} was submitted automatically.` 
-                    : "Thanks for completing the test."}
-                </p>
-              </div>
+              {/* Enlarged Semi-Circle Progress Gauge */}
+              <div className="relative w-52 sm:w-56 h-28 sm:h-30 my-1 flex items-end justify-center">
+                <svg className="w-full h-full" viewBox="0 0 140 80">
+                  {/* Background Track Arc */}
+                  <path
+                    d="M 16 72 A 54 54 0 0 1 124 72"
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-slate-100 dark:text-slate-800"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                  />
+                  {/* Dynamic Gradient Green/Teal Filled Arc */}
+                  <motion.path
+                    d="M 16 72 A 54 54 0 0 1 124 72"
+                    fill="none"
+                    stroke="url(#score-gauge-gradient)"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray="169.65"
+                    initial={{ strokeDashoffset: 169.65 }}
+                    animate={{
+                      strokeDashoffset: 169.65 - (169.65 * (Math.min(100, Math.max(0, score)) / 100)),
+                    }}
+                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  <defs>
+                    <linearGradient id="score-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#0d9488" />
+                      <stop offset="100%" stopColor="#10b981" />
+                    </linearGradient>
+                  </defs>
+                </svg>
 
-              {/* Unified Statistics Container */}
-              <div className="bg-slate-50/80 dark:bg-slate-800/40 rounded-2xl border border-slate-200/60 dark:border-slate-800 p-3.5 sm:p-4 w-full">
-                <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-slate-700/80 text-center">
-                  
-                  {/* Correct */}
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </div>
-                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
-                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
-                        {correct}
-                      </span>
-                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
-                        Correct
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Attempted */}
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </div>
-                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
-                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
-                        {answeredCount}
-                      </span>
-                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
-                        Attempted
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Time Taken */}
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 px-1 sm:px-3">
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                      <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
-                    </div>
-                    <div className="flex flex-col sm:items-start text-center sm:text-left min-w-0">
-                      <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
-                        {formatTime(elapsed)}
-                      </span>
-                      <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5 sm:mt-1">
-                        Time Taken
-                      </span>
-                    </div>
-                  </div>
-
+                {/* Score Number in balanced size inside the semi-circle */}
+                <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-center text-center">
+                  <span className="text-4xl sm:text-[44px] font-black text-slate-950 dark:text-white tracking-tight leading-none">
+                    {score}%
+                  </span>
                 </div>
               </div>
+
+              <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[220px]">
+                Keep practicing to improve your score.
+              </p>
+            </div>
+
+            {/* Right: 3 Performance Metrics with Clear Partitions */}
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700/90 text-center">
+              
+              {/* Correct */}
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <FileText className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Correct
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none">
+                  {correct}
+                </span>
+              </div>
+
+              {/* Attempted */}
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <ClipboardList className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Attempted
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none">
+                  {answeredCount}
+                </span>
+              </div>
+
+              {/* Time Taken */}
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <Clock className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Time Taken
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none tabular-nums">
+                  {formatTime(elapsed)}
+                </span>
+              </div>
+
             </div>
 
           </div>
 
-          {/* Action Buttons Row */}
-          <div className="flex flex-col sm:flex-row items-center gap-3.5 w-full pt-2 border-t border-slate-100 dark:border-slate-800/80">
+          {/* 3. Action Buttons Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/90">
             <button
               onClick={handleDownloadReport}
               disabled={reportState === "generating"}
-              className="flex-1 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 text-sm font-bold hover:bg-emerald-50 dark:hover:bg-emerald-955/30 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait shadow-sm cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-teal-600 dark:border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900 text-sm font-bold hover:bg-teal-50/60 dark:hover:bg-teal-950/30 transition-all duration-150 disabled:opacity-70 disabled:cursor-wait shadow-xs cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-4 h-4 text-teal-600 dark:text-teal-400" strokeWidth={2} />
               {reportState === "generating" ? "Saving report…" : "Download Report"}
             </button>
             
             <button
               onClick={() => router.push("/exam-prep")}
-              className="flex-1 w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-sm hover:shadow transition-all duration-150 cursor-pointer"
             >
               <span>Back to Exam Prep</span>
+              <ArrowRight className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
 
-          {/* Supporting Information Message */}
-          <div className="text-center px-2 min-h-[20px]">
-             {reportState === "error" && (
-                <p className="text-xs font-medium text-red-500 dark:text-red-400">
-                  Couldn't save the report. Tap the download button to try again.
-                </p>
-              )}
-              {reportState === "ready" && (
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Your detailed report has been generated and is ready for download.
-                </p>
-              )}
+          {/* 4. Report Information Strip */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl px-4 py-3.5 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-medium">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 dark:text-slate-400 shrink-0" strokeWidth={1.8} />
+            <span>
+              {reportState === "error" 
+                ? "Couldn't save the report. Click download to try again." 
+                : "Your detailed report has been generated and is ready for download."}
+            </span>
           </div>
 
         </motion.div>
@@ -825,83 +877,88 @@ export default function TestPage() {
       </AnimatePresence>
 
       {/* ── Right Main Area (Question Card) ───────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 min-w-0 overflow-hidden">
         
         {/* Header & Progress Bar */}
-        <div className="flex-shrink-0 px-4 sm:px-8 pt-4 sm:pt-5 pb-3">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-[15px] sm:text-[20px] font-bold text-emerald-700 dark:text-emerald-400 truncate">
+        <div className="flex-shrink-0 px-5 sm:px-8 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
               Question {current + 1} of {questions.length}
             </h2>
 
-            <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               {/* Mobile-only: open the question palette drawer */}
               <button
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Open question palette"
-                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
                 </svg>
               </button>
+
               {config.timed && (
                 <div
-                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-[12px] sm:text-[13px] font-bold tabular-nums transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-semibold tabular-nums transition-colors shadow-2xs ${
                     timeLeft <= 60
-                      ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                      : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      ? "border-rose-200 dark:border-rose-900/40 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold"
+                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                   }`}
                 >
-                  <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Clock size={14} strokeWidth={1.8} className={timeLeft <= 60 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"} />
                   {formatTime(timeLeft)}
                 </div>
               )}
+
               <button
                 onClick={() => setShowConfirm(true)}
-                className="px-3 sm:px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[12px] sm:text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap"
+                className="px-4 sm:px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all duration-150 cursor-pointer whitespace-nowrap"
               >
                 Submit<span className="hidden sm:inline"> Test</span>
               </button>
             </div>
           </div>
           
-          <div className="w-full h-[2px] bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
+              className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300 ease-out" 
               style={{ width: `${((current + 1) / questions.length) * 100}%` }}
             />
           </div>
           
-          <div className="flex justify-end mt-3">
-             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-               {question.topic}
-             </span>
-          </div>
+          {question?.topic && (
+            <div className="flex justify-end mt-2.5">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
+                {question.topic}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Question Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 pb-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-8 py-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
-              initial={{ opacity: 0, x: 12 }}
+              initial={{ opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -12 }}
+              exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15 }}
             >
-              <p className="text-[14px] sm:text-[17px] leading-[1.55] sm:leading-[1.6] text-slate-800 dark:text-slate-100 mb-4 sm:mb-6 max-w-4xl font-medium">
-                {question.text}
-              </p>
+              {/* Question Text Box */}
+              <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 mb-6 max-w-4xl shadow-2xs">
+                <p className="text-[15.5px] sm:text-[17px] leading-[1.65] text-slate-950 dark:text-slate-50 font-medium">
+                  {question.text}
+                </p>
+              </div>
 
               {question.image && (
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
                   title="Click to enlarge and zoom"
-                  className="group relative mb-6 block w-fit rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="group relative mb-6 block w-fit rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -909,41 +966,42 @@ export default function TestPage() {
                     alt="Question illustration"
                     className="max-h-48 sm:max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
                   />
-                  <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                      <circle cx="11" cy="11" r="7" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <line x1="11" y1="8" x2="11" y2="14" />
-                      <line x1="8" y1="11" x2="14" y2="11" />
-                    </svg>
+                  <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     Click to zoom
                   </span>
                 </button>
               )}
 
-              <div className="space-y-2.5 sm:space-y-3 max-w-4xl">
+              {/* Options List */}
+              <div className="space-y-3 max-w-4xl">
                 {question.options.map((option, i) => {
                   const isSelected = selectedOption === i;
                   return (
                     <button
                       key={i}
                       onClick={() => selectOption(i)}
-                      className={`w-full flex items-center gap-3 sm:gap-3.5 p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 ${
+                      className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out cursor-pointer ${
                         isSelected
-                          ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/20 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:bg-emerald-50/20 dark:hover:bg-emerald-900/10"
+                          ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm"
+                          : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs"
                       }`}
                     >
                       <span
-                        className={`flex-shrink-0 w-6 h-6 sm:w-7 sm:h-7 rounded-full border flex items-center justify-center text-[12px] sm:text-[13px] font-bold transition-colors ${
+                        className={`flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
                           isSelected
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-slate-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20"
+                            ? "bg-teal-600 border-teal-600 text-white shadow-xs scale-105"
+                            : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
                         }`}
                       >
                         {String.fromCharCode(65 + i)}
                       </span>
-                      <span className={`text-[13px] sm:text-[16px] leading-snug sm:leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
+                      <span
+                        className={`text-sm sm:text-[15.5px] leading-relaxed transition-colors duration-150 ${
+                          isSelected
+                            ? "text-slate-950 dark:text-slate-50 font-semibold"
+                            : "text-slate-900 dark:text-slate-100 font-medium group-hover:text-slate-950 dark:group-hover:text-white"
+                        }`}
+                      >
                         {option}
                       </span>
                     </button>
@@ -955,17 +1013,17 @@ export default function TestPage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="flex-shrink-0 px-4 sm:px-8 py-3 sm:py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 bg-white dark:bg-slate-900">
+        <div className="flex-shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/60">
           <button
             onClick={clearResponse}
             disabled={selectedOption === undefined}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ${
               selectedOption === undefined
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                : "text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
+                : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
             }`}
           >
-            <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             <span className="hidden sm:inline">Clear Response</span>
@@ -976,10 +1034,10 @@ export default function TestPage() {
             <button
               onClick={() => goTo(current - 1)}
               disabled={current === 0}
-              className={`flex items-center gap-2 px-3.5 sm:px-6 py-2 rounded-lg border text-[13px] sm:text-[14px] font-semibold whitespace-nowrap transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl border text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
                 current === 0
-                  ? "border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                  : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm"
+                  ? "border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                  : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-xs cursor-pointer"
               }`}
             >
               &larr;<span className="hidden sm:inline"> Previous</span>
@@ -987,10 +1045,10 @@ export default function TestPage() {
             <button
               onClick={() => goTo(current + 1)}
               disabled={current === questions.length - 1}
-              className={`flex items-center gap-2 px-4 sm:px-6 py-2 rounded-lg text-[13px] sm:text-[14px] font-bold whitespace-nowrap transition-all duration-200 ${
+              className={`flex items-center gap-2 px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
                 current === questions.length - 1
-                  ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 hover:-translate-y-0.5"
+                  ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                  : "bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow cursor-pointer"
               }`}
             >
               Next &rarr;
