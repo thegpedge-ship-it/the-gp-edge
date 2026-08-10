@@ -9,6 +9,7 @@ import { fetchMedicalContent, getApproachCards, saveApproachCards, MedicalConten
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { addUserNotification } from "@/utils/notifications";
 import { getApproachCardsFromDbAction } from "@/actions/approach.actions";
+import { saveLibraryFeedback } from "@/app/dashboard/medical-library/actions";
 import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import dynamic from "next/dynamic";
@@ -612,6 +613,30 @@ function MedicalLibraryContent() {
     setUpgradeFeatureName(name);
     setUpgradeModalOpen(true);
   }, []);
+
+  // Feedback / Report Issue modal
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackCondition, setFeedbackCondition] = useState<MedicalCondition | null>(null);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+
+  const handleReportIssue = useCallback((condition: MedicalCondition) => {
+    setFeedbackCondition(condition);
+    setFeedbackText("");
+    setFeedbackOpen(true);
+  }, []);
+
+  const closeFeedback = useCallback(() => {
+    setFeedbackOpen(false);
+  }, []);
+
+  const submitFeedback = useCallback(async () => {
+    if (!feedbackCondition || !feedbackText.trim()) return;
+    setFeedbackSubmitting(true);
+    await saveLibraryFeedback({ conditionId: feedbackCondition.id, conditionName: feedbackCondition.name, feedback: feedbackText.trim() });
+    setFeedbackSubmitting(false);
+    closeFeedback();
+  }, [feedbackCondition, feedbackText, closeFeedback]);
 
   // Split Workspace Layout States
   const [paneConfig, setPaneConfig] = useState<"3-0" | "2-1" | "1-2" | "0-3">("2-1");
@@ -1476,6 +1501,16 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       </div>
                       <h2 className="font-sans text-xl md:text-2xl font-semibold leading-snug text-slate-900 dark:text-slate-100 tracking-tight mt-1">
                         {decodeHtmlEntities(selectedCondition.name)}
+                        <button
+                          onClick={() => handleReportIssue(selectedCondition)}
+                          title="Report an issue with this content"
+                          className="group/report relative inline-flex items-center justify-center w-4 h-4 ml-2 align-middle cursor-pointer"
+                        >
+                          <Lucide.AlertTriangle className="w-3 h-3 text-rose-500 transition-transform duration-150 group-hover/report:scale-125" strokeWidth={2.4} fill="rgba(244,63,94,0.15)" />
+                          <span className="pointer-events-none absolute -bottom-7 right-0 whitespace-nowrap rounded-md bg-slate-900 dark:bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-white dark:text-slate-900 opacity-0 group-hover/report:opacity-100 transition-opacity duration-150 shadow-lg z-10">
+                            Report issue
+                          </span>
+                        </button>
                       </h2>
                     </div>
                   </div>
@@ -2267,6 +2302,111 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
         featureName={upgradeFeatureName}
         requiredTier="paid"
       />
+
+      {/* Report Issue / Feedback Modal */}
+      <AnimatePresence>
+        {feedbackOpen && feedbackCondition && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={closeFeedback} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="relative w-full max-w-[520px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-100/60 dark:border-rose-900/30 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
+                    <Lucide.AlertTriangle className="w-5 h-5" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                      Report an Issue
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Help us improve by reporting errors or issues.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={closeFeedback}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                >
+                  <Lucide.X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Content Details */}
+              <div className="space-y-2.5 text-sm">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-20 shrink-0">ID</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-mono text-xs">{feedbackCondition.id}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-20 shrink-0">Title</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{decodeHtmlEntities(feedbackCondition.name)}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-20 shrink-0">System</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{feedbackCondition.system}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-20 shrink-0">Category</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{feedbackCondition.category}</span>
+                </div>
+              </div>
+
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Feedback Text Area */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                  Your Feedback
+                </label>
+                <textarea
+                  value={feedbackText}
+                  onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
+                  placeholder="Describe the issue — incorrect information, outdated content, broken links, etc."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 resize-none transition-colors"
+                />
+                <div className="flex justify-end mt-1.5">
+                  <span className={`text-[11px] font-semibold tabular-nums ${feedbackText.length >= 480 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"}`}>
+                    {feedbackText.length}/500
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 mt-2">
+                <button
+                  onClick={closeFeedback}
+                  className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitFeedback}
+                  disabled={!feedbackText.trim() || feedbackSubmitting}
+                  className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-md shadow-rose-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style jsx global>{`
         .premium-btn-wrapper {
