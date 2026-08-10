@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
        LEFT JOIN subjects s ON s.id = mc.subject_id
        LEFT JOIN condition_documents cd ON cd.condition_id = mc.id
        LEFT JOIN files f ON f.id = cd.file_id
-       WHERE ${includeArchived ? "1=1" : "mc.deleted_at IS NULL"} AND mc.kind != 'Approach'`;
+       WHERE ${includeArchived ? "1=1" : "mc.deleted_at IS NULL AND mc.status != 'archived'"} AND mc.kind != 'Approach'`;
 
     const params: any[] = [];
     if (search) {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
       system: c.subject_name ?? "General",
       category: c.category ?? "Clinical Reference",
       type: c.kind,
-      status: c.deleted_at !== null && c.deleted_at !== undefined ? "archived" : (c.status === "archived" ? "published" : c.status || "published"),
+      status: c.deleted_at !== null && c.deleted_at !== undefined || c.status === "archived" ? "archived" : (c.status || "published"),
       author: c.author ?? "GP Edge Admin",
       isFree: c.is_free ?? false,
       lastUpdated: new Date(c.updated_at).toISOString().split("T")[0],

@@ -356,13 +356,14 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/medical-content/[id] — soft delete
+// DELETE /api/medical-content/[id] — soft delete or permanent delete
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const isPermanent = req.nextUrl.searchParams.get("permanent") === "true";
     let adminUser: PermissionUser | undefined;
     try {
       const body = await req.json();
@@ -374,12 +375,14 @@ export async function DELETE(
     const userContext: PermissionUser = adminUser || {
       id: "admin-system",
       name: "GP Edge Admin",
-      role: "Admin",
+      role: "Super Admin",
+      roles: ["SA"],
     };
 
+    const capability = isPermanent ? "restore_item" : "archive_item";
     const permCheck = await evaluateRelationalPermission({
       user: userContext,
-      capability: "archive_item",
+      capability,
       item: { id, type: "medical_condition" },
     });
 
@@ -390,19 +393,37 @@ export async function DELETE(
       );
     }
 
-    await execute(
-      `UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`,
-      [id]
-    );
+    if (isPermanent) {
+      // Hard delete relations and medical condition
+      await execute(`DELETE FROM condition_items WHERE condition_id = $1`, [id]);
+      await execute(`DELETE FROM condition_tags WHERE condition_id = $1`, [id]);
+      await execute(`DELETE FROM condition_references WHERE condition_id = $1`, [id]);
+      await execute(`DELETE FROM condition_documents WHERE condition_id = $1`, [id]);
+      await execute(`DELETE FROM medical_conditions WHERE id = $1`, [id]);
 
-    await recordAuditLog({
-      adminUserId: userContext.id,
-      action: "archive",
-      category: "medical_condition",
-      entityType: "medical_condition",
-      entityId: id,
-      metadata: { archivedBy: userContext.name },
-    });
+      await recordAuditLog({
+        adminUserId: userContext.id,
+        action: "delete",
+        category: "medical_condition",
+        entityType: "medical_condition",
+        entityId: id,
+        metadata: { permanentlyDeletedBy: userContext.name },
+      });
+    } else {
+      await execute(
+        `UPDATE medical_conditions SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+
+      await recordAuditLog({
+        adminUserId: userContext.id,
+        action: "archive",
+        category: "medical_condition",
+        entityType: "medical_condition",
+        entityId: id,
+        metadata: { archivedBy: userContext.name },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
@@ -442,7 +463,7 @@ export async function POST(
     }
 
     await execute(
-      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      `UPDATE medical_conditions SET deleted_at = NULL, status = 'published', updated_at = NOW() WHERE id = $1`,
       [id]
     );
 

@@ -46,7 +46,7 @@ export async function getApproachCardsFromDbAction(includeArchived: boolean = fa
   try {
     const whereClause = includeArchived
       ? `WHERE mc.kind = 'Approach'`
-      : `WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL`;
+      : `WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL AND mc.status != 'archived'`;
     const rows = await query(
       `SELECT mc.*, ci.content AS full_html
          FROM medical_conditions mc
@@ -165,7 +165,7 @@ export async function deleteApproachCardFromDbAction(id: string, adminUser?: Per
     }
 
     await execute(
-      `UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`,
+      `UPDATE medical_conditions SET deleted_at = NOW(), status = 'archived', updated_at = NOW() WHERE id = $1`,
       [dbId]
     );
 
@@ -204,7 +204,7 @@ export async function restoreApproachCardFromDbAction(id: string, adminUser: Per
     }
 
     await execute(
-      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      `UPDATE medical_conditions SET deleted_at = NULL, status = 'published', updated_at = NOW() WHERE id = $1`,
       [dbId]
     );
 
@@ -224,6 +224,47 @@ export async function restoreApproachCardFromDbAction(id: string, adminUser: Per
   }
 }
 
+/**
+ * Permanently deletes an approach card and all related data.
+ * This action is IRREVERSIBLE and is SA-Only.
+ */
+export async function permanentlyDeleteApproachCardAction(id: string, adminUser: PermissionUser): Promise<{ success: boolean; error?: string }> {
+  try {
+    const dbId = toUUID(id);
+
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item", // SA-only reused for hard delete
+      item: { id: dbId, type: "approach" },
+    });
+
+    if (!permCheck.allowed) {
+      return { success: false, error: permCheck.reason };
+    }
+
+    // Delete all related rows first (FK constraints)
+    await execute(`DELETE FROM condition_items WHERE condition_id = $1`, [dbId]);
+    await execute(`DELETE FROM condition_tags WHERE condition_id = $1`, [dbId]);
+    await execute(`DELETE FROM condition_references WHERE condition_id = $1`, [dbId]);
+    await execute(`DELETE FROM condition_documents WHERE condition_id = $1`, [dbId]);
+    // Hard delete the approach itself
+    await execute(`DELETE FROM medical_conditions WHERE id = $1 AND kind = 'Approach'`, [dbId]);
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "delete",
+      category: "approach",
+      entityType: "approach",
+      entityId: dbId,
+      metadata: { permanentlyDeletedBy: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error permanently deleting approach card from DB:", error);
+    return { success: false, error: error.message };
+  }
+}
 
 
 export async function syncApproachCardsToDbAction(cards: ApproachCard[]): Promise<boolean> {

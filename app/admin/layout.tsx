@@ -37,6 +37,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [mobileOpen, setMobileOpen] = useState(false);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Run auth init ONCE on mount — do NOT re-run on every pathname change
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
@@ -44,10 +45,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setCurrentAdminId(stored);
       setIsLoggedIn(loggedIn);
       setLoading(false);
-
-      if (!loggedIn && pathname !== "/admin/login" && pathname !== "/admin/reset-password") {
-        router.push("/admin/login");
-      }
 
       const updateProfile = (adminId: string) => {
         let storedCreds = localStorage.getItem("gpedge_admin_credentials_list");
@@ -159,9 +156,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         setCurrentAdminId(val);
         setIsLoggedIn(log);
         updateProfile(val);
-        if (!log && pathname !== "/admin/login" && pathname !== "/admin/reset-password") {
-          router.push("/admin/login");
-        }
       };
 
       window.addEventListener("gpedge_admin_changed", handleAdminChanged);
@@ -169,7 +163,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         window.removeEventListener("gpedge_admin_changed", handleAdminChanged);
       };
     }
-  }, [pathname, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ← Run ONCE on mount only
+
+  // Separate effect: redirect to login when not authenticated (runs on pathname change)
+  useEffect(() => {
+    if (!loading && !isLoggedIn && pathname !== "/admin/login" && pathname !== "/admin/reset-password") {
+      router.push("/admin/login");
+    }
+  }, [loading, isLoggedIn, pathname, router]);
 
   // Clean up hover timeout on unmount
   useEffect(() => {
@@ -255,7 +257,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </svg>
           <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading Admin Dashboard...</span>
         </div>
-        <div style={{ display: "none" }}>{children}</div>
       </div>
     );
   }
@@ -297,12 +298,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           <MaintenanceBanner />
           <div className="p-6 lg:p-8">
-            {hasPermission ? children : (
-              <>
-                {deniedContent}
-                <div style={{ display: "none" }}>{children}</div>
-              </>
-            )}
+            {hasPermission ? children : deniedContent}
           </div>
         </main>
       </div>

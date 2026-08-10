@@ -17,6 +17,7 @@ import {
   saveApproachCardToDbAction,
   deleteApproachCardFromDbAction,
   restoreApproachCardFromDbAction,
+  permanentlyDeleteApproachCardAction,
   syncApproachCardsToDbAction,
   getTagsFromDbAction,
   addTagToDbAction,
@@ -436,13 +437,27 @@ export default function ApproachesPage() {
     addUserNotification("Approach Restored", `Successfully restored "${card.title}" (SA-Only action).`, 1, "custom");
   }
 
+  async function handlePermanentDeleteApproach(card: ApproachCard) {
+    if (!canRestoreItem) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete "${card.title}"? This action CANNOT be undone.`)) return;
+    const res = await permanentlyDeleteApproachCardAction(card.id, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to permanently delete approach card.");
+      return;
+    }
+    const updated = cards.filter((c) => c.id !== card.id);
+    setCards(updated);
+    saveApproachCards(updated);
+    addUserNotification("Approach Permanently Deleted", `"${card.title}" has been permanently purged from database.`, 1, "custom");
+  }
+
   async function deleteCard(id: string) {
     if (!canArchiveItem) return;
     if (!confirm("Archive this approach card? Item will be hidden from production and retained in audit log.")) return;
     const updated = cards.map(c => c.id === id ? { ...c, status: "archived" as const } : c);
     setCards(updated);
-    saveApproachCards(updated);
-    addUserNotification("Approach Archived", "The approach card has been archived and hidden from production.", 1, "custom");
+    const targetCard = cards.find(c => c.id === id);
+    addUserNotification("Approach Archived", `"${targetCard?.title || "Card"}" has been moved to Archived. Switch to "Archived" status filter to view or restore it.`, 1, "custom");
     
     // Soft-delete from Neon Postgres DB
     await deleteApproachCardFromDbAction(id, currentAdmin);
@@ -514,7 +529,7 @@ export default function ApproachesPage() {
             { value: "published", label: "Published" },
             { value: "draft", label: "Draft" },
             { value: "review", label: "In Review" },
-            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${cards.filter((c) => c.status === "archived").length})` }] : []),
           ]}
           className="min-w-[160px]"
         />
@@ -584,14 +599,24 @@ export default function ApproachesPage() {
                       </Link>
                     )}
                     {card.status === "archived" && canRestoreItem && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleRestoreApproach(card); }}
-                        title="Restore Archived Approach Card (SA Only)"
-                        className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
-                      >
-                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
-                        Restore
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRestoreApproach(card); }}
+                          title="Restore Archived Approach Card (SA Only)"
+                          className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                        >
+                          <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                          Restore
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePermanentDeleteApproach(card); }}
+                          title="Permanently Delete (IRREVERSIBLE)"
+                          className="px-2 py-1 rounded-lg text-red-700 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                        >
+                          <Lucide.Trash2 className="w-3.5 h-3.5" />
+                          Delete Permanently
+                        </button>
+                      </div>
                     )}
                     {canArchiveItem && card.status !== "archived" && (
                       <button

@@ -1,38 +1,40 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
+import { query } from "@/lib/db";
 import { AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+interface CancellationRow {
+  id: string;
+  user_id: string;
+  reason: string;
+  feedback: string | null;
+  created_at: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  training_stage: string | null;
+}
 
 export default async function AdminCancellationsPage() {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) redirect("/sign-in");
 
-  // Ensure user is super admin (role_id = 1)
-  const dbUser = await prisma.users.findUnique({
-    where: { clerk_user_id: clerkUserId },
-    select: { id: true, email: true }, // We assume middleware or layout protects this route, but just in case we can check or rely on existing protection.
-  });
-
-  if (!dbUser) redirect("/sign-in");
-
-  // Fetch cancellation feedback records
-  const cancellations = await prisma.cancellation_feedback.findMany({
-    include: {
-      users: {
-        select: {
-          first_name: true,
-          last_name: true,
-          email: true,
-          training_stage: true,
-        },
-      },
-    },
-    orderBy: {
-      created_at: "desc",
-    },
-  });
+  // Fetch cancellation feedback records via raw SQL (bypasses Prisma client cache issues)
+  let cancellations: CancellationRow[] = [];
+  try {
+    cancellations = await query<CancellationRow>(
+      `SELECT
+         cf.id, cf.user_id, cf.reason, cf.feedback, cf.created_at,
+         u.first_name, u.last_name, u.email, u.training_stage
+       FROM cancellation_feedback cf
+       LEFT JOIN users u ON u.id = cf.user_id
+       ORDER BY cf.created_at DESC`
+    );
+  } catch (err) {
+    console.error("Failed to fetch cancellation feedback:", err);
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
@@ -79,22 +81,22 @@ export default async function AdminCancellationsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {cancellations.map((item) => (
+                {cancellations.map((item: CancellationRow) => (
                   <tr
                     key={item.id}
                     className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-slate-900 dark:text-slate-100">
-                        {item.users.first_name} {item.users.last_name}
+                        {item.first_name} {item.last_name}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {item.users.email}
+                        {item.email}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {item.users.training_stage}
+                        {item.training_stage ?? "—"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-medium text-slate-700 dark:text-slate-300">
@@ -106,7 +108,7 @@ export default async function AdminCancellationsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-slate-500 dark:text-slate-400 text-xs">
-                      {new Intl.DateTimeFormat('en-AU', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.created_at))}
+                      {new Intl.DateTimeFormat("en-AU", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.created_at))}
                     </td>
                   </tr>
                 ))}

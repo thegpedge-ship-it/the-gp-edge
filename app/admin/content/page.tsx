@@ -158,6 +158,29 @@ export default function ContentPage() {
     }
   };
 
+  const handlePermanentDeleteContent = async (item: MedicalContent) => {
+    if (!canRestoreItem) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete "${item.name}"? This action CANNOT be undone.`)) return;
+    try {
+      const res = await fetch(`/api/medical-content/${item.id}?permanent=true`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminUser: currentAdmin }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to permanently delete content.");
+        return;
+      }
+      const updated = content.filter((c) => c.id !== item.id);
+      setContent(updated);
+      saveMedicalContent(updated);
+      addUserNotification("Content Permanently Deleted", `"${item.name}" has been permanently purged from database.`, 1, "custom");
+    } catch (err: any) {
+      alert("Error permanently deleting content.");
+    }
+  };
+
   const deleteContent = (id: string, name: string) => {
     if (!canArchiveItem) return;
     setDeleteTargetId(id);
@@ -655,7 +678,7 @@ export default function ContentPage() {
             { value: "published", label: "Published" },
             { value: "draft", label: "Draft" },
             { value: "review", label: "In Review" },
-            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${content.filter((c) => c.status === "archived").length})` }] : []),
           ]}
           className="w-48"
         />
@@ -720,14 +743,24 @@ export default function ContentPage() {
                     </Link>
                   )}
                   {item.status === "archived" && canRestoreItem && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleRestoreContent(item); }}
-                      className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
-                      title="Restore Archived Content Item (SA Only)"
-                    >
-                      <Lucide.RotateCcw className="w-3.5 h-3.5" />
-                      Restore
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRestoreContent(item); }}
+                        className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                        title="Restore Archived Content Item (SA Only)"
+                      >
+                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                        Restore
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePermanentDeleteContent(item); }}
+                        className="px-2 py-1 rounded-lg text-red-700 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                        title="Permanently Delete (IRREVERSIBLE)"
+                      >
+                        <Lucide.Trash2 className="w-3.5 h-3.5" />
+                        Delete Permanently
+                      </button>
+                    </div>
                   )}
                   {canArchiveItem && item.status !== "archived" && (
                     <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Archive Content">
@@ -1125,9 +1158,9 @@ export default function ContentPage() {
                 <Lucide.Trash2 className="w-6 h-6 animate-pulse" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-50">Delete Clinical Content?</h3>
+                <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-50">Archive Clinical Content?</h3>
                 <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed px-2">
-                  Are you sure you want to delete <strong>"{deleteTargetName}"</strong>? This will permanently remove it from the catalog.
+                  Are you sure you want to archive <strong>"{deleteTargetName}"</strong>? It will be moved to the Archived view and hidden from the active catalog.
                 </p>
               </div>
               <div className="flex gap-2.5 justify-center pt-2">
@@ -1140,21 +1173,31 @@ export default function ContentPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     if (deleteTargetId !== null) {
+                      const targetName = deleteTargetName;
                       // API soft-delete
-                      fetch(`/api/medical-content/${deleteTargetId}`, { method: "DELETE" }).catch(console.error);
+                      try {
+                        await fetch(`/api/medical-content/${deleteTargetId}`, {
+                          method: "DELETE",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ adminUser: currentAdmin }),
+                        });
+                      } catch (e) {
+                        console.error("Failed to archive content:", e);
+                      }
                       const updated = content.map((c) => (c.id === deleteTargetId ? { ...c, status: "archived" as const } : c));
                       setContent(updated);
                       saveMedicalContent(updated);
+                      addUserNotification("Content Archived", `"${targetName}" moved to Archived. Switch to "Archived" status filter to view or restore it.`, 1, "custom");
                       setShowDeleteModal(false);
                       setDeleteTargetId(null);
                       setDeleteTargetName("");
                     }
                   }}
-                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-red-500/10 cursor-pointer border-none active:scale-95"
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-md shadow-amber-500/10 cursor-pointer border-none active:scale-95"
                 >
-                  Delete Document
+                  Archive Content
                 </button>
               </div>
             </motion.div>

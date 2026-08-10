@@ -17,6 +17,7 @@ import {
   toggleTemplateFreeStatus,
   deleteAutofillTemplateAction,
   restoreAutofillTemplateAction,
+  permanentlyDeleteAutofillTemplateAction,
 } from "@/actions/autofill.actions";
 import {
   themeBorder,
@@ -70,7 +71,7 @@ export default function AutofillPage() {
     setTemplates(updated);
     saveAutofillTemplates(updated);
     await deleteAutofillTemplateAction(template.dbId || template.id, currentAdmin);
-    addUserNotification("Template Archived", `"${template.name}" has been archived.`, 1, "custom");
+    addUserNotification("Template Archived", `"${template.name}" has been moved to Archived. Switch to "Archived" status filter to view or restore it.`, 1, "custom");
   };
 
   const handleRestoreTemplate = async (template: AutofillTemplate) => {
@@ -84,6 +85,20 @@ export default function AutofillPage() {
     setTemplates(updated);
     saveAutofillTemplates(updated);
     addUserNotification("Template Restored", `Successfully restored "${template.name}".`, 1, "custom");
+  };
+
+  const handlePermanentDeleteTemplate = async (template: AutofillTemplate) => {
+    if (!canRestoreItem) return;
+    if (!confirm(`Are you sure you want to PERMANENTLY delete "${template.name}"? This action CANNOT be undone.`)) return;
+    const res = await permanentlyDeleteAutofillTemplateAction(template.dbId || template.id, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to permanently delete template.");
+      return;
+    }
+    const updated = templates.filter((t) => t.id !== template.id);
+    setTemplates(updated);
+    saveAutofillTemplates(updated);
+    addUserNotification("Template Permanently Deleted", `"${template.name}" has been permanently purged from database.`, 1, "custom");
   };
 
   const [showEditor, setShowEditor] = useState(false);
@@ -473,7 +488,7 @@ export default function AutofillPage() {
             { value: "all", label: "Active Statuses" },
             { value: "active", label: "Active" },
             { value: "draft", label: "Draft" },
-            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${templates.filter((t) => t.status === "archived").length})` }] : []),
           ]}
           className="w-48"
         />
@@ -557,13 +572,24 @@ export default function AutofillPage() {
                       <Lucide.FileEdit className="w-3.5 h-3.5" />
                     </button>
                     {template.status === "archived" && canRestoreItem ? (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleRestoreTemplate(template); }}
-                        className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
-                        title="Restore Template (SA Only)"
-                      >
-                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleRestoreTemplate(template); }}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent flex items-center gap-1 text-xs font-bold"
+                          title="Restore Template (SA Only)"
+                        >
+                          <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                          <span>Restore</span>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePermanentDeleteTemplate(template); }}
+                          className="p-1.5 rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent flex items-center gap-1 text-xs font-bold"
+                          title="Permanently Delete (IRREVERSIBLE)"
+                        >
+                          <Lucide.Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Permanently</span>
+                        </button>
+                      </div>
                     ) : (
                       canArchiveItem && (
                         <button

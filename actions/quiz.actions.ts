@@ -257,7 +257,12 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
 > {
   try {
     const dbQuizzes = await prisma.quizzes.findMany({
-      where: includeArchived ? {} : { deleted_at: null },
+      where: includeArchived
+        ? {}
+        : {
+            deleted_at: null,
+            NOT: { status: "archived" },
+          },
       orderBy: [{ is_free: "desc" }, { updated_at: "desc" }],
       include: {
         quiz_questions: {
@@ -283,7 +288,8 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
         const avgScore = completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0;
 
         const isDeleted = q.deleted_at !== null && q.deleted_at !== undefined;
-        const status = isDeleted ? "archived" : (q.status === "archived" ? "active" : q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended");
+        // Preserve the real status; only mark as archived if explicitly deleted/archived
+        const status = isDeleted || q.status === "archived" ? "archived" : q.status === "active" ? "active" : q.status === "draft" ? "draft" : "suspended";
 
         return {
           id: idx + 1,

@@ -13,7 +13,12 @@ import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/
 export async function fetchAutofillTemplatesFromDbAction(includeArchived: boolean = false): Promise<AutofillTemplate[]> {
   try {
     const dbTemplates = await prisma.autofill_templates.findMany({
-      where: includeArchived ? {} : { deleted_at: null },
+      where: includeArchived
+        ? {}
+        : {
+            deleted_at: null,
+            NOT: { status: "archived" },
+          },
       orderBy: [{ is_free: "desc" }, { created_at: "desc" }],
       include: {
         autofill_fields: {
@@ -33,7 +38,7 @@ export async function fetchAutofillTemplatesFromDbAction(includeArchived: boolea
         const matchingDef = DEFAULT_AUTOFILL_TEMPLATES.find((d) => d.name === t.name || d.slug === t.slug);
         
         const isDeleted = t.deleted_at !== null && t.deleted_at !== undefined;
-        const status = isDeleted ? "archived" : (t.status === "active" ? "active" : "draft");
+        const status = isDeleted || t.status === "archived" ? "archived" : (t.status === "active" ? "active" : "draft");
 
         return {
           id: matchingDef?.id ?? idx + 1,
@@ -97,7 +102,7 @@ export async function deleteAutofillTemplateAction(id: string | number, adminUse
 
     await prisma.autofill_templates.update({
       where: { id: existing.id },
-      data: { deleted_at: new Date(), updated_at: new Date() },
+      data: { deleted_at: new Date(), status: "archived", updated_at: new Date() },
     });
 
     await recordAuditLog({
@@ -138,7 +143,7 @@ export async function restoreAutofillTemplateAction(id: string | number, adminUs
 
     await prisma.autofill_templates.update({
       where: { id: existing.id },
-      data: { deleted_at: null, updated_at: new Date() },
+      data: { deleted_at: null, status: "active", updated_at: new Date() },
     });
 
     await recordAuditLog({
@@ -154,6 +159,51 @@ export async function restoreAutofillTemplateAction(id: string | number, adminUs
     return { success: true };
   } catch (error: any) {
     console.error("restoreAutofillTemplateAction error:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Permanently deletes an autofill template and all related data from the database.
+ * This action is IRREVERSIBLE and is SA-Only.
+ */
+export async function permanentlyDeleteAutofillTemplateAction(id: string | number, adminUser?: PermissionUser): Promise<{ success: boolean; error?: string }> {
+  try {
+    const idStr = String(id);
+    const existing = await prisma.autofill_templates.findFirst({
+      where: { OR: [{ id: idStr }, { name: idStr }, { slug: idStr }] },
+      select: { id: true, name: true },
+    });
+
+    if (!existing) return { success: false, error: "Template not found" };
+
+    if (adminUser) {
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: "restore_item", // SA-only capability reused for hard delete
+        item: { id: existing.id, type: "autofill_template" },
+      });
+      if (!permCheck.allowed) return { success: false, error: permCheck.reason };
+    }
+
+    // Hard delete — Prisma cascade will remove related fields/versions
+    await prisma.autofill_templates.delete({
+      where: { id: existing.id },
+    });
+
+    await recordAuditLog({
+      adminUserId: adminUser?.id,
+      action: "delete",
+      category: "autofill_template",
+      entityType: "autofill_template",
+      entityId: existing.id,
+      metadata: { permanentlyDeletedBy: adminUser?.name || adminUser?.email, name: existing.name },
+    });
+
+    revalidatePath("/admin/autofill");
+    return { success: true };
+  } catch (error: any) {
+    console.error("permanentlyDeleteAutofillTemplateAction error:", error);
     return { success: false, error: error.message };
   }
 }
