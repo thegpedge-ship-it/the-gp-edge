@@ -31,12 +31,7 @@ const ROUTE_MODULE_MAP: Record<string, { id: string; name: string }> = {
 
 export default function UserMaintenanceGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { settings, isGlobalMaintenance, isModuleInMaintenance, getModuleMessage, refreshMaintenance, loading } = useMaintenanceMode();
-
-  // While settings are loading, render children normally
-  if (loading) {
-    return <>{children}</>;
-  }
+  const { settings, isGlobalMaintenance, isModuleInMaintenance, getModuleMessage, refreshMaintenance } = useMaintenanceMode();
 
   // 1. Global Maintenance Mode — block all user-facing pages
   if (isGlobalMaintenance) {
