@@ -35,6 +35,9 @@ export interface ProfileExamPath {
   readiness: number; // 0-100, average mock score for this exam
   mocksDone: number;
   mocksTotal: number;
+  quizzesDone: number;
+  quizzesTotal: number;
+  quizzesPercent: number;
   nextMilestone: string;
   accent: "emerald" | "violet" | "cyan" | "amber";
 }
@@ -106,7 +109,7 @@ export async function getProfileData(): Promise<ProfileData> {
 
 // Bump when the ProfileData shape changes so pre-existing cache entries (which
 // may lack newer fields like `completeness`) can never be served.
-const PROFILE_CACHE_VERSION = "v3";
+const PROFILE_CACHE_VERSION = "v5";
 
 function loadCachedProfileData(userId: string, examTarget: string): Promise<ProfileData> {
   return unstable_cache(
@@ -134,8 +137,10 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     mocksByType,
     userMockAttempts,
     earnedBadges,
+    quizzesByType,
+    userQuizAttempts,
     totalQuizCount,
-    completedQuizGroups,
+    distinctUserQuizzesCompleted,
   ] = await Promise.all([
     // Running rollup: streak / overall accuracy / lifetime attempt count.
     prisma.user_performance_summary.findUnique({
@@ -162,7 +167,12 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     // This user's completed mocks → per-exam done-count + score for readiness.
     prisma.test_attempts.findMany({
       where: { user_id: userId, source: "mock_test", status: "completed" },
-      select: { score_percent: true, mock_tests: { select: { exam_type_code: true } } },
+      select: {
+        id: true,
+        mock_test_id: true,
+        score_percent: true,
+        mock_tests: { select: { exam_type_code: true } },
+      },
     }),
 
     // Earned achievements, oldest → newest, with image (uploaded file or code).
@@ -181,13 +191,36 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
       },
     }),
 
-    // Quiz completeness denominator: every admin-created quiz (live).
+    // Quizzes per exam type (denominator)
+    prisma.quizzes.groupBy({
+      by: ["exam_type_code"],
+      where: { deleted_at: null },
+      _count: { _all: true },
+    }),
+
+    // User's completed quiz attempts
+    prisma.test_attempts.findMany({
+      where: {
+        user_id: userId,
+        status: "completed",
+        source: { in: ["quiz", "custom", "subtopic", "mock_drill"] },
+      },
+      select: {
+        id: true,
+        quiz_id: true,
+        source: true,
+        score_percent: true,
+        quizzes: { select: { exam_type_code: true } },
+      },
+    }),
+
+    // Total active admin quizzes count
     prisma.quizzes.count({ where: { deleted_at: null } }),
 
-    // Quiz completeness numerator: distinct quizzes this user has finished.
+    // Distinct quizzes completed
     prisma.test_attempts.groupBy({
       by: ["quiz_id"],
-      where: { user_id: userId, source: "quiz", status: "completed", quiz_id: { not: null } },
+      where: { user_id: userId, status: "completed", quiz_id: { not: null } },
     }),
   ]);
 
@@ -206,16 +239,39 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     { key: "mocks", label: "Mock Exams", value: String(totalMocks) },
   ];
 
-  /* ── EXAM PATHS (readiness per exam track) ──────────────────────────────── */
-  const availByType = new Map(mocksByType.map((r) => [r.exam_type_code, r._count._all]));
-  const doneByType = new Map<string, { scoreSum: number; count: number }>();
+  /* ── EXAM PATHS (readiness & progress per exam track) ───────────────────── */
+  const availMocksByType = new Map(mocksByType.map((r) => [r.exam_type_code, r._count._all]));
+  const availQuizzesByType = new Map(
+    quizzesByType.filter((r) => r.exam_type_code != null).map((r) => [r.exam_type_code!, r._count._all]),
+  );
+
+  // Group user's mock attempts by exam track
+  const doneMocksByType = new Map<string, { scoreSum: number; attemptsCount: number; distinctMockIds: Set<string> }>();
   for (const att of userMockAttempts) {
     const code = att.mock_tests?.exam_type_code;
     if (!code) continue;
-    const agg = doneByType.get(code) ?? { scoreSum: 0, count: 0 };
+    const agg = doneMocksByType.get(code) ?? { scoreSum: 0, attemptsCount: 0, distinctMockIds: new Set<string>() };
     agg.scoreSum += num(att.score_percent);
-    agg.count += 1;
-    doneByType.set(code, agg);
+    agg.attemptsCount += 1;
+    if (att.mock_test_id) {
+      agg.distinctMockIds.add(att.mock_test_id);
+    }
+    doneMocksByType.set(code, agg);
+  }
+
+  // Group user's quiz attempts by exam track
+  const doneQuizzesByType = new Map<string, { scoreSum: number; attemptsCount: number; distinctQuizIds: Set<string> }>();
+  for (const att of userQuizAttempts) {
+    const code = att.quizzes?.exam_type_code;
+    if (code) {
+      const agg = doneQuizzesByType.get(code) ?? { scoreSum: 0, attemptsCount: 0, distinctQuizIds: new Set<string>() };
+      agg.scoreSum += num(att.score_percent);
+      agg.attemptsCount += 1;
+      if (att.quiz_id) {
+        agg.distinctQuizIds.add(att.quiz_id);
+      }
+      doneQuizzesByType.set(code, agg);
+    }
   }
 
   // Only show the exam the user actually registered for (AKT or KFP). Falls
@@ -225,38 +281,60 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     examTypes.map((et) => et.code),
   );
 
+  const distinctQuizzesGlobalCount = distinctUserQuizzesCompleted.length;
+
   const examPaths: ProfileExamPath[] = examTypes
     .filter((et) => (regCode ? et.code === regCode : true))
-    // Only surface tracks that actually have mock tests to sit behind them.
-    .filter((et) => (availByType.get(et.code) ?? 0) > 0)
     .map((et, i) => {
-      const mocksTotal = availByType.get(et.code) ?? 0;
-      const agg = doneByType.get(et.code);
-      const mocksDone = agg?.count ?? 0;
-      const readiness = agg && agg.count > 0 ? Math.round(agg.scoreSum / agg.count) : 0;
+      const mocksTotal = availMocksByType.get(et.code) ?? 0;
+      const mockAgg = doneMocksByType.get(et.code);
+      
+      // If there are distinct mock test items in the DB, count distinct completed.
+      // Otherwise use the mock attempts count.
+      const mocksDone = mocksTotal > 0
+        ? (mockAgg?.distinctMockIds.size ?? 0)
+        : (mockAgg?.attemptsCount ?? 0);
+
+      const readiness = mockAgg && mockAgg.attemptsCount > 0 ? Math.round(mockAgg.scoreSum / mockAgg.attemptsCount) : 0;
+      
       const nextMilestone =
-        mocksDone < mocksTotal
+        mocksTotal > 0 && mocksDone < mocksTotal
           ? `Take mock ${mocksDone + 1} of ${mocksTotal}`
           : readiness < 75
             ? "Reach 75% readiness"
             : "Exam ready";
+
+      // Quizzes for this exam track (falling back to global quiz count if track has no specific quiz tags)
+      const trackQuizzesTotal = availQuizzesByType.get(et.code) ?? (totalQuizCount > 0 ? totalQuizCount : 0);
+      const quizAgg = doneQuizzesByType.get(et.code);
+      const trackQuizzesDone = quizAgg
+        ? (quizAgg.distinctQuizIds.size > 0 ? quizAgg.distinctQuizIds.size : quizAgg.attemptsCount)
+        : distinctQuizzesGlobalCount;
+
+      const quizzesPercent = trackQuizzesTotal > 0
+        ? Math.min(100, Math.max(0, Math.round((trackQuizzesDone / trackQuizzesTotal) * 100)))
+        : (trackQuizzesDone > 0 ? 100 : 0);
+
       return {
         code: et.code,
         name: et.name,
         readiness,
         mocksDone,
         mocksTotal,
+        quizzesDone: trackQuizzesDone,
+        quizzesTotal: trackQuizzesTotal,
+        quizzesPercent,
         nextMilestone,
         accent: ACCENT_BY_CODE[et.code] ?? ACCENT_CYCLE[i % ACCENT_CYCLE.length],
       };
     });
 
   /* ── QUIZ COMPLETENESS (distinct quizzes finished vs. all admin quizzes) ── */
-  const quizzesCompleted = completedQuizGroups.length;
+  const quizzesCompleted = distinctQuizzesGlobalCount;
   const completeness: ProfileCompleteness = {
     quizzesCompleted,
     quizzesTotal: totalQuizCount,
-    quizzesPercent: totalQuizCount > 0 ? Math.round((quizzesCompleted / totalQuizCount) * 100) : 0,
+    quizzesPercent: totalQuizCount > 0 ? Math.min(100, Math.max(0, Math.round((quizzesCompleted / totalQuizCount) * 100))) : 0,
   };
 
   /* ── BADGES (earned achievements) ───────────────────────────────────────── */
