@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
-import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight } from "lucide-react";
+import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, HelpCircle, X } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
 
 function AnimatedScoreCircle({ score }: { score: number }) {
@@ -929,7 +929,7 @@ export default function TestPage() {
           
           {question?.topic && (
             <div className="flex justify-end mt-2.5">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
                 {question.topic}
               </span>
             </div>
@@ -1067,58 +1067,150 @@ export default function TestPage() {
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setShowConfirm(false)} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="relative w-[calc(100vw-2rem)] max-w-[400px] bg-white dark:bg-slate-900 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.28)] border border-slate-100 dark:border-slate-800 overflow-hidden flex flex-col"
+              className="relative w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
             >
-              {/* Header */}
-              <div className="px-6 pt-7 pb-5 text-center">
-                <div className="mx-auto w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-900/25 flex items-center justify-center mb-4">
-                  <svg className="w-7 h-7 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
-                  </svg>
-                </div>
-                <h2 className="text-[21px] font-bold text-slate-900 dark:text-slate-100 tracking-tight">Submit your test?</h2>
-                <p className="text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 mt-1.5">
-                  {config.timed ? (
-                    <>You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> left. This can&rsquo;t be undone.</>
-                  ) : (
-                    <>This action cannot be undone.</>
-                  )}
-                </p>
-              </div>
+              {/* Header Row: Hourglass Badge + Title/Subtitle + Close Button */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  {/* Green Tinted Hourglass Icon Box */}
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100/60 dark:border-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <motion.div
+                      animate={{ rotate: [0, 180, 180, 360, 360] }}
+                      transition={{
+                        duration: 4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        times: [0, 0.4, 0.5, 0.9, 1],
+                      }}
+                      className="flex items-center justify-center"
+                    >
+                      <Hourglass className="w-6 h-6" strokeWidth={1.8} />
+                    </motion.div>
+                  </div>
 
-              {/* Stats — three compact tiles */}
-              <div className="px-5 grid grid-cols-3 gap-2.5">
-                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/15 border border-emerald-100 dark:border-emerald-900/30 py-3.5 px-1">
-                  <span className="text-[24px] font-bold text-emerald-600 dark:text-emerald-400 leading-none">{answeredCount}</span>
-                  <span className="text-[10px] font-semibold text-emerald-700/80 dark:text-emerald-400/70 uppercase tracking-wide text-center leading-tight">Answered</span>
+                  {/* Title & Subtitle */}
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                      Submit your test?
+                    </h2>
+                    <p className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+                      Review your answers before submitting.<br />
+                      Your test cannot be reopened after submission.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-red-50 dark:bg-red-900/15 border border-red-100 dark:border-red-900/30 py-3.5 px-1">
-                  <span className="text-[24px] font-bold text-red-500 dark:text-red-400 leading-none">{notAnsweredCount}</span>
-                  <span className="text-[10px] font-semibold text-red-600/80 dark:text-red-400/70 uppercase tracking-wide text-center leading-tight">Unanswered</span>
-                </div>
-                <div className="flex flex-col items-center gap-0.5 rounded-2xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 py-3.5 px-1">
-                  <span className="text-[24px] font-bold text-slate-700 dark:text-slate-200 leading-none">{notVisitedCount}</span>
-                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide text-center leading-tight">Not Visited</span>
-                </div>
-              </div>
 
-              {/* Buttons */}
-              <div className="p-5 flex gap-3">
+                {/* Close Button */}
                 <button
                   onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-[14px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                  title="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Divider 1 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Time Summary Section */}
+              <div className="flex items-center justify-between py-1">
+                {/* Time Elapsed */}
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" /> TIME ELAPSED
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                    {formatTime(elapsed)}
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Time Remaining */}
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    <Clock className={`w-3.5 h-3.5 ${
+                      !config?.timed ? "text-slate-400" : timeLeft <= 300 ? "text-rose-500" : timeLeft <= 600 ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                    }`} /> TIME REMAINING
+                  </span>
+                  <span className={`text-2xl sm:text-3xl font-bold tabular-nums ${
+                    !config?.timed
+                      ? "text-slate-900 dark:text-slate-100"
+                      : timeLeft <= 300
+                        ? "text-rose-600 dark:text-rose-400"
+                        : timeLeft <= 600
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                  }`}>
+                    {config?.timed ? formatTime(timeLeft) : "Untimed"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider 2 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Exam Status Summary (Answered, Unanswered, Not Visited) */}
+              <div className="flex items-center justify-between py-1">
+                {/* Answered */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 leading-none mb-1">
+                    {answeredCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    ANSWERED
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Unanswered */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-rose-500 dark:text-rose-400 leading-none mb-1">
+                    {notAnsweredCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    UNANSWERED
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Not Visited */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-200 leading-none mb-1">
+                    {notVisitedCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    NOT VISITED
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider 3 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="flex-1 py-3 px-4 rounded-xl border border-emerald-600/70 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-bold text-sm bg-transparent hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
                 >
                   Keep Working
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[14px] font-bold shadow-md shadow-emerald-600/25 transition-all duration-200 hover:-translate-y-0.5"
+                  className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
                 >
                   Yes, Submit
                 </button>

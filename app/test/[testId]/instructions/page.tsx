@@ -147,31 +147,31 @@ export default function InstructionsPage() {
           </div>
 
           <div className="flex items-center gap-6 sm:gap-8 flex-shrink-0 pt-1 sm:pt-0">
-            <div className="flex flex-col items-center sm:items-end">
+            <div className="flex flex-col items-center text-center">
               <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
                 {config.questionCount}
               </span>
-              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1 text-center">
                 QUESTIONS
               </span>
             </div>
 
             {config.timed && (
-              <div className="flex flex-col items-center sm:items-end">
+              <div className="flex flex-col items-center text-center">
                 <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
                   {config.durationMinutes} min
                 </span>
-                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1 text-center">
                   DURATION
                 </span>
               </div>
             )}
 
-            <div className="flex flex-col items-center sm:items-end">
+            <div className="flex flex-col items-center text-center">
               <span className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100 leading-none">
                 {config.questionCount}
               </span>
-              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1">
+              <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mt-1 text-center">
                 TOTAL MARKS
               </span>
             </div>

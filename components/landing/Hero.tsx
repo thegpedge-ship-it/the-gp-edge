@@ -162,7 +162,7 @@ export default function Hero() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] uppercase tracking-wider">
+              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] tracking-wider">
                 Built for GPs
               </span>
             </motion.div>
@@ -187,7 +187,7 @@ export default function Hero() {
             >
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">Adaptive mock exams</span>, interactive{" "}
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">MBS billing tools</span>, and real-world{" "}
-              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span>—everything you need to ace the AKT and KFP.
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span> - everything you need to ace the AKT and KFP.
             </motion.p>
 
             {/* CTAs */}

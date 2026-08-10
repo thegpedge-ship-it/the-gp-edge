@@ -69,17 +69,17 @@ function TestCard({
 
         <div className="flex flex-col items-end gap-1 shrink-0">
           {isFree ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
               <Unlock className="w-2.5 h-2.5" /> FREE
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
               <Lock className="w-2.5 h-2.5" /> Registrar
             </span>
           )}
 
           <span
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${isLocked
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-semibold ${isLocked
                 ? "bg-slate-100 text-slate-500 dark:bg-slate-700/40 dark:text-slate-400"
                 : test.completed
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"

@@ -90,14 +90,9 @@ export default function CreatedForYouModal({
             {/* Header */}
             <div className="relative flex items-center justify-between px-6 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/25 dark:text-emerald-400">
-                  <Sparkles size={20} strokeWidth={2} />
-                </div>
-                <h3 className="font-serif text-xl md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                  Created for You
-                </h3>
-              </div>
+              <h3 className="font-serif text-xl md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                Created for You
+              </h3>
               <button
                 onClick={onClose}
                 aria-label="Close"

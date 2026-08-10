@@ -266,12 +266,15 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
     >
       {/* Locked overlay */}
       {isLocked && (
-        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
-            <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex items-center justify-center p-0 text-center">
+          <div className="premium-btn-wrapper">
+            <div className="premium-btn" aria-label="Premium access required">
+              <svg className="premium-logo-icon" height="1.25em" viewBox="0 0 576 512">
+                <path d="M309 106c11.4-7 19-19.7 19-34c0-22.1-17.9-40-40-40s-40 17.9-40 40c0 14.4 7.6 27 19 34L209.7 220.6c-9.1 18.2-32.7 23.4-48.6 10.7L72 160c5-6.7 8-15 8-24c0-22.1-17.9-40-40-40S0 113.9 0 136s17.9 40 40 40c.2 0 .5 0 .7 0L86.4 427.4c5.5 30.4 32 52.6 63 52.6H426.6c30.9 0 57.4-22.1 63-52.6L535.3 176c.2 0 .5 0 .7 0c22.1 0 40-17.9 40-40s-17.9-40-40-40s-40 17.9-40 40c0 9 3 17.3 8 24l-89.1 71.3c-15.9 12.7-39.5 7.5-48.6-10.7L309 106z" />
+              </svg>
+              <span className="premium-tooltip">Premium</span>
+            </div>
           </div>
-          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Paid Plan Required</span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">Tap to see upgrade options</span>
         </div>
       )}
 
@@ -364,12 +367,15 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
     >
       {/* Locked overlay */}
       {isLocked && (
-        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/40 flex items-center justify-center">
-            <Lucide.Lock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+        <div className="absolute inset-0 rounded-2xl sm:rounded-3xl bg-white/60 dark:bg-slate-900/70 backdrop-blur-[2px] z-10 flex items-center justify-center p-0 text-center">
+          <div className="premium-btn-wrapper">
+            <div className="premium-btn" aria-label="Premium access required">
+              <svg className="premium-logo-icon" height="1.25em" viewBox="0 0 576 512">
+                <path d="M309 106c11.4-7 19-19.7 19-34c0-22.1-17.9-40-40-40s-40 17.9-40 40c0 14.4 7.6 27 19 34L209.7 220.6c-9.1 18.2-32.7 23.4-48.6 10.7L72 160c5-6.7 8-15 8-24c0-22.1-17.9-40-40-40S0 113.9 0 136s17.9 40 40 40c.2 0 .5 0 .7 0L86.4 427.4c5.5 30.4 32 52.6 63 52.6H426.6c30.9 0 57.4-22.1 63-52.6L535.3 176c.2 0 .5 0 .7 0c22.1 0 40-17.9 40-40s-17.9-40-40-40s-40 17.9-40 40c0 9 3 17.3 8 24l-89.1 71.3c-15.9 12.7-39.5 7.5-48.6-10.7L309 106z" />
+              </svg>
+              <span className="premium-tooltip">Premium</span>
+            </div>
           </div>
-          <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Paid Plan Required</span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">Tap to see upgrade options</span>
         </div>
       )}
 
@@ -1168,7 +1174,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full">
                 <button
                   onClick={() => setSelectedSystem("all")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                 >
                   All Systems
                 </button>
@@ -1176,7 +1182,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   <button
                     key={sys.id}
                     onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-full border shrink-0 transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                   >
                     {sys.name} ({systemCounts.get(sys.name) || 0})
                   </button>
@@ -1268,7 +1274,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                          <div className="relative">
                             <button 
                               onClick={() => setShowMCFilters(!showMCFilters)}
-                              className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                              className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${showMCFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                             >
                               <Lucide.Filter className="w-3 h-3" />
                               Filter by System
@@ -1286,9 +1292,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                              className="overflow-hidden"
                            >
                              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                 {[...primarySystems, ...secondarySystems].map(sys => (
-                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                 ))}
                              </div>
                            </motion.div>
@@ -1303,7 +1309,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                          <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
                        )}
                      </div>
-                  </div>
+                   </div>
                 )}
 
                 {/* Right Pane (Approaches) */}
@@ -1314,7 +1320,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({approachConditions.length})</h3>
                          <button 
                            onClick={() => setShowApproachFilters(!showApproachFilters)}
-                           className={`px-3 py-1.5 text-[10px] font-bold rounded-full border flex items-center gap-1.5 transition-all cursor-pointer ${showApproachFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+                           className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${showApproachFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
                          >
                            <Lucide.Filter className="w-3 h-3" />
                            Filter by System
@@ -2261,6 +2267,73 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
         featureName={upgradeFeatureName}
         requiredTier="paid"
       />
+
+      <style jsx global>{`
+        .premium-btn-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .premium-btn {
+          width: 44px;
+          height: 44px;
+          border: none;
+          border-radius: 50%;
+          background: linear-gradient(-50deg, #0d9488, #2dd4bf, #059669);
+          background-size: 250%;
+          background-position: left;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          position: relative;
+          transition: all 0.4s ease;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+        }
+        .premium-btn:hover {
+          background-position: right;
+          transform: scale(1.06);
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.22);
+        }
+        .premium-logo-icon {
+          fill: #ffffff;
+        }
+        .premium-tooltip {
+          position: absolute;
+          top: -20px;
+          opacity: 0;
+          background: linear-gradient(to right, #0d9488, #059669);
+          color: #ffffff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          pointer-events: none;
+          letter-spacing: 0.5px;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+          white-space: nowrap;
+        }
+        .premium-tooltip::before {
+          position: absolute;
+          content: "";
+          width: 8px;
+          height: 8px;
+          background: linear-gradient(45deg, #0d9488, #059669);
+          transform: rotate(45deg);
+          bottom: -4px;
+          left: calc(50% - 4px);
+          transition: all 0.3s ease;
+        }
+        .premium-btn:hover .premium-tooltip {
+          top: -44px;
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 }

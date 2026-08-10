@@ -12,7 +12,7 @@ import StudyByTopicModal from "@/components/exam-prep/StudyByTopicModal";
 import MockTestsModal from "@/components/exam-prep/MockTestsModal";
 import CreateQuizModal from "@/components/exam-prep/CreateQuizModal";
 import CreatedForYouModal from "@/components/exam-prep/CreatedForYouModal";
-import { BookText, NotebookPen, ClipboardClock, SwatchBook, ArrowRight } from "lucide-react";
+import { BookOpen, FileCheck2, FileEdit, Sparkles, ArrowRight } from "lucide-react";
 import Image from "next/image";
 
 type ModalKey = "topic" | "mock" | "create" | "foryou";
@@ -27,12 +27,97 @@ interface StudyOption {
   borderClass: string;
 }
 
+function StudyByTopicIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="5" y="2.5" width="15" height="4.5" rx="2" strokeWidth="1.6" />
+      <rect x="8.5" y="4" width="3.5" height="1.5" rx="0.75" strokeWidth="1.3" />
+      <rect x="4" y="8" width="17" height="4.5" rx="2" strokeWidth="1.6" />
+      <path d="M7.5 8v5.5l1.8-1.2 1.8 1.2V8" strokeWidth="1.4" />
+      <rect x="5" y="13.5" width="13" height="4.5" rx="2" strokeWidth="1.6" />
+      <line x1="8.5" y1="15.75" x2="12.5" y2="15.75" strokeWidth="1.4" />
+      <rect x="3" y="19" width="14" height="4.5" rx="2" strokeWidth="1.6" />
+      <rect x="7" y="20.5" width="4.5" height="1.5" rx="0.75" strokeWidth="1.3" />
+      <line x1="2" y1="25.5" x2="20" y2="25.5" strokeWidth="1.6" />
+      <circle cx="21" cy="19.5" r="4.8" strokeWidth="1.6" fill="white" className="dark:fill-[#151b23]" />
+      <circle cx="21" cy="19.5" r="4.8" strokeWidth="1.6" />
+      <path d="M24.4 22.9l4.6 4.6" strokeWidth="2.2" />
+    </svg>
+  );
+}
+
+function MockTestsIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3" width="20" height="17" rx="2.5" strokeWidth="1.6" />
+      <path d="M10 3V1.8A0.8 0.8 0 0 1 10.8 1h4.4a0.8 0.8 0 0 1 0.8 0.8V3" strokeWidth="1.4" />
+      <path d="M10 20l-1 4M16 20l1 4M6 24h14" strokeWidth="1.6" />
+      <path d="M5.5 7.5l1.8 1.8 3.5-3.5" strokeWidth="1.5" />
+      <line x1="13" y1="8" x2="18.5" y2="8" strokeWidth="1.5" />
+      <path d="M5.5 11.5l1.8 1.8 3.5-3.5" strokeWidth="1.5" />
+      <line x1="13" y1="12" x2="18.5" y2="12" strokeWidth="1.5" />
+      <path d="M5.5 15.5l1.8 1.8 3.5-3.5" strokeWidth="1.5" />
+      <line x1="13" y1="16" x2="16.5" y2="16" strokeWidth="1.5" />
+      <circle cx="21" cy="20.5" r="5.5" strokeWidth="1.6" fill="white" className="dark:fill-[#151b23]" />
+      <circle cx="21" cy="20.5" r="5.5" strokeWidth="1.6" />
+      <path d="M21 17.5v3h2.8" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function CreateQuizIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {/* Left Document Page */}
+      <path d="M6 3h11a2 2 0 0 1 2 2v22a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7L6 3z" strokeWidth="1.6" />
+      <path d="M6 3v4.5H2" strokeWidth="1.4" />
+      
+      {/* 3 Checkmarks with horizontal lines */}
+      <path d="M5 11.5l1.6 1.6 3.2-3.2" strokeWidth="1.5" />
+      <line x1="12" y1="12" x2="16" y2="12" strokeWidth="1.4" />
+      <path d="M5 16l1.6 1.6 3.2-3.2" strokeWidth="1.5" />
+      <line x1="12" y1="16.5" x2="16" y2="16.5" strokeWidth="1.4" />
+      <path d="M5 20.5l1.6 1.6 3.2-3.2" strokeWidth="1.5" />
+      <line x1="12" y1="21" x2="15" y2="21" strokeWidth="1.4" />
+
+      {/* Prominent Diagonal Pencil on Right (Matching Image 2 exactly) */}
+      <g strokeWidth="1.6">
+        {/* Pencil Body & Eraser Cap (Filled white so document lines don't bleed through) */}
+        <path d="M26.8 6.8 C 27.6 6 27.6 4.7 26.8 3.9 C 26 3.1 24.7 3.1 23.9 3.9 L 17.5 19.5 L 21.2 23.2 L 26.8 6.8 Z" fill="white" className="dark:fill-[#151b23]" />
+        {/* Pencil Outline */}
+        <path d="M26.8 6.8 C 27.6 6 27.6 4.7 26.8 3.9 C 26 3.1 24.7 3.1 23.9 3.9 L 17.5 19.5 L 21.2 23.2 L 26.8 6.8 Z" strokeWidth="1.6" />
+        {/* Eraser Band Separator Line */}
+        <line x1="22.5" y1="5.3" x2="25.4" y2="8.2" strokeWidth="1.4" />
+        {/* Sharp Pencil Tip Point */}
+        <path d="M17.5 19.5 L 16 28 L 21.2 23.2 Z" fill="currentColor" strokeWidth="1.6" />
+      </g>
+    </svg>
+  );
+}
+
+function CreatedForYouIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="4" width="16" height="21" rx="2" strokeWidth="1.5" />
+      <path d="M7 2h12a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" strokeWidth="1.6" fill="white" className="dark:fill-[#151b23]" />
+      <path d="M15.5 2v4.5H19" strokeWidth="1.4" />
+      <line x1="9.5" y1="8" x2="16" y2="8" strokeWidth="1.4" />
+      <line x1="9.5" y1="12" x2="16" y2="12" strokeWidth="1.4" />
+      <line x1="9.5" y1="16" x2="13.5" y2="16" strokeWidth="1.4" />
+      <circle cx="21" cy="20.5" r="5.8" strokeWidth="1.6" fill="white" className="dark:fill-[#151b23]" />
+      <circle cx="21" cy="20.5" r="5.8" strokeWidth="1.6" />
+      <circle cx="21" cy="18.5" r="1.8" strokeWidth="1.4" />
+      <path d="M17.2 24.2a4 4.3 0 0 1 7.6 0" strokeWidth="1.4" />
+    </svg>
+  );
+}
+
 const OPTIONS: StudyOption[] = [
   {
     key: "topic",
     title: "Study by Topic",
     description: "Browse subjects and subtopics, then take a focused quiz.",
-    icon: BookText,
+    icon: StudyByTopicIcon,
     colorClass: "text-[#1B895C] dark:text-[#34d399]",
     bgClass: "bg-[#F0FDF4] dark:bg-[#1B895C]/20",
     borderClass: "border-b-[#1B895C] dark:border-b-[#34d399]",
@@ -41,7 +126,7 @@ const OPTIONS: StudyOption[] = [
     key: "mock",
     title: "Do a Mock Test",
     description: "Sit a full exam-condition simulation from start to finish.",
-    icon: NotebookPen,
+    icon: MockTestsIcon,
     colorClass: "text-[#3B82F6] dark:text-[#60a5fa]",
     bgClass: "bg-[#EFF6FF] dark:bg-[#3B82F6]/20",
     borderClass: "border-b-[#3B82F6] dark:border-b-[#60a5fa]",
@@ -50,7 +135,7 @@ const OPTIONS: StudyOption[] = [
     key: "create",
     title: "Create Your Own Quiz",
     description: "Pick your topics and rules to build a custom quiz.",
-    icon: ClipboardClock,
+    icon: CreateQuizIcon,
     colorClass: "text-[#7C3AED] dark:text-[#a78bfa]",
     bgClass: "bg-[#F5F3FF] dark:bg-[#7C3AED]/20",
     borderClass: "border-b-[#7C3AED] dark:border-b-[#a78bfa]",
@@ -59,7 +144,7 @@ const OPTIONS: StudyOption[] = [
     key: "foryou",
     title: "Created for You",
     description: "Jump into a ready-made mixed quiz across every topic.",
-    icon: SwatchBook,
+    icon: CreatedForYouIcon,
     colorClass: "text-[#F59E0B] dark:text-[#fbbf24]",
     bgClass: "bg-[#FFFBEB] dark:bg-[#F59E0B]/20",
     borderClass: "border-b-[#F59E0B] dark:border-b-[#fbbf24]",
@@ -142,10 +227,6 @@ export default function ExamPrepPage() {
               What&apos;s your <br className="hidden md:block" />
               <span className="text-[#1B895C]">study plan</span> today?
             </h1>
-            <p className="font-sans text-sm md:text-base lg:text-lg text-[#64748B] dark:text-slate-400 mt-3 max-w-md mx-auto md:mx-0">
-              Every option helps you prepare - <br className="hidden sm:block" />
-              pick where to start.
-            </p>
           </div>
 
           {/* Illustration */}
@@ -191,27 +272,26 @@ export default function ExamPrepPage() {
               >
                 {/* Locked Card Overlay */}
                 {isCardLocked && (
-                  <div className="absolute inset-0 rounded-2xl bg-white/75 dark:bg-slate-900/85 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-955/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2">
-                      <Lock className="w-5 h-5" />
+                  <div className="absolute inset-0 rounded-2xl bg-white/75 dark:bg-slate-900/85 backdrop-blur-[2px] z-10 flex items-center justify-center p-0 text-center">
+                    <div className="premium-btn-wrapper">
+                      <div className="premium-btn" aria-label="Premium access required">
+                        <svg className="premium-logo-icon" height="1.25em" viewBox="0 0 576 512">
+                          <path d="M309 106c11.4-7 19-19.7 19-34c0-22.1-17.9-40-40-40s-40 17.9-40 40c0 14.4 7.6 27 19 34L209.7 220.6c-9.1 18.2-32.7 23.4-48.6 10.7L72 160c5-6.7 8-15 8-24c0-22.1-17.9-40-40-40S0 113.9 0 136s17.9 40 40 40c.2 0 .5 0 .7 0L86.4 427.4c5.5 30.4 32 52.6 63 52.6H426.6c30.9 0 57.4-22.1 63-52.6L535.3 176c.2 0 .5 0 .7 0c22.1 0 40-17.9 40-40s-17.9-40-40-40s-40 17.9-40 40c0 9 3 17.3 8 24l-89.1 71.3c-15.9 12.7-39.5 7.5-48.6-10.7L309 106z" />
+                        </svg>
+                        <span className="premium-tooltip">Premium</span>
+                      </div>
                     </div>
-                    <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                      Registrar Plan Required
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Tap to upgrade access
-                    </span>
                   </div>
                 )}
 
                 {/* Top Row: Icon & Number / Free Badge */}
                 <div className="flex items-center justify-between mb-2 lg:mb-6">
-                  <div className={`w-9 h-9 lg:w-14 lg:h-14 rounded-full flex items-center justify-center ${opt.bgClass}`}>
-                    <opt.icon className={`w-4 h-4 lg:w-6 lg:h-6 ${opt.colorClass}`} strokeWidth={1.5} />
+                  <div className="flex items-center justify-center">
+                    <opt.icon className={`w-11 h-11 lg:w-[3.75rem] lg:h-[3.75rem] ${opt.colorClass}`} />
                   </div>
                   <div className="flex items-center gap-2">
                     {!isRegistrarActive && opt.key === "mock" && hasFreeMock && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/40 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-md">
                         <Unlock className="w-3 h-3" /> Free
                       </span>
                     )}
@@ -252,6 +332,73 @@ export default function ExamPrepPage() {
         featureName={upgradeFeatureName}
         requiredTier="registrar"
       />
+
+      <style jsx global>{`
+        .premium-btn-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .premium-btn {
+          width: 44px;
+          height: 44px;
+          border: none;
+          border-radius: 50%;
+          background: linear-gradient(-50deg, #0d9488, #2dd4bf, #059669);
+          background-size: 250%;
+          background-position: left;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          position: relative;
+          transition: all 0.4s ease;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+        }
+        .premium-btn:hover {
+          background-position: right;
+          transform: scale(1.06);
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.22);
+        }
+        .premium-logo-icon {
+          fill: #ffffff;
+        }
+        .premium-tooltip {
+          position: absolute;
+          top: -20px;
+          opacity: 0;
+          background: linear-gradient(to right, #0d9488, #059669);
+          color: #ffffff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          pointer-events: none;
+          letter-spacing: 0.5px;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+          white-space: nowrap;
+        }
+        .premium-tooltip::before {
+          position: absolute;
+          content: "";
+          width: 8px;
+          height: 8px;
+          background: linear-gradient(45deg, #0d9488, #059669);
+          transform: rotate(45deg);
+          bottom: -4px;
+          left: calc(50% - 4px);
+          transition: all 0.3s ease;
+        }
+        .premium-btn:hover .premium-tooltip {
+          top: -44px;
+          opacity: 1;
+        }
+      `}</style>
     </div>
   );
 }

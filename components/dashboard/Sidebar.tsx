@@ -364,7 +364,7 @@ export default function Sidebar() {
                 <button
                   onClick={toggle}
                   className="
-                    inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                    inline-flex items-center gap-1.5 px-3 py-1 rounded-xl
                     border border-slate-200 dark:border-slate-800
                     bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400
                     hover:bg-teal-50 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-900/50
@@ -465,7 +465,7 @@ export default function Sidebar() {
                     <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 group-hover:border-teal-300 dark:group-hover:border-teal-800 whitespace-nowrap transition-colors duration-150" style={{
                       marginTop: 10,
                       display: "inline-flex", alignItems: "center", gap: 6,
-                      padding: "6px 18px", borderRadius: 999,
+                      padding: "6px 18px", borderRadius: 12,
                     }}>
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
                       <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">

@@ -302,7 +302,7 @@ export default function Footer() {
               Stay Updated
             </h4>
             <p className="text-[14px] text-slate-500 dark:text-[#b7c0cc] leading-relaxed">
-              Exam prep resources, platform updates, and clinical insights — delivered to your inbox.
+              Exam prep resources, platform updates, and clinical insights - delivered to your inbox.
             </p>
 
             {subscribed ? (
