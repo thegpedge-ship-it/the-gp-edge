@@ -143,7 +143,7 @@ export default function ExamPrepPage() {
               <span className="text-[#1B895C]">study plan</span> today?
             </h1>
             <p className="font-sans text-sm md:text-base lg:text-lg text-[#64748B] dark:text-slate-400 mt-3 max-w-md mx-auto md:mx-0">
-              Every option helps you prepare — <br className="hidden sm:block" />
+              Every option helps you prepare - <br className="hidden sm:block" />
               pick where to start.
             </p>
           </div>
@@ -186,9 +186,8 @@ export default function ExamPrepPage() {
                     setActive(opt.key);
                   }
                 }}
-                className={`group relative flex flex-col text-left rounded-2xl p-3.5 lg:p-6 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] border-b-4 ${opt.borderClass} ${
-                  isCardLocked ? "border-slate-200/80 dark:border-slate-800/80 shadow-sm" : ""
-                }`}
+                className={`group relative flex flex-col text-left rounded-2xl p-3.5 lg:p-6 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.06)] hover:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.1)] hover:-translate-y-1 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] border-b-4 ${opt.borderClass} ${isCardLocked ? "border-slate-200/80 dark:border-slate-800/80 shadow-sm" : ""
+                  }`}
               >
                 {/* Locked Card Overlay */}
                 {isCardLocked && (

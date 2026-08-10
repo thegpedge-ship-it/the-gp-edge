@@ -27,7 +27,7 @@ export default function ViewReportButton({
       .then((has) => {
         if (!cancelled) setAvailable(has);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       cancelled = true;
     };
