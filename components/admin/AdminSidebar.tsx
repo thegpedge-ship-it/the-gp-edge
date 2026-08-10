@@ -23,6 +23,8 @@ import {
   Lock,
   Layers,
   Stethoscope,
+  MessageSquareWarning,
+  BookMarked,
 } from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -52,6 +54,13 @@ const navGroups = [
       { label: "Medical Content", href: "/admin/content", icon: BookOpen },
       { label: "Clinical Approaches", href: "/admin/approaches", icon: Layers },
       { label: "Autofill Templates", href: "/admin/autofill", icon: FileEdit },
+    ],
+  },
+  {
+    title: "Feedbacks",
+    items: [
+      { label: "Question Feedback", href: "/admin/feedbacks/questions", icon: MessageSquareWarning },
+      { label: "Library Feedback", href: "/admin/feedbacks/library", icon: BookMarked },
     ],
   },
   {

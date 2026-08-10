@@ -10,9 +10,9 @@ import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
 import MaintenanceBanner from "@/components/admin/MaintenanceBanner";
 
 const ADMIN_PROFILES = [
-  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
-  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"] },
-  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches"] },
+  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
+  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing"] },
+  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches", "feedbacks"] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -27,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     name: "Siddhant Udavant",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
+    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
   });
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [loading, setLoading] = useState(true);
@@ -79,26 +79,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           if (isSA || permissions.length === 0) {
             if (isSA) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
             } else if (isCE) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "audit"];
             } else if (isOM) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "mbs", "billing", "audit"];
             } else if (isDR) {
-              permissions = ["dashboard", "questions", "content", "approaches"];
+              permissions = ["dashboard", "questions", "content", "approaches", "feedbacks"];
             } else if (isPR) {
-              permissions = ["dashboard", "questions", "content", "approaches"];
+              permissions = ["dashboard", "questions", "content", "approaches", "feedbacks"];
             } else if (isSUB) {
               permissions = ["dashboard"];
             } else if (foundUser.role === "Admin") {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing"];
             } else if (foundUser.role === "Moderator") {
-              permissions = ["dashboard", "questions", "content", "approaches"];
+              permissions = ["dashboard", "questions", "content", "approaches", "feedbacks"];
             } else {
               permissions = ["dashboard"];
             }
           } else if (isCE && permissions.length === 0) {
-            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "audit"];
           }
 
           setCurrentAdmin({
@@ -132,13 +132,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             const fIsPR = foundRoles.includes("PR") || found.role === "Peer Reviewer" || found.role === "PR (Peer Reviewer)";
             let permissions: string[] = found.permissions || [];
             if (fIsSA) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
             } else if (fIsCE) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "audit"];
             } else if (fIsOM) {
-              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "mbs", "billing", "audit"];
             } else if (fIsDR || fIsPR) {
-              permissions = ["dashboard", "questions", "content", "approaches"];
+              permissions = ["dashboard", "questions", "content", "approaches", "feedbacks"];
             } else if (permissions.length === 0) {
               permissions = ["dashboard"];
             }
