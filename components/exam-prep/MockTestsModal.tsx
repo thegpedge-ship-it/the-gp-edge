@@ -209,7 +209,6 @@ export default function MockTestsModal({
 
   return (
     <>
-      {startingId && <ExamLoadingScreen title="Preparing your test" />}
       <AnimatePresence>
         {open && (
           <motion.div

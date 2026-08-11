@@ -48,8 +48,13 @@ const PALETTE_LEGEND = [
 export default function InstructionsPage() {
   const router = useRouter();
   const { testId } = useParams<{ testId: string }>();
-  // undefined = resolving, null = unknown/locked test
-  const [config, setConfig] = useState<TestConfig | null | undefined>(undefined);
+
+  // Synchronously resolve config from sessionStorage on mount to eliminate loading flash.
+  const [config, setConfig] = useState<TestConfig | null | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    const plan = loadTestPlan(testId);
+    return plan ? planToConfig(plan) : null;
+  });
   const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
@@ -57,10 +62,7 @@ export default function InstructionsPage() {
     setConfig(plan ? planToConfig(plan) : null);
   }, [testId]);
 
-  // Never render nothing here: this is the first frame after "Start", and a
-  // blank screen reads as a broken button.
-  if (config === undefined) return <ExamLoadingScreen title="Preparing your test" />;
-  if (config === null) return <TestNotFound />;
+  if (!config) return <TestNotFound />;
 
   const instructions = config.timed ? [TIMER_INSTRUCTION, ...INSTRUCTIONS] : INSTRUCTIONS;
 

@@ -181,7 +181,6 @@ export default function SubjectMenu() {
 
   return (
     <div className="flex flex-col h-full">
-      {startingId && <ExamLoadingScreen title="Preparing your quiz" />}
       {/* ─── Desktop: 3-Column Vertical Menu (hidden on mobile) ───────── */}
       <div className="hidden lg:flex flex-1 min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
 
