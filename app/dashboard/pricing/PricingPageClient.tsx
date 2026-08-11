@@ -125,56 +125,39 @@ function PlanCard({
     });
   }
 
-  const cardHeaderIcon =
-    plan.id === "post_registrar_upgrade" || plan.id === "fellowship_monthly" ? (
-      <Clock className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-    ) : plan.id === "registrar_6mo" ? (
-      <Calendar className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-    ) : (
-      <Award className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
-    );
-
   return (
     <div
-      className={`
+      className="
         relative flex flex-col justify-between w-full max-w-md mx-auto p-6 md:p-7 
         transition-all duration-500 rounded-[20px] select-none
         hover:scale-[1.02] active:scale-[0.99]
-        ${plan.highlight
-          ? "bg-white dark:bg-slate-900 border-2 border-[#387e59] dark:border-emerald-500 shadow-xl shadow-emerald-900/10 dark:shadow-emerald-900/20"
-          : "bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-md hover:border-slate-300 dark:hover:border-slate-700"
-        }
-      `}
+        bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-md hover:border-slate-300 dark:hover:border-slate-700
+      "
     >
-      {/* Top Badge for Featured Plan */}
-      {(plan.badge || isThisSpecificPlan) && (
-        <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-full text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap ${isThisSpecificPlan ? 'bg-emerald-600 dark:bg-emerald-500' : 'bg-[#387e59] dark:bg-emerald-600'}`}>
+      {/* Top Badge for Active Plan */}
+      {isThisSpecificPlan && (
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-xl text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap bg-emerald-600 dark:bg-emerald-500">
           <Star className="w-3 h-3 fill-current" />
-          {isThisSpecificPlan ? "Your Active Plan" : plan.badge}
+          Your Active Plan
         </div>
       )}
 
       <div>
         {/* Header */}
-        <div className="flex items-start gap-3.5 mb-4">
-          <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-955/40 border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-center shrink-0 mt-0.5">
-            {cardHeaderIcon}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug">
+              {plan.name}
+            </h3>
           </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-slate-100 leading-snug">
-                {plan.name}
-              </h3>
-            </div>
-            {expiryDisplay && (
-              <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-full px-2.5 py-0.5 inline-block">
-                {expiryDisplay}
-              </p>
-            )}
-            <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              {plan.tagline}
+          {expiryDisplay && (
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-1.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl px-2.5 py-0.5 inline-block">
+              {expiryDisplay}
             </p>
-          </div>
+          )}
+          <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+            {plan.tagline}
+          </p>
         </div>
 
         {/* Price Display */}
@@ -252,10 +235,8 @@ function PlanCard({
           w-full py-3.5 px-5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer
           disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]
           ${isThisSpecificPlan
-            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80 shadow-sm"
-            : plan.highlight
-            ? "bg-[#387e59] hover:bg-[#2d6648] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
-            : "bg-[#111827] hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white shadow-sm"
+            ? "bg-emerald-100 dark:bg-emerald-955/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80 shadow-sm"
+            : "bg-[#387e59] hover:bg-[#2d6648] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
           }
         `}
       >
@@ -335,13 +316,12 @@ function AccessBanner({
     : null;
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-5 rounded-2xl bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/60 dark:border-emerald-800/40 mb-8 select-none max-w-4xl w-full">
+    <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-5 rounded-2xl bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/60 dark:border-emerald-800/40 mb-8 select-none max-w-4xl w-full mx-auto">
       <div className="flex items-center gap-3 w-full">
-        <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" strokeWidth={2} />
         <div>
           <p className="text-base font-semibold text-emerald-900 dark:text-emerald-200">
             Active plan: {levelLabel[currentAccessLevel] ?? currentAccessLevel}
-            {cancelAtPeriodEnd && <span className="ml-2 text-xs font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">Canceled</span>}
+            {cancelAtPeriodEnd && <span className="ml-2 text-xs font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-xl">Canceled</span>}
           </p>
           {expiryText && (
             <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">{expiryText}</p>
@@ -461,7 +441,7 @@ export default function PricingPageClient({
           {/* Left Side Text Content */}
           <div className="flex-1 flex flex-col items-start text-left max-w-2xl">
             {/* Small Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-955/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 uppercase tracking-[0.14em] mb-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-955/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 uppercase tracking-[0.14em] mb-4">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -564,7 +544,7 @@ export default function PricingPageClient({
                       <td className="py-4 px-6 font-semibold text-slate-800 dark:text-slate-200 text-left">
                         <span>{row.page}</span>
                         {row.fullPaidOnly && (
-                          <span className="ml-2 inline-block text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/40 border border-amber-200/60 dark:border-amber-800/40 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          <span className="ml-2 inline-block text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/40 border border-amber-200/60 dark:border-amber-800/40 px-2 py-0.5 rounded-xl uppercase tracking-wider">
                             Registrar only
                           </span>
                         )}

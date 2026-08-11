@@ -81,7 +81,7 @@ export default function ProfileBillingCard({
             </p>
           </div>
           <span
-            className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+            className={`px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider ${
               cancelAtPeriodEnd
                 ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
                 : hasPaidAccess

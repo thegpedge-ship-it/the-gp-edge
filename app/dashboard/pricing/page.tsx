@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
 const ALL_PLANS: Record<PlanId, PricingPlan> = {
   registrar_6mo: {
     id: "registrar_6mo",
-    name: "Registrar — 6 Month",
+    name: "Registrar - 6 Month",
     tagline: "Full exam prep access for your placement",
     badge: null,
     priceDisplay: "1,500",
@@ -35,11 +35,11 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
     amountAUD: 1500,
     highlight: false,
     features: [
-      "Full AKT + KFP exam prep — unlimited questions",
+      "Full AKT + KFP exam prep - unlimited questions",
       "Performance analytics & blind-spot detection",
       "Full Note Templates library",
       "Full Medical Library access",
-      "MBS Billing page — full access",
+      "MBS Billing page - full access",
       "6 months of access from purchase date",
     ],
     cta: "Get 6-Month Access",
@@ -47,8 +47,8 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
   },
   registrar_12mo: {
     id: "registrar_12mo",
-    name: "Registrar — 12 Month",
-    tagline: "Best value — full year of exam prep",
+    name: "Registrar - 12 Month",
+    tagline: "Best value - full year of exam prep",
     badge: "BEST VALUE",
     priceDisplay: "2,500",
     priceNote: "One-time payment · 12 months access",
@@ -77,7 +77,7 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
     features: [
       "Full Note Templates library",
       "Full Medical Library access",
-      "MBS Billing page — full access",
+      "MBS Billing page - full access",
       "Cancel any time",
     ],
     cta: "Start Monthly Plan",
@@ -85,7 +85,7 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
   },
   fellowship_yearly: {
     id: "fellowship_yearly",
-    name: "Fellowship — Annual",
+    name: "Fellowship - Annual",
     tagline: "Save with a full year upfront",
     badge: "SAVE 17%",
     priceDisplay: "300",
@@ -114,7 +114,7 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
     features: [
       "Full Note Templates library",
       "Full Medical Library access",
-      "MBS Billing page — full access",
+      "MBS Billing page - full access",
       "No exam prep (not included at this tier)",
       "Cancel any time",
     ],

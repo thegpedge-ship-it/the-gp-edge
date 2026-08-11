@@ -68,14 +68,16 @@ function TestCard({
         </div>
 
         <div className="flex flex-col items-end gap-1 shrink-0">
-          {isFree ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
-              <Unlock className="w-2.5 h-2.5" /> FREE
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
-              <Lock className="w-2.5 h-2.5" /> Registrar
-            </span>
+          {!isRegistrarActive && (
+            isFree ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
+                <Unlock className="w-2.5 h-2.5" /> FREE
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
+                <Lock className="w-2.5 h-2.5" /> Registrar
+              </span>
+            )
           )}
 
           <span

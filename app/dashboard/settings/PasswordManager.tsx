@@ -140,7 +140,7 @@ export default function PasswordManager() {
             <span className="text-sm text-slate-600">
               {hasPassword
                 ? "Password set · ••••••••"
-                : "No password — you sign in with Google"}
+                : "No password - you sign in with Google"}
             </span>
           </div>
           <button
