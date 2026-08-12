@@ -8,6 +8,7 @@ import { submitCancellationFeedbackAction, createBillingPortalSessionAction } fr
 interface Props {
   open: boolean;
   onClose: () => void;
+  formattedExpiry?: string | null;
 }
 
 const REASONS = [
@@ -19,7 +20,7 @@ const REASONS = [
   "Other",
 ];
 
-export default function CancellationSurveyModal({ open, onClose }: Props) {
+export default function CancellationSurveyModal({ open, onClose, formattedExpiry }: Props) {
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +90,13 @@ export default function CancellationSurveyModal({ open, onClose }: Props) {
                 >
                   <X className="w-5 h-5" />
                 </button>
+              </div>
+
+              <div className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-sm text-slate-700 dark:text-slate-300">
+                <p className="font-semibold mb-1 text-slate-900 dark:text-slate-100">How cancellation works:</p>
+                <p className="leading-relaxed">
+                  Canceling your recurring subscription will stop future automated renewals. You will maintain full paid access to your plan until the end of your current billing period{formattedExpiry ? <strong className="font-semibold text-slate-900 dark:text-slate-100"> ({formattedExpiry})</strong> : null}. After this date, your subscription will not renew, and your account will automatically revert to the Free tier.
+                </p>
               </div>
 
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">

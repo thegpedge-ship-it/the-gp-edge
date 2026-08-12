@@ -86,7 +86,13 @@ export async function POST(req: Request) {
     }
 
     if (mode === "payment") {
-      sessionConfig.invoice_creation = { enabled: true };
+      sessionConfig.invoice_creation = { 
+        enabled: true,
+        invoice_data: {
+          description: "Payment for The GP Edge Registrar Package",
+          metadata: { userId: dbUser.id },
+        },
+      };
     } else if (mode === "subscription") {
       sessionConfig.subscription_data = {
         metadata: {

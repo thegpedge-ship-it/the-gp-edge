@@ -344,6 +344,23 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     });
     console.log(`[webhook/checkout.completed] ✅ Subscription upserted in Neon: ${upserted.id}`);
 
+    // Ensure invoice is marked as paid
+    if (session.invoice && session.payment_intent) {
+      try {
+        const invoiceId = typeof session.invoice === "string" ? session.invoice : session.invoice.id;
+        const invoice = await stripe.invoices.retrieve(invoiceId);
+
+        if (invoice.status === "open" || invoice.status === "draft") {
+          console.log(`[webhook/checkout.completed] Paying open/draft invoice ${invoiceId}`);
+          await stripe.invoices.pay(invoiceId, {
+            paid_out_of_band: true,
+          });
+        }
+      } catch (err: any) {
+        console.warn("[webhook/checkout.completed] Could not auto-pay invoice:", err.message);
+      }
+    }
+
     // Record the payment
     if (paymentIntentId) {
       await prisma.payments

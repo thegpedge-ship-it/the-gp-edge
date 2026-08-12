@@ -96,21 +96,49 @@ export async function getLatestInvoicePdfAction(): Promise<{ url?: string; error
       return { error: "No billing history found for this account email." };
     }
 
-    const invoices = await stripe.invoices.list({
+    // First Choice: Stripe Charges (Payment Receipts) guarantee showing amount paid.
+    const charges = await stripe.charges.list({
       customer: customerId,
-      limit: 1,
+      limit: 10,
     });
 
-    if (invoices.data.length === 0) {
-      return { error: "No invoices found for this account." };
+    const successfulCharge = charges.data.find(c => c.status === "succeeded" && c.receipt_url);
+    if (successfulCharge?.receipt_url) {
+      return { url: successfulCharge.receipt_url };
     }
 
-    const invoicePdfUrl = invoices.data[0].invoice_pdf;
-    if (!invoicePdfUrl) {
+    // Second Choice: Fallback to Invoices
+    const invoices = await stripe.invoices.list({
+      customer: customerId,
+      limit: 10,
+    });
+
+    let invoiceToReturn = invoices.data.find(inv => inv.status === "paid" && (inv.invoice_pdf || inv.hosted_invoice_url));
+
+    if (!invoiceToReturn) {
+      // If an open/draft invoice is found for a completed payment, pay it on the fly
+      const openInvoice = invoices.data.find(inv => inv.status === "open" || inv.status === "draft");
+      if (openInvoice) {
+        try {
+          invoiceToReturn = await stripe.invoices.pay(openInvoice.id, {
+            paid_out_of_band: true,
+          });
+        } catch (err) {
+          console.warn("[getLatestInvoicePdfAction] Could not auto-pay open invoice:", err);
+        }
+      }
+    }
+
+    if (!invoiceToReturn) {
+      return { error: "No invoices or receipts found for this account." };
+    }
+
+    const invoiceUrl = invoiceToReturn.invoice_pdf || invoiceToReturn.hosted_invoice_url;
+    if (!invoiceUrl) {
       return { error: "Invoice PDF is not available yet." };
     }
 
-    return { url: invoicePdfUrl };
+    return { url: invoiceUrl };
   } catch (err) {
     console.error("[getLatestInvoicePdfAction] Error:", err);
     return { error: "Failed to fetch invoice. Please try again later." };

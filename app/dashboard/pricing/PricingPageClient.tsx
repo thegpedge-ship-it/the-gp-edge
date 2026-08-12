@@ -80,26 +80,36 @@ function PlanCard({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const now = new Date();
-  
-  // 1. Check if the user's access term is currently valid
-  const isAccessActive = accessExpiresAt != null && new Date(accessExpiresAt) > now;
-  
-  // 2. Identify the EXACT plan card using the original Price ID
-  const isThisSpecificPlan = isAccessActive && Boolean(activePriceId) && plan.priceId === activePriceId;
+  // 1. Identify the EXACT plan card using the original Price ID or fallback Package Key
+  const isThisSpecificPlan = Boolean(
+    hasPaidAccess &&
+      ((plan.priceId && plan.priceId === activePriceId) ||
+        (plan.id === "post_registrar_upgrade" && activePriceId === "MONTHLY_15") ||
+        (plan.id === "fellowship_monthly" && activePriceId === "MONTHLY_30") ||
+        (plan.id === "fellowship_yearly" && activePriceId === "YEARLY_300") ||
+        (plan.id === "registrar_6mo" && activePriceId === "REGISTRAR_6MO") ||
+        (plan.id === "registrar_12mo" && activePriceId === "REGISTRAR_12MO"))
+  );
 
   // Formatting expiration string
   let expiryDisplay = null;
   if (isThisSpecificPlan && accessExpiresAt) {
     const expDate = new Date(accessExpiresAt);
-    const diffTime = Math.max(0, expDate.getTime() - now.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     const formatter = new Intl.DateTimeFormat("en-AU", {
       day: "numeric",
       month: "short",
       year: "numeric",
     });
-    expiryDisplay = `Expires in ${diffDays} day${diffDays === 1 ? '' : 's'} (${formatter.format(expDate)})`;
+    const formattedDate = formatter.format(expDate);
+
+    // Determine whether the plan auto-renews or expires
+    const isRecurringAutoRenewing = plan.billingType !== "one-time" && !cancelAtPeriodEnd;
+    
+    if (isRecurringAutoRenewing) {
+      expiryDisplay = `Renews on ${formattedDate}`;
+    } else {
+      expiryDisplay = `Expires on ${formattedDate}`;
+    }
   }
 
   function handleClick() {
@@ -283,10 +293,12 @@ function AccessBanner({
   currentAccessLevel,
   accessExpiresAt,
   cancelAtPeriodEnd,
+  isRecurring,
 }: {
   currentAccessLevel: string;
   accessExpiresAt: string | null;
   cancelAtPeriodEnd?: boolean;
+  isRecurring?: boolean;
 }) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -359,21 +371,6 @@ function AccessBanner({
           {pendingAction === "invoice" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
           Download Invoices
         </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!cancelAtPeriodEnd) {
-              setShowCancelModal(true);
-            } else {
-              handlePortalRedirect("cancel");
-            }
-          }}
-          disabled={pendingAction !== null}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 hover:bg-emerald-200 dark:hover:bg-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
-        >
-          {pendingAction === "cancel" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-          {cancelAtPeriodEnd ? "Reactivate Subscription" : "Cancel Subscription"}
-        </button>
       </div>
 
       {error && (
@@ -392,6 +389,7 @@ function AccessBanner({
       <CancellationSurveyModal
         open={showCancelModal}
         onClose={() => setShowCancelModal(false)}
+        formattedExpiry={expiryText}
       />
     </div>
   );
@@ -444,8 +442,12 @@ export default function PricingPageClient({
     : plans.filter((p) => p.id !== "fellowship_monthly" && p.id !== "fellowship_yearly");
 
   const orderedPlans = [...sanitizedPlans].sort((a, b) => a.amountAUD - b.amountAUD);
-
+  
   const moduleRows = MODULE_ACCESS[isFellow ? "FELLOW" : "REGISTRAR"] ?? MODULE_ACCESS.REGISTRAR;
+
+  // Determine if the active plan is recurring
+  const activePlan = plans.find((p) => p.priceId === activePriceId);
+  const isRecurring = activePlan ? activePlan.billingType !== "one-time" : (currentAccessLevel === "FELLOWSHIP" || currentAccessLevel === "POST_REGISTRAR_UPGRADE");
 
   return (
     <>
@@ -497,6 +499,7 @@ export default function PricingPageClient({
           currentAccessLevel={currentAccessLevel} 
           accessExpiresAt={accessExpiresAt} 
           cancelAtPeriodEnd={cancelAtPeriodEnd}
+          isRecurring={isRecurring}
         />
 
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}

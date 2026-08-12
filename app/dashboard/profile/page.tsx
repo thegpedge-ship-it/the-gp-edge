@@ -302,6 +302,9 @@ export default async function ProfilePage() {
                 accessExpiresAt={accessInfo?.currentPeriodEnd ? new Date(accessInfo.currentPeriodEnd).toISOString() : null}
                 hasCustomerProfile={Boolean(dbUser?.stripe_customer_id)}
                 cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
+                isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
+                showDownloadInvoice={false}
+                showCancelSubscription={false}
               />
             </PageCard>
           </FadeIn>
