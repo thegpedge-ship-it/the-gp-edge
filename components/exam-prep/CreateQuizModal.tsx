@@ -186,7 +186,6 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
 
   return (
     <>
-      {starting && <ExamLoadingScreen title="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div

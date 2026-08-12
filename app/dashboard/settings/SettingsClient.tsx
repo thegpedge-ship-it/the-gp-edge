@@ -93,9 +93,9 @@ function TextInput({
 }
 
 function SelectInput({
-  id, defaultValue, options,
+  id, defaultValue, options, dropUp = false,
 }: {
-  id: string; defaultValue: string; options: { value: string; label: string }[];
+  id: string; defaultValue: string; options: { value: string; label: string }[]; dropUp?: boolean;
 }) {
   const [value, setValue] = useState(defaultValue);
   const [isOpen, setIsOpen] = useState(false);
@@ -129,9 +129,11 @@ function SelectInput({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 2 }} exit={{ opacity: 0, y: -4 }}
+            initial={{ opacity: 0, y: dropUp ? 4 : -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: dropUp ? 4 : -4 }}
             transition={{ duration: 0.1 }}
-            className="absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl max-h-56 overflow-y-auto"
+            className={`absolute left-0 right-0 z-50 bg-white border border-slate-200 rounded-lg shadow-xl max-h-60 overflow-y-auto ${
+              dropUp ? "bottom-full mb-1" : "top-full mt-1"
+            }`}
           >
             <div className="p-1">
               {options.map((option) => {
@@ -283,7 +285,7 @@ export default function SettingsClient({
     <div className="flex flex-col gap-4 pb-6">
       <FadeIn delay={0}>
         <div className="pt-4">
-          <PageHeading title="Settings" subtitle="Manage your account and exam preparation preferences" />
+          <PageHeading title="Settings" />
         </div>
       </FadeIn>
 
@@ -388,8 +390,8 @@ export default function SettingsClient({
         <div className="flex flex-col gap-4 xl:h-full">
 
         {/* ── Exam Preparation ──────────────────────────────────────────── */}
-        <FadeIn delay={0.08}>
-          <PageCard>
+        <FadeIn delay={0.08} className="relative z-20">
+          <PageCard className="!overflow-visible">
             <CardHeader icon={<Target size={15} />} title="Exam Preparation" subtitle="Training, study plan & targets" />
             <form className="px-5 py-4 space-y-3" onSubmit={handleSaveExam}>
               <div className="grid grid-cols-2 gap-3">
@@ -402,7 +404,7 @@ export default function SettingsClient({
                     { value: "OSCE", label: "OSCE" },
                   ]} />
                 </div>
-                <div><FieldLabel htmlFor="exam-date">Exam Date</FieldLabel><TextInput id="exam-date" type="month" defaultValue="2026-08" icon={<Calendar size={13} />} onClick={(e) => { if (e.currentTarget.showPicker) e.currentTarget.showPicker(); }} /></div>
+                <div><FieldLabel htmlFor="exam-date">Exam Date</FieldLabel><TextInput id="exam-date" type="month" defaultValue="2026-08" onClick={(e) => { if (e.currentTarget.showPicker) e.currentTarget.showPicker(); }} /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

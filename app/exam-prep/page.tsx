@@ -344,7 +344,7 @@ export default function ExamPrepPage() {
           width: 44px;
           height: 44px;
           border: none;
-          border-radius: 50%;
+          border-radius: 12px;
           background: linear-gradient(-50deg, #0d9488, #2dd4bf, #059669);
           background-size: 250%;
           background-position: left;

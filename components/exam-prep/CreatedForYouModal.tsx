@@ -62,8 +62,6 @@ export default function CreatedForYouModal({
   };
 
   return (
-    <>
-      {starting && <ExamLoadingScreen title="Preparing your quiz" />}
     <AnimatePresence>
       {open && (
         <motion.div
@@ -162,6 +160,5 @@ export default function CreatedForYouModal({
         </motion.div>
       )}
     </AnimatePresence>
-    </>
   );
 }
