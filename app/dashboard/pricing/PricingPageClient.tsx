@@ -68,6 +68,7 @@ function PlanCard({
   hasPaidAccess,
   activePriceId,
   accessExpiresAt,
+  cancelAtPeriodEnd,
   onAttemptActivePurchase,
 }: {
   plan: PricingPlan;
@@ -75,6 +76,7 @@ function PlanCard({
   hasPaidAccess?: boolean;
   activePriceId?: string | null;
   accessExpiresAt?: string | null;
+  cancelAtPeriodEnd?: boolean;
   onAttemptActivePurchase: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -501,6 +503,7 @@ export default function PricingPageClient({
                 hasPaidAccess={hasPaidAccess}
                 activePriceId={activePriceId}
                 accessExpiresAt={accessExpiresAt}
+                cancelAtPeriodEnd={cancelAtPeriodEnd}
                 onAttemptActivePurchase={() => setShowDuplicateModal(true)}
               />
             ))}
