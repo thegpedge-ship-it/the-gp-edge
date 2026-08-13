@@ -3,9 +3,6 @@
 import { motion } from "framer-motion";
 
 import ExamPrepSimulation from "./simulations/ExamPrepSimulation";
-import MbsBillingSimulation from "./simulations/MbsBillingSimulation";
-import ClinicalAutofillsSimulation from "./simulations/ClinicalAutofillsSimulation";
-import MedicalDirectorySimulation from "./simulations/MedicalDirectorySimulation";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -17,7 +14,7 @@ const containerVariants = {
 
 export default function BentoGrid() {
   return (
-    <section id="tools" className="pt-6 pb-10 lg:pt-8 lg:pb-14 bg-transparent relative">
+    <section id="tools" className="pt-16 sm:pt-20 lg:pt-24 pb-10 lg:pb-14 bg-transparent relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <motion.div
@@ -25,14 +22,15 @@ export default function BentoGrid() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-14"
+          className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8"
         >
           <div>
-            <span className="inline-flex items-center gap-2 text-sm font-semibold text-teal-600 dark:text-[#5AC8B0] mb-3">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-              </svg>
-              Four Core Tools
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-teal-50 dark:bg-[rgba(90,200,176,0.08)] border border-teal-200/60 dark:border-[rgba(90,200,176,0.18)] text-teal-700 dark:text-[#5AC8B0] text-xs font-semibold mb-3">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+              </span>
+              ALL-IN-ONE PLATFORM
             </span>
             <h2 className="font-sans text-3xl lg:text-[2.5rem] font-bold text-slate-900 dark:text-[#F8FAFC] tracking-[-0.02em]">
               Everything a GP needs
@@ -40,25 +38,15 @@ export default function BentoGrid() {
           </div>
         </motion.div>
 
-        {/* Premium Bento Grid */}
+        {/* Full-Width Feature Card */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
-          className="grid grid-cols-12 gap-4 lg:gap-5"
+          className="w-full"
         >
-          {/* Card 1: Exam Prep - Large Feature Card */}
           <ExamPrepSimulation />
-
-          {/* Card 2: Bill Better - Interactive MBS Search */}
-          <MbsBillingSimulation />
-
-          {/* Card 3: Autofills with Interactive Copy Animation */}
-          <ClinicalAutofillsSimulation />
-
-          {/* Card 4: Medical Directory */}
-          <MedicalDirectorySimulation />
         </motion.div>
       </div>
     </section>

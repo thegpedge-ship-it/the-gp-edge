@@ -80,16 +80,16 @@ function AvatarSVG({ size = 40 }: { size?: number }) {
 
 function Sep() {
   // Use a CSS class so it adapts to dark mode via globals
-  return <div className="sidebar-sep" style={{ width: 28, height: 1, margin: "4px 0" }} />;
+  return <div className="sidebar-sep" style={{ width: 28, height: 1, margin: "8px 0" }} />;
 }
 
 // ─── Collapsed rail icon button ───────────────────────────────────────────────
 function RailBtn({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <button title={title} style={{
-      width: 40, height: 40,
+      width: 42, height: 42,
       display: "flex", alignItems: "center", justifyContent: "center",
-      borderRadius: 10, border: "none",
+      borderRadius: 12, border: "none",
       background: "transparent", color: "#b0bec5",
       cursor: "pointer", flexShrink: 0,
       transition: "background 150ms, color 150ms",
@@ -132,13 +132,14 @@ export default function Sidebar() {
     <>
       {/* ── Desktop sidebar ─────────────────────────────────────────────── */}
       <aside
-        className="hidden lg:block"
+        className={`hidden lg:flex lg:flex-col ${isExpanded ? "" : "lg:justify-center"}`}
         aria-label="Dashboard navigation"
         style={{
           position:      "fixed",
-          top:           SIDEBAR_TOP_PX,
+          top:           isExpanded ? SIDEBAR_TOP_PX : 0,
+          bottom:        0,
           left:          0,
-          height:        `calc(100dvh - ${SIDEBAR_TOP_PX}px)`,
+          height:        isExpanded ? `calc(100vh - ${SIDEBAR_TOP_PX}px)` : "100vh",
           width:         asideW,
           zIndex:        40,
           overflow:      "visible",
@@ -153,14 +154,16 @@ export default function Sidebar() {
           onMouseLeave={onLeave}
           className="sidebar-card bg-white dark:bg-[#151922] border border-[#e8edf2] dark:border-white/10 shadow-[0_4px_24px_rgba(15,23,42,0.10)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]"
           style={{
-            position:      "absolute",
-            top:           GAP,
+            position:      isExpanded ? "absolute" : "relative",
+            top:           isExpanded ? 0 : undefined,
+            bottom:        isExpanded ? 24 : undefined,
             left:          GAP,
-            right:         0,
-            ...(isExpanded ? { bottom: GAP } : {}),
+            width:         isExpanded ? PANEL_W : RAIL_W,
+            maxHeight:     isExpanded ? `calc(100vh - ${SIDEBAR_TOP_PX + 32}px)` : "calc(100vh - 120px)",
             borderRadius:  cardBorderRadius,
             overflow:      "hidden",
             pointerEvents: "auto",
+            transition:    ready ? `width ${DUR} ${EASE}` : "none",
           }}
         >
           <style>{`
@@ -234,8 +237,8 @@ export default function Sidebar() {
               display:       isExpanded ? "none" : "flex",
               flexDirection: "column",
               alignItems:    "center",
-              padding:       "12px 0",
-              gap:           0,
+              padding:       "18px 0",
+              gap:           "2px",
             }}
           >
             {/* ── Avatar ── */}
@@ -247,7 +250,7 @@ export default function Sidebar() {
                 width: 38, height: 38, borderRadius: "50%",
                 overflow: "hidden", flexShrink: 0,
                 boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
-                marginBottom: 8,
+                marginBottom: 6,
                 position: "relative",
               }}
             >
@@ -280,9 +283,9 @@ export default function Sidebar() {
                   className={`sidebar-nav-link${active ? " active" : ""}`}
                   style={{
                     position: "relative",
-                    width: 40, height: 40,
+                    width: 42, height: 42,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    borderRadius: 10,
+                    borderRadius: 12,
                     textDecoration: "none",
                     transition: "background 150ms, color 150ms",
                   }}
@@ -304,9 +307,9 @@ export default function Sidebar() {
             <RailBtn icon={<HelpCircle size={18} strokeWidth={1.8} />} title="Help &amp; Support" />
             <SignOutButton>
               <button title="Log out" className="sidebar-rail-btn" style={{
-                width: 40, height: 40,
+                width: 42, height: 42,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 10, border: "none",
+                borderRadius: 12, border: "none",
                 cursor: "pointer", flexShrink: 0,
                 transition: "background 150ms, color 150ms",
               }}>
@@ -321,9 +324,9 @@ export default function Sidebar() {
               onClick={toggle}
               title="Expand sidebar"
               style={{
-                width: 40, height: 36,
+                width: 42, height: 38,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                borderRadius: 10, border: "none",
+                borderRadius: 12, border: "none",
                 background: "transparent", color: "#cbd5e1",
                 cursor: "pointer", flexShrink: 0,
                 transition: "background 150ms, color 150ms",
@@ -341,9 +344,11 @@ export default function Sidebar() {
           <div
             aria-hidden={!isExpanded}
             style={{
+              display:        isExpanded ? "block" : "none",
               position:       "absolute",
               inset:          0,
               width:          PANEL_W,
+              height:         "100%",
               opacity:        isExpanded ? 1 : 0,
               pointerEvents:  isExpanded ? "auto" : "none",
               transition:     OT,

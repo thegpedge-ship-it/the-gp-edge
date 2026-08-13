@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useAnimate } from "framer-motion";
 
@@ -13,60 +14,135 @@ const cardVariants = {
 
 const phaseVariants = {
   enter: { opacity: 0, scale: 0.98, filter: "blur(4px)" },
-  center: { opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } },
-  exit: { opacity: 0, scale: 1.02, filter: "blur(4px)", transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } },
+  center: { opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] } },
+  exit: { opacity: 0, scale: 1.02, filter: "blur(4px)", transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
 };
 
-const questions = [
+interface Question {
+  index: number;
+  label: string;
+  category: string;
+  text: string;
+  options: { id: string; text: string }[];
+  correctId: string;
+}
+
+const questions: Question[] = [
   {
     index: 0,
     label: "Question 1 of 3",
     category: "GENERAL PRACTICE",
-    text: "Olivia Barrett, aged 25 years, attends for her first Cervical Screening Test. She is asymptomatic and has no relevant medical history. She opts for a clinician-collected sample. The result returns HPV not detected. What is the MOST appropriate management?",
+    text: "Olivia Barrett, aged 25 years, attends for her first Cervical Screening Test. She is asymptomatic with no relevant history. The result returns HPV not detected. What is the MOST appropriate management?",
     options: [
-      { id: "A", text: "Discharge her from the screening program" },
-      { id: "B", text: "Repeat the Cervical Screening Test in five years" },
-      { id: "C", text: "Repeat the Cervical Screening Test in three years" },
+      { id: "A", text: "Discharge from screening program" },
+      { id: "B", text: "Repeat Cervical Screening Test in 5 years" },
+      { id: "C", text: "Repeat Cervical Screening Test in 3 years" },
+      { id: "D", text: "Co-test with cytology in 12 months" },
     ],
     correctId: "B",
-    isCorrect: true,
   },
   {
     index: 1,
     label: "Question 2 of 3",
     category: "CARDIOLOGY",
-    text: "A 68-year-old man presents with progressive exertional dyspnoea and bilateral ankle oedema. His BNP is markedly elevated. Echo shows LVEF of 35%. Which medication reduces mortality in this patient?",
+    text: "A 68-year-old man presents with progressive exertional dyspnoea and ankle oedema. Echo reveals an LVEF of 35%. Which medication reduces long-term mortality in this patient?",
     options: [
-      { id: "A", text: "Furosemide" },
-      { id: "B", text: "Ramipril" },
-      { id: "C", text: "Digoxin" },
+      { id: "A", text: "Furosemide 40mg daily" },
+      { id: "B", text: "Ramipril 2.5mg daily" },
+      { id: "C", text: "Digoxin 125mcg daily" },
+      { id: "D", text: "Amlodipine 5mg daily" },
     ],
     correctId: "B",
-    isCorrect: true,
+  },
+  {
+    index: 2,
+    label: "Question 3 of 3",
+    category: "ENDOCRINOLOGY",
+    text: "A 52-year-old woman with T2DM has HbA1c 8.2% despite Metformin 1000mg BD. She has documented ischemic heart disease. Which agent is recommended next?",
+    options: [
+      { id: "A", text: "Gliclazide MR 30mg daily" },
+      { id: "B", text: "Empagliflozin 10mg daily" },
+      { id: "C", text: "Sitagliptin 100mg daily" },
+      { id: "D", text: "Acarbose 50mg TID" },
+    ],
+    correctId: "B",
   },
 ];
 
 export default function ExamPrepSimulation() {
   const [scope, animate] = useAnimate();
-  const [phase, setPhase] = useState(0); // 0: Selection, 1: Instructions, 2: Questions, 3: Success
 
-  // Phase 1 (Selection) state
+  // Phases matching exact 7-stage Exam Prep lifecycle:
+  // 0: Exam Prep / Mock Selection Hub
+  // 1: Test Instructions Page
+  // 2: Preparing / Loading Questions Screen
+  // 3: Live Question Interface
+  // 4: Submit Test Confirmation Popup Modal
+  // 5: Test Results / Submitted Successfully Page
+  const [phase, setPhase] = useState<number>(0);
+
+  // Interaction states
   const [isRetakeHovered, setIsRetakeHovered] = useState(false);
-
-  // Phase 2 (Instructions) state
   const [instructionsChecked, setInstructionsChecked] = useState(false);
   const [startHovered, setStartHovered] = useState(false);
 
-  // Phase 3 (Questions) state
+  const [loadProgress, setLoadProgress] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [answeredCount, setAnsweredCount] = useState(0);
-  const [progressPct, setProgressPct] = useState(0);
+  const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [hoveredOpt, setHoveredOpt] = useState<string | null>(null);
+  const [isNextHovered, setIsNextHovered] = useState(false);
   const [isSubmitHovered, setIsSubmitHovered] = useState(false);
+  const [isConfirmHovered, setIsConfirmHovered] = useState(false);
 
-  // Phase 4 (Success) state
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [scoreCounter, setScoreCounter] = useState(0);
 
+  // Manual interaction handlers
+  const handleSelectOption = (optId: string) => {
+    setUserAnswers((prev) => ({ ...prev, [questionIndex]: optId }));
+  };
+
+  const handleClearResponse = () => {
+    setUserAnswers((prev) => {
+      const copy = { ...prev };
+      delete copy[questionIndex];
+      return copy;
+    });
+  };
+
+  const handleNextQuestion = () => {
+    if (questionIndex < questions.length - 1) {
+      setQuestionIndex((prev) => prev + 1);
+    } else {
+      setShowSubmitModal(true);
+    }
+  };
+
+  const handlePrevQuestion = () => {
+    if (questionIndex > 0) {
+      setQuestionIndex((prev) => prev - 1);
+    }
+  };
+
+  // Derived metrics
+  const answeredCount = Object.keys(userAnswers).length;
+  const progressPct = Math.round((answeredCount / questions.length) * 100);
+
+  // Helper function to dynamically calculate target element coordinates relative to container
+  const getTargetCoords = (elementId: string) => {
+    if (!scope.current) return null;
+    const container = scope.current.getBoundingClientRect();
+    const target = scope.current.querySelector(`#${elementId}`);
+    if (!target) return null;
+    const targetRect = target.getBoundingClientRect();
+
+    // Center offset of target relative to container center (0,0)
+    const x = targetRect.left + targetRect.width / 2 - (container.left + container.width / 2);
+    const y = targetRect.top + targetRect.height / 2 - (container.top + container.height / 2);
+    return { x, y };
+  };
+
+  // Auto-play animation loop with dynamic DOM-based target positioning
   useEffect(() => {
     let isMounted = true;
 
@@ -77,189 +153,215 @@ export default function ExamPrepSimulation() {
       return animate(selector, keyframes, options);
     };
 
+    const glideTo = async (elementId: string, duration = 0.65) => {
+      if (!isMounted) return;
+      const coords = getTargetCoords(elementId);
+      if (!coords) return;
+      return safeAnimate(
+        "#prep-cursor",
+        { x: coords.x, y: coords.y, opacity: 1 },
+        { duration, ease: [0.22, 1, 0.36, 1] }
+      );
+    };
+
+    const triggerClick = async () => {
+      if (!isMounted) return;
+      // Trigger subtle ripple ring + cursor click bounce
+      safeAnimate("#prep-cursor-ripple", { opacity: [0, 0.7, 0], scale: [0.4, 1.8, 2.2] }, { duration: 0.35 });
+      await safeAnimate("#prep-cursor", { scale: [1, 0.8, 1] }, { duration: 0.15, ease: "easeInOut" });
+    };
+
     const runAnimation = async () => {
       if (!isMounted || !scope.current) return;
 
-      // --- RESET ALL STATE ---
+      // Reset states
       setPhase(0);
       setIsRetakeHovered(false);
       setInstructionsChecked(false);
       setStartHovered(false);
+      setLoadProgress(0);
       setQuestionIndex(0);
-      setSelectedOption(null);
-      setAnsweredCount(0);
-      setProgressPct(0);
+      setUserAnswers({});
+      setHoveredOpt(null);
+      setIsNextHovered(false);
       setIsSubmitHovered(false);
+      setIsConfirmHovered(false);
+      setShowSubmitModal(false);
       setScoreCounter(0);
 
-      // Hide cursor initially
-      safeAnimate("#prep-cursor", { x: "250px", y: "300px", opacity: 0, scale: 1 }, { duration: 0 });
+      // Hide cursor initially at bottom right
+      safeAnimate("#prep-cursor", { x: 240, y: 220, opacity: 0, scale: 1 }, { duration: 0 });
       await new Promise((r) => setTimeout(r, 600));
       if (!isMounted) return;
 
       // ==========================================
-      // PHASE 1: SELECTION
+      // STAGE 0: MOCK SELECTION -> Glide to Retake Button
       // ==========================================
-      // Cursor glides to 'Retake' button on the first card
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["250px", "60px"], y: ["300px", "145px"], opacity: [0, 1] },
-        { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
-      );
-      if (!isMounted) return;
-
       setIsRetakeHovered(true);
-      await new Promise((r) => setTimeout(r, 400));
+      await glideTo("btn-retake", 0.75);
       if (!isMounted) return;
 
-      // Click
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
+      await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
 
-      // Transition to Phase 2
+      await triggerClick();
+      if (!isMounted) return;
+
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(1);
-      await new Promise((r) => setTimeout(r, 1000));
+      setPhase(1); // Go to Instructions
+      await new Promise((r) => setTimeout(r, 700));
       if (!isMounted) return;
 
       // ==========================================
-      // PHASE 2: INSTRUCTIONS
+      // STAGE 1: INSTRUCTIONS -> Glide to Checkbox
       // ==========================================
-      // Cursor glides to Checkbox
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["60px", "-160px"], y: ["145px", "80px"], opacity: [0, 1] },
-        { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
-      );
+      await glideTo("checkbox-agree", 0.65);
       if (!isMounted) return;
 
-      // Click checkbox
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
+      await new Promise((r) => setTimeout(r, 200));
+      if (!isMounted) return;
+
+      await triggerClick();
       setInstructionsChecked(true);
-      await new Promise((r) => setTimeout(r, 600));
+      await new Promise((r) => setTimeout(r, 450));
       if (!isMounted) return;
 
-      // Cursor glides to Start Test button
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["-160px", "160px"], y: ["80px", "165px"] },
-        { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
-      );
-      if (!isMounted) return;
-
+      // Glide to 'Start Test' button
       setStartHovered(true);
-      await new Promise((r) => setTimeout(r, 300));
+      await glideTo("btn-start-test", 0.65);
       if (!isMounted) return;
 
-      // Click Start Test
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
+      await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
 
-      // Transition to Phase 3
+      await triggerClick();
+      if (!isMounted) return;
+
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(2);
-      await new Promise((r) => setTimeout(r, 1000));
+      setPhase(2); // Go to Loading Screen
+
+      // ==========================================
+      // STAGE 2: LOADING / PREPARING QUESTIONS
+      // ==========================================
+      for (let p = 0; p <= 100; p += 10) {
+        if (!isMounted) return;
+        setLoadProgress(p);
+        await new Promise((r) => setTimeout(r, 70));
+      }
+      await new Promise((r) => setTimeout(r, 250));
+      if (!isMounted) return;
+
+      setPhase(3); // Go to Live Questions (Q1)
+      await new Promise((r) => setTimeout(r, 700));
       if (!isMounted) return;
 
       // ==========================================
-      // PHASE 3: QUESTIONS (Q1)
+      // STAGE 3: QUESTION 1 -> Glide to Option B row
       // ==========================================
-      // Cursor glides to Option B
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["160px", "20px"], y: ["165px", "148px"], opacity: [0, 1] },
-        { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
-      );
+      setHoveredOpt("B");
+      await glideTo("opt-B", 0.7);
       if (!isMounted) return;
 
-      // Click Option B
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
-      setSelectedOption("B");
-      setAnsweredCount(1);
-      setProgressPct(50);
+      await new Promise((r) => setTimeout(r, 250));
+      if (!isMounted) return;
+
+      await triggerClick();
+      setUserAnswers((prev) => ({ ...prev, 0: "B" }));
+      setHoveredOpt(null);
+      await new Promise((r) => setTimeout(r, 550));
+      if (!isMounted) return;
+
+      // Glide to 'Next →' button
+      setIsNextHovered(true);
+      await glideTo("btn-next", 0.65);
+      if (!isMounted) return;
+
+      await new Promise((r) => setTimeout(r, 250));
+      if (!isMounted) return;
+
+      await triggerClick();
+      setIsNextHovered(false);
+      if (!isMounted) return;
+
+      safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
+      setQuestionIndex(1); // Move to Q2
       await new Promise((r) => setTimeout(r, 800));
       if (!isMounted) return;
 
-      // Cursor glides to Next button
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["20px", "120px"], y: ["148px", "225px"] },
-        { duration: 0.6, ease: [0.22, 1, 0.36, 1] }
-      );
-      if (!isMounted) return;
-
-      // Click Next
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
-      if (!isMounted) return;
-
-      // Next Question
-      safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setQuestionIndex(1);
-      setSelectedOption(null);
-      await new Promise((r) => setTimeout(r, 1000));
-      if (!isMounted) return;
-
       // ==========================================
-      // PHASE 3: QUESTIONS (Q2)
+      // STAGE 3: QUESTION 2 -> Glide to Option B row
       // ==========================================
-      // Cursor glides to Option B
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["120px", "20px"], y: ["225px", "148px"], opacity: [0, 1] },
-        { duration: 0.7, ease: [0.22, 1, 0.36, 1] }
-      );
+      setHoveredOpt("B");
+      await glideTo("opt-B", 0.7);
       if (!isMounted) return;
 
-      // Click Option B
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
-      setSelectedOption("B");
-      setAnsweredCount(2);
-      setProgressPct(100);
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
 
-      // Cursor glides to Submit Test button
-      await safeAnimate(
-        "#prep-cursor",
-        { x: ["20px", "60px"], y: ["148px", "-160px"] },
-        { duration: 0.8, ease: [0.22, 1, 0.36, 1] }
-      );
+      await triggerClick();
+      setUserAnswers((prev) => ({ ...prev, 1: "B" }));
+      setHoveredOpt(null);
+      await new Promise((r) => setTimeout(r, 550));
       if (!isMounted) return;
 
+      // Glide to 'Submit Test' header button
       setIsSubmitHovered(true);
-      await new Promise((r) => setTimeout(r, 300));
+      await glideTo("btn-submit-header", 0.7);
       if (!isMounted) return;
 
-      // Click Submit Test
-      await safeAnimate("#prep-cursor", { scale: [1, 0.85, 1] }, { duration: 0.15, ease: "easeInOut" });
+      await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
 
-      // Transition to Phase 4 (Success)
+      await triggerClick();
+      setIsSubmitHovered(false);
+      if (!isMounted) return;
+
+      // ==========================================
+      // STAGE 4: SUBMIT CONFIRMATION POPUP OVERLAY
+      // ==========================================
+      setShowSubmitModal(true);
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(3);
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 650));
+      if (!isMounted) return;
+
+      // Glide cursor directly to 'Confirm & Submit' button inside modal
+      setIsConfirmHovered(true);
+      await glideTo("btn-confirm-submit", 0.65);
+      if (!isMounted) return;
+
+      await new Promise((r) => setTimeout(r, 250));
+      if (!isMounted) return;
+
+      await triggerClick();
+      setIsConfirmHovered(false);
+      if (!isMounted) return;
+
+      setShowSubmitModal(false);
+      safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
+      setPhase(5); // Go to Results Page
+      await new Promise((r) => setTimeout(r, 650));
       if (!isMounted) return;
 
       // ==========================================
-      // PHASE 4: SUCCESS SCREEN
+      // STAGE 5: RESULTS SCREEN -> Animate Score
       // ==========================================
-      // Animate score counter
       for (let i = 0; i <= 88; i += 4) {
         if (!isMounted) return;
         setScoreCounter(i);
-        await new Promise((r) => setTimeout(r, 30));
+        await new Promise((r) => setTimeout(r, 25));
       }
       setScoreCounter(88);
 
-      // Hold on success screen
-      await new Promise((r) => setTimeout(r, 4000));
+      await glideTo("btn-back-to-prep", 0.7);
       if (!isMounted) return;
 
-      // Loop restart
+      await new Promise((r) => setTimeout(r, 3500));
+      if (!isMounted) return;
+
       runAnimation();
     };
 
-    const timeout = setTimeout(runAnimation, 1000);
+    const timeout = setTimeout(runAnimation, 600);
     return () => {
       isMounted = false;
       clearTimeout(timeout);
@@ -267,6 +369,7 @@ export default function ExamPrepSimulation() {
   }, [animate]);
 
   const currentQ = questions[questionIndex];
+  const selectedOpt = userAnswers[questionIndex] || null;
   const radius = 30;
   const circ = 2 * Math.PI * radius;
   const strokeDash = ((progressPct / 100) * circ).toFixed(1);
@@ -275,10 +378,10 @@ export default function ExamPrepSimulation() {
     <motion.div
       ref={scope}
       variants={cardVariants}
-      className="col-span-12 lg:col-span-7 relative bg-white dark:bg-[#1B212C] rounded-3xl overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300 h-[500px] flex items-center justify-center"
+      className="w-full relative bg-white dark:bg-[#1B212C] rounded-3xl overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300 h-[500px] flex items-center justify-center"
     >
       <AnimatePresence mode="wait">
-        {/* PHASE 0: SELECTION */}
+        {/* STAGE 0: EXAM PREP MOCK SELECTION */}
         {phase === 0 && (
           <motion.div
             key="phase0"
@@ -301,11 +404,15 @@ export default function ExamPrepSimulation() {
 
             <div className="grid grid-cols-2 gap-4">
               {/* Card 1 */}
-              <div className={`p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden ${
-                isRetakeHovered
-                  ? "border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-900/10 shadow-lg shadow-teal-500/10 -translate-y-1"
-                  : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-              }`}>
+              <div
+                id="card-mock-1"
+                onClick={() => setPhase(1)}
+                className={`p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden cursor-pointer ${
+                  isRetakeHovered
+                    ? "border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-900/10 shadow-lg shadow-teal-500/10 -translate-y-1"
+                    : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                }`}
+              >
                 {isRetakeHovered && (
                   <div className="absolute top-0 right-0 w-32 h-32 bg-teal-400/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 )}
@@ -317,16 +424,26 @@ export default function ExamPrepSimulation() {
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 relative z-10">150 Questions • 4 Hours</p>
                 <div className="flex items-center justify-between relative z-10">
                   <span className="text-[10px] font-medium text-slate-400">Attempted 2d ago</span>
-                  <button className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-colors ${
-                    isRetakeHovered ? "bg-teal-500 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                  }`}>
+                  <button
+                    id="btn-retake"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhase(1);
+                    }}
+                    className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                      isRetakeHovered ? "bg-teal-500 text-white shadow-md shadow-teal-500/20 scale-105" : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
                     Retake
                   </button>
                 </div>
               </div>
 
               {/* Card 2 */}
-              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+              <div
+                onClick={() => setPhase(1)}
+                className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-amber-400/60 transition-colors"
+              >
                 <div className="flex justify-between items-start mb-3">
                   <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">IN PROGRESS</span>
                   <span className="text-[10px] text-slate-400">32%</span>
@@ -335,7 +452,13 @@ export default function ExamPrepSimulation() {
                 <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4">26 Cases • 1.5 Hours</p>
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-medium text-slate-400">Last saved 1h ago</span>
-                  <button className="px-4 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500 text-white">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPhase(1);
+                    }}
+                    className="px-4 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                  >
                     Resume
                   </button>
                 </div>
@@ -344,7 +467,7 @@ export default function ExamPrepSimulation() {
           </motion.div>
         )}
 
-        {/* PHASE 1: INSTRUCTIONS */}
+        {/* STAGE 1: TEST INSTRUCTIONS PAGE */}
         {phase === 1 && (
           <motion.div
             key="phase1"
@@ -397,9 +520,13 @@ export default function ExamPrepSimulation() {
             </div>
 
             <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-4">
-              <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                instructionsChecked ? "bg-teal-50 dark:bg-teal-900/10 border-teal-200 dark:border-teal-800/50" : "bg-slate-50 dark:bg-slate-800/50 border-transparent"
-              }`}>
+              <div
+                id="checkbox-agree"
+                onClick={() => setInstructionsChecked(!instructionsChecked)}
+                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  instructionsChecked ? "bg-teal-50 dark:bg-teal-900/10 border-teal-200 dark:border-teal-800/50" : "bg-slate-50 dark:bg-slate-800/50 border-transparent"
+                }`}
+              >
                 <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
                   instructionsChecked ? "bg-teal-500 border-teal-500 text-white" : "bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600"
                 }`}>
@@ -415,14 +542,23 @@ export default function ExamPrepSimulation() {
               </div>
 
               <div className="flex justify-end gap-3">
-                <button className="px-5 py-2 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <button
+                  onClick={() => setPhase(0)}
+                  className="px-5 py-2 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
                   Go Back
                 </button>
-                <button className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${
-                  instructionsChecked 
-                    ? startHovered ? "bg-teal-600 text-white shadow-lg shadow-teal-500/20" : "bg-teal-500 text-white shadow-md shadow-teal-500/20"
-                    : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 opacity-70"
-                }`}>
+                <button
+                  id="btn-start-test"
+                  onClick={() => {
+                    if (instructionsChecked) setPhase(2);
+                  }}
+                  className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${
+                    instructionsChecked 
+                      ? startHovered ? "bg-teal-600 text-white shadow-lg shadow-teal-500/20 scale-105" : "bg-teal-500 text-white shadow-md shadow-teal-500/20 cursor-pointer"
+                      : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 opacity-70 cursor-not-allowed"
+                  }`}
+                >
                   Start Test
                 </button>
               </div>
@@ -430,7 +566,7 @@ export default function ExamPrepSimulation() {
           </motion.div>
         )}
 
-        {/* PHASE 2: QUESTIONS */}
+        {/* STAGE 2: PREPARING YOUR QUESTIONS / LOADING PAGE */}
         {phase === 2 && (
           <motion.div
             key="phase2"
@@ -438,7 +574,39 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex"
+            className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-900/60"
+          >
+            <div className="relative mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-md">
+                <svg className="w-8 h-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L5.6 15.12a2 2 0 01-1.183-1.875V5.016A2 2 0 015.6 3.141l2.387.477a6 6 0 003.86-.517l.318-.158a6 6 0 013.86-.517l2.387.477A2 2 0 0120 4.777v8.776a2 2 0 01-.572 1.875z" />
+                </svg>
+              </div>
+            </div>
+
+            <h3 className="font-sans text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Preparing Your Questions</h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mb-6">Fetching question bank &amp; configuring exam conditions...</p>
+
+            <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-3">
+              <motion.div
+                className="bg-teal-500 h-full rounded-full"
+                animate={{ width: `${loadProgress}%` }}
+                transition={{ ease: "easeInOut" }}
+              />
+            </div>
+            <span className="text-[10px] font-mono text-teal-600 dark:text-teal-400 font-bold">{loadProgress}% Complete</span>
+          </motion.div>
+        )}
+
+        {/* STAGE 3: ACTUAL EXAM / QUESTION GIVING INTERFACE */}
+        {phase === 3 && (
+          <motion.div
+            key="phase3"
+            variants={phaseVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            className="w-full h-full flex relative"
           >
             {/* LEFT — Question Interface */}
             <div className="flex-1 flex flex-col p-5 border-r border-slate-100 dark:border-slate-800 min-w-0">
@@ -446,9 +614,13 @@ export default function ExamPrepSimulation() {
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{currentQ.label}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">03:59:54</span>
-                  <button className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all ${
-                    isSubmitHovered ? "bg-red-600 text-white" : "bg-teal-500 text-white"
-                  }`}>
+                  <button
+                    id="btn-submit-header"
+                    onClick={() => setShowSubmitModal(true)}
+                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      isSubmitHovered ? "bg-red-600 text-white shadow-md shadow-red-500/20 scale-105" : "bg-teal-500 text-white hover:bg-teal-600"
+                    }`}
+                  >
                     Submit Test
                   </button>
                 </div>
@@ -469,17 +641,25 @@ export default function ExamPrepSimulation() {
                   <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 mb-4">{currentQ.text}</p>
                   <div className="space-y-2">
                     {currentQ.options.map((opt) => {
-                      const isSelected = selectedOption === opt.id;
-                      let rowCls = "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-300";
+                      const isSelected = selectedOpt === opt.id;
+                      const isHovered = hoveredOpt === opt.id;
+                      let rowCls = "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-teal-300 dark:hover:border-teal-700";
                       let circleCls = "border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400";
 
                       if (isSelected) {
                         rowCls = "border-teal-500 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 shadow-[0_0_10px_rgba(20,184,166,0.12)]";
                         circleCls = "border-teal-500 bg-teal-500 text-white";
+                      } else if (isHovered) {
+                        rowCls = "border-teal-300 dark:border-teal-700 bg-teal-50/40 dark:bg-teal-900/10 text-teal-800 dark:text-teal-200";
                       }
 
                       return (
-                        <div key={opt.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-[11px] font-medium transition-all duration-200 ${rowCls}`}>
+                        <div
+                          key={opt.id}
+                          id={`opt-${opt.id}`}
+                          onClick={() => handleSelectOption(opt.id)}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-[11px] font-medium transition-all duration-200 cursor-pointer ${rowCls}`}
+                        >
                           <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-[9px] font-bold ${circleCls}`}>{opt.id}</span>
                           <span className="leading-snug">{opt.text}</span>
                         </div>
@@ -490,10 +670,29 @@ export default function ExamPrepSimulation() {
               </AnimatePresence>
 
               <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button className="text-[10px] text-slate-400">☐ Clear Response</button>
+                <button
+                  onClick={handleClearResponse}
+                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
+                >
+                  ☐ Clear Response
+                </button>
                 <div className="flex items-center gap-2">
-                  <button className="text-[10px] text-slate-400">← Previous</button>
-                  <button className="text-[10px] font-bold px-3 py-1.5 rounded-lg bg-teal-500 text-white">Next →</button>
+                  <button
+                    onClick={handlePrevQuestion}
+                    disabled={questionIndex === 0}
+                    className={`text-[10px] transition-colors ${questionIndex === 0 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"}`}
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    id="btn-next"
+                    onClick={handleNextQuestion}
+                    className={`text-[10px] font-bold px-3 py-1.5 rounded-lg text-white transition-all cursor-pointer ${
+                      isNextHovered ? "bg-teal-600 shadow-md shadow-teal-500/20 scale-105" : "bg-teal-500 hover:bg-teal-600"
+                    }`}
+                  >
+                    {questionIndex === questions.length - 1 ? "Submit →" : "Next →"}
+                  </button>
                 </div>
               </div>
             </div>
@@ -518,7 +717,7 @@ export default function ExamPrepSimulation() {
               <div className="space-y-1.5 w-full mb-5">
                 {[
                   { label: "Answered", color: "bg-teal-500", count: answeredCount },
-                  { label: "Not Answered", color: "bg-rose-400", count: Math.max(0, 2 - answeredCount) },
+                  { label: "Not Answered", color: "bg-rose-400", count: questions.length - answeredCount },
                 ].map(({ label, color, count }) => (
                   <div key={label} className="flex items-center gap-1.5">
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
@@ -528,14 +727,15 @@ export default function ExamPrepSimulation() {
                 ))}
               </div>
               <div className="flex gap-1.5 flex-wrap justify-center">
-                {[0, 1].map((i) => {
+                {questions.map((q, i) => {
                   const isActive = i === questionIndex;
-                  const isAns = i < answeredCount || (i === questionIndex && selectedOption !== null);
+                  const isAns = !!userAnswers[i];
                   return (
                     <motion.div
                       key={i}
+                      onClick={() => setQuestionIndex(i)}
                       animate={{ scale: isActive ? 1.1 : 1 }}
-                      className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold border transition-all duration-200 ${
+                      className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold border transition-all duration-200 cursor-pointer ${
                         isAns ? "bg-teal-500 border-teal-500 text-white" : isActive ? "bg-white border-teal-400 text-teal-600" : "bg-white border-slate-200 text-slate-500"
                       }`}
                     >
@@ -545,13 +745,59 @@ export default function ExamPrepSimulation() {
                 })}
               </div>
             </div>
+
+            {/* STAGE 4: SUBMIT TEST CONFIRMATION POPUP OVERLAY */}
+            {showSubmitModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-40 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.9, y: 10 }}
+                  animate={{ scale: 1, y: 0 }}
+                  className="bg-white dark:bg-slate-800 rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-200 dark:border-slate-700 text-center"
+                >
+                  <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 mx-auto flex items-center justify-center mb-3">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h4 className="font-sans text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Submit Examination?</h4>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">
+                    You have answered {answeredCount} of {questions.length} questions. Are you sure you want to finish and submit your exam now?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowSubmitModal(false)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      id="btn-confirm-submit"
+                      onClick={() => {
+                        setShowSubmitModal(false);
+                        setPhase(5);
+                      }}
+                      className={`flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all cursor-pointer ${
+                        isConfirmHovered ? "bg-teal-600 shadow-md shadow-teal-500/20 scale-105" : "bg-teal-500 hover:bg-teal-600"
+                      }`}
+                    >
+                      Confirm &amp; Submit
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
           </motion.div>
         )}
 
-        {/* PHASE 3: SUCCESS */}
-        {phase === 3 && (
+        {/* STAGE 5: TEST RESULT / SUBMITTED SUCCESSFULLY PAGE */}
+        {phase === 5 && (
           <motion.div
-            key="phase3"
+            key="phase5"
             variants={phaseVariants}
             initial="enter"
             animate="center"
@@ -602,10 +848,17 @@ export default function ExamPrepSimulation() {
               </div>
 
               <div className="flex gap-3">
-                <button className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                <button
+                  onClick={() => setPhase(0)}
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
                   Download Report
                 </button>
-                <button className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-500 shadow-md shadow-teal-500/20 hover:bg-teal-600 transition-colors">
+                <button
+                  id="btn-back-to-prep"
+                  onClick={() => setPhase(0)}
+                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-500 shadow-md shadow-teal-500/20 hover:bg-teal-600 transition-colors cursor-pointer"
+                >
                   Back to Exam Prep
                 </button>
               </div>
@@ -614,19 +867,24 @@ export default function ExamPrepSimulation() {
         )}
       </AnimatePresence>
 
-      {/* Mac-style cursor (Persists across phases) */}
+      {/* Animated Mac-style Mouse Cursor with Click Ripple Ring */}
       <motion.div
         id="prep-cursor"
-        className="absolute pointer-events-none z-50"
+        className="absolute pointer-events-none z-50 flex items-center justify-center"
         style={{ left: "50%", top: "50%" }}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        {/* Click ripple circle */}
+        <motion.div
+          id="prep-cursor-ripple"
+          className="absolute w-8 h-8 rounded-full border-2 border-teal-500 bg-teal-400/30 opacity-0 pointer-events-none"
+        />
+
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="relative z-10 drop-shadow-md">
           <path
             d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 01.35-.15h6.87a.5.5 0 00.35-.85L6.35 2.86a.5.5 0 00-.85.35z"
             fill="#1e293b"
             stroke="#fff"
             strokeWidth="1.5"
-            style={{ filter: "drop-shadow(0px 2px 4px rgba(0,0,0,0.3))" }}
           />
         </svg>
       </motion.div>

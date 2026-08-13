@@ -89,8 +89,8 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
 
   const innerClass =
     variant === "static"
-      ? "w-[94%] max-w-[920px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-5 lg:px-8 py-3.5 flex items-center justify-between gap-4 transition-all duration-300"
-      : "w-[94%] max-w-[920px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-8 py-4 flex items-center justify-between gap-4 transition-all duration-500 ease-in-out";
+      ? "w-[92%] max-w-[760px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 lg:px-8 py-3 flex items-center justify-between transition-all duration-300"
+      : "w-[92%] max-w-[760px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 lg:px-8 py-3 flex items-center justify-between transition-all duration-500 ease-in-out";
 
   return (
     <header className={outerClass}>
