@@ -62,9 +62,6 @@ const NAV = [
   { href: "/dashboard",                  icon: LayoutGrid,     label: "Dashboard"        },
   { href: "/exam-prep",                   icon: GraduationCap,  label: "Exam Prep"        },
   { href: "/dashboard/profile",          icon: User,           label: "My Profile"       },
-  { href: "/dashboard/billing",          icon: Receipt,        label: "MBS Billing"      },
-  { href: "/dashboard/medical-library",  icon: BookOpen,       label: "Medical Library" },
-  { href: "/dashboard/clinical-autofills",icon: FileEdit,       label: "Clinical Autofills" },
   { href: "/dashboard/pricing",          icon: Tag,            label: "Pricing"         },
   { href: "/dashboard/settings",         icon: Settings,       label: "Settings"        },
 ];

@@ -15,9 +15,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 const MENU_LINKS: { href: string; label: string }[] = [
   { href: "/", label: "Home" },
   { href: "/exam-prep", label: "Exam Prep" },
-  { href: "/dashboard/medical-library", label: "Medical Library" },
-  { href: "/dashboard/clinical-autofills", label: "Clinical Autofills" },
-  { href: "/dashboard/billing", label: "MBS Billing" },
   { href: "/dashboard/pricing", label: "Pricing" },
 ];
 
@@ -130,24 +127,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
              Exam Prep
            </Link>
  
-           <Link
-             href="/dashboard/medical-library"
-             className="text-[13px] xl:text-[14px] whitespace-nowrap font-medium text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors duration-200"
-           >
-             Medical Library
-           </Link>
-           <Link
-             href="/dashboard/clinical-autofills"
-             className="text-[13px] xl:text-[14px] whitespace-nowrap font-medium text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors duration-200"
-           >
-             Clinical Autofills
-           </Link>
-           <Link
-             href="/dashboard/billing"
-             className="text-[13px] xl:text-[14px] whitespace-nowrap font-medium text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors duration-200"
-           >
-             MBS Billing
-           </Link>
+
            <Link
              href="/dashboard/pricing"
              className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${

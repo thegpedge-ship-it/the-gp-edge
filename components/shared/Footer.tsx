@@ -21,9 +21,6 @@ const NAV_COLS = [
     heading: "Platform",
     links: [
       { label: "Exam Prep", href: "#", highlight: true },
-      { label: "MBS Billing", href: "#" },
-      { label: "Clinical Templates", href: "#" },
-      { label: "Medical Directory", href: "#" },
     ],
   },
   {
