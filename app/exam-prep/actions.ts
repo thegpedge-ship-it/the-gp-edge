@@ -756,6 +756,72 @@ export async function buildCustomQuestionSet(params: {
   return { name: params.title ?? "Custom Quiz", questionIds: ids.slice(0, take) };
 }
 
+function buildWeakSubjectFilter(subjectIds: string[], examCode: string) {
+  return {
+    status: "published" as const,
+    deleted_at: null,
+    ...(examCode ? { exam_type_code: examCode } : {}),
+    ...(subjectIds.length
+      ? {
+          OR: [
+            { subject_id: { in: subjectIds } },
+            { question_subjects: { some: { subject_id: { in: subjectIds } } } },
+          ],
+        }
+      : {}),
+  };
+}
+
+export async function getMockDrillPoolSize(): Promise<number> {
+  const dbUser = await ensureDbUser();
+  const examCode = examCodeFromTarget(dbUser?.exam_target);
+
+  const weakSubjects = await prisma.user_subject_mastery.findMany({
+    where: { user_id: dbUser.id },
+    orderBy: { mastery_percent: "asc" },
+    select: { subject_id: true },
+    take: 5,
+  });
+
+  return prisma.questions.count({
+    where: buildWeakSubjectFilter(
+      weakSubjects.map((s) => s.subject_id),
+      examCode,
+    ),
+  });
+}
+
+export async function buildMockDrillQuestionSet(params: {
+  count: number;
+}): Promise<CustomQuestionSet> {
+  const dbUser = await ensureDbUser();
+  const examCode = examCodeFromTarget(dbUser?.exam_target);
+
+  const weakSubjects = await prisma.user_subject_mastery.findMany({
+    where: { user_id: dbUser.id },
+    orderBy: { mastery_percent: "asc" },
+    select: { subject_id: true },
+    take: 5,
+  });
+
+  const rows = await prisma.questions.findMany({
+    where: buildWeakSubjectFilter(
+      weakSubjects.map((s) => s.subject_id),
+      examCode,
+    ),
+    select: { id: true },
+  });
+
+  const ids = rows.map((r) => r.id);
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  const take = Math.max(1, Math.min(params.count, ids.length));
+
+  return { name: "Mock Drill", questionIds: ids.slice(0, take) };
+}
+
 /* ============================================================================
  * EXTRA — mock tests (full simulations). Reads the mock_tests table; returns
  * [] until any are seeded, so the UI shows an empty state instead of dummy data.

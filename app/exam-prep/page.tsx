@@ -12,7 +12,7 @@ import StudyByTopicModal from "@/components/exam-prep/StudyByTopicModal";
 import MockTestsModal from "@/components/exam-prep/MockTestsModal";
 import CreateQuizModal from "@/components/exam-prep/CreateQuizModal";
 import CreatedForYouModal from "@/components/exam-prep/CreatedForYouModal";
-import { BookOpen, FileCheck2, FileEdit, Sparkles, ArrowRight } from "lucide-react";
+import { BookOpen, FileCheck2, FileEdit, Sparkles, ArrowRight, Info } from "lucide-react";
 import Image from "next/image";
 
 type ModalKey = "topic" | "mock" | "create" | "foryou";
@@ -21,6 +21,7 @@ interface StudyOption {
   key: ModalKey;
   title: string;
   description: string;
+  info: string;
   icon: React.ElementType;
   colorClass: string;
   bgClass: string;
@@ -117,6 +118,7 @@ const OPTIONS: StudyOption[] = [
     key: "topic",
     title: "Study by Topic",
     description: "Browse subjects and subtopics, then take a focused quiz.",
+    info: "Select any subtopic from a subject and attempt questions specifically on that area. Great for targeted revision.",
     icon: StudyByTopicIcon,
     colorClass: "text-[#1B895C] dark:text-[#34d399]",
     bgClass: "bg-[#F0FDF4] dark:bg-[#1B895C]/20",
@@ -126,6 +128,7 @@ const OPTIONS: StudyOption[] = [
     key: "mock",
     title: "Do a Mock Test",
     description: "Sit a full exam-condition simulation from start to finish.",
+    info: "A complete AKT/KFP exam simulation with real-time monitoring — experience exam conditions before the real thing.",
     icon: MockTestsIcon,
     colorClass: "text-[#3B82F6] dark:text-[#60a5fa]",
     bgClass: "bg-[#EFF6FF] dark:bg-[#3B82F6]/20",
@@ -135,6 +138,7 @@ const OPTIONS: StudyOption[] = [
     key: "create",
     title: "Create Your Own Quiz",
     description: "Pick your topics and rules to build a custom quiz.",
+    info: "Choose your subtopics and the number of questions — we fetch them randomly so you can practise exactly what you need.",
     icon: CreateQuizIcon,
     colorClass: "text-[#7C3AED] dark:text-[#a78bfa]",
     bgClass: "bg-[#F5F3FF] dark:bg-[#7C3AED]/20",
@@ -142,8 +146,9 @@ const OPTIONS: StudyOption[] = [
   },
   {
     key: "foryou",
-    title: "Created for You",
-    description: "Jump into a ready-made mixed quiz across every topic.",
+    title: "Mock Drill",
+    description: "Practise your weak spots with a personalised timed drill.",
+    info: "We analyse your weak areas and randomly serve questions on topics you need to improve — personalised revision on autopilot.",
     icon: CreatedForYouIcon,
     colorClass: "text-[#F59E0B] dark:text-[#fbbf24]",
     bgClass: "bg-[#FFFBEB] dark:bg-[#F59E0B]/20",
@@ -301,10 +306,21 @@ export default function ExamPrepPage() {
                   </div>
                 </div>
 
-                {/* Title & Description */}
-                <h3 className="font-sans text-sm lg:text-xl font-bold text-[#1E293B] dark:text-slate-100 mb-0.5 lg:mb-2 tracking-tight">
-                  {opt.title}
-                </h3>
+                {/* Title & Info Button */}
+                <div className="flex items-center gap-1.5 mb-0.5 lg:mb-2">
+                  <h3 className="font-sans text-sm lg:text-xl font-bold text-[#1E293B] dark:text-slate-100 tracking-tight">
+                    {opt.title}
+                  </h3>
+                  <div className="info-trigger relative" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center w-4 h-4 lg:w-5 lg:h-5 rounded-full bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors duration-200 cursor-default">
+                      <Info className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-slate-500 dark:text-slate-400" strokeWidth={2.5} />
+                    </div>
+                    <div className="info-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl text-xs font-medium leading-snug text-white bg-slate-800 dark:bg-slate-700 shadow-lg opacity-0 pointer-events-none transition-all duration-200 w-52 z-30 text-center">
+                      {opt.info}
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 dark:bg-slate-700 rotate-45 -mt-1" />
+                    </div>
+                  </div>
+                </div>
                 <p className="font-sans text-[12px] lg:text-[15px] text-[#64748B] dark:text-slate-400 leading-snug lg:leading-relaxed flex-1">
                   {opt.description}
                 </p>
@@ -397,6 +413,10 @@ export default function ExamPrepPage() {
         .premium-btn:hover .premium-tooltip {
           top: -44px;
           opacity: 1;
+        }
+        .info-trigger:hover .info-tooltip {
+          opacity: 1;
+          pointer-events: auto;
         }
       `}</style>
     </div>

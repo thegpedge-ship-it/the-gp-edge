@@ -3,19 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sparkles, ArrowRight } from "lucide-react";
-import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
+import { X, ArrowRight, Clock, Hash } from "lucide-react";
+import { buildMockDrillQuestionSet, getMockDrillPoolSize } from "@/app/exam-prep/actions";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
-import ViewReportButton from "@/components/report/ViewReportButton";
-import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
-/* ─── "Created for You" modal ─────────────────────────────────────────────
-   A ready-made mixed quiz drawn live from the whole published bank (no topic
-   selection). Reuses the Mock Drill mechanics: buildCustomQuestionSet with an
-   empty subtopic list = the full bank, then routes through the shared test
-   plan / instructions bridge with source "mock_drill". */
 const PRESETS = [25, 50, 100];
-const MIN_PER_QUESTION = 1.2;
+const MIN_PER_QUESTION = 1.5;
 
 export default function CreatedForYouModal({
   open,
@@ -26,7 +19,14 @@ export default function CreatedForYouModal({
 }) {
   const router = useRouter();
   const [count, setCount] = useState(50);
+  const [poolSize, setPoolSize] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setPoolSize(null);
+    getMockDrillPoolSize().then(setPoolSize).catch(() => setPoolSize(0));
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -37,22 +37,19 @@ export default function CreatedForYouModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const durationMinutes = Math.max(5, Math.round(count * MIN_PER_QUESTION));
+  const effectiveCount = poolSize !== null ? Math.min(count, poolSize) : count;
+  const durationMinutes = Math.max(5, Math.round(effectiveCount * MIN_PER_QUESTION));
 
   const start = async () => {
-    if (starting) return;
+    if (starting || effectiveCount === 0) return;
     setStarting(true);
-    const set = await buildCustomQuestionSet({
-      subtopicIds: [], // empty = whole bank
-      count,
-      title: "Created for You",
-    });
+    const set = await buildMockDrillQuestionSet({ count: effectiveCount });
     setStarting(false);
     if (set.questionIds.length === 0) return;
     saveTestPlan({
       testId: "drill",
       source: "mock_drill",
-      name: "Created for You",
+      name: "Mock Drill",
       questionIds: set.questionIds,
       durationMinutes,
       timed: false,
@@ -71,25 +68,22 @@ export default function CreatedForYouModal({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-          {/* Panel — compact config dialog */}
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Created for You"
+            aria-label="Mock Drill"
             className="relative w-[95vw] max-w-lg flex flex-col glass-strong rounded-3xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            {/* Header */}
             <div className="relative flex items-center justify-between px-6 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
               <h3 className="font-serif text-xl md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                Created for You
+                Mock Drill
               </h3>
               <button
                 onClick={onClose}
@@ -100,61 +94,82 @@ export default function CreatedForYouModal({
               </button>
             </div>
 
-            {/* Body */}
-            <div className="px-6 py-6 flex flex-col gap-5">
+            <div className="px-6 py-6 flex flex-col gap-6">
               <p className="text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                A ready-made mixed quiz drawn from every topic in the bank — no topic selection needed.
-                Great for spotting blind spots across the whole syllabus.
+                Questions are randomly picked from your weakest subjects — a personalised drill to sharpen where you need it most.
               </p>
 
-              {/* Question count presets */}
+              {/* Question count selector */}
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
-                  Questions
-                </p>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                    Number of Questions
+                  </p>
+                  {poolSize !== null && (
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                      {poolSize} available
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/60 p-1">
                   {PRESETS.map((n) => {
+                    const clamped = poolSize !== null && n > poolSize;
                     const active = n === count;
                     return (
                       <button
                         key={n}
                         onClick={() => setCount(n)}
-                        className={`flex-1 py-2.5 rounded-xl text-[13px] font-semibold border transition-all duration-200 ${
+                        className={`relative flex-1 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 z-10 ${
                           active
-                            ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20"
-                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 dark:hover:border-emerald-600/60"
+                            ? "text-amber-700 dark:text-amber-300"
+                            : clamped
+                              ? "text-slate-400 dark:text-slate-600"
+                              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                         }`}
                       >
-                        {n}
+                        {active && (
+                          <motion.div
+                            layoutId="mock-drill-tab"
+                            className="absolute inset-0 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-amber-200/60 dark:border-amber-500/20"
+                            transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+                          />
+                        )}
+                        <span className="relative z-10">
+                          {clamped && !active ? poolSize : n}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Meta */}
-              <div className="flex items-center gap-4 text-[12px] font-semibold text-slate-400 dark:text-slate-500 pb-1">
-                <span>{count} questions</span>
-                <span>&middot;</span>
-                <span>~{durationMinutes} min</span>
-                <span>&middot;</span>
-                <span>Mixed difficulty</span>
+              {/* Meta chips */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                  <Hash className="w-3 h-3" />
+                  <span>{effectiveCount} questions</span>
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-[12px] font-medium text-slate-500 dark:text-slate-400">
+                  <Clock className="w-3 h-3" />
+                  <span>~{durationMinutes} min</span>
+                </div>
+                <div className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[12px] font-semibold text-amber-600 dark:text-amber-400">
+                  Untimed
+                </div>
               </div>
 
-              {/* Start */}
               <button
                 onClick={start}
-                disabled={starting}
-                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[14px] font-bold shadow-lg shadow-emerald-600/25 hover:bg-emerald-500 hover:-translate-y-0.5 transition-all duration-300"
+                disabled={starting || poolSize === 0}
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-amber-500 disabled:opacity-60 disabled:cursor-wait text-white text-[14px] font-bold shadow-lg shadow-amber-500/25 hover:bg-amber-400 hover:-translate-y-0.5 transition-all duration-300"
               >
-                {starting ? "Preparing…" : "Start"}
-                {!starting && <ArrowRight size={15} strokeWidth={2.4} />}
+                {poolSize === 0
+                  ? "No questions available"
+                  : starting
+                    ? "Preparing…"
+                    : "Start Drill"}
+                {!starting && poolSize !== 0 && <ArrowRight size={15} strokeWidth={2.4} />}
               </button>
-
-              {/* Most-recent report for this drill, if one was saved locally */}
-              <div className="flex justify-center">
-                <ViewReportButton testId="drill" variant="link" />
-              </div>
             </div>
           </motion.div>
         </motion.div>
