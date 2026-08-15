@@ -27,8 +27,8 @@ export default function CreatedForYouModal({
   useEffect(() => {
     if (!open) return;
     setPoolSize(null);
-    getMockDrillPoolSize().then(setPoolSize).catch(() => setPoolSize(0));
-  }, [open]);
+    getMockDrillPoolSize(examMode).then(setPoolSize).catch(() => setPoolSize(0));
+  }, [open, examMode]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +45,7 @@ export default function CreatedForYouModal({
   const start = async () => {
     if (starting || effectiveCount === 0) return;
     setStarting(true);
-    const set = await buildMockDrillQuestionSet({ count: effectiveCount });
+    const set = await buildMockDrillQuestionSet({ count: effectiveCount, examCode: examMode });
     setStarting(false);
     if (set.questionIds.length === 0) return;
     saveTestPlan({

@@ -82,14 +82,15 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
     return { entries, byId: new Map(entries.map((e) => [e.subtopicId, e])) };
   }, [tree]);
 
-  // Load the tree (once) + reset selection each time the modal opens fresh.
+  // Load the tree + reset selection each time the modal opens or examMode changes.
   useEffect(() => {
     if (!open) return;
     setSelected(new Set());
     setActiveSubject(null);
     setDesiredCount(DEFAULT_QUIZ_SIZE);
-    if (tree === null) cachedExamTree().then(setTree);
-  }, [open, tree]);
+    setTree(null);
+    cachedExamTree(examMode).then(setTree);
+  }, [open, examMode]);
 
   // Close on Escape
   useEffect(() => {
@@ -169,6 +170,7 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
       subtopicIds: [...selected],
       count: quizQuestionCount,
       title: name,
+      examCode: examMode,
     });
     setStarting(false);
     if (set.questionIds.length === 0) return;

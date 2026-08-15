@@ -107,14 +107,19 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
   // de-dupes with the page-level prefetch).
   useEffect(() => {
     let cancelled = false;
-    void cachedMockTests();
-    cachedExamSubjects().then((s) => {
+    setSubjects(null);
+    setSelectedSubject(null);
+    setSelectedSubtopic(null);
+    setSubtopicsBySubject({});
+    setQuizzesBySubtopic({});
+    void cachedMockTests(examMode);
+    cachedExamSubjects(examMode).then((s) => {
       if (!cancelled) setSubjects(s);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [examMode]);
 
   // Step 2 — load subtopics when a subject is opened.
   const handleSubjectClick = async (subject: ExamSubject) => {
@@ -127,7 +132,7 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
     setSelectedSubtopic(null);
     if (!subtopicsBySubject[subject.id]) {
       setLoadingSubtopics(true);
-      const sts = await cachedSubtopics(subject.id);
+      const sts = await cachedSubtopics(subject.id, examMode);
       setSubtopicsBySubject((prev) => ({ ...prev, [subject.id]: sts }));
       setLoadingSubtopics(false);
     }

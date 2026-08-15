@@ -93,24 +93,27 @@ async function cached<T>(
 
 /* ─── Cached reads (same signatures as the underlying server actions) ───── */
 
-export function cachedExamSubjects(): Promise<ExamSubject[]> {
-  return cached("subjects", getExamSubjects);
+export function cachedExamSubjects(examCode?: string): Promise<ExamSubject[]> {
+  const key = examCode ? `subjects:${examCode}` : "subjects";
+  return cached(key, () => getExamSubjects(examCode));
 }
 
-export function cachedSubtopics(subjectId: string): Promise<ExamSubtopic[]> {
-  return cached(`subtopics:${subjectId}`, () => getSubtopics(subjectId));
+export function cachedSubtopics(subjectId: string, examCode?: string): Promise<ExamSubtopic[]> {
+  const key = examCode ? `subtopics:${subjectId}:${examCode}` : `subtopics:${subjectId}`;
+  return cached(key, () => getSubtopics(subjectId, examCode));
 }
 
 export function cachedQuizzes(subtopicId: string): Promise<ExamQuiz[]> {
   return cached(`quizzes:${subtopicId}`, () => getQuizzesForSubtopic(subtopicId));
 }
 
-export function cachedExamTree(): Promise<ExamTreeSubject[]> {
-  return cached("tree", getExamTree);
+export function cachedExamTree(examCode?: string): Promise<ExamTreeSubject[]> {
+  const key = examCode ? `tree:${examCode}` : "tree";
+  return cached(key, () => getExamTree(examCode));
 }
 
-export function cachedMockTests(): Promise<UiMockTest[]> {
-  return getMockTests();
+export function cachedMockTests(examCode?: string): Promise<UiMockTest[]> {
+  return getMockTests(examCode);
 }
 
 /**

@@ -102,7 +102,7 @@ export default function ExamPrepPage() {
   useEffect(() => {
     let cancelled = false;
     setMockLoading(true);
-    cachedMockTests()
+    cachedMockTests(examMode)
       .then((m) => {
         if (!cancelled) setMockTests(m);
       })
@@ -112,7 +112,7 @@ export default function ExamPrepPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [examMode]);
 
   // Best scores / attempt counts change after every attempt, so whenever the
   // Mock Tests modal is opened we drop any (possibly stale) cached entry and
@@ -122,7 +122,7 @@ export default function ExamPrepPage() {
     let cancelled = false;
     setMockLoading(true);
     clearMockTestsCache();
-    cachedMockTests()
+    cachedMockTests(examMode)
       .then((m) => {
         if (!cancelled) setMockTests(m);
       })
@@ -132,7 +132,7 @@ export default function ExamPrepPage() {
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, examMode]);
 
   return (
     <div

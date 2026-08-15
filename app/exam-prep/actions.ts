@@ -170,9 +170,9 @@ function majorityDifficulty(diffs: difficulty_level[]): UiDifficulty {
  *   Returns every non-deleted subject that has at least one published question
  *   (optionally scoped to the user's exam type), with subtopic + question counts.
  * ========================================================================== */
-export async function getExamSubjects(): Promise<ExamSubject[]> {
+export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSubject[]> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
 
   // Published-question counts per subject (optionally for this exam type).
   const questionWhere = {
@@ -220,9 +220,9 @@ export async function getExamSubjects(): Promise<ExamSubject[]> {
 /* ============================================================================
  * STEP 2 — Subtopics in a subject (lazy-loaded when a subject is clicked).
  * ========================================================================== */
-export async function getSubtopics(subjectId: string): Promise<ExamSubtopic[]> {
+export async function getSubtopics(subjectId: string, overrideExamCode?: string): Promise<ExamSubtopic[]> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
 
   const [subtopics, qCounts] = await Promise.all([
     prisma.subtopics.findMany({
@@ -700,9 +700,9 @@ export interface ExamTreeSubject extends ExamSubject {
   subtopics: ExamSubtopic[];
 }
 
-export async function getExamTree(): Promise<ExamTreeSubject[]> {
+export async function getExamTree(overrideExamCode?: string): Promise<ExamTreeSubject[]> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
   const examFilter = examCode ? { exam_type_code: examCode } : {};
 
   const [subjects, subtopics, qBySubject, qBySubtopic] = await Promise.all([
@@ -774,9 +774,10 @@ export async function buildCustomQuestionSet(params: {
   subtopicIds: string[];
   count: number;
   title?: string;
+  examCode?: string;
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  const examCode = params.examCode ?? examCodeFromTarget(dbUser?.exam_target);
 
   const rows = await prisma.questions.findMany({
     where: {
@@ -815,10 +816,10 @@ function buildWeakSubjectFilter(subjectIds: string[], examCode: string) {
   };
 }
 
-export async function getMockDrillPoolSize(): Promise<number> {
+export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<number> {
   const dbUser = await ensureDbUser();
   if (!dbUser) return 0;
-  const examCode = examCodeFromTarget(dbUser.exam_target);
+  const examCode = overrideExamCode ?? examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: { user_id: dbUser.id },
@@ -837,10 +838,11 @@ export async function getMockDrillPoolSize(): Promise<number> {
 
 export async function buildMockDrillQuestionSet(params: {
   count: number;
+  examCode?: string;
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
   if (!dbUser) return { name: "Mock Drill", questionIds: [] };
-  const examCode = examCodeFromTarget(dbUser.exam_target);
+  const examCode = params.examCode ?? examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: { user_id: dbUser.id },
@@ -886,9 +888,9 @@ export interface UiMockTest {
   completed: boolean;
 }
 
-export async function getMockTests(): Promise<UiMockTest[]> {
+export async function getMockTests(overrideExamCode?: string): Promise<UiMockTest[]> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
 
   let tests: any[] = [];
   try {
