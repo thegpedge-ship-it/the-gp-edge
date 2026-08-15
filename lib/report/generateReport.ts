@@ -226,8 +226,11 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   };
 
   data.questions.forEach((q, idx) => {
-    const attempted = q.selectedIndex !== null;
-    const isCorrect = q.selectedIndex === q.correctIndex;
+    const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+    const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
+    const chosenSet = new Set(q.selectedIndices || (q.selectedIndex != null ? [q.selectedIndex] : []));
+    const attempted = chosenSet.size > 0;
+    const isFullyCorrect = attempted && chosenSet.size === correctSet.size && Array.from(chosenSet).every(i => correctSet.has(i));
 
     ensure(46);
     y += idx === 0 ? 0 : 6;
@@ -238,9 +241,26 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     doc.setFontSize(11);
     doc.text(`Q${q.number}`, PAGE.margin, y);
 
-    const statusText = !attempted ? "Not Attempted" : isCorrect ? "Correct" : "Incorrect";
-    const statusColor = !attempted ? C.slate500 : isCorrect ? C.green : C.red;
-    const chipBg = !attempted ? C.slate100 : isCorrect ? C.emeraldBg : C.redBg;
+    let statusText = "";
+    let statusColor: readonly number[] = C.slate500;
+    let chipBg: readonly number[] = C.slate100;
+
+    if (!attempted) {
+      statusText = "Not Attempted";
+      statusColor = C.slate500;
+      chipBg = C.slate100;
+    } else if (isKft) {
+      const earned = q.earnedMarks ?? 0;
+      const max = q.maxMarks ?? 1;
+      statusText = `${earned}/${max} Marks (${isFullyCorrect ? "Full" : earned > 0 ? "Partial" : "Incorrect"})`;
+      statusColor = isFullyCorrect ? C.green : earned > 0 ? C.slate700 : C.red;
+      chipBg = isFullyCorrect ? C.emeraldBg : earned > 0 ? C.slate100 : C.redBg;
+    } else {
+      statusText = isFullyCorrect ? "Correct" : "Incorrect";
+      statusColor = isFullyCorrect ? C.green : C.red;
+      chipBg = isFullyCorrect ? C.emeraldBg : C.redBg;
+    }
+
     doc.setFontSize(7.5);
     doc.setFont("helvetica", "bold");
     const chipW = doc.getTextWidth(statusText) + 14;
@@ -252,7 +272,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     setText(C.slate400);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const meta = `${q.topic} · ${q.difficulty}`;
+    const meta = `${isKft ? "KFT · " : "AKT · "}${q.topic} · ${q.difficulty}`;
     doc.text(meta, PAGE.w - PAGE.margin, y, { align: "right" });
     y += 16;
 
@@ -265,17 +285,22 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     // options
     q.options.forEach((opt, i) => {
       const letter = String.fromCharCode(65 + i);
-      const isRight = i === q.correctIndex;
-      const isChosenWrong = i === q.selectedIndex && !isCorrect;
+      const isRight = correctSet.has(i);
+      const isChosen = chosenSet.has(i);
+      const isChosenWrong = isChosen && !isRight;
       let marker = "";
       let color: readonly number[] = C.slate700;
       let style: "normal" | "bold" = "normal";
-      if (isRight) {
+      if (isRight && isChosen) {
+        marker = "  (correct - your answer)";
+        color = C.green;
+        style = "bold";
+      } else if (isRight) {
         marker = "  (correct answer)";
         color = C.green;
         style = "bold";
       } else if (isChosenWrong) {
-        marker = "  (your answer)";
+        marker = "  (your answer - incorrect)";
         color = C.red;
         style = "bold";
       }
@@ -286,8 +311,9 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     // your answer summary line for unattempted / when chosen differs
     if (!attempted) {
       y += 2;
+      const correctLetters = Array.from(correctSet).map(idx => String.fromCharCode(65 + idx)).join(", ");
       writeWrapped(
-        `You did not attempt this question. Correct answer: ${String.fromCharCode(65 + q.correctIndex)}.`,
+        `You did not attempt this question. Correct answer: ${correctLetters}.`,
         PAGE.margin + 12,
         CONTENT_W - 12,
         9,

@@ -137,11 +137,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       // Ensure exam type exists
       const examTypeKey = examTypeCode.toUpperCase();
       if (!examTypeSet.has(examTypeKey)) {
+        const isKft = examTypeCode === "KFT" || examTypeCode === "KFP";
         const examName =
           examTypeCode === "AKT"
             ? "Applied Knowledge Test"
-            : examTypeCode === "KFP"
-            ? "Key Feature Problem"
+            : isKft
+            ? "Key Feature Test"
             : examTypeCode;
         await execute(
           `INSERT INTO exam_types (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
@@ -288,13 +289,23 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
             throw new Error(permCheck.reason || "Permission denied for updating question.");
           }
         }
+        const isKftOrKfp = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const correctCount = isKftOrKfp ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null;
         await execute(
           `UPDATE questions
              SET stem = $1, rationale = $2, difficulty = $3, status = $4,
                  exam_type_code = $5, subject_id = $6, subtopic_id = $7,
-                 image_file_id = $8, updated_at = NOW()
-           WHERE id = $9`,
-          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId, questionId]
+                 image_file_id = $8, kfp_correct_count = $9,
+                 lead_in = $10, why_correct = $11,
+                 knowledge_bank = $12, pearl = $13,
+                 version = version + 1, updated_at = NOW()
+           WHERE id = $14`,
+          [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status,
+           examTypeCode, subjectId, subtopicId, imageFileId,
+           correctCount,
+           q.leadIn || null, q.whyCorrect || null,
+           q.knowledgeBank || null, q.pearl || null,
+           questionId]
         );
         await recordAuditLog({
           adminUserId: adminUser?.id,
@@ -305,12 +316,30 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem },
         });
       } else {
+        // Auto-generate UQID using DB sequence
+        const isKftOrKfpNew = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const seqName = isKftOrKfpNew ? "kft_seq" : "akt_seq";
+        const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${seqName}') AS n`);
+        const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
+        const autoUqid = `${examTypeCode.toUpperCase()}-${seqNum}`;
+        // Auto-generate batchId if not provided
+        const today = new Date().toISOString().slice(0, 10);
+        const autoBatchId = q.batchId || `${today}-batch-01`;
+
         const newQ = await queryOne<{ id: string }>(
           `INSERT INTO questions
-             (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id, image_file_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             (stem, rationale, difficulty, status, exam_type_code, subject_id, subtopic_id,
+              image_file_id, kfp_correct_count, uqid, lead_in, why_correct,
+              knowledge_bank, pearl, batch_id, version)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1)
            RETURNING id`,
-          [cleanStem, q.rationale || "", difficulty, status, examTypeCode, subjectId, subtopicId, imageFileId]
+          [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status, examTypeCode,
+           subjectId, subtopicId, imageFileId,
+           isKftOrKfpNew ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null,
+           q.uqid || autoUqid,
+           q.leadIn || null, q.whyCorrect || null,
+           q.knowledgeBank || null, q.pearl || null,
+           autoBatchId]
         );
         questionId = newQ!.id;
         await recordAuditLog({
@@ -323,24 +352,34 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         });
       }
 
-      // Replace options
+      // Replace options — support multiple correct for KFT / KFP + distractor rationales
       if (q.options && q.options.length > 0) {
         await execute(
           `DELETE FROM question_options 
             WHERE question_id = $1 AND position > $2`,
           [questionId, q.options.length]
         );
+        const isMultiCorrect = examTypeCode === "KFT" || examTypeCode === "KFP";
+        // Build set of correct indices
+        const correctSet = new Set<number>(
+          isMultiCorrect && Array.isArray(q.correctIndices) && q.correctIndices.length > 0
+            ? q.correctIndices
+            : [q.correctIndex ?? 0]
+        );
         for (let i = 0; i < q.options.length; i++) {
+          const distractorRationale = q.distractorRationales?.[i] || null;
           await execute(
-            `INSERT INTO question_options (question_id, label, position, is_correct)
-             VALUES ($1, $2, $3, $4)
+            `INSERT INTO question_options (question_id, label, position, is_correct, distractor_rationale)
+             VALUES ($1, $2, $3, $4, $5)
              ON CONFLICT (question_id, position)
-             DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct`,
+             DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct,
+                           distractor_rationale = EXCLUDED.distractor_rationale`,
             [
               questionId,
               q.options[i] || `Option ${String.fromCharCode(65 + i)}`,
               i + 1,
-              i === q.correctIndex,
+              correctSet.has(i),
+              distractorRationale,
             ]
           );
         }

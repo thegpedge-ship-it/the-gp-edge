@@ -12,26 +12,69 @@ export interface Quiz {
   attempts: number;
   avgScore: number;
   status: QuizStatus;
-  examType: "AKT" | "KFP" | "Mixed";
+  examType: "AKT" | "KFT" | "KFP" | "Mixed";
   randomize: boolean;
   isFree?: boolean;
   questionLimit: number;
   updatedAt: string;
 }
 
+
+
+// ─── Main Question Interface ──────────────────────────────────────────────────
 export interface Question {
   id: number;
+  dbId?: string;
+
+  /** Permanent unique ID — never changes across versions. e.g. "AKT-000142" or "KFT-000087" */
+  uqid?: string;
+
+  // ── Zone 1: Stem ──────────────────────────────────────────────────────────
+  /** Case / scenario context (the vignette). For KFT this is typically long. */
+  stem?: string;
+  /** The actual question sentence (the "leadIn"). */
+  leadIn?: string;
+  /** stem + leadIn merged — backward-compat field used everywhere except editor */
   text: string;
+  image?: string;
+  /** Optional markdown/plain-text lab table */
+  labTable?: string;
+
+  // ── Zone 2: Options ───────────────────────────────────────────────────────
   options: string[];
+  /** AKT: single correct index (backward compat) */
   correctIndex: number;
+  /** KFT / multi-select: all correct option indices */
+  correctIndices?: number[];
+  /** KFT: how many options the user may select (= max marks for this question) */
+  kftCorrectCount?: number;
+  /** Backward-compat alias for kftCorrectCount */
+  kfpCorrectCount?: number;
+  /** Explanation for why the keyed answer is correct */
+  whyCorrect?: string;
+  /** Backward-compat alias for whyCorrect */
   rationale: string;
+
+  // ── Zone 3: Explanation ───────────────────────────────────────────────────
+  /** Per-option distractor rationale — same index as options[] */
+  distractorRationales?: string[];
+  /** Background context and additional information */
+  knowledgeBank?: string;
+  /** The single take-home clinical pearl */
+  pearl?: string;
+
+  // ── Identity & lineage ────────────────────────────────────────────────────
+  /** Auto-increments on every save — tracks how many times this question was edited */
+  version?: number;
+  parentId?: string;
+  batchId?: string;
+
+  // ── Classification ────────────────────────────────────────────────────────
   topic: string;
   difficulty: "Easy" | "Medium" | "Hard";
-  examType: "AKT" | "KFP";
+  examType: "AKT" | "KFT" | "KFP";
   status: "draft" | "review" | "published" | "archived";
   tags: string[];
-  image?: string;
-  dbId?: string;
 }
 
 export type QuestionBankItem = Question;

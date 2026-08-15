@@ -10,14 +10,16 @@ export interface AdminProfile {
   roles?: string[];
   status?: string;
   permissions: string[];
+  initials?: string;
 }
 
 export function useAdminRole() {
   const [currentAdmin, setCurrentAdmin] = useState<AdminProfile>({
     id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-    name: "Siddhant Udavant",
+    name: "GPEDGE Admin",
     email: "admin@gpedge.com",
     role: "Super Admin",
+    initials: "SU",
     roles: ["SA"],
     status: "active",
     permissions: [
@@ -66,11 +68,12 @@ export function useAdminRole() {
           const defaultCreds = [
             {
               id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-              name: "Siddhant Udavant (Founder)",
+              name: "GPEDGE Admin",
               username: "siddhant_super",
               role: "Super Admin",
               roles: ["SA"],
               email: "admin@gpedge.com",
+              lastChanged: "12 days ago",
               status: "active",
               forgotPasswordEnabled: true,
               oauthEnabled: true,
@@ -232,4 +235,5 @@ export function useAdminRole() {
     canRestoreItem,
     canToggleBilling,
   };
+
 }

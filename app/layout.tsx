@@ -4,7 +4,6 @@ import Providers from "@/components/shared/Providers";
 import Header from "@/components/shared/Header";
 import PageBackground from "@/components/shared/PageBackground";
 import { Inter, Lora } from "next/font/google";
-
 import GlobalLogo from "@/components/shared/GlobalLogo";
 import VisitTracker from "@/components/shared/VisitTracker";
 
@@ -20,7 +19,6 @@ const lora = Lora({
   display: "swap",
 });
 
-
 export const metadata: Metadata = {
   metadataBase: new URL("http://localhost:3000"),
   title: "The GP Edge | Smart Exam Prep for GP Registrars",
@@ -29,7 +27,7 @@ export const metadata: Metadata = {
   keywords: [
     "GP registrar",
     "AKT exam",
-    "KFP exam",
+    "KFT exam",
     "medical exam prep",
     "MBS billing",
     "clinical templates",

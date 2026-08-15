@@ -17,6 +17,7 @@ import {
   getTopics,
   getCustomTags,
 } from "@/lib/quizData";
+import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction } from "@/actions/question.actions";
 import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizByDbIdAction } from "@/actions/quiz.actions";
@@ -139,9 +140,11 @@ export default function EditQuizPage() {
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   const topicsList = useMemo(() => {
+    const unitNames = MASTER_UNITS.map((u) => `${u.code}: ${u.name}`);
+    const masterTopicLabels = MASTER_TOPICS.map((t) => `${t.code}: ${t.label}`);
     const stored = typeof window !== "undefined" ? getTopics().map(t => t.name) : [];
     const derived = allQuestions.flatMap((q) => q.topic.split(",").map((t) => t.trim()));
-    return Array.from(new Set([...stored, ...derived])).filter(Boolean);
+    return Array.from(new Set([...unitNames, ...masterTopicLabels, ...stored, ...derived])).filter(Boolean);
   }, [allQuestions]);
 
   const [name, setName] = useState("");

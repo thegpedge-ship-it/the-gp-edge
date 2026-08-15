@@ -10,6 +10,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { fetchMedicalContent, saveMedicalContent, saveMedicalContentItem, updateMedicalContentItem, MedicalContent } from "@/lib/quizData";
+import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
 import { toggleLibraryItemFreeStatus } from "@/actions/approach.actions";
@@ -103,7 +104,9 @@ export default function ContentPage() {
     fetchMedicalContent(canRestoreItem).then(setContent);
   }, [canRestoreItem]);
 
-  const systems = Array.from(new Set(content.map((c) => c.system)));
+  const systems = Array.from(
+    new Set([...MASTER_UNITS.map((u) => `${u.code}: ${u.name}`), ...content.map((c) => c.system)])
+  );
 
   const filtered = content.filter((c) => {
     const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.system.toLowerCase().includes(searchQuery.toLowerCase());

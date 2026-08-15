@@ -332,7 +332,7 @@ export default function TestPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [answers, setAnswers] = useState<Record<number, number | number[]>>({});
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
   const [timeLeft, setTimeLeft] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -423,7 +423,13 @@ export default function TestPage() {
       mockTestId: plan.mockTestId,
       title: plan.name,
       questionIds: questions.map((q) => q.id),
-      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndex: answers[i] ?? null })),
+      answers: questions.map((q, i) => {
+        const a = answers[i];
+        return {
+          questionId: q.id,
+          selectedIndex: Array.isArray(a) ? a[0] ?? null : (a ?? null),
+        };
+      }),
       startedAt: startedAtRef.current || undefined,
       durationSeconds: elapsed,
     })
@@ -462,7 +468,13 @@ export default function TestPage() {
       mockTestId: plan.mockTestId,
       title: plan.name,
       questionIds: questions.map((q) => q.id),
-      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndex: answers[i] ?? null })),
+      answers: questions.map((q, i) => {
+        const a = answers[i];
+        return {
+          questionId: q.id,
+          selectedIndex: Array.isArray(a) ? a[0] ?? null : (a ?? null),
+        };
+      }),
       startedAt: startedAtRef.current || undefined,
       durationSeconds: elapsed,
     };
@@ -622,7 +634,27 @@ export default function TestPage() {
   };
 
   const selectOption = (optionIndex: number) => {
-    setAnswers((prev) => ({ ...prev, [current]: optionIndex }));
+    const q = questions[current];
+    if (!q) return;
+    const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+    const kfpLimit = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3;
+
+    if (isKft) {
+      setAnswers((prev) => {
+        const cur = prev[current];
+        const arr = Array.isArray(cur) ? [...cur] : cur != null ? [cur] : [];
+        if (arr.includes(optionIndex)) {
+          const next = arr.filter((idx) => idx !== optionIndex);
+          return { ...prev, [current]: next };
+        } else if (arr.length < kfpLimit) {
+          const next = [...arr, optionIndex].sort((a, b) => a - b);
+          return { ...prev, [current]: next };
+        }
+        return prev;
+      });
+    } else {
+      setAnswers((prev) => ({ ...prev, [current]: optionIndex }));
+    }
   };
 
   const clearResponse = () => {
@@ -675,11 +707,29 @@ export default function TestPage() {
 
   /* ─── Result screen after submission ─────────────────────────────── */
   if (submitted) {
-    const correct = questions.reduce(
-      (sum, q, i) => sum + (answers[i] === q.correctIndex ? 1 : 0),
-      0
-    );
-    const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
+    let totalEarnedMarks = 0;
+    let totalPossibleMarks = 0;
+
+    questions.forEach((q, i) => {
+      const ans = answers[i];
+      const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+      if (isKft) {
+        const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
+        const maxMarks = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1;
+        totalPossibleMarks += maxMarks;
+        const sel = Array.isArray(ans) ? ans : ans != null ? [ans] : [];
+        const earned = sel.filter((idx) => correctSet.has(idx)).length;
+        totalEarnedMarks += earned;
+      } else {
+        totalPossibleMarks += 1;
+        if (ans === q.correctIndex) {
+          totalEarnedMarks += 1;
+        }
+      }
+    });
+
+    const correct = totalEarnedMarks;
+    const score = totalPossibleMarks > 0 ? Math.round((totalEarnedMarks / totalPossibleMarks) * 100) : 0;
     return (
       <div className="fixed inset-0 z-50 bg-slate-100/70 dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
         <motion.div
@@ -1013,41 +1063,68 @@ export default function TestPage() {
               )}
 
               {/* Options List */}
-              <div className="space-y-3 max-w-4xl">
-                {question.options.map((option, i) => {
-                  const isSelected = selectedOption === i;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => selectOption(i)}
-                      className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out cursor-pointer ${
-                        isSelected
-                          ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm"
-                          : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs"
-                      }`}
-                    >
-                      <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
-                          isSelected
-                            ? "bg-teal-600 border-teal-600 text-white shadow-xs scale-105"
-                            : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
-                        }`}
-                      >
-                        {String.fromCharCode(65 + i)}
-                      </span>
-                      <span
-                        className={`text-sm sm:text-[15.5px] leading-relaxed transition-colors duration-150 ${
-                          isSelected
-                            ? "text-slate-950 dark:text-slate-50 font-semibold"
-                            : "text-slate-900 dark:text-slate-100 font-medium group-hover:text-slate-950 dark:group-hover:text-white"
-                        }`}
-                      >
-                        {option}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const isKft = (question.examType || "").toUpperCase() === "KFT" || (question.examType || "").toUpperCase() === "KFP";
+                const kfpLimit = question.kftCorrectCount || question.kfpCorrectCount || question.correctIndices?.length || 3;
+                const sel = answers[current];
+                const selCount = Array.isArray(sel) ? sel.length : sel != null ? 1 : 0;
+
+                return (
+                  <div className="space-y-3 max-w-4xl">
+                    {isKft && (
+                      <div className="flex items-center gap-2 p-3 bg-teal-50/80 dark:bg-teal-950/40 rounded-xl border border-teal-200/70 dark:border-teal-900/50 text-xs font-bold text-teal-900 dark:text-teal-200">
+                        <svg className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        <span>
+                          Key Feature Test (KFT): Select <strong>{kfpLimit}</strong> options ({selCount}/{kfpLimit} selected) · {kfpLimit} marks
+                        </span>
+                      </div>
+                    )}
+                    {question.options.map((option, i) => {
+                      const isSelected = isKft
+                        ? Array.isArray(sel) && sel.includes(i)
+                        : sel === i;
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => selectOption(i)}
+                          className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out cursor-pointer ${
+                            isSelected
+                              ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm"
+                              : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs"
+                          }`}
+                        >
+                          <span
+                            className={`flex-shrink-0 w-7 h-7 ${isKft ? "rounded-md" : "rounded-lg"} border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
+                              isSelected
+                                ? "bg-teal-600 border-teal-600 text-white shadow-xs scale-105"
+                                : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
+                            }`}
+                          >
+                            {isKft && isSelected ? (
+                              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              String.fromCharCode(65 + i)
+                            )}
+                          </span>
+                          <span
+                            className={`text-sm sm:text-[15.5px] leading-relaxed transition-colors duration-150 ${
+                              isSelected
+                                ? "text-slate-950 dark:text-slate-50 font-semibold"
+                                : "text-slate-900 dark:text-slate-100 font-medium group-hover:text-slate-950 dark:group-hover:text-white"
+                            }`}
+                          >
+                            {option}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </motion.div>
           </AnimatePresence>
         </div>

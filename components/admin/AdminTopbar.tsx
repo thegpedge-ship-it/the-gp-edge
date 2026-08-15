@@ -27,7 +27,7 @@ const sectionLabels: Record<string, string> = {
 };
 
 const ADMIN_PROFILES = [
-  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", initials: "SU" },
+  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin", email: "admin@gpedge.com", role: "Super Admin", initials: "SU" },
   { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", initials: "AM" },
   { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", initials: "JP" },
 ];

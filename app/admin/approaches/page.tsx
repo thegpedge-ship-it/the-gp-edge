@@ -21,13 +21,34 @@ import {
   syncApproachCardsToDbAction,
   getTagsFromDbAction,
   addTagToDbAction,
-  toggleLibraryItemFreeStatus
+  toggleLibraryItemFreeStatus,
 } from "@/actions/approach.actions";
+import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.04 } } };
 const itemVariants = { hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } } };
 
-const SYSTEMS = ["Cardiology","Respiratory","Endocrine","Gastrointestinal","Psychiatry","Dermatology","Women's Health","Paediatrics","Neurology","Musculoskeletal","MBS"];
+const TAXONOMY_APPROACH_TOPICS = MASTER_TOPICS
+  .filter((t) => t.topicType.includes("Approach"))
+  .map((t) => `${t.code}: ${t.label}`);
+const TAXONOMY_UNITS = MASTER_UNITS.map((u) => `${u.code}: ${u.name}`);
+const SYSTEMS = Array.from(
+  new Set([
+    ...TAXONOMY_UNITS,
+    ...TAXONOMY_APPROACH_TOPICS,
+    "Cardiology",
+    "Respiratory",
+    "Endocrine",
+    "Gastrointestinal",
+    "Psychiatry",
+    "Dermatology",
+    "Women's Health",
+    "Paediatrics",
+    "Neurology",
+    "Musculoskeletal",
+    "MBS",
+  ])
+);
 const STEP_TYPES = [
   { value: "action", label: "Action", color: "text-teal-700 bg-teal-50 border-teal-200", icon: "" },
   { value: "decision", label: "Decision", color: "text-amber-700 bg-amber-50 border-amber-200", icon: "" },

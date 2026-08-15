@@ -81,10 +81,19 @@ export interface QuizDetail {
 /** Full question payload for the quiz-taking page. */
 export interface QuizQuestion {
   id: string;
+  uqid?: string;
   text: string;
+  leadIn?: string;
   options: string[];
   correctIndex: number;
+  correctIndices?: number[];
+  kftCorrectCount?: number;
+  kfpCorrectCount?: number;
   rationale: string;
+  whyCorrect?: string;
+  distractorRationales?: string[];
+  knowledgeBank?: string;
+  pearl?: string;
   topic: string; // subtopic (or subject) name, shown in the question header
   subject: string; // subject name for feedback display
   subtopic: string; // subtopic name for feedback display
@@ -340,36 +349,43 @@ export async function getQuizQuestionIds(quizId: string): Promise<QuizDetail | n
 export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> {
   if (ids.length === 0) return [];
 
-  // NOTE: question_options is fetched as its own query, not via the questions
-  // relation. Prisma introspected the partial unique index uq_question_one_correct
-  // as a full @unique on question_id, so questions.question_options is generated
-  // as a 1:1 (single) relation and would only return one of the four options.
-  const [rows, options] = await Promise.all([
-    prisma.questions.findMany({
-      where: { id: { in: ids }, deleted_at: null, status: "published" },
-      select: {
-        id: true,
-        stem: true,
-        rationale: true,
-        difficulty: true,
-        exam_type_code: true,
-        subtopics: { select: { name: true } },
-        subjects: { select: { name: true } },
-        // R2 image metadata: the public URL is derived from object_key at read time.
-        files: { select: { object_key: true } },
-      },
-    }),
-    prisma.question_options.findMany({
-      where: { question_id: { in: ids } },
-      orderBy: { position: "asc" },
-      select: { question_id: true, label: true, is_correct: true },
-    }),
+  const [rows, optRows] = await Promise.all([
+    query<any>(
+      `SELECT
+         q.id,
+         q.uqid,
+         q.stem,
+         q.lead_in,
+         q.rationale,
+         q.why_correct,
+         q.knowledge_bank,
+         q.pearl,
+         q.difficulty,
+         q.exam_type_code,
+         q.kfp_correct_count,
+         sub.name AS subtopic_name,
+         s.name   AS subject_name,
+         f.object_key
+       FROM questions q
+       LEFT JOIN subtopics sub ON sub.id = q.subtopic_id
+       LEFT JOIN subjects  s   ON s.id   = q.subject_id
+       LEFT JOIN files     f   ON f.id   = q.image_file_id
+       WHERE q.id = ANY($1::uuid[]) AND q.deleted_at IS NULL AND q.status = 'published'`,
+      [ids]
+    ),
+    query<any>(
+      `SELECT question_id, label, position, is_correct, distractor_rationale
+         FROM question_options
+        WHERE question_id = ANY($1::uuid[])
+        ORDER BY question_id, position ASC`,
+      [ids]
+    ),
   ]);
 
-  const optionsByQ = new Map<string, { label: string; is_correct: boolean }[]>();
-  for (const o of options) {
+  const optionsByQ = new Map<string, any[]>();
+  for (const o of optRows) {
     const list = optionsByQ.get(o.question_id) ?? [];
-    list.push({ label: o.label, is_correct: o.is_correct });
+    list.push(o);
     optionsByQ.set(o.question_id, list);
   }
 
@@ -380,21 +396,44 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
     .map((id) => byId.get(id))
     .filter((q): q is NonNullable<typeof q> => !!q)
     .map((q) => {
-      const opts = optionsByQ.get(q.id) ?? [];
-      const options = opts.map((o) => o.label);
-      const correctIndex = opts.findIndex((o) => o.is_correct);
+      const opts = (optionsByQ.get(q.id) ?? []).sort((a: any, b: any) => a.position - b.position);
+      const options = opts.map((o: any) => o.label);
+      const correctIndices = opts
+        .map((o: any, i: number) => (o.is_correct ? i : -1))
+        .filter((i: number) => i >= 0);
+      const correctIndex = correctIndices[0] >= 0 ? correctIndices[0] : 0;
+      const isKft = (q.exam_type_code || "").toUpperCase() === "KFT" || (q.exam_type_code || "").toUpperCase() === "KFP";
+      const kfpCorrectCount = isKft
+        ? (q.kfp_correct_count != null ? Number(q.kfp_correct_count) : correctIndices.length || 1)
+        : undefined;
+
+      const stem = q.stem ?? "";
+      const leadIn = q.lead_in ?? "";
+      const text = leadIn ? `${stem}\n\n${leadIn}`.trim() : stem;
+
+      const distractorRationales = opts.map((o: any) => o.distractor_rationale ?? "");
+
       return {
         id: q.id,
-        text: q.stem,
+        uqid: q.uqid ?? undefined,
+        text,
+        leadIn: q.lead_in ?? undefined,
         options,
-        correctIndex: correctIndex >= 0 ? correctIndex : 0,
-        rationale: q.rationale ?? "",
-        topic: q.subtopics?.name ?? q.subjects?.name ?? "General",
-        subject: q.subjects?.name ?? "General",
-        subtopic: q.subtopics?.name ?? "",
-        difficulty: DIFFICULTY_LABEL[q.difficulty],
+        correctIndex,
+        correctIndices: isKft ? correctIndices : undefined,
+        kftCorrectCount: kfpCorrectCount,
+        kfpCorrectCount,
+        rationale: q.why_correct || q.rationale || "",
+        whyCorrect: q.why_correct ?? undefined,
+        distractorRationales: distractorRationales.some((d: string) => d) ? distractorRationales : undefined,
+        knowledgeBank: q.knowledge_bank ?? undefined,
+        pearl: q.pearl ?? undefined,
+        topic: q.subtopic_name ?? q.subject_name ?? "General",
+        subject: q.subject_name ?? "General",
+        subtopic: q.subtopic_name ?? "",
+        difficulty: DIFFICULTY_LABEL[q.difficulty as difficulty_level] || "Medium",
         examType: q.exam_type_code,
-        image: r2PublicUrl(q.files?.object_key),
+        image: r2PublicUrl(q.object_key),
       };
     });
 }
@@ -774,7 +813,8 @@ function buildWeakSubjectFilter(subjectIds: string[], examCode: string) {
 
 export async function getMockDrillPoolSize(): Promise<number> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  if (!dbUser) return 0;
+  const examCode = examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: { user_id: dbUser.id },
@@ -795,7 +835,8 @@ export async function buildMockDrillQuestionSet(params: {
   count: number;
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
-  const examCode = examCodeFromTarget(dbUser?.exam_target);
+  if (!dbUser) return { name: "Mock Drill", questionIds: [] };
+  const examCode = examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: { user_id: dbUser.id },

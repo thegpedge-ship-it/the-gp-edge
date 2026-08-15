@@ -8,8 +8,16 @@ export interface ReportQuestion {
   text: string;
   options: string[];
   correctIndex: number;
-  /** null = the candidate left it unattempted. */
+  correctIndices?: number[];
+  /** null = the candidate left it unattempted. Single selected index for AKT. */
   selectedIndex: number | null;
+  /** Selected option indices for KFP. */
+  selectedIndices?: number[];
+  examType?: string | null;
+  kftCorrectCount?: number;
+  kfpCorrectCount?: number;
+  earnedMarks?: number;
+  maxMarks?: number;
   rationale: string;
   topic: string;
   difficulty: string;

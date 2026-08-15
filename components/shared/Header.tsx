@@ -35,6 +35,7 @@ interface HeaderProps {
 
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
+  if (pathname?.startsWith("/admin")) return null;
   const { isSignedIn } = useAuth();
   // null on pages without a SidebarProvider (landing, auth, etc.) — the mobile
   // sidebar hamburger only renders inside the dashboard where this exists.

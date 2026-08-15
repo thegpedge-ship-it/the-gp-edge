@@ -27,6 +27,7 @@ import {
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
 import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction } from "@/actions/question.actions";
 
@@ -99,6 +100,9 @@ export default function QuestionsPage() {
   }, [canRestoreItem]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");
+  const [newCorrectIndices, setNewCorrectIndices] = useState<number[]>([0]); // KFT multi-select
+  const [newExamType, setNewExamType] = useState<"AKT" | "KFT">("AKT");
+  const [newKfpCorrectCount, setNewKfpCorrectCount] = useState(3); // how many marks / allowed selections
   const [newQuestionTopics, setNewQuestionTopics] = useState<string[]>(["Cardiology"]);
   const [newDifficulty, setNewDifficulty] = useState("Medium");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -110,8 +114,15 @@ export default function QuestionsPage() {
   const [visibleCount, setVisibleCount] = useState(9);
 
   const [newQuestionText, setNewQuestionText] = useState("");
+  const [newStem, setNewStem] = useState("");                    // Zone 1
+  const [newLeadIn, setNewLeadIn] = useState("");                // Zone 1
   const [newQuestionOptions, setNewQuestionOptions] = useState<string[]>(["", "", "", ""]);
+  const [newWhyCorrect, setNewWhyCorrect] = useState("");         // Zone 2
+  const [newDistractorRationales, setNewDistractorRationales] = useState<string[]>([]); // Zone 3
+  const [newKnowledgeBank, setNewKnowledgeBank] = useState("");   // Zone 3
+  const [newPearl, setNewPearl] = useState("");                   // Zone 3
   const [newRationale, setNewRationale] = useState("");
+  const [activeZone, setActiveZone] = useState<1 | 2 | 3>(1);    // active tab
   const [newQuestionTags, setNewQuestionTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
@@ -192,25 +203,45 @@ export default function QuestionsPage() {
 
   const resetAddForm = () => {
     setNewQuestionText("");
+    setNewStem("");
+    setNewLeadIn("");
     setNewQuestionOptions(["", "", "", ""]);
+    setNewWhyCorrect("");
+    setNewDistractorRationales([]);
+    setNewKnowledgeBank("");
+    setNewPearl("");
     setNewRationale("");
+    setActiveZone(1);
     setNewQuestionTags([]);
     setTagSearch("");
     setShowTagSuggestions(false);
     setNewImage("");
     setNewCorrectAnswer("A");
+    setNewCorrectIndices([0]);
+    setNewExamType("AKT");
+    setNewKfpCorrectCount(3);
     setNewQuestionTopics(["Cardiology"]);
     setNewDifficulty("Medium");
   };
 
   const topics = (() => {
+    const unitNames = MASTER_UNITS.map((u) => `${u.code}: ${u.name}`);
+    const masterTopicLabels = MASTER_TOPICS.map((t) => `${t.code}: ${t.label}`);
     const stored = typeof window !== "undefined" ? getTopics().map(t => t.name) : [];
     const derived = questions.flatMap((q) => q.topic.split(",").map((t) => t.trim()));
-    return Array.from(new Set([...stored, ...derived])).filter(Boolean);
+    return Array.from(new Set([...unitNames, ...masterTopicLabels, ...stored, ...derived])).filter(Boolean);
   })();
 
   const filtered = questions.filter((q) => {
-    const matchSearch = q.text.toLowerCase().includes(searchQuery.toLowerCase()) || q.id.toString().includes(searchQuery);
+    const searchLower = searchQuery.toLowerCase();
+    const matchSearch =
+      q.text.toLowerCase().includes(searchLower) ||
+      q.id.toString().includes(searchQuery) ||
+      (q.uqid?.toLowerCase().includes(searchLower) ?? false) ||
+      (q.stem?.toLowerCase().includes(searchLower) ?? false) ||
+      (q.leadIn?.toLowerCase().includes(searchLower) ?? false) ||
+      (q.pearl?.toLowerCase().includes(searchLower) ?? false) ||
+      (q.knowledgeBank?.toLowerCase().includes(searchLower) ?? false);
     const matchStatus = statusFilter === "all" || q.status === statusFilter;
     const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
     const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
@@ -239,14 +270,30 @@ export default function QuestionsPage() {
 
   const handleCreateQuestion = async () => {
     if (isReadOnly) return;
-    if (!newQuestionText.trim()) {
-      showAlert("Please enter the question text.", "Validation Error", "error");
+    // Validate: need at minimum a stem OR leadIn
+    const stemText = newStem.trim() || newQuestionText.trim();
+    if (!stemText) {
+      showAlert("Please enter the question stem.", "Validation Error", "error");
+      setActiveZone(1);
       return;
+    }
+    // KFT validation
+    if (newExamType === "KFT") {
+      if (newCorrectIndices.length === 0) {
+        showAlert("Please mark at least one correct answer for KFT.", "Validation Error", "error");
+        setActiveZone(2);
+        return;
+      }
+      if (newCorrectIndices.length !== newKfpCorrectCount) {
+        showAlert(`Please mark exactly ${newKfpCorrectCount} correct answer(s) for KFT (currently ${newCorrectIndices.length} selected).`, "Validation Error", "error");
+        setActiveZone(2);
+        return;
+      }
     }
     // Duplicate check
     if (!editingQuestion) {
-      const cleanedText = newQuestionText.trim().toLowerCase();
-      const existingQuestion = questions.find((q) => q.text.trim().toLowerCase() === cleanedText);
+      const cleanedText = stemText.toLowerCase();
+      const existingQuestion = questions.find((q) => q.text.trim().toLowerCase() === cleanedText || (q.stem?.trim().toLowerCase() === cleanedText));
       if (existingQuestion) {
         setShowAddModal(false);
         resetAddForm();
@@ -255,25 +302,41 @@ export default function QuestionsPage() {
         return;
       }
     }
-    const correctIndex = Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1);
+    const correctIndex = newExamType === "AKT"
+      ? Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1)
+      : (newCorrectIndices[0] ?? 0);
+    // Combine stem + leadIn into text for backward compat
+    const combinedText = newLeadIn.trim()
+      ? `${stemText}\n\n${newLeadIn.trim()}`
+      : stemText;
+
+    const baseQuestion = {
+      text: combinedText,
+      stem: stemText,
+      leadIn: newLeadIn.trim() || undefined,
+      options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
+      correctIndex,
+      correctIndices: newExamType === "KFT" ? newCorrectIndices : undefined,
+      kftCorrectCount: newExamType === "KFT" ? newKfpCorrectCount : undefined,
+      kfpCorrectCount: newExamType === "KFT" ? newKfpCorrectCount : undefined,
+      rationale: newWhyCorrect || newRationale || "No explanation provided.",
+      whyCorrect: newWhyCorrect || undefined,
+      distractorRationales: newDistractorRationales.some(d => d.trim()) ? newDistractorRationales : undefined,
+      knowledgeBank: newKnowledgeBank.trim() || undefined,
+      pearl: newPearl.trim() || undefined,
+      topic: newQuestionTopics.join(", "),
+      difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
+      examType: newExamType,
+      status: "published" as const,
+      tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
+      image: newImage || undefined,
+    };
 
     if (editingQuestion) {
       let updatedQ: any = null;
       const updated = questions.map((q) => {
         if (q.id === editingQuestion.id) {
-          updatedQ = {
-            ...q,
-            text: newQuestionText,
-            options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
-            correctIndex,
-            rationale: newRationale || "No explanation provided.",
-            topic: newQuestionTopics.join(", "),
-            difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
-            examType: "AKT" as const,
-            status: "published",
-            tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
-            image: newImage || undefined,
-          };
+          updatedQ = { ...q, ...baseQuestion };
           return updatedQ;
         }
         return q;
@@ -296,33 +359,20 @@ export default function QuestionsPage() {
     }
 
     const nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
-    const newQuestion: Question = {
-      id: nextId,
-      text: newQuestionText,
-      options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
-      correctIndex,
-      rationale: newRationale || "No explanation provided.",
-      topic: newQuestionTopics.join(", "),
-      difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
-      examType: "AKT" as const,
-      status: "published",
-      tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
-      image: newImage || undefined,
-    };
+    const newQuestion: Question = { id: nextId, ...baseQuestion } as Question;
     const updated = [newQuestion, ...questions];
     setQuestions(updated);
     importQuestionsAction([newQuestion]).then((res) => {
       if (res?.success && res.results && res.results[0]) {
-        const dbId = res.results[0].dbId;
+        const { dbId, uqid } = res.results[0] as any;
         setQuestions((prev) =>
-          prev.map((q) => (q.id === newQuestion.id ? { ...q, dbId } : q))
+          prev.map((q) => (q.id === newQuestion.id ? { ...q, dbId, uqid } : q))
         );
       }
     });
     setShowAddModal(false);
     resetAddForm();
 
-    // Reset filters to ensure the user immediately sees their new question at the top of the list
     setSearchQuery("");
     setStatusFilter("all");
     setTopicFilter("all");
@@ -330,7 +380,7 @@ export default function QuestionsPage() {
 
     addUserNotification(
       "New Question Added",
-      `Admin added a new practice question to the ${newQuestionTopics.join(", ")} category.`,
+      `Admin added a new ${newExamType} question to the ${newQuestionTopics.join(", ")} category.`,
       1,
       "new-questions"
     );
@@ -745,7 +795,21 @@ export default function QuestionsPage() {
                   className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
                 >
                   <td className="px-6 py-4">
-                    <span className={`text-xs font-bold ${themeMuted}`}>#{q.id}</span>
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
+                        {q.uqid || `#${q.id}`}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${q.examType === "KFT" || q.examType === "KFP" ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"}`}>
+                          {q.examType === "KFP" ? "KFT" : (q.examType || "AKT")}
+                        </span>
+                        {q.version && q.version > 1 && (
+                          <span className="text-[9px] font-semibold text-slate-400">
+                            v{q.version}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-4 max-w-md">
                     <p className={`text-sm truncate font-semibold ${themeText}`}>{q.text}</p>
@@ -788,14 +852,24 @@ export default function QuestionsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          setNewStem(q.stem || q.text || "");
+                          setNewLeadIn(q.leadIn || "");
                           setNewQuestionText(q.text);
                           setNewQuestionOptions([...q.options]);
-                          setNewRationale(q.rationale);
+                          setNewWhyCorrect(q.whyCorrect || q.rationale || "");
+                          setNewDistractorRationales(q.distractorRationales ? [...q.distractorRationales] : q.options.map(() => ""));
+                          setNewKnowledgeBank(q.knowledgeBank || "");
+                          setNewPearl(q.pearl || "");
+                          setNewRationale(q.rationale || "");
                           setNewQuestionTags([...q.tags]);
                           setNewImage(q.image || "");
-                          setNewCorrectAnswer(String.fromCharCode(65 + q.correctIndex));
+                          setNewExamType(q.examType === "KFP" ? "KFT" : (q.examType as any) || "AKT");
+                          setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
+                          setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
+                          setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                           setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
                           setNewDifficulty(q.difficulty);
+                          setActiveZone(1);
                           setEditingQuestion(q);
                           setShowAddModal(true);
                         }}
@@ -889,21 +963,36 @@ export default function QuestionsPage() {
                     ))}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${themeBadge}`}>
-                      #{previewQuestion.id}
+                    <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-lg border border-teal-200/60 dark:border-teal-900/40">
+                      {previewQuestion.uqid || `#${previewQuestion.id}`}
                     </span>
+                    {previewQuestion.version && (
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+                        v{previewQuestion.version}
+                      </span>
+                    )}
                     <button
                       onClick={() => {
                         const q = previewQuestion;
                         setPreviewQuestion(null);
+                        setNewStem(q.stem || q.text || "");
+                        setNewLeadIn(q.leadIn || "");
                         setNewQuestionText(q.text);
                         setNewQuestionOptions([...q.options]);
-                        setNewRationale(q.rationale);
+                        setNewWhyCorrect(q.whyCorrect || q.rationale || "");
+                        setNewDistractorRationales(q.distractorRationales ? [...q.distractorRationales] : q.options.map(() => ""));
+                        setNewKnowledgeBank(q.knowledgeBank || "");
+                        setNewPearl(q.pearl || "");
+                        setNewRationale(q.rationale || "");
                         setNewQuestionTags([...q.tags]);
                         setNewImage(q.image || "");
-                        setNewCorrectAnswer(String.fromCharCode(65 + q.correctIndex));
+                        setNewExamType(q.examType === "KFP" ? "KFT" : (q.examType as any) || "AKT");
+                        setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
+                        setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
+                        setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                         setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
                         setNewDifficulty(q.difficulty);
+                        setActiveZone(1);
                         setEditingQuestion(q);
                         setShowAddModal(true);
                       }}
@@ -925,12 +1014,19 @@ export default function QuestionsPage() {
                   </div>
                 </div>
 
-                {/* Question */}
-                <p className={`text-base font-medium leading-relaxed mb-6 font-sans ${themeText}`}>
-                  {previewQuestion.text}
-                </p>
+                {/* Question Stem / Narrative */}
+                <div className="mb-5 space-y-3">
+                  <div className="text-base font-medium leading-relaxed font-sans text-slate-800 dark:text-slate-100 whitespace-pre-line">
+                    {previewQuestion.stem || previewQuestion.text}
+                  </div>
+                  {previewQuestion.leadIn && (
+                    <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border-l-4 border-teal-600 rounded-r-xl text-sm font-semibold text-teal-950 dark:text-teal-200">
+                      {previewQuestion.leadIn}
+                    </div>
+                  )}
+                </div>
 
-                {/* Question Image (High Resolution Container) */}
+                {/* Question Image */}
                 {previewQuestion.image && (
                   <div 
                     onClick={() => setZoomImage(previewQuestion.image!)}
@@ -952,48 +1048,108 @@ export default function QuestionsPage() {
                 )}
 
                 {/* Options list */}
+                {(previewQuestion.examType === "KFT" || previewQuestion.examType === "KFP") && (previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount) && (
+                  <div className="mb-4 flex items-center gap-2 p-2.5 bg-teal-50 dark:bg-teal-950/30 rounded-xl border border-teal-200/50 dark:border-teal-900/40">
+                    <svg className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                    <span className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                      KFT — Select <strong>{previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount}</strong> correct answer{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} · {previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount} mark{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} available
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-3 mb-6">
                   {previewQuestion.options.map((opt, i) => {
-                    const isCorrect = i === previewQuestion.correctIndex;
+                    const isKftMode = previewQuestion.examType === "KFT" || previewQuestion.examType === "KFP";
+                    const correctSet = isKftMode && previewQuestion.correctIndices?.length
+                      ? new Set(previewQuestion.correctIndices)
+                      : new Set([previewQuestion.correctIndex]);
+                    const isCorrect = correctSet.has(i);
+                    const distractor = previewQuestion.distractorRationales?.[i];
+
                     return (
                       <div
                         key={i}
-                        className={`p-4 rounded-xl border flex items-center gap-4 transition-all duration-300 ${
+                        className={`p-4 rounded-xl border transition-all duration-300 ${
                           isCorrect
                             ? `border-teal-700 ${themeSurface} ${themeText} shadow-sm`
                             : `border-teal-100 dark:border-teal-900/30 ${themeSurface} text-teal-700/80 dark:text-teal-400/80`
                         }`}
                       >
-                        <div
-                          className={`w-7 h-7 rounded-full border flex items-center justify-center font-bold text-xs shrink-0 transition-all duration-300 ${
-                            isCorrect
-                              ? "bg-teal-800 border-teal-700 text-white shadow-sm shadow-teal-900/25"
-                              : `${themeSurface} border-teal-200/70 dark:border-teal-900/40 text-teal-800 dark:text-teal-400`
-                          }`}
-                        >
-                          {String.fromCharCode(65 + i)}
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-7 h-7 ${isKftMode ? "rounded" : "rounded-full"} border flex items-center justify-center font-bold text-xs shrink-0 transition-all duration-300 ${
+                              isCorrect
+                                ? "bg-teal-800 border-teal-700 text-white shadow-sm shadow-teal-900/25"
+                                : `${themeSurface} border-teal-200/70 dark:border-teal-900/40 text-teal-800 dark:text-teal-400`
+                            }`}
+                          >
+                            {String.fromCharCode(65 + i)}
+                          </div>
+                          <span className="text-sm font-semibold flex-1">{opt}</span>
+                          {isCorrect && (
+                            <div className="flex items-center gap-1.5 ml-auto shrink-0">
+                              {isKftMode && (
+                                <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-900/40 px-1.5 py-0.5 rounded">+1</span>
+                              )}
+                              <svg className="w-5 h-5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                              </svg>
+                            </div>
+                          )}
                         </div>
-                        <span className="text-sm font-semibold">{opt}</span>
-                        {isCorrect && (
-                          <svg className="w-5 h-5 text-teal-800 dark:text-teal-400 ml-auto shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                          </svg>
+                        {distractor && !isCorrect && (
+                          <div className="mt-2.5 pl-11 text-xs text-slate-500 dark:text-slate-400 italic">
+                            &rarr; {distractor}
+                          </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Rationale */}
-                <div className="bg-teal-50/60 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 rounded-2xl p-4 text-xs leading-relaxed text-teal-950 dark:text-teal-300">
-                  <div className="font-bold mb-1.5 flex items-center gap-1.5 text-teal-800 dark:text-teal-400 text-[13px]">
-                    <svg className="w-4 h-4 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Correct Answer Rationale
+                {/* Core Rationale (Why Correct) */}
+                {(previewQuestion.whyCorrect || previewQuestion.rationale) && (
+                  <div className="mb-4 bg-teal-50/60 dark:bg-teal-950/20 border border-teal-100 dark:border-teal-900/40 rounded-2xl p-4 text-xs leading-relaxed text-teal-950 dark:text-teal-300">
+                    <div className="font-bold mb-1.5 flex items-center gap-1.5 text-teal-800 dark:text-teal-400 text-[13px]">
+                      <svg className="w-4 h-4 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Why Correct (Core Rationale)
+                    </div>
+                    <p className="font-normal leading-relaxed text-teal-900/80 dark:text-teal-300/80 whitespace-pre-line">
+                      {previewQuestion.whyCorrect || previewQuestion.rationale}
+                    </p>
                   </div>
-                  <p className="font-normal leading-relaxed text-teal-900/70 dark:text-teal-300/80 whitespace-pre-line">{previewQuestion.rationale}</p>
-                </div>
+                )}
+
+                {/* Knowledge Bank */}
+                {previewQuestion.knowledgeBank && (
+                  <div className="mb-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl p-4 text-xs leading-relaxed text-blue-950 dark:text-blue-200">
+                    <div className="font-bold mb-1.5 flex items-center gap-1.5 text-blue-800 dark:text-blue-400 text-[13px]">
+                      <svg className="w-4 h-4 text-blue-700 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                      </svg>
+                      Knowledge Bank & Guidelines
+                    </div>
+                    <p className="font-normal leading-relaxed text-blue-900/80 dark:text-blue-300/80 whitespace-pre-line">
+                      {previewQuestion.knowledgeBank}
+                    </p>
+                  </div>
+                )}
+
+                {/* Clinical Pearl */}
+                {previewQuestion.pearl && (
+                  <div className="bg-amber-50/70 dark:bg-amber-950/30 border-2 border-amber-300/70 dark:border-amber-900/60 rounded-2xl p-4 text-xs leading-relaxed text-amber-950 dark:text-amber-200 shadow-sm">
+                    <div className="font-bold mb-1 flex items-center gap-1.5 text-amber-800 dark:text-amber-400 text-[13px]">
+                      <svg className="w-4 h-4 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                      </svg>
+                      Clinical Pearl
+                    </div>
+                    <p className="font-medium leading-relaxed text-amber-900 dark:text-amber-100">
+                      {previewQuestion.pearl}
+                    </p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </>
@@ -1011,365 +1167,568 @@ export default function QuestionsPage() {
               }} />
              <motion.div initial={{ opacity: 0, scale: 0.96, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 15 }} transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }} className={`fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-y-auto max-h-[90vh] ${themeBorder}`}>
               <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className={`font-serif text-xl font-normal tracking-tight leading-none ${themeText}`}>{editingQuestion ? "Edit Question" : "Add New Question"}</h2>
+                {/* Modal Header with UQID and Version */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h2 className={`font-serif text-xl font-normal tracking-tight leading-none ${themeText}`}>
+                      {editingQuestion ? "Edit Question" : "Add New Question"}
+                    </h2>
+                    {editingQuestion?.uqid && (
+                      <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-lg border border-teal-200/60 dark:border-teal-900/40">
+                        {editingQuestion.uqid}
+                      </span>
+                    )}
+                    {editingQuestion?.version && (
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                        Version {editingQuestion.version}
+                      </span>
+                    )}
+                  </div>
                   <button onClick={() => {
                      setShowAddModal(false);
                      setEditingQuestion(null);
                      resetAddForm();
-                   }} className={`p-2 rounded-xl transition-all ${themeIconBtn}`}>
+                   }} className={`p-2 rounded-xl transition-all self-end sm:self-auto ${themeIconBtn}`}>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
                 </div>
-                <div className="space-y-4">
-                  <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Question Text</label>
-                    <textarea rows={6} value={newQuestionText} onChange={(e) => setNewQuestionText(e.target.value)} className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`} placeholder="Enter the question..." />
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className={`block text-xs font-semibold ${themeLabel}`}>Options & Correct Answer</label>
-                      <button
-                        type="button"
-                        onClick={() => setNewQuestionOptions([...newQuestionOptions, ""])}
-                        className="text-[11px] font-bold text-teal-700 hover:text-teal-600 dark:text-teal-400 dark:hover:text-teal-350 transition flex items-center gap-1"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Option
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {newQuestionOptions.map((opt, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const letter = String.fromCharCode(65 + idx);
-                              setNewCorrectAnswer(letter);
-                            }}
-                            className="flex items-center justify-center shrink-0 focus:outline-none"
-                            title="Mark as Correct Answer"
-                          >
-                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                              newCorrectAnswer === String.fromCharCode(65 + idx)
-                                ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 shadow-sm shadow-teal-900/30"
-                                : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
-                            }`}>
-                              {newCorrectAnswer === String.fromCharCode(65 + idx) && (
-                                <div className="w-2 h-2 rounded-full bg-white" />
-                              )}
-                            </div>
-                          </button>
-                          <span className="text-xs font-bold text-slate-400">{String.fromCharCode(65 + idx)}:</span>
-                          <input
-                            type="text"
-                            value={opt}
-                            onChange={(e) => {
-                              const nextOpts = [...newQuestionOptions];
-                              nextOpts[idx] = e.target.value;
-                              setNewQuestionOptions(nextOpts);
-                            }}
-                            className={`flex-1 text-xs px-2.5 py-1.5 rounded-lg border ${themeInput}`}
-                            placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                          />
-                          {newQuestionOptions.length > 2 && (
+
+                {/* 3-Zone Tab Navigation */}
+                <div className="grid grid-cols-3 gap-2 mb-6 p-1.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                  <button
+                    type="button"
+                    onClick={() => setActiveZone(1)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      activeZone === 1
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-teal-100 dark:bg-teal-950 text-[10px] flex items-center justify-center font-black">1</span>
+                    <span>Zone 1: Stem</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveZone(2)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      activeZone === 2
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-teal-100 dark:bg-teal-950 text-[10px] flex items-center justify-center font-black">2</span>
+                    <span>Zone 2: Options</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveZone(3)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      activeZone === 3
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-teal-100 dark:bg-teal-950 text-[10px] flex items-center justify-center font-black">3</span>
+                    <span>Zone 3: Explanations</span>
+                  </button>
+                </div>
+
+                <div className="space-y-5">
+                  {/* ZONE 1: STEM & LEAD-IN */}
+                  {activeZone === 1 && (
+                    <div className="space-y-4">
+                      {/* Exam Type Toggle */}
+                      <div>
+                        <label className={`block text-xs font-semibold mb-2 ${themeLabel}`}>Exam Pattern / Format</label>
+                        <div className="flex rounded-xl overflow-hidden border divide-x divide-slate-200 dark:divide-slate-700 border-slate-200 dark:border-slate-700">
+                          {(["AKT", "KFT"] as const).map((type) => (
                             <button
+                              key={type}
                               type="button"
                               onClick={() => {
-                                const nextOpts = newQuestionOptions.filter((_, oidx) => oidx !== idx);
-                                setNewQuestionOptions(nextOpts);
-                                if (newCorrectAnswer === String.fromCharCode(65 + idx)) {
-                                  setNewCorrectAnswer("A");
-                                } else if (newCorrectAnswer.charCodeAt(0) - 65 > idx) {
-                                  setNewCorrectAnswer(String.fromCharCode(newCorrectAnswer.charCodeAt(0) - 1));
-                                }
+                                setNewExamType(type);
+                                setNewCorrectIndices([0]);
+                                setNewCorrectAnswer("A");
                               }}
-                              className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
-                              title="Delete Option"
+                              className={`flex-1 py-2.5 text-xs font-bold transition-all ${
+                                newExamType === type
+                                  ? "bg-teal-800 text-white shadow-sm"
+                                  : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                              }`}
                             >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              {type === "AKT" ? "AKT — Single Best Answer" : "KFT — Key Feature Test (Multi-Correct)"}
                             </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Correct Answer</label>
-                      <CustomSelect
-                        value={newCorrectAnswer}
-                        onChange={setNewCorrectAnswer}
-                        options={newQuestionOptions.map((_, idx) => {
-                          const letter = String.fromCharCode(65 + idx);
-                          return { value: letter, label: letter };
-                        })}
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Difficulty</label>
-                      <CustomSelect
-                        value={newDifficulty}
-                        onChange={setNewDifficulty}
-                        options={[
-                          { value: "Easy", label: "Easy" },
-                          { value: "Medium", label: "Medium" },
-                          { value: "Hard", label: "Hard" },
-                        ]}
-                        className="w-full"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Topic(s) (select multiple or add custom)</label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <CustomSelect
-                          value=""
-                          onChange={(val) => {
-                            if (val && !newQuestionTopics.includes(val)) {
-                              setNewQuestionTopics([...newQuestionTopics, val]);
-                            }
-                          }}
-                          options={[
-                            { value: "", label: "Select existing topic..." },
-                            ...topics
-                              .filter((t) => !newQuestionTopics.includes(t))
-                              .map((t) => ({ value: t, label: t }))
-                          ]}
-                          className="flex-1"
-                        />
-                        <div className="flex gap-1 flex-1">
-                          <input
-                            type="text"
-                            id="custom-topic-input"
-                            placeholder="Or type custom topic..."
-                            className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all dark:text-slate-100 ${themeInput}`}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                const val = (e.target as HTMLInputElement).value.trim();
-                                if (val && !newQuestionTopics.includes(val)) {
-                                  setNewQuestionTopics([...newQuestionTopics, val]);
-                                  (e.target as HTMLInputElement).value = "";
-                                }
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const input = document.getElementById("custom-topic-input") as HTMLInputElement;
-                              const val = input?.value.trim();
-                              if (val && !newQuestionTopics.includes(val)) {
-                                setNewQuestionTopics([...newQuestionTopics, val]);
-                                input.value = "";
-                              }
-                            }}
-                            className={`px-4 py-2.5 text-xs font-semibold rounded-xl shrink-0 transition-all ${themeBtnPrimary}`}
-                          >
-                            Add
-                          </button>
+                          ))}
                         </div>
                       </div>
-                      
-                      {/* Selected topics pills */}
-                      {newQuestionTopics.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-3 p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100/60 dark:border-slate-800/40">
-                          {newQuestionTopics.map((topic) => (
-                            <span key={topic} className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/60 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900/40">
-                              {topic}
+
+                      {/* KFT Settings Banner */}
+                      {newExamType === "KFT" && (
+                        <div className="flex items-center gap-3 p-3.5 bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-900/40 rounded-xl">
+                          <svg className="w-5 h-5 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          <div className="flex-1">
+                            <span className={`text-xs font-bold ${themeLabel}`}>KFT Correct Option Limit & Marks</span>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              How many options the registrar must select. Question total marks = this limit (1 mark per correct answer).
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={newKfpCorrectCount}
+                              onChange={(e) => {
+                                const v = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+                                setNewKfpCorrectCount(v);
+                                setNewCorrectIndices(prev => prev.slice(0, v));
+                              }}
+                              className={`w-16 text-center text-sm font-bold px-2 py-1.5 rounded-lg border ${themeInput}`}
+                            />
+                            <span className="text-xs font-bold text-slate-400">marks</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stem (Case Vignette) */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Clinical Case Stem (Vignette)
+                          </label>
+                          <span className="text-[11px] text-slate-400">Large case narrative</span>
+                        </div>
+                        <textarea
+                          rows={newExamType === "KFT" ? 8 : 6}
+                          value={newStem}
+                          onChange={(e) => {
+                            setNewStem(e.target.value);
+                            setNewQuestionText(newLeadIn ? `${e.target.value}\n\n${newLeadIn}` : e.target.value);
+                          }}
+                          className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[140px]`}
+                          placeholder={newExamType === "KFT" ? "Enter the detailed patient scenario, background, history, lab findings..." : "Enter the clinical vignette or patient presentation..."}
+                        />
+                      </div>
+
+                      {/* Lead-in (The actual question sentence) */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Lead-In (Question Sentence)
+                          </label>
+                          <span className="text-[11px] text-slate-400">The specific question asked</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={newLeadIn}
+                          onChange={(e) => {
+                            setNewLeadIn(e.target.value);
+                            setNewQuestionText(e.target.value ? `${newStem}\n\n${e.target.value}` : newStem);
+                          }}
+                          className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all dark:text-slate-100 ${themeInput}`}
+                          placeholder="e.g. Which of the following is the most appropriate initial investigation?"
+                        />
+                      </div>
+
+                      {/* Difficulty & Topics */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Difficulty Level</label>
+                          <CustomSelect
+                            value={newDifficulty}
+                            onChange={setNewDifficulty}
+                            options={[
+                              { value: "Easy", label: "Easy" },
+                              { value: "Medium", label: "Medium" },
+                              { value: "Hard", label: "Hard" },
+                            ]}
+                            className="w-full"
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Primary Topic</label>
+                          <CustomSelect
+                            value={newQuestionTopics[0] || ""}
+                            onChange={(val) => {
+                              if (val) {
+                                setNewQuestionTopics([val, ...newQuestionTopics.filter(t => t !== val)]);
+                              }
+                            }}
+                            options={topics.map((t) => ({ value: t, label: t }))}
+                            className="w-full"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Clinical Image */}
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Clinical Image / Diagnostic Attachment (Optional)</label>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className={`px-4 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all flex items-center justify-center gap-1.5 ${
+                              newImage ? themeSelected : themeOptionIdle
+                            }`}
+                          >
+                            <svg className="w-4 h-4 text-teal-800 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            {newImage ? "Image Uploaded" : "Upload File"}
+                          </button>
+                          <input
+                            type="file"
+                            ref={fileInputRef}
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = async () => {
+                                  try {
+                                    const compressed = await compressBase64Image(reader.result as string);
+                                    const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
+                                    setNewImage(fileUrl);
+                                  } catch (err: any) {
+                                    console.error("Upload to R2 failed:", err);
+                                    showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="hidden"
+                          />
+                        </div>
+                        {newImage && (
+                          <div className={`mt-3 relative rounded-xl overflow-hidden border p-3 w-full max-h-80 flex items-center justify-center ${themeSurface} ${themeBorder}`}>
+                            <img src={newImage} alt="Preview" className="max-h-72 w-auto object-contain rounded-lg shadow-sm" />
+                            <button 
+                              type="button" 
+                              onClick={() => {
+                                setNewImage("");
+                                if (fileInputRef.current) fileInputRef.current.value = "";
+                              }} 
+                              className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-950 transition-all shadow-md"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Subtopics / Tags */}
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Subtopics & Curriculum Tags</label>
+                        <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2.5 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100/60 dark:border-slate-800/40 mb-2.5">
+                          {newQuestionTags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50 text-teal-800 border border-teal-200/60 dark:bg-teal-950/40 dark:text-teal-400">
+                              {tag}
                               <button
                                 type="button"
-                                onClick={() => setNewQuestionTopics(newQuestionTopics.filter((t) => t !== topic))}
-                                className="text-teal-500 hover:text-red-500 font-bold ml-1 text-base focus:outline-none"
+                                onClick={() => setNewQuestionTags(newQuestionTags.filter((t) => t !== tag))}
+                                className="text-teal-500 hover:text-red-500 font-bold ml-1"
                               >
                                 &times;
                               </button>
                             </span>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Attach Image Section */}
-                  <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Attach Clinical Image</label>
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`px-4 py-2.5 rounded-xl border text-xs font-semibold text-center transition-all flex items-center justify-center gap-1.5 ${
-                          newImage
-                            ? themeSelected
-                            : themeOptionIdle
-                        }`}
-                      >
-                        <svg className="w-4 h-4 text-teal-800 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                        </svg>
-                        {newImage ? "Image Uploaded" : "Upload File"}
-                      </button>
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = async () => {
-                              try {
-                                const compressed = await compressBase64Image(reader.result as string);
-                                const fileUrl = await uploadBase64ImageToR2(compressed, file.name);
-                                setNewImage(fileUrl);
-                              } catch (err: any) {
-                                console.error("Upload to R2 failed:", err);
-                                showAlert("Failed to upload image to Cloudflare R2.", "Upload Error", "error");
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Add tag (e.g. ECG, STEMI, MBS-721)..."
+                            value={tagSearch}
+                            onChange={(e) => setTagSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const val = tagSearch.trim();
+                                if (val && !newQuestionTags.includes(val)) {
+                                  setNewQuestionTags([...newQuestionTags, val]);
+                                  setTagSearch("");
+                                }
                               }
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                        className="hidden"
-                      />
+                            }}
+                            className={`w-full px-3.5 py-2 text-xs rounded-xl transition-all dark:text-slate-100 ${themeInput}`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const val = tagSearch.trim();
+                              if (val && !newQuestionTags.includes(val)) {
+                                setNewQuestionTags([...newQuestionTags, val]);
+                                setTagSearch("");
+                              }
+                            }}
+                            className={`px-3 py-2 text-xs font-semibold rounded-xl shrink-0 ${themeBtnPrimary}`}
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    {newImage && (
-                      <div className={`mt-3 relative rounded-xl overflow-hidden border p-3 w-full max-h-96 flex items-center justify-center ${themeSurface} ${themeBorder}`}>
-                        <img src={newImage} alt="Preview" className="max-h-80 w-auto object-contain rounded-lg shadow-sm" />
-                        <button 
-                          type="button" 
+                  )}
+
+                  {/* ZONE 2: OPTIONS & ANSWER */}
+                  {activeZone === 2 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Options {newExamType === "KFT" ? `— Select ${newKfpCorrectCount} correct options (${newCorrectIndices.length}/${newKfpCorrectCount} marked)` : "& Single Correct Answer"}
+                          </label>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {newExamType === "KFT"
+                              ? "Tick the checkbox next to each correct option. Each is worth 1 mark."
+                              : "Click the radio button to select the single best answer."}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
                           onClick={() => {
-                            setNewImage("");
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = "";
-                            }
-                          }} 
-                          className="absolute top-3 right-3 p-1.5 rounded-full bg-slate-900/80 text-white hover:bg-slate-950 transition-all shadow-md"
+                            setNewQuestionOptions([...newQuestionOptions, ""]);
+                            setNewDistractorRationales([...newDistractorRationales, ""]);
+                          }}
+                          className="text-xs font-bold text-teal-700 hover:text-teal-600 dark:text-teal-400 flex items-center gap-1"
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Option
                         </button>
                       </div>
-                    )}
-                  </div>
 
-                  <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Rationale</label>
-                    <textarea rows={6} value={newRationale} onChange={(e) => setNewRationale(e.target.value)} className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`} placeholder="Explain the correct answer..." />
-                  </div>
-                  <div>
-                    <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Tags / Subtopics (Click to select/toggle)</label>
-                    <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-3 bg-slate-50/50 dark:bg-slate-900/30 rounded-xl border border-slate-100/60 dark:border-slate-800/40 mb-3">
-                      {(() => {
-                        const selectedTopics = newQuestionTopics;
-                        if (selectedTopics.length === 0) {
-                          return (
-                            <span className="text-xs text-slate-400">Please select a topic above first to view related subtopics.</span>
-                          );
-                        }
-
-                        const relatedTags = new Set<string>();
-
-                        // 1. Check custom topics
-                        const storedTopics = typeof window !== "undefined" ? getTopics() : [];
-                        storedTopics.forEach((t) => {
-                          if (selectedTopics.includes(t.name) && t.subtopicTags) {
-                            t.subtopicTags.forEach((tag) => relatedTags.add(tag));
-                          }
-                        });
-
-                        // 2. Check existing questions under these topics
-                        questions.forEach((q) => {
-                          const qTopics = q.topic.split(",").map((tp) => tp.trim());
-                          const hasOverlap = qTopics.some((tp) => selectedTopics.includes(tp));
-                          if (hasOverlap && q.tags) {
-                            q.tags.forEach((tag) => relatedTags.add(tag));
-                          }
-                        });
-
-                        const filteredTags = Array.from(relatedTags).filter(Boolean);
-
-                        if (filteredTags.length === 0) {
-                          return (
-                            <span className="text-xs text-slate-400">No related subtopics found for the selected topic(s). Add custom tags below.</span>
-                          );
-                        }
-
-                        return filteredTags.map((tag) => {
-                          const isSelected = newQuestionTags.includes(tag);
-                          return (
-                            <button
-                              type="button"
-                              key={tag}
-                              onClick={() => {
-                                if (isSelected) {
-                                  setNewQuestionTags(newQuestionTags.filter((t) => t !== tag));
-                                } else {
-                                  setNewQuestionTags([...newQuestionTags, tag]);
-                                }
+                      <div className="space-y-2.5">
+                        {newQuestionOptions.map((opt, idx) => (
+                          <div key={idx} className="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50/60 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800">
+                            {newExamType === "AKT" ? (
+                              <button
+                                type="button"
+                                onClick={() => setNewCorrectAnswer(String.fromCharCode(65 + idx))}
+                                className="flex items-center justify-center shrink-0 focus:outline-none"
+                                title="Mark as Correct Answer"
+                              >
+                                <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                                  newCorrectAnswer === String.fromCharCode(65 + idx)
+                                    ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 shadow-sm shadow-teal-900/30"
+                                    : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
+                                }`}>
+                                  {newCorrectAnswer === String.fromCharCode(65 + idx) && (
+                                    <div className="w-2 h-2 rounded-full bg-white" />
+                                  )}
+                                </div>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const isSelected = newCorrectIndices.includes(idx);
+                                  if (isSelected) {
+                                    setNewCorrectIndices(prev => prev.filter(i => i !== idx));
+                                  } else if (newCorrectIndices.length < newKfpCorrectCount) {
+                                    setNewCorrectIndices(prev => [...prev, idx].sort((a, b) => a - b));
+                                  }
+                                }}
+                                className="flex items-center justify-center shrink-0 focus:outline-none"
+                                title={newCorrectIndices.includes(idx) ? "Unmark correct" : newCorrectIndices.length >= newKfpCorrectCount ? `Limit of ${newKfpCorrectCount} reached` : "Mark correct (+1 mark)"}
+                              >
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                                  newCorrectIndices.includes(idx)
+                                    ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 text-white"
+                                    : newCorrectIndices.length >= newKfpCorrectCount
+                                    ? "border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 opacity-50"
+                                    : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
+                                }`}>
+                                  {newCorrectIndices.includes(idx) && (
+                                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </button>
+                            )}
+                            <span className="font-mono text-xs font-bold text-slate-500 dark:text-slate-400 w-5 text-center">
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                            <input
+                              type="text"
+                              value={opt}
+                              onChange={(e) => {
+                                const nextOpts = [...newQuestionOptions];
+                                nextOpts[idx] = e.target.value;
+                                setNewQuestionOptions(nextOpts);
                               }}
-                              className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-200 cursor-pointer ${
-                                isSelected
-                                  ? "bg-teal-700 border-teal-700 text-white shadow-sm shadow-teal-900/20"
-                                  : "bg-slate-50 text-slate-600 border-slate-200 hover:border-teal-300 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800"
-                              }`}
-                            >
-                              {tag}
-                            </button>
-                          );
-                        });
-                      })()}
-                    </div>
+                              className={`flex-1 text-xs px-3 py-2 rounded-lg border ${themeInput}`}
+                              placeholder={`Option ${String.fromCharCode(65 + idx)}...`}
+                            />
+                            {newQuestionOptions.length > 2 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextOpts = newQuestionOptions.filter((_, oidx) => oidx !== idx);
+                                  setNewQuestionOptions(nextOpts);
+                                  setNewDistractorRationales(newDistractorRationales.filter((_, oidx) => oidx !== idx));
+                                  if (newExamType === "AKT") {
+                                    if (newCorrectAnswer === String.fromCharCode(65 + idx)) {
+                                      setNewCorrectAnswer("A");
+                                    } else if (newCorrectAnswer.charCodeAt(0) - 65 > idx) {
+                                      setNewCorrectAnswer(String.fromCharCode(newCorrectAnswer.charCodeAt(0) - 1));
+                                    }
+                                  } else {
+                                    setNewCorrectIndices(prev =>
+                                      prev.filter(i => i !== idx).map(i => (i > idx ? i - 1 : i))
+                                    );
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
+                                title="Delete Option"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
 
+                      {/* whyCorrect Explanation */}
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Why Correct Explanation (Core Rationale)
+                          </label>
+                          <span className="text-[11px] text-slate-400">Explains the keyed answer(s)</span>
+                        </div>
+                        <textarea
+                          rows={4}
+                          value={newWhyCorrect}
+                          onChange={(e) => {
+                            setNewWhyCorrect(e.target.value);
+                            setNewRationale(e.target.value);
+                          }}
+                          className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                          placeholder="Explain clearly why the correct option(s) are indicated according to RACGP / ACRRM guidelines..."
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ZONE 3: EXPLANATIONS (Distractor Rationales, Knowledge Bank, Pearl) */}
+                  {activeZone === 3 && (
+                    <div className="space-y-4">
+                      {/* Per-option Distractor Rationales */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Per-Option Distractor Rationales (Optional)
+                          </label>
+                          <span className="text-[11px] text-slate-400">Why each specific option is incorrect</span>
+                        </div>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                          {newQuestionOptions.map((opt, idx) => (
+                            <div key={idx} className="p-2.5 bg-slate-50/60 dark:bg-slate-900/40 rounded-xl border border-slate-200/50 dark:border-slate-800">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400">
+                                  Option {String.fromCharCode(65 + idx)}:
+                                </span>
+                                <span className="text-xs text-slate-600 dark:text-slate-300 font-medium truncate">
+                                  {opt || `(Option ${String.fromCharCode(65 + idx)})`}
+                                </span>
+                              </div>
+                              <input
+                                type="text"
+                                value={newDistractorRationales[idx] || ""}
+                                onChange={(e) => {
+                                  const next = [...newDistractorRationales];
+                                  next[idx] = e.target.value;
+                                  setNewDistractorRationales(next);
+                                }}
+                                className={`w-full px-3 py-1.5 text-xs rounded-lg border ${themeInput}`}
+                                placeholder={`Why is ${String.fromCharCode(65 + idx)} incorrect / not first-line?`}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Knowledge Bank */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>
+                            Knowledge Bank (Clinical Background & Guidelines)
+                          </label>
+                          <span className="text-[11px] text-slate-400">Other relevant information about the testable point</span>
+                        </div>
+                        <textarea
+                          rows={3}
+                          value={newKnowledgeBank}
+                          onChange={(e) => setNewKnowledgeBank(e.target.value)}
+                          className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                          placeholder="Relevant guidelines, clinical thresholds (e.g. CHA2DS2-VASc, eGFR cutoffs), pharmacology pearls..."
+                        />
+                      </div>
+
+                      {/* Pearl */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5`}>
+                            <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            Clinical Pearl (Take-Home Line)
+                          </label>
+                          <span className="text-[11px] text-slate-400">The 1-sentence high-yield takeaway</span>
+                        </div>
+                        <input
+                          type="text"
+                          value={newPearl}
+                          onChange={(e) => setNewPearl(e.target.value)}
+                          className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all border-amber-300/80 dark:border-amber-900/60 bg-amber-50/30 dark:bg-amber-950/20 text-amber-950 dark:text-amber-200 focus:ring-2 focus:ring-amber-500/20`}
+                          placeholder="e.g. In inferior STEMI (II, III, aVF), always check right-sided leads (V4R) before giving nitrates."
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Modal Footer Controls */}
+                  <div className="flex items-center justify-between pt-4 border-t dark:border-slate-800">
                     <div className="flex gap-2">
-                      <input
-                        type="text"
-                        placeholder="Add custom tag if not listed above..."
-                        value={tagSearch}
-                        onChange={(e) => setTagSearch(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            const val = tagSearch.trim();
-                            if (val && !newQuestionTags.includes(val)) {
-                              setNewQuestionTags([...newQuestionTags, val]);
-                              setTagSearch("");
-                            }
-                          }
-                        }}
-                        className={`w-full px-4 py-2.5 text-sm rounded-xl transition-all dark:text-slate-100 ${themeInput}`}
-                      />
+                      {activeZone > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveZone((prev) => Math.max(1, prev - 1) as any)}
+                          className={themeBtnGhost}
+                        >
+                          &larr; Back
+                        </button>
+                      )}
+                      {activeZone < 3 && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveZone((prev) => Math.min(3, prev + 1) as any)}
+                          className={`px-3.5 py-2 text-xs font-semibold rounded-xl border ${themeBorder} ${themeSurface} hover:border-teal-500 transition-all`}
+                        >
+                          Next Zone &rarr;
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={() => {
+                        setShowAddModal(false);
+                        setEditingQuestion(null);
+                        resetAddForm();
+                      }} className={themeBtnGhost}>Cancel</button>
                       <button
-                        type="button"
-                        onClick={() => {
-                          const val = tagSearch.trim();
-                          if (val && !newQuestionTags.includes(val)) {
-                            setNewQuestionTags([...newQuestionTags, val]);
-                            setTagSearch("");
-                          }
-                        }}
-                        className={`px-4 py-2.5 text-xs font-semibold rounded-xl shrink-0 transition-all ${themeBtnPrimary}`}
+                        onClick={handleCreateQuestion}
+                        className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                       >
-                        Add
+                        {editingQuestion ? "Save Changes" : "Save & Publish"}
                       </button>
                     </div>
-                  </div>
-                  <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => {
-                      setShowAddModal(false);
-                      setEditingQuestion(null);
-                      resetAddForm();
-                    }} className={themeBtnGhost}>Cancel</button>
-                    <button
-                      onClick={handleCreateQuestion}
-                      className={`px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
-                    >
-                      {editingQuestion ? "Save Changes" : "Save & Publish"}
-                    </button>
                   </div>
                 </div>
               </div>
