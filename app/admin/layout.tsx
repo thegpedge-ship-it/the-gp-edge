@@ -6,8 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
 import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
-import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
-import MaintenanceBanner from "@/components/admin/MaintenanceBanner";
+
 
 const ADMIN_PROFILES = [
   { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
@@ -250,8 +249,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const showLoading = loading || (!isLoggedIn && !isAuthPage);
 
   return (
-    <MaintenanceProvider>
-      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
         {!isAuthPage && (
           <>
             {/* Backdrop for mobile sidebar */}
@@ -286,7 +284,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main
           className={isAuthPage ? "min-h-screen" : `admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
         >
-          {!isAuthPage && <MaintenanceBanner />}
           <div className={isAuthPage ? "" : "p-6 lg:p-8"}>
             {showLoading ? (
               <div className="min-h-[60vh] flex items-center justify-center font-sans">
@@ -306,6 +303,5 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </main>
       </div>
-    </MaintenanceProvider>
   );
 }

@@ -141,13 +141,23 @@ export default function SearchPage() {
 
   // Global search filters
   const matchedQuestions = hasResults
-    ? questions.filter(
-        (q) =>
-          q.text.toLowerCase().includes(query.toLowerCase()) ||
-          q.id.toString().includes(query) ||
-          q.topic.toLowerCase().includes(query.toLowerCase()) ||
-          (q.tags && q.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())))
-      )
+    ? questions.filter((q) => {
+        const qLower = query.trim().toLowerCase();
+        return (
+          (q.text && q.text.toLowerCase().includes(qLower)) ||
+          q.id.toString().includes(qLower) ||
+          (q.dbId && q.dbId.toLowerCase().includes(qLower)) ||
+          (q.uqid && q.uqid.toLowerCase().includes(qLower)) ||
+          (q.stem && q.stem.toLowerCase().includes(qLower)) ||
+          (q.leadIn && q.leadIn.toLowerCase().includes(qLower)) ||
+          (q.topic && q.topic.toLowerCase().includes(qLower)) ||
+          (Array.isArray(q.tags) && q.tags.some((t) => t.toLowerCase().includes(qLower))) ||
+          (Array.isArray(q.options) && q.options.some((opt) => opt.toLowerCase().includes(qLower))) ||
+          (q.whyCorrect && q.whyCorrect.toLowerCase().includes(qLower)) ||
+          (q.pearl && q.pearl.toLowerCase().includes(qLower)) ||
+          (q.knowledgeBank && q.knowledgeBank.toLowerCase().includes(qLower))
+        );
+      })
     : [];
 
   const matchedUsers = hasResults

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { currentUser } from "@clerk/nextjs/server";
 
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
@@ -12,20 +11,6 @@ export const dynamic = "force-dynamic";
  * Supports ?uqid=AKT-000142 for direct lookup and ?includeArchived=true.
  */
 export async function GET(req: NextRequest) {
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  try {
-    const clerkUser = await currentUser();
-    if (!clerkUser) {
-      return NextResponse.json(
-        { success: false, error: "Authentication required." },
-        { status: 401 }
-      );
-    }
-  } catch (accessErr) {
-    console.error("[GET /api/questions] access check error:", accessErr);
-    return NextResponse.json({ success: false, error: "Access check failed." }, { status: 403 });
-  }
-
   // ── DB fetch ──────────────────────────────────────────────────────────────
   try {
     const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
@@ -43,7 +28,22 @@ export async function GET(req: NextRequest) {
     if (searchParam) {
       params.push(`%${searchParam}%`);
       const p = params.length;
-      conditions.push(`(q.stem ILIKE $${p} OR q.lead_in ILIKE $${p} OR q.uqid ILIKE $${p} OR q.knowledge_bank ILIKE $${p} OR q.pearl ILIKE $${p})`);
+      conditions.push(`(
+        q.stem ILIKE $${p}
+        OR q.lead_in ILIKE $${p}
+        OR q.uqid ILIKE $${p}
+        OR q.id::text ILIKE $${p}
+        OR q.knowledge_bank ILIKE $${p}
+        OR q.pearl ILIKE $${p}
+        OR q.why_correct ILIKE $${p}
+        OR q.rationale ILIKE $${p}
+        OR s.name ILIKE $${p}
+        OR EXISTS (
+          SELECT 1 FROM question_tags qt
+          JOIN tags t ON t.id = qt.tag_id
+          WHERE qt.question_id = q.id AND t.label ILIKE $${p}
+        )
+      )`);
     }
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 

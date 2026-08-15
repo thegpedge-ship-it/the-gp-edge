@@ -233,15 +233,32 @@ export default function QuestionsPage() {
   })();
 
   const filtered = questions.filter((q) => {
-    const searchLower = searchQuery.toLowerCase();
+    const searchLower = searchQuery.trim().toLowerCase();
+    if (!searchLower) {
+      const matchStatus = statusFilter === "all" || q.status === statusFilter;
+      const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
+      const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
+      return matchStatus && matchTopic && matchDifficulty;
+    }
+
     const matchSearch =
-      q.text.toLowerCase().includes(searchLower) ||
-      q.id.toString().includes(searchQuery) ||
-      (q.uqid?.toLowerCase().includes(searchLower) ?? false) ||
-      (q.stem?.toLowerCase().includes(searchLower) ?? false) ||
-      (q.leadIn?.toLowerCase().includes(searchLower) ?? false) ||
-      (q.pearl?.toLowerCase().includes(searchLower) ?? false) ||
-      (q.knowledgeBank?.toLowerCase().includes(searchLower) ?? false);
+      (q.text && q.text.toLowerCase().includes(searchLower)) ||
+      q.id.toString().includes(searchLower) ||
+      (q.dbId && q.dbId.toLowerCase().includes(searchLower)) ||
+      (q.uqid && q.uqid.toLowerCase().includes(searchLower)) ||
+      (q.stem && q.stem.toLowerCase().includes(searchLower)) ||
+      (q.leadIn && q.leadIn.toLowerCase().includes(searchLower)) ||
+      (q.topic && q.topic.toLowerCase().includes(searchLower)) ||
+      (Array.isArray(q.tags) && q.tags.some((t) => t.toLowerCase().includes(searchLower))) ||
+      (Array.isArray(q.options) && q.options.some((opt) => opt.toLowerCase().includes(searchLower))) ||
+      (q.whyCorrect && q.whyCorrect.toLowerCase().includes(searchLower)) ||
+      (q.rationale && q.rationale.toLowerCase().includes(searchLower)) ||
+      (Array.isArray(q.distractorRationales) && q.distractorRationales.some((dr) => dr.toLowerCase().includes(searchLower))) ||
+      (q.pearl && q.pearl.toLowerCase().includes(searchLower)) ||
+      (q.knowledgeBank && q.knowledgeBank.toLowerCase().includes(searchLower)) ||
+      (q.examType && q.examType.toLowerCase().includes(searchLower)) ||
+      (q.difficulty && q.difficulty.toLowerCase().includes(searchLower));
+
     const matchStatus = statusFilter === "all" || q.status === statusFilter;
     const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
     const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
@@ -737,7 +754,7 @@ export default function QuestionsPage() {
       <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-center relative z-20">
         <div className="relative flex-1 max-w-sm">
           <svg className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${themeMuted}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input type="text" placeholder="Search questions..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-xl transition-all ${themeInput}`} />
+          <input type="text" placeholder="Search by ID, UQID, topic, subtopic/tag, question..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className={`w-full pl-10 pr-4 py-2.5 text-sm rounded-xl transition-all ${themeInput}`} />
         </div>
         <CustomSelect
           value={statusFilter}
