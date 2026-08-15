@@ -1,5 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { query } from "@/lib/db";
 import { AlertCircle } from "lucide-react";
 
@@ -18,9 +16,6 @@ interface CancellationRow {
 }
 
 export default async function AdminCancellationsPage() {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) redirect("/sign-in");
-
   // Fetch cancellation feedback records via raw SQL (bypasses Prisma client cache issues)
   let cancellations: CancellationRow[] = [];
   try {

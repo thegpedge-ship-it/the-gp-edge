@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 
 const STORAGE_KEY = "gpedge-visit-logged";
@@ -18,10 +19,12 @@ const localDayKey = () => {
  * via localStorage; the server upsert is idempotent regardless.
  */
 export default function VisitTracker() {
+  const pathname = usePathname();
   const { isSignedIn } = useAuth();
 
   useEffect(() => {
     if (!isSignedIn) return;
+    if (pathname?.startsWith("/admin")) return;
 
     const today = localDayKey();
     try {
