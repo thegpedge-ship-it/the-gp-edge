@@ -469,7 +469,7 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
   const [qRows, optionRows] = await Promise.all([
     prisma.questions.findMany({
       where: { id: { in: questionIds }, deleted_at: null },
-      select: { id: true, subject_id: true },
+      select: { id: true, subject_id: true, exam_type_code: true },
     }),
     prisma.question_options.findMany({
       where: { question_id: { in: questionIds } },
@@ -478,6 +478,7 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
   ]);
 
   const subjectByQ = new Map(qRows.map((q) => [q.id, q.subject_id]));
+  const examTypeByQ = new Map(qRows.map((q) => [q.id, (q.exam_type_code || "").toUpperCase()]));
 
   // Grade by the SAME 0-based option index the client uses: the client orders
   // options by ascending `position` and reports selectedIndex as the index into
@@ -498,36 +499,58 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
 
   const answerByQ = new Map(input.answers.map((a) => [a.questionId, a]));
 
-  // Grade against the DB, and aggregate per-subject. Unanswered questions are
-  // tracked too (for the per-attempt subject breakdown) but never feed mastery,
-  // which is correct / answered.
-  let correctCount = 0;
+  // Grade against the DB, and aggregate per-subject.
+  // KFP uses partial marking: each correct selection = 1 mark, total possible = number of correct options.
+  // AKT uses binary: 1 mark per question, all-or-nothing.
+  let totalEarnedMarks = 0;
+  let totalPossibleMarks = 0;
   const bySubject = new Map<string, { correct: number; incorrect: number; unanswered: number }>();
+  const bySubjectExam = new Map<string, { correct: number; incorrect: number; unanswered: number; examType: string }>();
 
   for (const qid of questionIds) {
     const selected = answerByQ.get(qid)?.selectedIndices ?? [];
     const answered = selected.length > 0;
     const flags = correctByRank.get(qid) ?? [];
     const correctSet = new Set(flags.map((isC, i) => (isC ? i : -1)).filter((i) => i >= 0));
-    const selectedSet = new Set(selected);
-    const isCorrect =
-      answered &&
-      correctSet.size === selectedSet.size &&
-      [...correctSet].every((i) => selectedSet.has(i));
-    if (isCorrect) correctCount++;
+    const qExamType = examTypeByQ.get(qid) || "AKT";
+    const isKfp = qExamType === "KFP" || qExamType === "KFT";
+
+    if (isKfp) {
+      const maxMarks = correctSet.size || 1;
+      totalPossibleMarks += maxMarks;
+      const earned = answered ? selected.filter((i) => correctSet.has(i)).length : 0;
+      totalEarnedMarks += earned;
+    } else {
+      totalPossibleMarks += 1;
+      const selectedSet = new Set(selected);
+      const isCorrect = answered && correctSet.size === selectedSet.size && [...correctSet].every((i) => selectedSet.has(i));
+      if (isCorrect) totalEarnedMarks += 1;
+    }
 
     const subjectId = subjectByQ.get(qid);
     if (subjectId) {
+      const earned = isKfp
+        ? (answered ? selected.filter((i) => correctSet.has(i)).length : 0)
+        : (answered && new Set(selected).size === correctSet.size && [...correctSet].every((i) => new Set(selected).has(i)) ? 1 : 0);
+
       const agg = bySubject.get(subjectId) ?? { correct: 0, incorrect: 0, unanswered: 0 };
       if (!answered) agg.unanswered++;
-      else if (isCorrect) agg.correct++;
+      else if (earned > 0) agg.correct++;
       else agg.incorrect++;
       bySubject.set(subjectId, agg);
+
+      const seKey = `${subjectId}:${qExamType}`;
+      const seAgg = bySubjectExam.get(seKey) ?? { correct: 0, incorrect: 0, unanswered: 0, examType: qExamType };
+      if (!answered) seAgg.unanswered++;
+      else if (earned > 0) seAgg.correct++;
+      else seAgg.incorrect++;
+      bySubjectExam.set(seKey, seAgg);
     }
   }
 
+  const correctCount = totalEarnedMarks;
   const totalQuestions = questionIds.length;
-  const scorePercent = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+  const scorePercent = totalPossibleMarks > 0 ? (totalEarnedMarks / totalPossibleMarks) * 100 : 0;
   const startedAt = input.startedAt ? new Date(input.startedAt) : new Date();
   const durationSeconds = input.durationSeconds ?? null;
   const now = new Date();
@@ -617,18 +640,18 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
         },
       });
 
-      // 3. Per-subject mastery rollup (weak / developing / strong).
-      //    Prefetch every affected row in ONE query rather than a findUnique
-      //    per subject — on a slow/remote DB the 6+ sequential round-trips here
-      //    were overrunning the 5s interactive-transaction timeout, rolling the
-      //    whole save back (attempt + score never persisted).
-      const subjectIds = [...bySubject.keys()];
+      // 3. Per-subject-per-exam-type mastery rollup (weak / developing / strong).
+      //    Keyed by (user_id, subject_id, exam_type_code) so AKT and KFP mastery
+      //    are tracked independently.
+      const seKeys = [...bySubjectExam.keys()];
+      const seSubjectIds = [...new Set(seKeys.map((k) => k.split(":")[0]))];
       const existingMastery = await tx.user_subject_mastery.findMany({
-        where: { user_id: dbUser.id, subject_id: { in: subjectIds } },
+        where: { user_id: dbUser.id, subject_id: { in: seSubjectIds } },
       });
-      const masteryBySubject = new Map(existingMastery.map((r) => [r.subject_id, r]));
-      for (const [subjectId, agg] of bySubject) {
-        const existing = masteryBySubject.get(subjectId);
+      const masteryMap = new Map(existingMastery.map((r) => [`${r.subject_id}:${r.exam_type_code}`, r]));
+      for (const [seKey, agg] of bySubjectExam) {
+        const [subjectId, examType] = seKey.split(":");
+        const existing = masteryMap.get(seKey);
         const total = (existing?.total_answered ?? 0) + agg.correct + agg.incorrect;
         const correct = (existing?.correct_count ?? 0) + agg.correct;
         const incorrect = (existing?.incorrect_count ?? 0) + agg.incorrect;
@@ -637,10 +660,17 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
           masteryPercent >= 75 ? "strong" : masteryPercent >= 50 ? "developing" : "weak";
 
         await tx.user_subject_mastery.upsert({
-          where: { user_id_subject_id: { user_id: dbUser.id, subject_id: subjectId } },
+          where: {
+            user_id_subject_id_exam_type_code: {
+              user_id: dbUser.id,
+              subject_id: subjectId,
+              exam_type_code: examType,
+            },
+          },
           create: {
             user_id: dbUser.id,
             subject_id: subjectId,
+            exam_type_code: examType,
             correct_count: agg.correct,
             incorrect_count: agg.incorrect,
             total_answered: agg.correct + agg.incorrect,
@@ -822,7 +852,7 @@ export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<n
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
-    where: { user_id: dbUser.id },
+    where: { user_id: dbUser.id, exam_type_code: examCode },
     orderBy: { mastery_percent: "asc" },
     select: { subject_id: true },
     take: 5,
@@ -845,7 +875,7 @@ export async function buildMockDrillQuestionSet(params: {
   const examCode = params.examCode ?? examCodeFromTarget(dbUser.exam_target);
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
-    where: { user_id: dbUser.id },
+    where: { user_id: dbUser.id, exam_type_code: examCode },
     orderBy: { mastery_percent: "asc" },
     select: { subject_id: true },
     take: 5,

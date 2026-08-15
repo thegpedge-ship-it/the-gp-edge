@@ -178,9 +178,13 @@ export async function getDashboardData(): Promise<DashboardData> {
         }),
 
       // 3. Per-subject mastery rollup (drives Subject Mastery + weak/strong).
+      //    Filtered by the user's exam target so AKT and KFP mastery are separate.
       prisma.user_subject_mastery
         .findMany({
-          where: { user_id: dbUser.id },
+          where: {
+            user_id: dbUser.id,
+            exam_type_code: (dbUser.exam_target || "").toUpperCase().includes("KFP") ? "KFP" : "AKT",
+          },
           orderBy: { mastery_percent: "desc" },
           select: {
             correct_count: true,

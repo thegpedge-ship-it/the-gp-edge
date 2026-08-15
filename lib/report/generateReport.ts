@@ -46,10 +46,10 @@ function aggregate(data: ReportData, key: "topic" | "difficulty") {
   for (const q of data.questions) {
     const k = q[key] || "General";
     const entry = map.get(k) ?? { correct: 0, total: 0 };
-    entry.total += 1;
-    const cSet = new Set(q.correctIndices);
-    const sSet = new Set(q.selectedIndices);
-    if (sSet.size > 0 && cSet.size === sSet.size && [...cSet].every((i) => sSet.has(i))) entry.correct += 1;
+    const maxMarks = q.maxMarks ?? 1;
+    const earned = q.earnedMarks ?? 0;
+    entry.total += maxMarks;
+    entry.correct += earned;
     map.set(k, entry);
   }
   return map;
@@ -207,6 +207,16 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     }
   };
 
+  const sanitizePdfText = (t: string) =>
+    t.replace(/[‘’]/g, "'")
+     .replace(/[“”]/g, '"')
+     .replace(/–/g, "-")
+     .replace(/—/g, "--")
+     .replace(/…/g, "...")
+     .replace(/≥/g, ">=")
+     .replace(/≤/g, "<=")
+     .replace(/±/g, "+/-");
+
   const writeWrapped = (
     text: string,
     x: number,
@@ -218,8 +228,9 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   ) => {
     doc.setFont("helvetica", style);
     doc.setFontSize(size);
+    doc.setCharSpace(0);
     setText(color);
-    const lines = doc.splitTextToSize(text, maxW);
+    const lines = doc.splitTextToSize(sanitizePdfText(text), maxW);
     for (const line of lines) {
       ensure(lineH);
       doc.text(line, x, y);
@@ -334,7 +345,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
       doc.setFontSize(8.5);
       doc.text("EXPLANATION", PAGE.margin + 12, y);
       y += 12;
-      writeWrapped(q.rationale.trim(), PAGE.margin + 12, CONTENT_W - 24, 9.5, C.slate700, "normal");
+      writeWrapped(q.rationale.trim(), PAGE.margin + 12, CONTENT_W - 36, 9, C.slate700, "normal");
       // left accent bar spanning the explanation
       setFill(C.emerald);
       doc.rect(PAGE.margin + 4, boxTop, 2.5, y - boxTop - 3, "F");

@@ -304,13 +304,14 @@ model condition_tags {
 }
 
 model exam_types {
-  code             String             @id
-  name             String
-  mock_tests       mock_tests[]
-  questions        questions[]
-  quiz_configs     quiz_configs[]
-  quizzes          quizzes[]
-  user_preferences user_preferences[]
+  code                 String                 @id
+  name                 String
+  mock_tests           mock_tests[]
+  questions            questions[]
+  quiz_configs         quiz_configs[]
+  quizzes              quizzes[]
+  user_preferences     user_preferences[]
+  user_subject_mastery user_subject_mastery[]
 }
 
 model features {
@@ -997,6 +998,7 @@ model user_saved_templates {
 model user_subject_mastery {
   user_id         String            @db.Uuid
   subject_id      String            @db.Uuid
+  exam_type_code  String            @default("AKT")
   correct_count   Int               @default(0)
   incorrect_count Int               @default(0)
   total_answered  Int               @default(0)
@@ -1004,10 +1006,11 @@ model user_subject_mastery {
   strength        subject_strength?
   last_attempt_at DateTime?         @db.Timestamptz(6)
   updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  exam_types      exam_types        @relation(fields: [exam_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   subjects        subjects          @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users           users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@id([user_id, subject_id])
+  @@id([user_id, subject_id, exam_type_code])
   @@index([user_id, strength], map: "idx_mastery_user_strength")
 }
 

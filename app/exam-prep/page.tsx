@@ -176,9 +176,6 @@ export default function ExamPrepPage() {
                 );
               })}
             </div>
-            <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">
-              {examMode === "AKT" ? "Single correct answer" : "Multiple correct answers"}
-            </span>
           </div>
         </div>
 
@@ -249,7 +246,7 @@ export default function ExamPrepPage() {
                     <div className="flex items-center justify-center w-4 h-4 lg:w-5 lg:h-5 rounded-full bg-slate-200/80 dark:bg-slate-700/80 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors duration-200 cursor-default">
                       <Info className="w-2.5 h-2.5 lg:w-3 lg:h-3 text-slate-500 dark:text-slate-400" strokeWidth={2.5} />
                     </div>
-                    <div className="info-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl text-xs font-medium leading-snug text-white bg-slate-800 dark:bg-slate-700 shadow-lg opacity-0 pointer-events-none transition-all duration-200 w-52 z-30 text-center">
+                    <div className="info-tooltip absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl text-xs font-medium leading-snug text-white bg-slate-800 dark:bg-slate-700 shadow-lg opacity-0 pointer-events-none transition-all duration-200 w-52 z-[60] text-center">
                       {opt.info}
                       <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-800 dark:bg-slate-700 rotate-45 -mt-1" />
                     </div>
@@ -351,6 +348,12 @@ export default function ExamPrepPage() {
         .info-trigger:hover .info-tooltip {
           opacity: 1;
           pointer-events: auto;
+        }
+        .info-trigger:hover {
+          z-index: 50;
+        }
+        button:has(.info-trigger:hover) {
+          z-index: 50;
         }
       `}</style>
     </div>
