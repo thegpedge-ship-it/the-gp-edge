@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
-import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, AlertTriangle, HelpCircle, X } from "lucide-react";
+import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, AlertTriangle, HelpCircle, X, Bookmark } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
 
 function AnimatedScoreCircle({ score }: { score: number }) {
@@ -78,8 +78,9 @@ import { generateReportBlob } from "@/lib/report/generateReport";
 import { saveReport } from "@/lib/report/reportStore";
 import TestNotFound from "@/components/test/TestNotFound";
 import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
+import ClockLoader from "@/components/exam-prep/ClockLoader";
 
-type QuestionStatus = "answered" | "not-answered" | "not-visited";
+type QuestionStatus = "marked" | "answered" | "not-answered" | "not-visited";
 
 function formatTime(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -95,6 +96,8 @@ function paletteClasses(status: QuestionStatus, isCurrent: boolean): string {
     "w-8 h-8 rounded-lg border text-xs font-semibold flex items-center justify-center transition-all duration-150 hover:scale-105 cursor-pointer";
   const ring = isCurrent ? " ring-2 ring-teal-600 dark:ring-teal-400 ring-offset-2 dark:ring-offset-slate-900 font-bold" : "";
   switch (status) {
+    case "marked":
+      return `${base} bg-amber-500 border-amber-500 text-white shadow-xs${ring}`;
     case "answered":
       return `${base} bg-emerald-500 border-emerald-500 text-white shadow-xs${ring}`;
     case "not-answered":
@@ -304,6 +307,9 @@ function QuestionPalette({
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Not Answered
           </div>
           <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Marked for Review
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" /> Not Visited
           </div>
         </div>
@@ -334,6 +340,7 @@ export default function TestPage() {
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
+  const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [timeLeft, setTimeLeft] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -678,7 +685,17 @@ export default function TestPage() {
     closeFeedback();
   };
 
+  const toggleFlagged = () => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      if (next.has(current)) next.delete(current);
+      else next.add(current);
+      return next;
+    });
+  };
+
   const getStatus = (index: number): QuestionStatus => {
+    if (flagged.has(index)) return "marked";
     if (answers[index] !== undefined && answers[index].length > 0) return "answered";
     if (visited.has(index)) return "not-answered";
     return "not-visited";
@@ -894,6 +911,10 @@ export default function TestPage() {
   /* ─── Test screen ────────────────────────────────────────────────── */
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
+  const isLastQuestion = current === questions.length - 1;
+  const isFlagged = flagged.has(current);
+  const questionProgressPercent = questions.length > 0 ? Math.min(100, Math.max(0, ((current + 1) / questions.length) * 100)) : 0;
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-3 sm:p-4 lg:p-6 gap-4 overflow-hidden">
 
@@ -983,19 +1004,21 @@ export default function TestPage() {
                 </div>
               )}
 
-              <button
-                onClick={() => setShowConfirm(true)}
-                className="px-4 sm:px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all duration-150 cursor-pointer whitespace-nowrap"
-              >
-                Submit<span className="hidden sm:inline"> Test</span>
-              </button>
+              {!isLastQuestion && (
+                <button
+                  onClick={() => setShowConfirm(true)}
+                  className="px-4 sm:px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all duration-150 cursor-pointer whitespace-nowrap"
+                >
+                  Submit<span className="hidden sm:inline"> Test</span>
+                </button>
+              )}
             </div>
           </div>
           
           <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div 
               className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300 ease-out" 
-              style={{ width: `${((current + 1) / questions.length) * 100}%` }}
+              style={{ width: `${questionProgressPercent}%` }}
             />
           </div>
           
@@ -1129,21 +1152,36 @@ export default function TestPage() {
 
         {/* Bottom Navigation */}
         <div className="flex-shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/60">
-          <button
-            onClick={clearResponse}
-            disabled={selectedOptions.length === 0}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ${
-              selectedOptions.length === 0
-                ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span className="hidden sm:inline">Clear Response</span>
-            <span className="sm:hidden">Clear</span>
-          </button>
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
+            <button
+              onClick={clearResponse}
+              disabled={selectedOptions.length === 0}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ${
+                selectedOptions.length === 0
+                  ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                  : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span className="hidden sm:inline">Clear Response</span>
+              <span className="sm:hidden">Clear</span>
+            </button>
+
+            <button
+              onClick={toggleFlagged}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                isFlagged
+                  ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300/80 dark:border-amber-700/60 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+              }`}
+            >
+              <Bookmark className={`w-4 h-4 ${isFlagged ? "fill-amber-500 text-amber-500" : ""}`} strokeWidth={1.8} />
+              <span className="hidden sm:inline">{isFlagged ? "Marked for Review" : "Mark for Review"}</span>
+              <span className="sm:hidden">{isFlagged ? "Marked" : "Review"}</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <button
@@ -1157,17 +1195,21 @@ export default function TestPage() {
             >
               &larr;<span className="hidden sm:inline"> Previous</span>
             </button>
-            <button
-              onClick={() => goTo(current + 1)}
-              disabled={current === questions.length - 1}
-              className={`flex items-center gap-2 px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
-                current === questions.length - 1
-                  ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                  : "bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow cursor-pointer"
-              }`}
-            >
-              Next &rarr;
-            </button>
+            {isLastQuestion ? (
+              <button
+                onClick={() => setShowConfirm(true)}
+                className="flex items-center justify-center gap-2 px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow cursor-pointer"
+              >
+                Submit Test
+              </button>
+            ) : (
+              <button
+                onClick={() => goTo(current + 1)}
+                className="flex items-center gap-2 px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow cursor-pointer"
+              >
+                Next &rarr;
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1307,24 +1349,11 @@ export default function TestPage() {
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
               className="relative w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
             >
-              {/* Header Row: Hourglass Badge + Title/Subtitle + Close Button */}
+              {/* Header Row: Clock Loader + Title/Subtitle + Close Button */}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-4">
-                  {/* Green Tinted Hourglass Icon Box */}
-                  <div className="w-14 h-14 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100/60 dark:border-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
-                    <motion.div
-                      animate={{ rotate: [0, 180, 180, 360, 360] }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        times: [0, 0.4, 0.5, 0.9, 1],
-                      }}
-                      className="flex items-center justify-center"
-                    >
-                      <Hourglass className="w-6 h-6" strokeWidth={1.8} />
-                    </motion.div>
-                  </div>
+                  {/* Standalone Clock Loader positioned slightly lower */}
+                  <ClockLoader className="shrink-0 mt-2.5 ml-1" />
 
                   {/* Title & Subtitle */}
                   <div>

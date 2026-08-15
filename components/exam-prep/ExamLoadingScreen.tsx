@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
+import ClockLoader from "@/components/exam-prep/ClockLoader";
 
 const STAGES = [
   { key: "connecting", label: "Connecting" },

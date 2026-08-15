@@ -614,15 +614,17 @@ export default function ExamPrepSimulation() {
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{currentQ.label}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">03:59:54</span>
-                  <button
-                    id="btn-submit-header"
-                    onClick={() => setShowSubmitModal(true)}
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                      isSubmitHovered ? "bg-red-600 text-white shadow-md shadow-red-500/20 scale-105" : "bg-teal-500 text-white hover:bg-teal-600"
-                    }`}
-                  >
-                    Submit Test
-                  </button>
+                  {questionIndex < questions.length - 1 && (
+                    <button
+                      id="btn-submit-header"
+                      onClick={() => setShowSubmitModal(true)}
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                        isSubmitHovered ? "bg-red-600 text-white shadow-md shadow-red-500/20 scale-105" : "bg-teal-500 text-white hover:bg-teal-600"
+                      }`}
+                    >
+                      Submit Test
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -691,7 +693,7 @@ export default function ExamPrepSimulation() {
                       isNextHovered ? "bg-teal-600 shadow-md shadow-teal-500/20 scale-105" : "bg-teal-500 hover:bg-teal-600"
                     }`}
                   >
-                    {questionIndex === questions.length - 1 ? "Submit →" : "Next →"}
+                    {questionIndex === questions.length - 1 ? "Submit Test" : "Next →"}
                   </button>
                 </div>
               </div>

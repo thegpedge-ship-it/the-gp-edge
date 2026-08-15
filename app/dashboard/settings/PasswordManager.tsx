@@ -38,15 +38,15 @@ function PwInput({
         }}
         placeholder={placeholder}
         autoComplete={id === "current-password" ? "current-password" : "new-password"}
-        className="w-full pl-3.5 pr-10 py-2 rounded-lg border border-slate-200 bg-white
-                   text-sm text-slate-800 placeholder-slate-400
+        className="w-full pl-3.5 pr-10 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800
+                   text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500
                    focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-500
-                   hover:border-slate-300 transition-all duration-150"
+                   hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-150"
       />
       <button
         type="button"
         onClick={onToggle}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
         aria-label={show ? "Hide password" : "Show password"}
       >
         {show ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -135,32 +135,36 @@ export default function PasswordManager() {
 
       {!open ? (
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-2 px-3.5 py-2 rounded-lg border border-slate-200 bg-slate-50">
-            <Lock size={14} className="text-slate-400 flex-shrink-0" />
-            <span className="text-sm text-slate-600">
-              {hasPassword
-                ? "Password set · ••••••••"
-                : "No password - you sign in with Google"}
+          <div className="relative flex-1">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <Lock size={13} />
             </span>
+            <input
+              type="password"
+              value="••••••••••••"
+              readOnly
+              className="w-full pl-10 pr-3.5 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-sm cursor-not-allowed select-all focus:outline-none"
+            />
           </div>
           <button
             type="button"
             onClick={() => {
               setOpen(true);
-              setDone(false);
+              reset();
             }}
-            className="flex-shrink-0 px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap"
+            className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex-shrink-0 cursor-pointer"
           >
-            {hasPassword ? "Change" : "Add password"}
+            {hasPassword ? "Change password" : "Add password"}
           </button>
         </div>
       ) : (
-        <div className="space-y-2.5 rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-          {!hasPassword && (
-            <p className="text-[11px] text-slate-500">
-              Optional — add a password so you can also sign in with your email, not just Google.
+        <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+              {hasPassword ? "Change Password" : "Set a Password"}
             </p>
-          )}
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">Min 8 characters</p>
+          </div>
 
           {hasPassword && (
             <PwInput
@@ -193,7 +197,7 @@ export default function PasswordManager() {
           />
 
           {error && (
-            <div className="flex items-start gap-1.5 text-red-600">
+            <div className="flex items-start gap-1.5 text-red-600 dark:text-red-400">
               <AlertCircle size={13} className="flex-shrink-0 mt-0.5" />
               <p className="text-[12px] font-medium">{error}</p>
             </div>
@@ -206,7 +210,7 @@ export default function PasswordManager() {
                 setOpen(false);
                 reset();
               }}
-              className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-all"
+              className="px-3 py-1.5 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -214,8 +218,8 @@ export default function PasswordManager() {
               type="button"
               onClick={() => handleSubmit()}
               disabled={busy}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-60
-                         text-white text-sm font-semibold rounded-lg transition-all duration-150"
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 disabled:opacity-60
+                         text-white text-sm font-semibold rounded-lg transition-all duration-150 cursor-pointer"
             >
               {busy ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
               {hasPassword ? "Update Password" : "Set Password"}

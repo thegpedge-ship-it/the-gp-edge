@@ -78,11 +78,13 @@ export default function InstructionsPage() {
         .ui-checkbox {
           --primary-color: #0d9488;
           --secondary-color: #fff;
-          --checkbox-diameter: 18px;
-          --checkbox-border-radius: 5px;
+          --primary-hover-color: #0f766e;
+          --checkbox-diameter: 20px;
+          --checkbox-border-radius: 6px;
           --checkbox-border-color: #cbd5e1;
           --checkbox-border-width: 1.5px;
-          --checkmark-size: 1.1;
+          --checkbox-border-style: solid;
+          --checkmark-size: 1.15;
         }
 
         .dark .ui-checkbox {
@@ -90,22 +92,67 @@ export default function InstructionsPage() {
           --checkbox-border-color: #475569;
         }
 
+        .ui-checkbox, 
+        .ui-checkbox *, 
+        .ui-checkbox *::before, 
+        .ui-checkbox *::after {
+          -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+        }
+
         .ui-checkbox {
           -webkit-appearance: none;
+          -moz-appearance: none;
           appearance: none;
           width: var(--checkbox-diameter);
           height: var(--checkbox-diameter);
           border-radius: var(--checkbox-border-radius);
           background: var(--secondary-color);
-          border: var(--checkbox-border-width) solid var(--checkbox-border-color);
-          transition: all 0.2s ease;
+          border: var(--checkbox-border-width) var(--checkbox-border-style) var(--checkbox-border-color);
+          -webkit-transition: all 0.3s;
+          -o-transition: all 0.3s;
+          transition: all 0.3s;
           cursor: pointer;
           position: relative;
           flex-shrink: 0;
         }
 
+        .ui-checkbox::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          -webkit-box-shadow: 0 0 0 calc(var(--checkbox-diameter) / 2.5) var(--primary-color);
+          box-shadow: 0 0 0 calc(var(--checkbox-diameter) / 2.5) var(--primary-color);
+          border-radius: inherit;
+          opacity: 0;
+          -webkit-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+          -o-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+          transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+        }
+
+        .ui-checkbox::before {
+          top: 42%;
+          left: 50%;
+          content: "";
+          position: absolute;
+          width: 5px;
+          height: 9px;
+          border-right: 2px solid #fff;
+          border-bottom: 2px solid #fff;
+          -webkit-transform: translate(-50%, -50%) rotate(45deg) scale(0);
+          -ms-transform: translate(-50%, -50%) rotate(45deg) scale(0);
+          transform: translate(-50%, -50%) rotate(45deg) scale(0);
+          opacity: 0;
+          -webkit-transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+          -o-transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+          transition: all 0.1s cubic-bezier(0.71, -0.46, 0.88, 0.6),opacity 0.1s;
+        }
+
         .ui-checkbox:hover {
-          border-color: var(--primary-color);
+          border-color: var(--primary-hover-color);
         }
 
         .ui-checkbox:checked {
@@ -113,23 +160,23 @@ export default function InstructionsPage() {
           border-color: transparent;
         }
 
-        .ui-checkbox::before {
-          content: "";
-          position: absolute;
-          top: 40%;
-          left: 50%;
-          width: 4px;
-          height: 7px;
-          border-right: 2px solid #fff;
-          border-bottom: 2px solid #fff;
-          transform: translate(-50%, -50%) rotate(45deg) scale(0);
-          opacity: 0;
-          transition: all 0.15s ease;
-        }
-
         .ui-checkbox:checked::before {
           opacity: 1;
+          -webkit-transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
+          -ms-transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
           transform: translate(-50%, -50%) rotate(45deg) scale(var(--checkmark-size));
+          -webkit-transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+          -o-transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+          transition: all 0.2s cubic-bezier(0.12, 0.4, 0.29, 1.46) 0.1s;
+        }
+
+        .ui-checkbox:active:not(:checked)::after {
+          -webkit-transition: none;
+          -o-transition: none;
+          -webkit-box-shadow: none;
+          box-shadow: none;
+          transition: none;
+          opacity: 1;
         }
       `}</style>
 
@@ -297,7 +344,7 @@ export default function InstructionsPage() {
               type="checkbox"
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
-              className="w-5 h-5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600 shrink-0"
+              className="ui-checkbox"
             />
             <span className="text-sm sm:text-[15px] font-medium text-slate-800 dark:text-slate-200 leading-normal">
               I have read and understood the instructions. I am ready to begin the test.

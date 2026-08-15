@@ -139,18 +139,20 @@ function PlanCard({
 
   return (
     <div
-      className="
+      className={`
         relative flex flex-col justify-between w-full max-w-md mx-auto p-6 md:p-7 
-        transition-all duration-500 rounded-[20px] select-none
-        hover:scale-[1.02] active:scale-[0.99]
-        bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-md hover:border-slate-300 dark:hover:border-slate-700
-      "
+        transition-all duration-300 rounded-2xl select-none
+        ${isThisSpecificPlan
+          ? "bg-white dark:bg-slate-900 border-2 border-teal-600 dark:border-teal-500 shadow-md"
+          : "bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs hover:border-slate-300 dark:hover:border-slate-700 hover:scale-[1.01]"
+        }
+      `}
     >
       {/* Top Badge for Active Plan */}
       {isThisSpecificPlan && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3.5 py-1 rounded-xl text-white text-[10px] font-extrabold tracking-widest uppercase shadow-sm whitespace-nowrap bg-emerald-600 dark:bg-emerald-500">
-          <Star className="w-3 h-3 fill-current" />
-          Your Active Plan
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-200/80 dark:border-teal-800/60 mb-3.5 self-start">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-600 dark:bg-teal-400" />
+          Current Active Plan
         </div>
       )}
 
@@ -247,8 +249,8 @@ function PlanCard({
           w-full py-3.5 px-5 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer
           disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]
           ${isThisSpecificPlan
-            ? "bg-emerald-100 dark:bg-emerald-955/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300/80 dark:border-emerald-700/80 shadow-sm"
-            : "bg-[#387e59] hover:bg-[#2d6648] dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/20"
+            ? "bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs font-semibold cursor-default"
+            : "bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow"
           }
         `}
       >
@@ -330,29 +332,35 @@ function AccessBanner({
     : null;
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-6 py-5 rounded-2xl bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/60 dark:border-emerald-800/40 mb-8 select-none max-w-4xl w-full mx-auto">
-      <div className="flex items-center gap-3 w-full">
+    <div className="w-full max-w-4xl mx-auto mb-6 sm:mb-8 select-none">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-5 sm:px-6 py-3 sm:py-3.5 rounded-xl bg-white dark:bg-slate-900 border border-teal-500/30 dark:border-teal-500/30 shadow-2xs transition-all">
         <div>
-          <p className="text-base font-semibold text-emerald-900 dark:text-emerald-200">
-            Active plan: {levelLabel[currentAccessLevel] ?? currentAccessLevel}
-            {cancelAtPeriodEnd && <span className="ml-2 text-xs font-bold uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-xl">Canceled</span>}
-          </p>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
+              Active Plan: <span className="text-teal-600 dark:text-teal-400 font-semibold">{levelLabel[currentAccessLevel] ?? currentAccessLevel}</span>
+            </p>
+            {cancelAtPeriodEnd && (
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 px-2 py-0.5 rounded-md">
+                Canceled
+              </span>
+            )}
+          </div>
           {expiryText && (
-            <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-0.5">{expiryText}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">{expiryText}</p>
           )}
         </div>
-      </div>
-      
-      <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto shrink-0">
-        <button
-          type="button"
-          onClick={() => handlePortalRedirect("invoice")}
-          disabled={pendingAction !== null}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 hover:border-emerald-400 text-emerald-800 dark:text-emerald-200 text-xs font-semibold shadow-sm transition-all disabled:opacity-60"
-        >
-          {pendingAction === "invoice" ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
-          Download Invoices
-        </button>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => handlePortalRedirect("invoice")}
+            disabled={pendingAction !== null}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-teal-500 dark:hover:border-teal-400 text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-teal-300 text-xs font-semibold shadow-2xs transition-all disabled:opacity-60 cursor-pointer whitespace-nowrap"
+          >
+            {pendingAction === "invoice" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />}
+            Download Invoices
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -441,39 +449,30 @@ export default function PricingPageClient({
 
       <div className="w-full pb-20 pt-4 px-4 md:px-8 max-w-7xl flex flex-col mx-auto">
         {/* ── Section 1: Hero Section ───────────────────────────────────────── */}
-        <section className="mb-12 w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-8 md:gap-12">
-          {/* Left Side Text Content */}
-          <div className="flex-1 flex flex-col items-start text-left max-w-2xl">
-            {/* Small Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-955/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 uppercase tracking-[0.14em] mb-4">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              {isFellow ? "Post-Registrar & Fellow Plans" : "Registrar & Exam Prep Plans"}
-            </div>
-
-            {/* Large Heading */}
-            <h1 className="font-serif text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-tight text-slate-900 dark:text-slate-50 mb-4">
-              {isFellow
-                ? "Fellowship & Clinical Tools Plans"
-                : "Invest in your fellowship success"}
-            </h1>
-
-
+        <section className="mb-8 w-full flex flex-col items-center text-center justify-center max-w-3xl mx-auto">
+          {/* Small Badge */}
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-955/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 uppercase tracking-[0.14em] mb-4">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            {isFellow ? "Post-Registrar & Fellow Plans" : "Registrar & Exam Prep Plans"}
           </div>
 
-          {/* Right Side Illustration */}
-          <div className="shrink-0 flex items-center justify-center w-56 md:w-72 lg:w-80">
-            <Image
-              src="/assets/pricing_page.png"
-              alt="GP Fellowship Exam Success Illustration"
-              width={340}
-              height={280}
-              priority
-              className="w-full h-auto object-contain drop-shadow-xl dark:drop-shadow-[0_10px_30px_rgba(255,255,255,0.05)] transition-transform duration-300 hover:scale-[1.02]"
-            />
-          </div>
+          {/* Large Heading */}
+          <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-slate-900 dark:text-slate-50 max-w-2xl mx-auto">
+            {isFellow ? (
+              <>
+                Fellowship &amp; <br />
+                Clinical Tools Plans
+              </>
+            ) : (
+              <>
+                Invest in your <br />
+                fellowship success
+              </>
+            )}
+          </h1>
         </section>
 
         {/* ── Active Access Banner ───────────────────────────────────────────── */}

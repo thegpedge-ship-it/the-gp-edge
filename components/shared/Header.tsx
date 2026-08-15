@@ -16,6 +16,7 @@ const MENU_LINKS: { href: string; label: string }[] = [
   { href: "/", label: "Home" },
   { href: "/exam-prep", label: "Exam Prep" },
   { href: "/dashboard/pricing", label: "Pricing" },
+  { href: "/#about", label: "About Us" },
 ];
 
 // Custom reactive authentication state wrappers since SignedIn/SignedOut are removed in this Clerk version
@@ -86,11 +87,10 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
     variant === "static"
       ? "relative w-full bg-transparent border-none shadow-none"
       : "fixed top-6 inset-x-0 w-full z-50 bg-transparent border-none shadow-none";
-
   const innerClass =
     variant === "static"
-      ? "w-[92%] max-w-[760px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 lg:px-8 py-3 flex items-center justify-between transition-all duration-300"
-      : "w-[92%] max-w-[760px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 lg:px-8 py-3 flex items-center justify-between transition-all duration-500 ease-in-out";
+      ? "w-[90%] max-w-[690px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 py-2.5 flex items-center justify-between transition-all duration-300"
+      : "w-[90%] max-w-[690px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 py-2.5 flex items-center justify-between transition-all duration-500 ease-in-out";
 
   return (
     <header className={outerClass}>
@@ -126,7 +126,6 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
            >
              Exam Prep
            </Link>
- 
 
            <Link
              href="/dashboard/pricing"
@@ -137,6 +136,17 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
              }`}
            >
              Pricing
+           </Link>
+
+           <Link
+             href="/#about"
+             className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
+               pathname === "/#about"
+                 ? "text-teal-600 dark:text-teal-400 font-semibold"
+                 : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
+             }`}
+           >
+             About Us
            </Link>
          </nav>
  
