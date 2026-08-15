@@ -125,7 +125,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       return null;
     };
 
-    const results: { text: string; dbId: string }[] = [];
+    const results: { text: string; dbId: string; uqid?: string }[] = [];
 
     for (const q of questionsList) {
       if (!q.text || !q.text.trim()) continue;
@@ -278,6 +278,8 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         questionId = questionByStem.get(stemKey)!;
       }
 
+      let finalUqid = q.uqid;
+
       if (questionId) {
         if (adminUser) {
           const permCheck = await evaluateRelationalPermission({
@@ -291,6 +293,26 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         }
         const isKftOrKfp = examTypeCode === "KFT" || examTypeCode === "KFP";
         const correctCount = isKftOrKfp ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null;
+
+        // Fetch current question's exam_type_code and uqid to see if exam type changed
+        const currentQ = await queryOne<{ exam_type_code: string; uqid: string }>(
+          `SELECT exam_type_code, uqid FROM questions WHERE id = $1`,
+          [questionId]
+        );
+
+        const currentExamType = (currentQ?.exam_type_code || "AKT").toUpperCase();
+        const targetExamType = examTypeCode.toUpperCase();
+
+        if (currentQ && currentExamType !== targetExamType) {
+          // Exam type changed (e.g. AKT -> KFT or KFT -> AKT): allocate a new sequential UQID with target prefix
+          const targetSeq = (targetExamType === "KFT" || targetExamType === "KFP") ? "kft_seq" : "akt_seq";
+          const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${targetSeq}') AS n`);
+          const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
+          finalUqid = `${targetExamType}-${seqNum}`;
+        } else if (currentQ?.uqid) {
+          finalUqid = currentQ.uqid;
+        }
+
         await execute(
           `UPDATE questions
              SET stem = $1, rationale = $2, difficulty = $3, status = $4,
@@ -298,13 +320,15 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
                  image_file_id = $8, kfp_correct_count = $9,
                  lead_in = $10, why_correct = $11,
                  knowledge_bank = $12, pearl = $13,
+                 uqid = $14,
                  version = version + 1, updated_at = NOW()
-           WHERE id = $14`,
+           WHERE id = $15`,
           [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status,
            examTypeCode, subjectId, subtopicId, imageFileId,
            correctCount,
            q.leadIn || null, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,
+           finalUqid,
            questionId]
         );
         await recordAuditLog({
@@ -313,7 +337,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           category: "question",
           entityType: "question",
           entityId: questionId,
-          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem },
+          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem, uqid: finalUqid },
         });
       } else {
         // Auto-generate UQID using DB sequence
@@ -321,7 +345,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         const seqName = isKftOrKfpNew ? "kft_seq" : "akt_seq";
         const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${seqName}') AS n`);
         const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
-        const autoUqid = `${examTypeCode.toUpperCase()}-${seqNum}`;
+        finalUqid = `${examTypeCode.toUpperCase()}-${seqNum}`;
         // Auto-generate batchId if not provided
         const today = new Date().toISOString().slice(0, 10);
         const autoBatchId = q.batchId || `${today}-batch-01`;
@@ -336,7 +360,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status, examTypeCode,
            subjectId, subtopicId, imageFileId,
            isKftOrKfpNew ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null,
-           q.uqid || autoUqid,
+           finalUqid,
            q.leadIn || null, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,
            autoBatchId]
@@ -348,7 +372,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           category: "question",
           entityType: "question",
           entityId: questionId,
-          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem },
+          metadata: { author: adminUser?.name || adminUser?.email || "GP Edge Admin", stem: cleanStem, uqid: finalUqid },
         });
       }
 
@@ -408,7 +432,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         }
       }
 
-      results.push({ text: q.text, dbId: questionId });
+      results.push({ text: q.text, dbId: questionId, uqid: finalUqid });
     }
     return { success: true, results };
   } catch (error: any) {

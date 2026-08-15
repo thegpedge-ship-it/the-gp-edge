@@ -2070,21 +2070,43 @@ function parseTextToQuestions(text: string): any[] {
     if (filteredLines.length === 0) continue;
 
     let questionTextLines: string[] = [];
+    let stemLines: string[] = [];
+    let leadInLines: string[] = [];
+    let whyCorrectLines: string[] = [];
+    let distractorLines: string[] = [];
+    let knowledgeBankLines: string[] = [];
+    let pearlLines: string[] = [];
+
     const options: string[] = [];
     let correctIndex = 0;
+    let correctIndices: number[] = [0];
+    let kfpCorrectCount = 1;
+    let examType: "AKT" | "KFT" = "AKT";
     let rationale = "";
     let topic = "General";
     let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
     let subtopic = "";
     let tags: string[] = [];
 
-    let parsingState: "question" | "options" | "metadata" = "question";
+    let parsingState: "question" | "stem" | "leadIn" | "options" | "whyCorrect" | "distractors" | "knowledgeBank" | "pearl" | "metadata" = "question";
     let parsingRationale = false;
 
     for (let j = 0; j < filteredLines.length; j++) {
       const line = filteredLines[j];
       if (!line) continue;
       const cleanLine = line.trim().replace(/^[*#•\-\s]+/, "");
+
+      // ── Exam Type (e.g. "Exam Type: KFT" or "Exam Type: AKT") ─────────
+      const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
+      if (examTypeMatch) {
+        const val = examTypeMatch[1].trim().toUpperCase();
+        if (val.includes("KFT") || val.includes("KFP")) {
+          examType = "KFT";
+        } else if (val.includes("AKT") || val.includes("MCQ")) {
+          examType = "AKT";
+        }
+        continue;
+      }
 
       // Check for inline difficulty marker anywhere in rationale or explanation lines
       const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)/i);
@@ -2095,8 +2117,16 @@ function parseTextToQuestions(text: string): any[] {
         else difficulty = "Medium";
       }
 
-      // ── Correct Answer (e.g. "Answer: C — Repeat the Cervical...") ──────────
-      const correctMatch = cleanLine.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]\s*(.*)$/i);
+      // ── Limit / Allowed Selections (KFT) ──────────────────────────────
+      const limitMatch = cleanLine.match(/^(?:limit|max\s*selections?|allowed\s*selections?|selection\s*limit|correct\s*count)\s*[:\-\=\–\—]\s*(\d+)/i);
+      if (limitMatch) {
+        kfpCorrectCount = parseInt(limitMatch[1], 10) || 3;
+        examType = "KFT";
+        continue;
+      }
+
+      // ── Correct Answer(s) (e.g. "Correct Answers: A, B, D" or "Answer: C") ───
+      const correctMatch = cleanLine.match(/^(?:correct\s*answers?|correct\s*options?|correct|answers?|answer\s*key)\s*[:\-\=\–\—]\s*(.*)$/i);
       const isRealCorrect = correctMatch && isStrictMetadataMatch(correctMatch[1], "correct", parsingRationale);
       if (isRealCorrect && correctMatch) {
         parsingState = "metadata";
@@ -2105,14 +2135,22 @@ function parseTextToQuestions(text: string): any[] {
           const next = filteredLines[j + 1].trim();
           if (next && !isMetadataLine(next)) { ansVal = next; j++; }
         }
-        const m = ansVal.toUpperCase().match(/[A-H]/);
-        if (m) {
-          const idx = m[0].charCodeAt(0) - 65;
-          correctIndex = (isNaN(idx) || idx < 0 || idx > 10) ? 0 : idx;
+        
+        // Extract multiple option letters (e.g. "A, B, D" or "A, C, F" or "A")
+        const letters = ansVal.toUpperCase().match(/[A-J]/g);
+        if (letters && letters.length > 0) {
+          correctIndices = letters.map((l) => l.charCodeAt(0) - 65).filter((idx) => idx >= 0 && idx < 10);
+          correctIndex = correctIndices[0] ?? 0;
+          if (letters.length > 1) {
+            examType = "KFT";
+            if (kfpCorrectCount <= 1) {
+              kfpCorrectCount = letters.length;
+            }
+          }
         }
 
-        const inlineExpMatch = ansVal.match(/^[A-H][\.\)\-\s]*[:\-\=\–\—]?\s*(?:(?:explanation|rationale|because|why|discussion|reasoning)\s*[:\-\=\–\—]?\s*)?(.+)$/i);
-        if (inlineExpMatch && inlineExpMatch[1].trim().length > 5 && !/^[A-H]$/i.test(inlineExpMatch[1].trim())) {
+        const inlineExpMatch = ansVal.match(/^[A-J][\.\)\-\s]*[:\-\=\–\—]?\s*(?:(?:explanation|rationale|because|why|discussion|reasoning)\s*[:\-\=\–\—]?\s*)?(.+)$/i);
+        if (inlineExpMatch && inlineExpMatch[1].trim().length > 5 && !/^[A-J]$/i.test(inlineExpMatch[1].trim())) {
           const extractedExp = inlineExpMatch[1].trim().replace(/^(?:explanation|rationale|because|why)\s*[:\-\=\–\—]?\s*/i, "").trim();
           if (extractedExp.length > 8) {
             rationale = (rationale ? rationale + "\n" : "") + extractedExp;
@@ -2155,7 +2193,7 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Difficulty / Grade / Level (e.g. "Grade: Easy" or "Difficulty: Medium") ──
-      const diffMatch = cleanLine.match(/^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]\s*(.*)$/i);
+      const diffMatch = cleanLine.match(/^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (diffMatch && isStrictMetadataMatch(diffMatch[1], "difficulty", parsingRationale)) {
         if (options.length > 0) {
           parsingState = "metadata";
@@ -2197,8 +2235,56 @@ function parseTextToQuestions(text: string): any[] {
         continue;
       }
 
-      // ── Rationale / High-Yield Rationale / Clinical Pearl ─────────────
-      const rationaleMatch = cleanLine.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|clinical\s*pearl|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|why\s*each\s*distractor\s*is\s*wrong|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—\s]\s*(.*)$/i);
+      // ── Stem Header ─────────────────────────────────────────────────────
+      const stemMatch = cleanLine.match(/^(?:stem|clinical\s*vignette|vignette|scenario)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (stemMatch) {
+        parsingState = "stem";
+        if (stemMatch[1].trim()) stemLines.push(stemMatch[1].trim());
+        continue;
+      }
+
+      // ── Lead-In / Prompt Header ─────────────────────────────────────────
+      const leadInMatch = cleanLine.match(/^(?:lead\s*[-]?\s*in|prompt|question\s*prompt|question\s*text)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (leadInMatch) {
+        parsingState = "leadIn";
+        if (leadInMatch[1].trim()) leadInLines.push(leadInMatch[1].trim());
+        continue;
+      }
+
+      // ── Why Correct Header ──────────────────────────────────────────────
+      const whyCorrectMatch = cleanLine.match(/^(?:why\s*correct|master\s*rationale|correct\s*rationale)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (whyCorrectMatch) {
+        parsingState = "whyCorrect";
+        if (whyCorrectMatch[1].trim()) whyCorrectLines.push(whyCorrectMatch[1].trim());
+        continue;
+      }
+
+      // ── Distractor Rationales Header ────────────────────────────────────
+      const distractorMatch = cleanLine.match(/^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (distractorMatch) {
+        parsingState = "distractors";
+        if (distractorMatch[1].trim()) distractorLines.push(distractorMatch[1].trim());
+        continue;
+      }
+
+      // ── Knowledge Bank Header ───────────────────────────────────────────
+      const kbMatch = cleanLine.match(/^(?:knowledge\s*bank|educational\s*bank|deep\s*dive|guidelines?)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (kbMatch) {
+        parsingState = "knowledgeBank";
+        if (kbMatch[1].trim()) knowledgeBankLines.push(kbMatch[1].trim());
+        continue;
+      }
+
+      // ── Clinical Pearl Header ───────────────────────────────────────────
+      const pearlMatch = cleanLine.match(/^(?:clinical\s*pearl|pearl|key\s*takeaway|exam\s*pearl)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (pearlMatch) {
+        parsingState = "pearl";
+        if (pearlMatch[1].trim()) pearlLines.push(pearlMatch[1].trim());
+        continue;
+      }
+
+      // ── Rationale / General Explanation ─────────────────────────────────
+      const rationaleMatch = cleanLine.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|discussion|reasoning|feedback|solution)\s*[:\-\=\–\—\s]\s*(.*)$/i);
       if (rationaleMatch) {
         parsingState = "metadata";
         parsingRationale = true;
@@ -2212,43 +2298,50 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Option lines (A. B. C. D. or A), (A), [A], 1. 2. 3. 4.) ─────────────────
-      const optionMatch = cleanLine.match(/^\s*(?:\[([A-H])\]|\(?([A-H])[\.\/):\-]|([A-H])\)|(?:\(?(\d{1,2})[\.\):\-]))\s*(.+)$/i);
+      const optionMatch = cleanLine.match(/^\s*(?:\[([A-J])\]|\(?([A-J])[\.\/):\-]|([A-J])\)|(?:\(?(\d{1,2})[\.\):\-]))\s*(.+)$/i);
       if (optionMatch) {
         const letterRaw = (optionMatch[1] || optionMatch[2] || optionMatch[3] || "").toUpperCase();
         const numIndex = optionMatch[4] ? parseInt(optionMatch[4], 10) - 1 : -1;
         const letter = letterRaw || (numIndex >= 0 ? String.fromCharCode(65 + numIndex) : "A");
         const optText = optionMatch[5].trim();
         const looksRealOption = optText.length >= 1;
-        if (parsingState === "question") {
-          const isUnambiguousFirstOption = letter === "A" || numIndex === 0;
-          if (isUnambiguousFirstOption) {
-            parsingState = "options";
-            options.push(optText);
-            continue;
-          }
-        } else if (parsingState === "options" && looksRealOption) {
+        // Strip out placeholder options (e.g. [Enter Option E text here])
+        if (looksRealOption && !optText.includes("[Enter Option")) {
           options.push(optText);
-          continue;
-        } else if (parsingState === "metadata" && !parsingRationale && looksRealOption) {
+        } else if (looksRealOption && options.length === 0) {
           options.push(optText);
-          continue;
         }
+        parsingState = "options";
+        continue;
       }
 
       // ── Plain "Options:" header ─────────────────────────────────────────
       if (/^options?\s*:?\s*$/i.test(cleanLine)) {
-        if (parsingState === "question") parsingState = "options";
+        parsingState = "options";
         continue;
       }
 
       // ── Default: append to current state ───────────────────────────────
-      if (parsingState === "question") {
+      if (parsingState === "stem") {
+        stemLines.push(line);
+      } else if (parsingState === "leadIn") {
+        leadInLines.push(line);
+      } else if (parsingState === "whyCorrect") {
+        whyCorrectLines.push(line);
+      } else if (parsingState === "distractors") {
+        distractorLines.push(line);
+      } else if (parsingState === "knowledgeBank") {
+        knowledgeBankLines.push(line);
+      } else if (parsingState === "pearl") {
+        pearlLines.push(line);
+      } else if (parsingState === "question") {
         questionTextLines.push(line);
       } else if (parsingState === "options") {
-        options.push(line);
+        if (!line.includes("[Enter Option")) {
+          options.push(line);
+        }
       } else if (parsingState === "metadata") {
         if (parsingRationale && !isMetadataLine(line)) {
-          // Clean out inline "Difficulty: Easy" from rationale text body
           const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
           if (cleanRationaleLine) {
             rationale += (rationale ? "\n" : "") + cleanRationaleLine;
@@ -2257,10 +2350,18 @@ function parseTextToQuestions(text: string): any[] {
       }
     }
 
-    const finalQuestionText = questionTextLines.join("\n").trim();
+    const stem = stemLines.join("\n").trim();
+    const leadIn = leadInLines.join("\n").trim();
+    const whyCorrect = whyCorrectLines.join("\n").trim();
+    const knowledgeBank = knowledgeBankLines.join("\n").trim();
+    const pearl = pearlLines.join("\n").trim();
+
+    const finalQuestionText = stem
+      ? (leadIn ? `${stem}\n\n${leadIn}` : stem)
+      : questionTextLines.join("\n").trim();
 
     // Skip empty or placeholder blocks
-    if (!finalQuestionText || finalQuestionText.includes("[Enter question text here]")) continue;
+    if (!finalQuestionText || finalQuestionText.includes("[Enter question text here]") || finalQuestionText.includes("[Enter patient clinical scenario")) continue;
     // Skip blocks with no options (likely a preamble / instructions block)
     if (options.length === 0) continue;
 
@@ -2277,9 +2378,19 @@ function parseTextToQuestions(text: string): any[] {
 
     questions.push({
       text: finalQuestionText,
+      stem: stem || finalQuestionText,
+      leadIn: leadIn || "",
       options: finalOptions,
       correctIndex,
-      rationale: rationale.trim() || "No explanation provided.",
+      correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
+      kfpCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
+      kftCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
+      whyCorrect: whyCorrect || rationale,
+      distractorRationales: distractorLines.filter(Boolean),
+      knowledgeBank,
+      pearl,
+      examType,
+      rationale: (whyCorrect || rationale).trim() || "No explanation provided.",
       topic,
       subtopic,
       difficulty,

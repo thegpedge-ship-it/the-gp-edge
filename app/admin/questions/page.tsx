@@ -164,6 +164,8 @@ export default function QuestionsPage() {
   const [extractedQuestions, setExtractedQuestions] = useState<any[]>([]);
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
+  const downloadDropdownRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -200,6 +202,21 @@ export default function QuestionsPage() {
       document.body.style.overflow = "unset";
     };
   }, [showAddModal, showUploadModal, previewQuestion, zoomImage]);
+
+  // Click outside to close download template dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target as Node)) {
+        setShowDownloadDropdown(false);
+      }
+    };
+    if (showDownloadDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDownloadDropdown]);
 
   const resetAddForm = () => {
     setNewQuestionText("");
@@ -362,9 +379,9 @@ export default function QuestionsPage() {
       if (updatedQ) {
         importQuestionsAction([updatedQ]).then((res) => {
           if (res?.success && res.results && res.results[0]) {
-            const dbId = res.results[0].dbId;
+            const { dbId, uqid } = res.results[0] as any;
             setQuestions((prev) =>
-              prev.map((q) => (q.id === updatedQ.id ? { ...q, dbId } : q))
+              prev.map((q) => (q.id === updatedQ.id ? { ...q, dbId, ...(uqid ? { uqid } : {}) } : q))
             );
           }
         });
@@ -571,12 +588,17 @@ export default function QuestionsPage() {
         const cleanedTags = q.tags
           ? q.tags.map((t: string) => t.trim()).filter(Boolean)
           : ["General"];
+        const resolvedExamType = q.examType || (q.correctIndices && q.correctIndices.length > 1 ? "KFT" : "AKT");
+        const correctCount = q.kftCorrectCount || q.kfpCorrectCount || (q.correctIndices && q.correctIndices.length > 1 ? q.correctIndices.length : 1);
         const newQ = {
           ...q,
           id: nextId++,
           topic: q.topic ? q.topic.trim() : "General",
           difficulty: q.difficulty || "Medium",
-          examType: q.examType || "AKT",
+          examType: resolvedExamType,
+          kftCorrectCount: correctCount,
+          kfpCorrectCount: correctCount,
+          correctIndices: q.correctIndices || [q.correctIndex || 0],
           tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
           status: "published" as const
         };
@@ -690,16 +712,70 @@ export default function QuestionsPage() {
         subtitle={`${questions.length} questions in bank`}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
-            <a
-              href="/templates/question_template.docx?v=2"
-              download
-              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
-            >
-              <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" />
-              </svg>
-              Download Template
-            </a>
+            {/* Unified Download Template Dropdown */}
+            <div className="relative" ref={downloadDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowDownloadDropdown((prev) => !prev)}
+                className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
+              >
+                <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" />
+                </svg>
+                Download Template
+                <svg className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${showDownloadDropdown ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <AnimatePresence>
+                {showDownloadDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-0 top-full mt-1.5 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 backdrop-blur-xl"
+                  >
+                    <a
+                      href="/templates/question_template.docx?v=2"
+                      download
+                      onClick={() => setShowDownloadDropdown(false)}
+                      className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-teal-50 dark:hover:bg-teal-950/40 text-slate-800 dark:text-slate-200 transition-colors group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center text-teal-700 dark:text-teal-300 shrink-0 mt-0.5 group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">AKT Template</p>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-teal-100/80 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300">100 Qs</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Single-Answer MCQ format</p>
+                      </div>
+                    </a>
+
+                    <a
+                      href="/templates/kft_template.docx?v=1"
+                      download
+                      onClick={() => setShowDownloadDropdown(false)}
+                      className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-800 dark:text-slate-200 transition-colors group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-700 dark:text-amber-300 shrink-0 mt-0.5 group-hover:bg-amber-600 group-hover:text-white transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">KFT Template</p>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-100/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300">100 Qs</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Key Feature Multi-Select format</p>
+                      </div>
+                    </a>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button
               onClick={() => {
                 if (isReadOnly) return;
@@ -1804,11 +1880,27 @@ export default function QuestionsPage() {
                         <span className="text-xs font-bold uppercase tracking-wider">Instructions & Guidelines</span>
                       </div>
                       <p className="text-xs text-teal-950/70 dark:text-teal-300/80 leading-relaxed">
-                        To successfully import practice questions, please use our beautifully styled document template. 
-                        Simply fill in your question text, options (A to D), correct answer letter, rationales, difficulty level, 
-                        and topics, then save and upload the file below. Any embedded images will also be imported!
+                        To successfully import practice questions, please use our standardized DOCX templates. 
+                        We provide specialized formats for both <strong>AKT</strong> (single-answer MCQ) and <strong>KFT</strong> (multi-select key feature clinical cases with 3-zone architecture).
                       </p>
-                      {/* Download Template button removed */}
+                      <div className="flex items-center gap-2 pt-1">
+                        <a
+                          href="/templates/question_template.docx?v=2"
+                          download
+                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-teal-100/70 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 hover:bg-teal-200/80 transition-colors inline-flex items-center gap-1"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                          Download AKT Template
+                        </a>
+                        <a
+                          href="/templates/kft_template.docx?v=1"
+                          download
+                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-100/70 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200/80 transition-colors inline-flex items-center gap-1"
+                        >
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                          Download KFT Template
+                        </a>
+                      </div>
                     </div>
 
                     {/* File Upload Zone */}
@@ -1977,7 +2069,16 @@ export default function QuestionsPage() {
                                 {/* Options grid */}
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between">
-                                    <label className="block text-[11px] font-semibold text-slate-500">Options & Correct Answer</label>
+                                    <div className="flex items-center gap-2">
+                                      <label className="block text-[11px] font-semibold text-slate-500">Options & Correct Answer</label>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                        q.examType === "KFT"
+                                          ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                                          : "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300"
+                                      }`}>
+                                        {q.examType === "KFT" ? "Multi-Select (KFT)" : "Single-Choice (AKT)"}
+                                      </span>
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1993,65 +2094,101 @@ export default function QuestionsPage() {
                                     </button>
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {q.options.map((opt: string, oidx: number) => (
-                                      <div key={oidx} className="flex items-center gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleUpdateExtractedQuestion(qidx, "correctIndex", oidx)}
-                                          className="flex items-center justify-center shrink-0 focus:outline-none"
-                                          title="Mark as Correct Answer"
-                                        >
-                                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
-                                            q.correctIndex === oidx
-                                              ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 shadow-sm shadow-teal-900/30"
-                                              : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
-                                          }`}>
-                                            {q.correctIndex === oidx && (
-                                              <div className="w-2 h-2 rounded-full bg-white" />
-                                            )}
-                                          </div>
-                                        </button>
-                                        <span className="text-xs font-bold text-slate-400">{String.fromCharCode(65 + oidx)}:</span>
-                                        <input
-                                          type="text"
-                                          value={opt}
-                                          onChange={(e) => {
-                                            const nextOpts = [...q.options];
-                                            nextOpts[oidx] = e.target.value;
-                                            handleUpdateExtractedQuestion(qidx, "options", nextOpts);
-                                          }}
-                                          className={`flex-1 text-xs px-2.5 py-1.5 rounded-lg border ${themeInput}`}
-                                          placeholder={`Option ${String.fromCharCode(65 + oidx)}`}
-                                        />
-                                        {q.options.length > 2 && (
+                                    {q.options.map((opt: string, oidx: number) => {
+                                      const isCorrectSelected = (q.correctIndices || [q.correctIndex || 0]).includes(oidx);
+                                      return (
+                                        <div key={oidx} className="flex items-center gap-2">
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const nextOpts = q.options.filter((_: string, idx: number) => idx !== oidx);
-                                              let nextCorrectIndex = q.correctIndex;
-                                              if (nextCorrectIndex === oidx) {
-                                                nextCorrectIndex = 0;
-                                              } else if (nextCorrectIndex > oidx) {
-                                                nextCorrectIndex -= 1;
+                                              if (q.examType === "KFT") {
+                                                let currentIndices: number[] = q.correctIndices ? [...q.correctIndices] : [q.correctIndex || 0];
+                                                if (currentIndices.includes(oidx)) {
+                                                  currentIndices = currentIndices.filter((idx) => idx !== oidx);
+                                                } else {
+                                                  currentIndices.push(oidx);
+                                                }
+                                                if (currentIndices.length === 0) currentIndices = [oidx];
+                                                handleUpdateExtractedQuestion(qidx, "correctIndices", currentIndices);
+                                                handleUpdateExtractedQuestion(qidx, "correctIndex", currentIndices[0]);
+                                              } else {
+                                                handleUpdateExtractedQuestion(qidx, "correctIndex", oidx);
+                                                handleUpdateExtractedQuestion(qidx, "correctIndices", [oidx]);
                                               }
-                                              handleUpdateExtractedQuestion(qidx, "options", nextOpts);
-                                              handleUpdateExtractedQuestion(qidx, "correctIndex", nextCorrectIndex);
                                             }}
-                                            className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
-                                            title="Delete Option"
+                                            className="flex items-center justify-center shrink-0 focus:outline-none"
+                                            title={q.examType === "KFT" ? "Toggle Correct Answer" : "Mark as Correct Answer"}
                                           >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
+                                            <div className={`w-5 h-5 ${q.examType === "KFT" ? "rounded-md" : "rounded-full"} border flex items-center justify-center transition-all ${
+                                              isCorrectSelected
+                                                ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 shadow-sm shadow-teal-900/30 text-white"
+                                                : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
+                                            }`}>
+                                              {isCorrectSelected && (
+                                                q.examType === "KFT" ? (
+                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                  </svg>
+                                                ) : (
+                                                  <div className="w-2 h-2 rounded-full bg-white" />
+                                                )
+                                              )}
+                                            </div>
                                           </button>
-                                        )}
-                                      </div>
-                                    ))}
+                                          <span className="text-xs font-bold text-slate-400">{String.fromCharCode(65 + oidx)}:</span>
+                                          <input
+                                            type="text"
+                                            value={opt}
+                                            onChange={(e) => {
+                                              const nextOpts = [...q.options];
+                                              nextOpts[oidx] = e.target.value;
+                                              handleUpdateExtractedQuestion(qidx, "options", nextOpts);
+                                            }}
+                                            className={`flex-1 text-xs px-2.5 py-1.5 rounded-lg border ${themeInput}`}
+                                            placeholder={`Option ${String.fromCharCode(65 + oidx)}`}
+                                          />
+                                          {q.options.length > 2 && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const nextOpts = q.options.filter((_: string, idx: number) => idx !== oidx);
+                                                let nextCorrectIndex = q.correctIndex;
+                                                if (nextCorrectIndex === oidx) {
+                                                  nextCorrectIndex = 0;
+                                                } else if (nextCorrectIndex > oidx) {
+                                                  nextCorrectIndex -= 1;
+                                                }
+                                                handleUpdateExtractedQuestion(qidx, "options", nextOpts);
+                                                handleUpdateExtractedQuestion(qidx, "correctIndex", nextCorrectIndex);
+                                              }}
+                                              className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition shrink-0"
+                                              title="Delete Option"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                              </svg>
+                                            </button>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
 
                                 {/* Metadata row */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Exam Type</label>
+                                    <CustomSelect
+                                      value={q.examType || "AKT"}
+                                      onChange={(val) => handleUpdateExtractedQuestion(qidx, "examType", val)}
+                                      options={[
+                                        { value: "AKT", label: "AKT (Single MCQ)" },
+                                        { value: "KFT", label: "KFT (Multi-Select)" },
+                                      ]}
+                                      className="w-full text-xs"
+                                    />
+                                  </div>
                                   <div>
                                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">Topic</label>
                                     <input
