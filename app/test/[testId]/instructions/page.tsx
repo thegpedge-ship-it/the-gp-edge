@@ -12,8 +12,11 @@ import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 const TIMER_INSTRUCTION =
   "The timer starts when you click “Start Test” and counts down in the top bar. The test will be submitted automatically when the time expires.";
 
-const INSTRUCTIONS = [
-  "Each question has one correct answer. Select an option to answer a question, or click “Clear Response” to remove your selection.",
+const AKT_ANSWER_INSTRUCTION =
+  "Each question has one correct answer. Select an option to answer a question, or click “Clear Response” to remove your selection.";
+const KFP_ANSWER_INSTRUCTION =
+  "Each question may have multiple correct answers. You will be told how many to select. Click “Clear Response” to remove all selections.";
+const COMMON_INSTRUCTIONS = [
   "Use the “Previous” and “Next” buttons, or select a question number from the question palette, to move between questions.",
   "You can change your answer to any question at any time before submitting the test.",
   "There is no negative marking. Attempt every question.",
@@ -64,7 +67,10 @@ export default function InstructionsPage() {
 
   if (!config) return <TestNotFound />;
 
-  const instructions = config.timed ? [TIMER_INSTRUCTION, ...INSTRUCTIONS] : INSTRUCTIONS;
+  const answerInstruction = config.examMode === "KFP" ? KFP_ANSWER_INSTRUCTION : AKT_ANSWER_INSTRUCTION;
+  const instructions = config.timed
+    ? [TIMER_INSTRUCTION, answerInstruction, ...COMMON_INSTRUCTIONS]
+    : [answerInstruction, ...COMMON_INSTRUCTIONS];
 
   return (
     <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 flex items-center justify-center px-4 py-8 sm:py-12">

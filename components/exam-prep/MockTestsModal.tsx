@@ -151,11 +151,13 @@ export default function MockTestsModal({
   onClose,
   tests,
   loading = false,
+  examMode = "AKT",
 }: {
   open: boolean;
   onClose: () => void;
   tests: UiMockTest[];
   loading?: boolean;
+  examMode?: "AKT" | "KFP";
 }) {
   const router = useRouter();
   const { isRegistrarActive } = useUserAccess();
@@ -197,6 +199,7 @@ export default function MockTestsModal({
       questionIds: detail.questionIds,
       durationMinutes: detail.timeLimitMin ?? test.durationMin,
       timed: true,
+      examMode,
     });
     onClose();
     router.push(buildInstructionsUrl(test.id));

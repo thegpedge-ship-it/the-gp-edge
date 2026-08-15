@@ -164,6 +164,7 @@ export default function ExamPrepPage() {
   const [hasFreeQuiz, setHasFreeQuiz] = useState<boolean>(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState<boolean>(false);
   const [upgradeFeatureName, setUpgradeFeatureName] = useState<string | undefined>();
+  const [examMode, setExamMode] = useState<"AKT" | "KFP">("AKT");
 
   // Check if any free quiz exists in the database
   useEffect(() => {
@@ -232,6 +233,36 @@ export default function ExamPrepPage() {
               What&apos;s your <br className="hidden md:block" />
               <span className="text-[#1B895C]">study plan</span> today?
             </h1>
+            <div className="flex items-center gap-2 mt-4">
+              <div className="relative flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/60 p-1">
+                {(["AKT", "KFP"] as const).map((mode) => {
+                  const active = examMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setExamMode(mode)}
+                      className={`relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 z-10 ${
+                        active
+                          ? "text-teal-700 dark:text-teal-300"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                      }`}
+                    >
+                      {active && (
+                        <motion.div
+                          layoutId="exam-mode-tab"
+                          className="absolute inset-0 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-teal-200/60 dark:border-teal-500/20"
+                          transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
+                        />
+                      )}
+                      <span className="relative z-10">{mode}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs text-slate-400 dark:text-slate-500 ml-1">
+                {examMode === "AKT" ? "Single correct answer" : "Multiple correct answers"}
+              </span>
+            </div>
           </div>
 
           {/* Illustration */}
@@ -336,10 +367,10 @@ export default function ExamPrepPage() {
       </motion.div>
 
       {/* ─── Modals — one per option ───────────────────────────────────── */}
-      <StudyByTopicModal open={active === "topic"} onClose={() => setActive(null)} />
-      <MockTestsModal open={active === "mock"} onClose={() => setActive(null)} tests={mockTests} loading={mockLoading} />
-      <CreateQuizModal open={active === "create"} onClose={() => setActive(null)} />
-      <CreatedForYouModal open={active === "foryou"} onClose={() => setActive(null)} />
+      <StudyByTopicModal open={active === "topic"} onClose={() => setActive(null)} examMode={examMode} />
+      <MockTestsModal open={active === "mock"} onClose={() => setActive(null)} tests={mockTests} loading={mockLoading} examMode={examMode} />
+      <CreateQuizModal open={active === "create"} onClose={() => setActive(null)} examMode={examMode} />
+      <CreatedForYouModal open={active === "foryou"} onClose={() => setActive(null)} examMode={examMode} />
 
       {/* Upgrade Modal */}
       <UpgradeModal

@@ -57,7 +57,7 @@ function SubtopicCheck({ selected }: { selected: boolean }) {
 }
 
 /* ─── Component ───────────────────────────────────────────────────────── */
-export default function CreateQuizModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { open: boolean; onClose: () => void; examMode?: "AKT" | "KFP" }) {
   const router = useRouter();
 
   const [tree, setTree] = useState<ExamTreeSubject[] | null>(null); // null = loading
@@ -179,6 +179,7 @@ export default function CreateQuizModal({ open, onClose }: { open: boolean; onCl
       questionIds: set.questionIds,
       durationMinutes,
       timed: false,
+      examMode,
     });
     onClose();
     router.push(buildInstructionsUrl("custom"));

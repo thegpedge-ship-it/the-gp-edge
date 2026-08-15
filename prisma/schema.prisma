@@ -579,7 +579,7 @@ model promo_redemptions {
 
 model question_options {
   id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  question_id              String                     @unique(map: "uq_question_one_correct", where: raw("is_correct")) @db.Uuid
+  question_id              String                     @db.Uuid
   label                    String
   position                 Int                        @db.SmallInt
   is_correct               Boolean                    @default(false)
@@ -633,7 +633,7 @@ model questions {
   attempt_questions       attempt_questions[]
   condition_questions     condition_questions[]
   mock_test_questions     mock_test_questions[]
-  question_options        question_options?
+  question_options        question_options[]
   question_subjects       question_subjects[]
   question_subtopics      question_subtopics[]
   question_tags           question_tags[]

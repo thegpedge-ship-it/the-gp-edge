@@ -332,7 +332,7 @@ export default function TestPage() {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [current, setCurrent] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, number | number[]>>({});
+  const [answers, setAnswers] = useState<Record<number, number[]>>({});
   const [visited, setVisited] = useState<Set<number>>(new Set([0]));
   const [timeLeft, setTimeLeft] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -423,18 +423,11 @@ export default function TestPage() {
       mockTestId: plan.mockTestId,
       title: plan.name,
       questionIds: questions.map((q) => q.id),
-      answers: questions.map((q, i) => {
-        const a = answers[i];
-        return {
-          questionId: q.id,
-          selectedIndex: Array.isArray(a) ? a[0] ?? null : (a ?? null),
-        };
-      }),
+      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndices: answers[i] ?? [] })),
       startedAt: startedAtRef.current || undefined,
       durationSeconds: elapsed,
     })
       .then(() => {
-        // Mock-test cards show per-user attempt stats — refresh them next read.
         if (plan.source === "mock_test") clearMockTestsCache();
       })
       .catch(() => {
@@ -468,13 +461,7 @@ export default function TestPage() {
       mockTestId: plan.mockTestId,
       title: plan.name,
       questionIds: questions.map((q) => q.id),
-      answers: questions.map((q, i) => {
-        const a = answers[i];
-        return {
-          questionId: q.id,
-          selectedIndex: Array.isArray(a) ? a[0] ?? null : (a ?? null),
-        };
-      }),
+      answers: questions.map((q, i) => ({ questionId: q.id, selectedIndices: answers[i] ?? [] })),
       startedAt: startedAtRef.current || undefined,
       durationSeconds: elapsed,
     };
@@ -637,24 +624,29 @@ export default function TestPage() {
     const q = questions[current];
     if (!q) return;
     const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
-    const kfpLimit = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3;
+    const maxSelectable = isKft
+      ? (q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3)
+      : 1;
 
-    if (isKft) {
-      setAnswers((prev) => {
-        const cur = prev[current];
-        const arr = Array.isArray(cur) ? [...cur] : cur != null ? [cur] : [];
-        if (arr.includes(optionIndex)) {
-          const next = arr.filter((idx) => idx !== optionIndex);
-          return { ...prev, [current]: next };
-        } else if (arr.length < kfpLimit) {
-          const next = [...arr, optionIndex].sort((a, b) => a - b);
-          return { ...prev, [current]: next };
-        }
-        return prev;
-      });
-    } else {
-      setAnswers((prev) => ({ ...prev, [current]: optionIndex }));
+    if (maxSelectable <= 1) {
+      setAnswers((prev) => ({ ...prev, [current]: [optionIndex] }));
+      return;
     }
+
+    setAnswers((prev) => {
+      const existing = prev[current] ?? [];
+      if (existing.includes(optionIndex)) {
+        const next = existing.filter((i) => i !== optionIndex);
+        if (next.length === 0) {
+          const copy = { ...prev };
+          delete copy[current];
+          return copy;
+        }
+        return { ...prev, [current]: next };
+      }
+      if (existing.length >= maxSelectable) return prev;
+      return { ...prev, [current]: [...existing, optionIndex].sort((a, b) => a - b) };
+    });
   };
 
   const clearResponse = () => {
@@ -687,13 +679,13 @@ export default function TestPage() {
   };
 
   const getStatus = (index: number): QuestionStatus => {
-    if (answers[index] !== undefined) return "answered";
+    if (answers[index] !== undefined && answers[index].length > 0) return "answered";
     if (visited.has(index)) return "not-answered";
     return "not-visited";
   };
 
-  const answeredCount = Object.keys(answers).length;
-  const notAnsweredCount = Array.from(visited).filter((i) => answers[i] === undefined).length;
+  const answeredCount = Object.values(answers).filter((a) => a.length > 0).length;
+  const notAnsweredCount = Array.from(visited).filter((i) => !answers[i] || answers[i].length === 0).length;
   const notVisitedCount = questions.length - visited.size;
 
   /* ─── Resolving / unknown test ───────────────────────────────────── */
@@ -717,12 +709,13 @@ export default function TestPage() {
         const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
         const maxMarks = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1;
         totalPossibleMarks += maxMarks;
-        const sel = Array.isArray(ans) ? ans : ans != null ? [ans] : [];
+        const sel = ans ?? [];
         const earned = sel.filter((idx) => correctSet.has(idx)).length;
         totalEarnedMarks += earned;
       } else {
         totalPossibleMarks += 1;
-        if (ans === q.correctIndex) {
+        const sel = ans ?? [];
+        if (sel.includes(q.correctIndex)) {
           totalEarnedMarks += 1;
         }
       }
@@ -896,7 +889,7 @@ export default function TestPage() {
   }
 
   const question = questions[current];
-  const selectedOption = answers[current];
+  const selectedOptions = answers[current] ?? [];
 
   /* ─── Test screen ────────────────────────────────────────────────── */
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
@@ -1065,9 +1058,12 @@ export default function TestPage() {
               {/* Options List */}
               {(() => {
                 const isKft = (question.examType || "").toUpperCase() === "KFT" || (question.examType || "").toUpperCase() === "KFP";
-                const kfpLimit = question.kftCorrectCount || question.kfpCorrectCount || question.correctIndices?.length || 3;
-                const sel = answers[current];
-                const selCount = Array.isArray(sel) ? sel.length : sel != null ? 1 : 0;
+                const kfpLimit = isKft
+                  ? (question.kftCorrectCount || question.kfpCorrectCount || question.correctIndices?.length || 3)
+                  : 1;
+                const sel = answers[current] ?? [];
+                const selCount = sel.length;
+                const atCap = kfpLimit > 1 && selCount >= kfpLimit;
 
                 return (
                   <div className="space-y-3 max-w-4xl">
@@ -1082,21 +1078,23 @@ export default function TestPage() {
                       </div>
                     )}
                     {question.options.map((option, i) => {
-                      const isSelected = isKft
-                        ? Array.isArray(sel) && sel.includes(i)
-                        : sel === i;
+                      const isSelected = sel.includes(i);
+                      const isDisabled = atCap && !isSelected;
                       return (
                         <button
                           key={i}
-                          onClick={() => selectOption(i)}
-                          className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out cursor-pointer ${
-                            isSelected
-                              ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm"
-                              : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs"
+                          onClick={() => !isDisabled && selectOption(i)}
+                          disabled={isDisabled}
+                          className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out ${
+                            isDisabled
+                              ? "border border-slate-200/60 dark:border-slate-800/60 bg-slate-50 dark:bg-slate-900/50 opacity-50 cursor-not-allowed"
+                              : isSelected
+                              ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm cursor-pointer"
+                              : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs cursor-pointer"
                           }`}
                         >
                           <span
-                            className={`flex-shrink-0 w-7 h-7 ${isKft ? "rounded-md" : "rounded-lg"} border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
+                            className={`flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
                               isSelected
                                 ? "bg-teal-600 border-teal-600 text-white shadow-xs scale-105"
                                 : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
@@ -1133,9 +1131,9 @@ export default function TestPage() {
         <div className="flex-shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/60">
           <button
             onClick={clearResponse}
-            disabled={selectedOption === undefined}
+            disabled={selectedOptions.length === 0}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ${
-              selectedOption === undefined
+              selectedOptions.length === 0
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
                 : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
             }`}

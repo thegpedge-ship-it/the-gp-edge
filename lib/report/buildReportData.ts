@@ -4,10 +4,20 @@
 import type { QuizQuestion } from "@/app/exam-prep/actions";
 import type { ReportData, ReportQuestion } from "./types";
 
+function isQuestionCorrect(q: ReportQuestion): boolean {
+  if (q.selectedIndices.length === 0) return false;
+  const correctSet = new Set(q.correctIndices);
+  const selectedSet = new Set(q.selectedIndices);
+  return (
+    correctSet.size === selectedSet.size &&
+    [...correctSet].every((i) => selectedSet.has(i))
+  );
+}
+
 export function buildReportData(params: {
   testName: string;
   questions: QuizQuestion[];
-  answers: Record<number, number | number[]>;
+  answers: Record<number, number[]>;
   timeUsedSeconds: number;
 }): ReportData {
   const { testName, questions, answers, timeUsedSeconds } = params;
@@ -17,11 +27,10 @@ export function buildReportData(params: {
   let attemptedCount = 0;
 
   const reportQuestions: ReportQuestion[] = questions.map((q, i) => {
-    const rawAnswer = answers[i];
+    const selectedIndices = answers[i] ?? [];
+    const selectedIndex = selectedIndices[0] ?? null;
+    const isAttempted = selectedIndices.length > 0;
     const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
-    const selectedIndex = Array.isArray(rawAnswer) ? (rawAnswer[0] ?? null) : (rawAnswer ?? null);
-    const selectedIndices = Array.isArray(rawAnswer) ? rawAnswer : rawAnswer != null ? [rawAnswer] : [];
-    const isAttempted = rawAnswer !== undefined && (Array.isArray(rawAnswer) ? rawAnswer.length > 0 : true);
 
     if (isAttempted) attemptedCount++;
 
@@ -29,9 +38,10 @@ export function buildReportData(params: {
     const maxMarks = isKft ? (q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1) : 1;
     totalPossible += maxMarks;
 
+    const correctIndices = q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex];
+
     if (isKft) {
-      const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
-      earnedMarks = selectedIndices.filter((idx) => correctSet.has(idx)).length;
+      earnedMarks = selectedIndices.filter((idx) => correctIndices.includes(idx)).length;
     } else {
       if (selectedIndex === q.correctIndex) {
         earnedMarks = 1;
@@ -44,9 +54,9 @@ export function buildReportData(params: {
       text: q.text,
       options: q.options,
       correctIndex: q.correctIndex,
-      correctIndices: q.correctIndices,
+      correctIndices,
       selectedIndex,
-      selectedIndices: isKft ? selectedIndices : undefined,
+      selectedIndices,
       examType: q.examType,
       kftCorrectCount: q.kftCorrectCount || q.kfpCorrectCount,
       kfpCorrectCount: q.kftCorrectCount || q.kfpCorrectCount,

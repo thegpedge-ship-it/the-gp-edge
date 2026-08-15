@@ -22,6 +22,7 @@ export interface TestPlan {
   durationMinutes: number;
   /** Whether a countdown timer (with auto-submit) applies. Mock tests only. */
   timed: boolean;
+  examMode?: "AKT" | "KFP";
 }
 
 /** Config the instructions / start pages render. Derived from a TestPlan. */
@@ -31,6 +32,7 @@ export interface TestConfig {
   questionCount: number;
   durationMinutes: number;
   timed: boolean;
+  examMode?: "AKT" | "KFP";
 }
 
 /** Parse strings like "10 min", "45 min", "3 hrs", "4 hrs" into minutes. */
@@ -78,6 +80,7 @@ export function planToConfig(plan: TestPlan): TestConfig {
     questionCount: plan.questionIds.length,
     durationMinutes: plan.durationMinutes,
     timed: plan.timed,
+    examMode: plan.examMode,
   };
 }
 

@@ -86,7 +86,7 @@ export interface QuizQuestion {
   leadIn?: string;
   options: string[];
   correctIndex: number;
-  correctIndices?: number[];
+  correctIndices: number[];
   kftCorrectCount?: number;
   kfpCorrectCount?: number;
   rationale: string;
@@ -104,8 +104,7 @@ export interface QuizQuestion {
 
 export interface SaveAttemptAnswer {
   questionId: string;
-  /** 0-based index of the chosen option, or null if left unanswered. */
-  selectedIndex: number | null;
+  selectedIndices: number[];
   timeSpentSeconds?: number;
 }
 
@@ -342,9 +341,9 @@ export async function getQuizQuestionIds(quizId: string): Promise<QuizDetail | n
  * STEP 5 — Full questions by ID (drives the quiz-taking page).
  *   Preserves the order of the supplied `ids`.
  *
- *   NOTE: correctIndex is included so the existing client-side result screen
- *   keeps working. Grading is ALSO done authoritatively server-side in
- *   saveQuizAttempt — never trust the client for the saved score.
+ *   NOTE: correctIndices is included so the client-side result screen works.
+ *   Grading is ALSO done authoritatively server-side in saveQuizAttempt —
+ *   never trust the client for the saved score.
  * ========================================================================== */
 export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> {
   if (ids.length === 0) return [];
@@ -412,7 +411,6 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
       const text = leadIn ? `${stem}\n\n${leadIn}`.trim() : stem;
 
       const distractorRationales = opts.map((o: any) => o.distractor_rationale ?? "");
-
       return {
         id: q.id,
         uqid: q.uqid ?? undefined,
@@ -420,7 +418,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         leadIn: q.lead_in ?? undefined,
         options,
         correctIndex,
-        correctIndices: isKft ? correctIndices : undefined,
+        correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
         kftCorrectCount: kfpCorrectCount,
         kfpCorrectCount,
         rationale: q.why_correct || q.rationale || "",
@@ -507,9 +505,15 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
   const bySubject = new Map<string, { correct: number; incorrect: number; unanswered: number }>();
 
   for (const qid of questionIds) {
-    const selected = answerByQ.get(qid)?.selectedIndex ?? null;
-    const answered = selected !== null && selected !== undefined;
-    const isCorrect = answered && correctByRank.get(qid)?.[selected] === true;
+    const selected = answerByQ.get(qid)?.selectedIndices ?? [];
+    const answered = selected.length > 0;
+    const flags = correctByRank.get(qid) ?? [];
+    const correctSet = new Set(flags.map((isC, i) => (isC ? i : -1)).filter((i) => i >= 0));
+    const selectedSet = new Set(selected);
+    const isCorrect =
+      answered &&
+      correctSet.size === selectedSet.size &&
+      [...correctSet].every((i) => selectedSet.has(i));
     if (isCorrect) correctCount++;
 
     const subjectId = subjectByQ.get(qid);

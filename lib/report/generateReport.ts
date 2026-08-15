@@ -47,7 +47,9 @@ function aggregate(data: ReportData, key: "topic" | "difficulty") {
     const k = q[key] || "General";
     const entry = map.get(k) ?? { correct: 0, total: 0 };
     entry.total += 1;
-    if (q.selectedIndex === q.correctIndex) entry.correct += 1;
+    const cSet = new Set(q.correctIndices);
+    const sSet = new Set(q.selectedIndices);
+    if (sSet.size > 0 && cSet.size === sSet.size && [...cSet].every((i) => sSet.has(i))) entry.correct += 1;
     map.set(k, entry);
   }
   return map;
@@ -228,7 +230,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   data.questions.forEach((q, idx) => {
     const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
     const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
-    const chosenSet = new Set(q.selectedIndices || (q.selectedIndex != null ? [q.selectedIndex] : []));
+    const chosenSet = new Set(q.selectedIndices || []);
     const attempted = chosenSet.size > 0;
     const isFullyCorrect = attempted && chosenSet.size === correctSet.size && Array.from(chosenSet).every(i => correctSet.has(i));
 
@@ -313,7 +315,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
       y += 2;
       const correctLetters = Array.from(correctSet).map(idx => String.fromCharCode(65 + idx)).join(", ");
       writeWrapped(
-        `You did not attempt this question. Correct answer: ${correctLetters}.`,
+        `You did not attempt this question. Correct answer${correctSet.size > 1 ? "s" : ""}: ${correctLetters}.`,
         PAGE.margin + 12,
         CONTENT_W - 12,
         9,

@@ -158,7 +158,7 @@ export async function GET(req: NextRequest) {
         // Zone 2
         options: opts.map((o: any) => o.label),
         correctIndex,
-        correctIndices: isKft ? correctIndices : undefined,
+        correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
         kftCorrectCount: isKft ? kfpCorrectCount : undefined,
         kfpCorrectCount,
         whyCorrect: q.whyCorrect ?? undefined,

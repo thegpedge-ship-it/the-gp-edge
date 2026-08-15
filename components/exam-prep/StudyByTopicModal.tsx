@@ -12,9 +12,11 @@ import SubjectMenu from "./SubjectMenu";
 export default function StudyByTopicModal({
   open,
   onClose,
+  examMode = "AKT",
 }: {
   open: boolean;
   onClose: () => void;
+  examMode?: "AKT" | "KFP";
 }) {
   useEffect(() => {
     if (!open) return;
@@ -71,7 +73,7 @@ export default function StudyByTopicModal({
 
             {/* Body — the drill */}
             <div className="flex-1 min-h-0 overflow-hidden p-4">
-              <SubjectMenu />
+              <SubjectMenu examMode={examMode} />
             </div>
           </motion.div>
         </motion.div>

@@ -88,7 +88,7 @@ function QuizCard({
 }
 
 /* ─── Component ───────────────────────────────────────────────────────── */
-export default function SubjectMenu() {
+export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "KFP" } = {}) {
   const router = useRouter();
 
   const [subjects, setSubjects] = useState<ExamSubject[] | null>(null); // null = loading
@@ -172,6 +172,7 @@ export default function SubjectMenu() {
       questionIds: detail.questionIds,
       durationMinutes: detail.timeLimitMin ?? 10,
       timed: false,
+      examMode,
     });
     router.push(buildInstructionsUrl(quiz.id));
   };

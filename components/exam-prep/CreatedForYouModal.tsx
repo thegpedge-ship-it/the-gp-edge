@@ -13,9 +13,11 @@ const MIN_PER_QUESTION = 1.5;
 export default function CreatedForYouModal({
   open,
   onClose,
+  examMode = "AKT",
 }: {
   open: boolean;
   onClose: () => void;
+  examMode?: "AKT" | "KFP";
 }) {
   const router = useRouter();
   const [count, setCount] = useState(50);
@@ -53,6 +55,7 @@ export default function CreatedForYouModal({
       questionIds: set.questionIds,
       durationMinutes,
       timed: false,
+      examMode,
     });
     onClose();
     router.push(buildInstructionsUrl("drill"));
