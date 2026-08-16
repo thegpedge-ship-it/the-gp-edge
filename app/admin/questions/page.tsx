@@ -112,6 +112,7 @@ export default function QuestionsPage() {
   const [newQuestionTopics, setNewQuestionTopics] = useState<string[]>(["Cardiology"]);
   const [newDifficulty, setNewDifficulty] = useState("Medium");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [examTypeFilter, setExamTypeFilter] = useState<string>("all");
   const [topicFilter, setTopicFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -197,7 +198,7 @@ export default function QuestionsPage() {
   // Reset visibleCount when search query or filters change
   useEffect(() => {
     setVisibleCount(9);
-  }, [searchQuery, statusFilter, topicFilter, difficultyFilter]);
+  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter]);
 
   // Lock body scroll when any modal is open to prevent background scrolling lag
   useEffect(() => {
@@ -260,11 +261,13 @@ export default function QuestionsPage() {
   const filtered = questions.filter((q) => {
     const searchLower = searchQuery.trim().toLowerCase();
     const matchStatus = statusFilter === "all" ? q.status !== "archived" : q.status === statusFilter;
+    const qType = (q.examType === "KFP" ? "KFT" : (q.examType || "AKT")).toUpperCase();
+    const matchExamType = examTypeFilter === "all" || qType === examTypeFilter;
     const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
     const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
 
     if (!searchLower) {
-      return matchStatus && matchTopic && matchDifficulty;
+      return matchStatus && matchExamType && matchTopic && matchDifficulty;
     }
 
     const matchSearch =
@@ -285,7 +288,7 @@ export default function QuestionsPage() {
       (q.examType && q.examType.toLowerCase().includes(searchLower)) ||
       (q.difficulty && q.difficulty.toLowerCase().includes(searchLower));
 
-    return matchSearch && matchStatus && matchTopic && matchDifficulty;
+    return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty;
   });
 
   const updateStatus = async (id: number, newStatus: Question["status"]) => {
@@ -868,6 +871,16 @@ export default function QuestionsPage() {
             { value: "review", label: "In Review" },
             { value: "draft", label: "Draft" },
             ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="w-48"
+        />
+        <CustomSelect
+          value={examTypeFilter}
+          onChange={setExamTypeFilter}
+          options={[
+            { value: "all", label: "All Formats (AKT & KFT)" },
+            { value: "AKT", label: "AKT Questions" },
+            { value: "KFT", label: "KFT Questions" },
           ]}
           className="w-48"
         />
