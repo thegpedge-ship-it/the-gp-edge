@@ -92,11 +92,17 @@ export default function QuestionsPage() {
 
   // Load questions from Neon (no localStorage — Neon is source of truth)
   useEffect(() => {
+    let isMounted = true;
     // Clear old oversized localStorage key that caused quota errors
     try { localStorage.removeItem("gpedge_admin_questions"); } catch {}
     fetchQuestions(canRestoreItem).then((list) => {
-      setQuestions(list);
+      if (isMounted) {
+        setQuestions(list);
+      }
     });
+    return () => {
+      isMounted = false;
+    };
   }, [canRestoreItem]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");

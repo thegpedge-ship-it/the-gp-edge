@@ -52,7 +52,7 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
       resolve(base64Str);
       return;
     }
-    const img = new Image();
+    const img = new window.Image();
     img.src = base64Str;
     img.onload = () => {
       let width = img.width;
@@ -163,8 +163,10 @@ export default function EditQuizPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     // Load quiz from Neon DB by UUID
     fetchQuizByDbIdAction(quizId).then(async (dbQuiz) => {
+      if (!isMounted) return;
       if (!dbQuiz) {
         setNotFound(true);
         setLoaded(true);
@@ -186,6 +188,7 @@ export default function EditQuizPage() {
 
       // Load all questions from DB, then map quiz question DB UUIDs → numeric ids
       const allQs = await fetchQuestions();
+      if (!isMounted) return;
       setAllQuestions(allQs);
 
       const dbIdToNumeric = new Map(allQs.map((q) => [q.dbId, q.id]));
@@ -196,6 +199,9 @@ export default function EditQuizPage() {
 
       setLoaded(true);
     });
+    return () => {
+      isMounted = false;
+    };
   }, [quizId]);
 
   // Lock body scroll when modal is open

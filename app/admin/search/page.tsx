@@ -65,17 +65,24 @@ export default function SearchPage() {
   const metrics = getTaxonomyAuditMetrics();
 
   useEffect(() => {
-    fetchQuestions().then(setQuestions);
-    fetchAdminUsersFromDb().then(setUsersList);
-    setContentList(getMedicalContent());
-    setAutofillList(getAutofillTemplates());
+    let isMounted = true;
+    fetchQuestions().then((qs) => { if (isMounted) setQuestions(qs); });
+    fetchAdminUsersFromDb().then((users) => { if (isMounted) setUsersList(users); });
+    if (isMounted) {
+      setContentList(getMedicalContent());
+      setAutofillList(getAutofillTemplates());
+    }
 
     // Try fetching database synced topics if available
     getTaxonomyTopicsAction({ limit: 1000 }).then((res) => {
-      if (res.success && res.data && res.data.length > 0) {
+      if (isMounted && res.success && res.data && res.data.length > 0) {
         setTaxonomyTopics(res.data as TopicItem[]);
       }
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSyncTaxonomy = async () => {

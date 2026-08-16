@@ -834,6 +834,7 @@ function ContentEditorContent() {
 
   // Load content metadata & body from Neon API
   useEffect(() => {
+    let isMounted = true;
     const loadContent = async () => {
       let item: MedicalContent | null = null;
       let savedHtml = "";
@@ -1470,10 +1471,13 @@ function ContentEditorContent() {
       }
 
       fetchQuestions().then((list) => {
-        setAllQuestions(list);
+        if (isMounted) setAllQuestions(list);
       });
     };
     loadContent();
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   const updateCounts = () => {

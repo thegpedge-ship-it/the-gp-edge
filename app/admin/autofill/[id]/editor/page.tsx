@@ -500,9 +500,13 @@ function TemplateEditorContent() {
     else if (item.references) setDocReferences([{ id: 1, text: item.references, url: "#" }]);
     const rawLinks = localStorage.getItem(`gpedge_template_links_${templateId}`);
     if (rawLinks) { try { setLinkedQuestionIds(JSON.parse(rawLinks)); } catch {} }
+    let isMounted = true;
     fetchQuestions().then((list) => {
-      setAllQuestions(list);
+      if (isMounted) setAllQuestions(list);
     });
+    return () => {
+      isMounted = false;
+    };
   }, [templateId]);
 
   // ── Keyboard shortcuts ──

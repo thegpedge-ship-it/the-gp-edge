@@ -94,18 +94,23 @@ export default function QuizzesPage() {
   }, [sortedQuizzes, visibleCount]);
 
   useEffect(() => {
+    let isMounted = true;
     // Clear old localStorage mock quizzes
     try { localStorage.removeItem("gpedge_admin_quizzes"); } catch {}
 
     // Load quizzes from Neon DB
     fetchQuizzesFromDbAction(canRestoreItem).then((dbQuizzes) => {
-      setQuizzes(dbQuizzes as any);
+      if (isMounted) setQuizzes(dbQuizzes as any);
     });
 
     // Load questions from DB for quiz previewing
     fetchQuestions().then((listQs) => {
-      setAllQuestions(listQs);
+      if (isMounted) setAllQuestions(listQs);
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentAdmin, canRestoreItem]);
 
   // Lock body scroll when modal or preview is open to prevent background scrolling lag
