@@ -2053,15 +2053,21 @@ export default function QuestionsPage() {
                 {uploadState === "uploading" && (
                   <div className="space-y-3">
                     {/* Overall progress header */}
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm">
-                      <div className="flex items-center justify-between text-xs font-bold px-1 mb-2">
-                        <span className="text-slate-700 dark:text-slate-300 truncate max-w-[240px]">Processing {uploadedFileName}</span>
-                        <span className="text-teal-600 dark:text-teal-400 font-mono">{uploadProgress}%</span>
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold px-0.5">
+                        <span className="text-slate-800 dark:text-slate-200 truncate max-w-[420px]">
+                          {uploadedFileName.startsWith("Publishing") ? uploadedFileName : `Processing ${uploadedFileName}`}
+                        </span>
+                        <span className="text-teal-600 dark:text-teal-400 font-mono font-bold text-xs">{uploadProgress}%</span>
                       </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300 rounded-full" style={{ width: `${uploadProgress}%` }} />
                       </div>
-                      <p className="text-[10px] text-slate-400 pt-1.5">Total size: {uploadedFileSize} · Extracting questions from documents...</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                        {uploadedFileName.startsWith("Publishing")
+                          ? "Saving questions and diagnostic options to database..."
+                          : `Total size: ${uploadedFileSize} · Extracting questions from document stream...`}
+                      </p>
                     </div>
 
                     {/* Per-file status list */}
