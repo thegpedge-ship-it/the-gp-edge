@@ -3,8 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import * as Lucide from "lucide-react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, RotateCcw, Trash2 } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
@@ -309,8 +308,6 @@ export default function QuestionsPage() {
     const updated = questions.map((q) => (q.id === id ? { ...q, status: "archived" as const } : q));
     setQuestions(updated);
     await deleteQuestionAction(targetQ.dbId || targetQ.text, currentAdmin);
-    const displayId = targetQ.uqid || `${(targetQ.examType || "AKT").toUpperCase()}-${String(id).padStart(6, "0")}`;
-    showAlert(`Question ${displayId} has been moved to Archive.`, "Question Archived", "info");
   };
 
   const handlePermanentlyDeleteQuestion = (q: Question) => {
@@ -332,6 +329,64 @@ export default function QuestionsPage() {
     } else {
       showAlert(res.error || "Failed to permanently delete question.", "Error", "error");
     }
+  };
+
+  // Multi-select bulk selection state for Archive view
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
+  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete"; ids: number[] } | null>(null);
+
+  // Clear selections whenever filters change
+  useEffect(() => {
+    setSelectedQuestionIds([]);
+  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter]);
+
+  const toggleSelectQuestion = (id: number) => {
+    setSelectedQuestionIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllFiltered = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      const allFilteredIds = filtered.map((q) => q.id);
+      setSelectedQuestionIds(allFilteredIds);
+    } else {
+      setSelectedQuestionIds([]);
+    }
+  };
+
+  const handleBulkRestore = async () => {
+    if (!canRestoreItem || selectedQuestionIds.length === 0) return;
+    const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id));
+    const updated = questions.map((q) => (selectedQuestionIds.includes(q.id) ? { ...q, status: "published" as const } : q));
+    setQuestions(updated);
+    setSelectedQuestionIds([]);
+    setBulkActionConfirm(null);
+
+    // Persist restore status update to Neon DB
+    for (const q of targetQs) {
+      await importQuestionsAction([{ ...q, status: "published" as const }]);
+    }
+    showAlert(`Successfully restored ${targetQs.length} question(s) to Published status.`, "Questions Restored", "success");
+  };
+
+  const handleBulkPermanentDelete = async () => {
+    if (!canRestoreItem || selectedQuestionIds.length === 0) return;
+    const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id));
+    setBulkActionConfirm(null);
+
+    let successCount = 0;
+    for (const q of targetQs) {
+      const targetId = q.dbId || String(q.id);
+      const res = await permanentlyDeleteQuestionAction(targetId, currentAdmin);
+      if (res.success) {
+        successCount++;
+      }
+    }
+    
+    setQuestions((prev) => prev.filter((item) => !selectedQuestionIds.includes(item.id)));
+    setSelectedQuestionIds([]);
+    showAlert(`Successfully deleted ${successCount} question(s) permanently.`, "Permanently Deleted", "success");
   };
 
   const handleCreateQuestion = async () => {
@@ -596,26 +651,44 @@ export default function QuestionsPage() {
     }, 1200);
   };
 
+  const normalizeQuestionText = (text: string | undefined): string => {
+    if (!text) return "";
+    return text
+      .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F\u180E\u202F\u205F\u3000]/g, "")
+      .replace(/\u00A0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  };
+
   const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
     
-    // Deduplicate the extracted list itself by question text (case-insensitive)
+    // Deduplicate the extracted list itself by question text (normalized)
     const uniqueQuestionsToImport: any[] = [];
     extractedQuestions.forEach((eq) => {
-      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+      const eqNorm = normalizeQuestionText(eq.text || eq.stem);
+      if (!uniqueQuestionsToImport.some((u) => normalizeQuestionText(u.text || u.stem) === eqNorm)) {
         uniqueQuestionsToImport.push(eq);
       }
     });
 
+    const isMatch = (a: any, b: any) => {
+      const normA = normalizeQuestionText(a.text || a.stem);
+      const normBText = normalizeQuestionText(b.text);
+      const normBStem = normalizeQuestionText(b.stem);
+      return normA === normBText || normA === normBStem;
+    };
+
     const duplicates = uniqueQuestionsToImport.filter((eq) =>
-      questions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
+      questions.some((aq) => isMatch(eq, aq))
     );
 
     const proceedWithImport = async (overwrite: boolean) => {
       let finalImportList = uniqueQuestionsToImport;
       if (!overwrite) {
         finalImportList = uniqueQuestionsToImport.filter(
-          (u) => !questions.some((aq) => aq.text.trim().toLowerCase() === u.text.trim().toLowerCase())
+          (u) => !questions.some((aq) => isMatch(u, aq))
         );
       }
       
@@ -672,7 +745,7 @@ export default function QuestionsPage() {
 
       // Update state locally
       const filteredExisting = questions.filter(
-        (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+        (aq) => !uploadedNewQs.some((nq) => isMatch(nq, aq))
       );
       setQuestions([...uploadedNewQs, ...filteredExisting]);
 
@@ -697,10 +770,9 @@ export default function QuestionsPage() {
       setUploadedFileName("Publishing complete!");
 
       if (allResults.length > 0) {
-        const resultsMap = new Map(allResults.map((r) => [r.text.trim().toLowerCase(), r]));
         setQuestions((prev) =>
           prev.map((q) => {
-            const resData = resultsMap.get(q.text.trim().toLowerCase());
+            const resData = allResults.find((r) => normalizeQuestionText(r.text) === normalizeQuestionText(q.text || q.stem));
             return resData ? { ...q, dbId: resData.dbId, uqid: resData.uqid } : q;
           })
         );
@@ -927,12 +999,63 @@ export default function QuestionsPage() {
         </div>
       </motion.div>
 
+      {/* Bulk Action Floating Toolbar (ONLY active in Archive view when items are selected) */}
+      {statusFilter === "archived" && canRestoreItem && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedQuestionIds.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-amber-300 dark:border-amber-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All Archived Questions ({selectedQuestionIds.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedQuestionIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "restore", ids: selectedQuestionIds })}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Restore Selected ({selectedQuestionIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "permanent_delete", ids: selectedQuestionIds })}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete Selected Permanently ({selectedQuestionIds.length})
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Questions table */}
       <motion.div variants={itemVariants} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-md shadow-teal-900/5 overflow-hidden relative ${themeBorder} border`}>
         <div className="relative z-10 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className={`border-b ${themeBorder}`}>
+                {statusFilter === "archived" && canRestoreItem && (
+                  <th className={`text-center text-xs font-semibold uppercase tracking-wider px-3 py-3 w-10 ${themeLabel}`}>
+                    <input
+                      type="checkbox"
+                      checked={filtered.length > 0 && selectedQuestionIds.length === filtered.length}
+                      onChange={handleSelectAllFiltered}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                    />
+                  </th>
+                )}
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-6 py-3 ${themeLabel}`}>ID</th>
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Question</th>
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Topic</th>
@@ -946,8 +1069,18 @@ export default function QuestionsPage() {
                 <tr
                   key={q.id}
                   onClick={() => setPreviewQuestion(q)}
-                  className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer"
+                  className={`hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer ${selectedQuestionIds.includes(q.id) ? "bg-amber-50/40 dark:bg-amber-950/20" : ""}`}
                 >
+                  {statusFilter === "archived" && canRestoreItem && (
+                    <td className="px-3 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedQuestionIds.includes(q.id)}
+                        onChange={() => toggleSelectQuestion(q.id)}
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                      />
+                    </td>
+                  )}
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 items-start">
                       <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
@@ -1043,7 +1176,7 @@ export default function QuestionsPage() {
                               className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
                               title="Restore Question (SA Only)"
                             >
-                              <Lucide.RotateCcw className="w-4 h-4" />
+                              <RotateCcw className="w-4 h-4" />
                             </button>
                           )}
                           {canRestoreItem && (
@@ -1052,7 +1185,7 @@ export default function QuestionsPage() {
                               className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer border-none bg-transparent"
                               title="Delete Permanently (SA Only)"
                             >
-                              <Lucide.Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -2719,7 +2852,7 @@ export default function QuestionsPage() {
                 className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-rose-100 dark:border-rose-900/30 overflow-hidden p-6 text-center"
               >
                 <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 flex items-center justify-center mb-4 text-rose-600 dark:text-rose-400">
-                  <Lucide.Trash2 className="w-7 h-7" />
+                  <Trash2 className="w-7 h-7" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Permanently Delete Question?</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
@@ -2743,6 +2876,59 @@ export default function QuestionsPage() {
                     className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer"
                   >
                     Permanently Delete
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+        {bulkActionConfirm && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
+              onClick={() => setBulkActionConfirm(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+              >
+                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${bulkActionConfirm.type === "restore" ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400" : "bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-400"}`}>
+                  {bulkActionConfirm.type === "restore" ? <RotateCcw className="w-7 h-7" /> : <Trash2 className="w-7 h-7" />}
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {bulkActionConfirm.type === "restore" ? "Restore Selected Questions?" : "Permanently Delete Selected Questions?"}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  Are you sure you want to {bulkActionConfirm.type === "restore" ? "restore" : "permanently delete"} <strong>{bulkActionConfirm.ids.length} selected question(s)</strong>?
+                </p>
+                {bulkActionConfirm.type === "permanent_delete" && (
+                  <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                    <p className="font-semibold">⚠️ Danger Zone</p>
+                    <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge all selected questions from the database.</p>
+                  </div>
+                )}
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setBulkActionConfirm(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={bulkActionConfirm.type === "restore" ? handleBulkRestore : handleBulkPermanentDelete}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer ${bulkActionConfirm.type === "restore" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"}`}
+                  >
+                    {bulkActionConfirm.type === "restore" ? "Restore Questions" : "Delete Permanently"}
                   </button>
                 </div>
               </motion.div>
