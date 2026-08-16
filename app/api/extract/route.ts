@@ -2008,10 +2008,10 @@ function parseTextToQuestions(text: string): any[] {
 
   const allLines = preProcessed.split("\n");
 
-  // Regex that identifies a line as the start of a new question (e.g. "Question 1", "Q1.", "Question:", "Stem:", "Clinical Vignette:", "1.", "[Question 1]")
-  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case|Question\s*Bank)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+)|(?:stem|clinical\s*vignette|vignette|question\s*stem|question\s*text|scenario)\s*[:\-\=\–\—])/i;
+  // Regex that identifies a line as the start of a new question (e.g. "Question 1:", "Question 1", "Q1.", "1.")
+  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i;
 
-  // Group lines into blocks
+  // Group lines into blocks — strictly start grouping from the FIRST question marker
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
 
@@ -2020,14 +2020,11 @@ function parseTextToQuestions(text: string): any[] {
     if (QUESTION_START.test(trimmed)) {
       if (current && current.length > 0) rawBlocks.push(current);
       // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case|Question\s*Bank)\s*#?\s*\d+\s*[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i, "").trim();
+      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i, "").trim();
       current = stripped ? [stripped] : [];
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
-      } else if (trimmed) {
-        // Handle documents that start directly with question content before an explicit "Question 1" header
-        current = [trimmed];
       }
     }
   }
