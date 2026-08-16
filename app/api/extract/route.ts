@@ -2367,18 +2367,17 @@ function parseTextToQuestions(text: string): any[] {
       ? (leadIn ? `${stem}\n\n${leadIn}` : stem)
       : questionTextLines.join("\n").trim();
 
-    // Skip empty or placeholder blocks
-    if (!finalQuestionText || finalQuestionText.includes("[Enter question text here]") || finalQuestionText.includes("[Enter patient clinical scenario")) continue;
+    // Skip empty text blocks
+    if (!finalQuestionText) continue;
 
-    // Fallback: If no option lines were explicitly tagged with A/B/C/D markers, use default 4 options
-    if (options.length === 0) {
-      options.push("Option A", "Option B", "Option C", "Option D");
-    }
-
+    // Filter placeholder option text if present
+    const realOptions = options.filter((o) => !o.includes("[Enter Option"));
     const finalOptions: string[] = [];
-    const numOptions = Math.max(4, options.length);
+    const optionSource = realOptions.length > 0 ? realOptions : options;
+    const numOptions = Math.max(4, optionSource.length);
     for (let k = 0; k < numOptions; k++) {
-      finalOptions.push(options[k] || `Option ${String.fromCharCode(65 + k)}`);
+      const optVal = optionSource[k] || `Option ${String.fromCharCode(65 + k)}`;
+      finalOptions.push(optVal.replace(/\[Enter Option [A-Z] text here(?:\s*\(optional\))?\]/gi, `Option ${String.fromCharCode(65 + k)}`));
     }
 
     // Auto-derive primary Topic from first tag if topic is still "General"
