@@ -300,12 +300,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           [questionId]
         );
 
-        const currentExamType = (currentQ?.exam_type_code || "AKT").toUpperCase();
-        const targetExamType = examTypeCode.toUpperCase();
+        const rawCurrentType = (currentQ?.exam_type_code || "AKT").toUpperCase();
+        const rawTargetType = examTypeCode.toUpperCase();
+        const currentExamType = rawCurrentType === "KFP" ? "KFT" : rawCurrentType;
+        const targetExamType = rawTargetType === "KFP" ? "KFT" : rawTargetType;
 
-        if (currentQ && currentExamType !== targetExamType) {
+        if (currentQ && (currentExamType !== targetExamType || (currentQ.uqid && !currentQ.uqid.startsWith(targetExamType)))) {
           // Exam type changed (e.g. AKT -> KFT or KFT -> AKT): allocate a new sequential UQID with target prefix
-          const targetSeq = (targetExamType === "KFT" || targetExamType === "KFP") ? "kft_seq" : "akt_seq";
+          const targetSeq = targetExamType === "KFT" ? "kft_seq" : "akt_seq";
           const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${targetSeq}') AS n`);
           const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
           finalUqid = `${targetExamType}-${seqNum}`;
