@@ -2164,24 +2164,45 @@ export default function QuestionsPage() {
                                     </svg>
                                   </button>
                                 </div>
-
-                                {/* Text */}
-                                <div>
-                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Question Text</label>
-                                  <textarea
-                                    rows={6}
-                                    value={q.text}
-                                    onChange={(e) => handleUpdateExtractedQuestion(qidx, "text", e.target.value)}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
-                                    placeholder="Question text..."
-                                  />
+                                {/* Zone 1: Clinical Presentation & Prompt */}
+                                <div className="p-3 bg-teal-50/40 dark:bg-teal-950/20 border border-teal-100/70 dark:border-teal-900/30 rounded-xl space-y-3">
+                                  <span className="text-[11px] font-bold text-teal-800 dark:text-teal-400 uppercase tracking-wide">Zone 1 — Clinical Presentation & Prompt</span>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Clinical Vignette (Stem)</label>
+                                    <textarea
+                                      rows={3}
+                                      value={q.stem || q.text || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        handleUpdateExtractedQuestion(qidx, "stem", val);
+                                        handleUpdateExtractedQuestion(qidx, "text", q.leadIn ? `${val}\n\n${q.leadIn}` : val);
+                                      }}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="Clinical scenario / patient history..."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Lead-In Prompt</label>
+                                    <input
+                                      type="text"
+                                      value={q.leadIn || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        handleUpdateExtractedQuestion(qidx, "leadIn", val);
+                                        const stemText = q.stem || q.text || "";
+                                        handleUpdateExtractedQuestion(qidx, "text", val ? `${stemText}\n\n${val}` : stemText);
+                                      }}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg border ${themeInput}`}
+                                      placeholder="Lead-in question directive (e.g., Which initial investigation is most appropriate?)..."
+                                    />
+                                  </div>
                                 </div>
 
                                 {/* Options grid */}
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <label className="block text-[11px] font-semibold text-slate-500">Options & Correct Answer</label>
+                                      <label className="block text-[11px] font-semibold text-slate-500">Zone 2 — Options & Correct Answer</label>
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                         q.examType === "KFT"
                                           ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
@@ -2350,16 +2371,64 @@ export default function QuestionsPage() {
                                   />
                                 </div>
 
-                                {/* Rationale */}
-                                <div>
-                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Rationale / Explanation</label>
-                                  <textarea
-                                    rows={6}
-                                    value={q.rationale}
-                                    onChange={(e) => handleUpdateExtractedQuestion(qidx, "rationale", e.target.value)}
-                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[150px]`}
-                                    placeholder="Rationale explanation..."
-                                  />
+                                {/* Zone 3: Educational Rationales & Key Takeaways */}
+                                <div className="p-3 bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100/70 dark:border-purple-900/30 rounded-xl space-y-3">
+                                  <span className="text-[11px] font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wide">Zone 3 — Educational Rationales & Takeaways</span>
+                                  
+                                  {/* Why Correct / Master Rationale */}
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Why Correct (Master Rationale)</label>
+                                    <textarea
+                                      rows={3}
+                                      value={q.whyCorrect || q.rationale || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        handleUpdateExtractedQuestion(qidx, "whyCorrect", val);
+                                        handleUpdateExtractedQuestion(qidx, "rationale", val);
+                                      }}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="Detailed explanation of why correct option(s) are right..."
+                                    />
+                                  </div>
+
+                                  {/* Distractor Rationales */}
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Distractor Rationales (Why Incorrect)</label>
+                                    <textarea
+                                      rows={3}
+                                      value={Array.isArray(q.distractorRationales) ? q.distractorRationales.join("\n") : (q.distractorRationales || "")}
+                                      onChange={(e) => {
+                                        const arr = e.target.value.split("\n");
+                                        handleUpdateExtractedQuestion(qidx, "distractorRationales", arr);
+                                      }}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="One per line explaining why incorrect options are wrong..."
+                                    />
+                                  </div>
+
+                                  {/* Knowledge Bank */}
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Knowledge Bank (Deep Dive & Guidelines)</label>
+                                    <textarea
+                                      rows={2}
+                                      value={q.knowledgeBank || ""}
+                                      onChange={(e) => handleUpdateExtractedQuestion(qidx, "knowledgeBank", e.target.value)}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="Guidelines, references, therapeutic guidelines notes..."
+                                    />
+                                  </div>
+
+                                  {/* Clinical Pearl */}
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Clinical Pearl (Key Takeaway)</label>
+                                    <input
+                                      type="text"
+                                      value={q.pearl || ""}
+                                      onChange={(e) => handleUpdateExtractedQuestion(qidx, "pearl", e.target.value)}
+                                      className={`w-full px-3 py-1.5 text-xs rounded-lg border ${themeInput}`}
+                                      placeholder="High-yield exam takeaway..."
+                                    />
+                                  </div>
                                 </div>
 
                                 {/* Image Section */}
