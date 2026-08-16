@@ -697,14 +697,21 @@ export default function QuestionsPage() {
       setUploadedFileName("Publishing complete!");
 
       if (allResults.length > 0) {
-        const resultsMap = new Map(allResults.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+        const resultsMap = new Map(allResults.map((r) => [r.text.trim().toLowerCase(), r]));
         setQuestions((prev) =>
           prev.map((q) => {
-            const dbId = resultsMap.get(q.text.trim().toLowerCase());
-            return dbId ? { ...q, dbId } : q;
+            const resData = resultsMap.get(q.text.trim().toLowerCase());
+            return resData ? { ...q, dbId: resData.dbId, uqid: resData.uqid } : q;
           })
         );
       }
+
+      // Reset search and filters so newly imported questions are immediately visible in the table
+      setSearchQuery("");
+      setStatusFilter("all");
+      setTopicFilter("all");
+      setDifficultyFilter("all");
+      setExamTypeFilter("all");
       
       addUserNotification(
         `${newQs.length} Questions Imported`,
