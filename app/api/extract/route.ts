@@ -449,15 +449,89 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
  * Checks if a line is a metadata tag. Supports plural, alternative, or misspelled forms.
  */
 function isMetadataLine(line: string): boolean {
-  const clean = line.trim().replace(/^[*#•\-\d\.\)\s]+/, "").toLowerCase();
+  const clean = line.trim().replace(/^[*#•●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
   return (
     /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]/i.test(clean) ||
     /^sub[- ]?(?:topics?|category|categories?|section)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:tags?|keywords?|labels?)\s*[:\-\=\–\—]/i.test(clean) ||
-    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—]/i.test(clean)
+    /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?|incorrect\s*options?|incorrect\s*rationales?|why\s*(?:each\s*|other\s*)?distractor\s*(?:is|are)?\s*(?:wrong|incorrect|false)|why\s*(?:other\s*|incorrect\s*)?options?\s*(?:are|is)?\s*(?:wrong|incorrect|false)|option\s*rationales?)\s*[:\-\=\–\—]/i.test(clean)
   );
+}
+
+/**
+ * Align raw distractor rationale entries 1-to-1 with options array by option index.
+ */
+function formatDistractorRationales(rawLines: string[], options: string[], correctIndices: number[]): string[] {
+  if (!options || options.length === 0) return [];
+  const result: string[] = new Array(options.length).fill("");
+
+  const entries: string[] = [];
+  let current = "";
+
+  for (const rawLine of rawLines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const isNewEntryHeader =
+      /^(?:[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-]\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
+
+    if (isNewEntryHeader && current) {
+      entries.push(current.trim());
+      current = line;
+    } else if (current) {
+      current += "\n" + line;
+    } else {
+      current = line;
+    }
+  }
+  if (current) entries.push(current.trim());
+
+  if (entries.length === 0) return result;
+
+  let mappedByLetterCount = 0;
+  for (const entry of entries) {
+    const cleanEntry = entry.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-]|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
+
+    if (letterMatch) {
+      const letter = (letterMatch[1] || letterMatch[2] || letterMatch[3] || letterMatch[4]).toUpperCase();
+      const idx = letter.charCodeAt(0) - 65;
+      if (idx >= 0 && idx < options.length) {
+        let content = letterMatch[5]?.trim() || cleanEntry;
+        if (!content) content = cleanEntry;
+        content = content.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+        result[idx] = content;
+        mappedByLetterCount++;
+      }
+    }
+  }
+
+  if (mappedByLetterCount > 0) {
+    return result;
+  }
+
+  const correctSet = new Set(correctIndices);
+  const distractorSlots: number[] = [];
+  for (let i = 0; i < options.length; i++) {
+    if (!correctSet.has(i)) {
+      distractorSlots.push(i);
+    }
+  }
+
+  const targetSlots = (entries.length === distractorSlots.length && distractorSlots.length > 0)
+    ? distractorSlots
+    : Array.from({ length: Math.min(entries.length, options.length) }, (_, i) => i);
+
+  for (let k = 0; k < Math.min(entries.length, targetSlots.length); k++) {
+    const slotIdx = targetSlots[k];
+    const cleanContent = entries[k].replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+    result[slotIdx] = cleanContent;
+  }
+
+  return result;
 }
 
 /**
@@ -2106,7 +2180,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
     for (let j = 0; j < filteredLines.length; j++) {
       const line = filteredLines[j];
       if (!line) continue;
-      const cleanLine = line.trim().replace(/^[*#•\-\s]+/, "");
+      const cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·\-\u2013\u2014–—]+/u, "").trim();
 
       // ── Exam Type (e.g. "Exam Type: KFT" or "Exam Type: AKT") ─────────
       const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
@@ -2273,15 +2347,26 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       const whyCorrectMatch = cleanLine.match(/^(?:why\s*correct|master\s*rationale|correct\s*rationale|correct\s*answer\s*explanation)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (whyCorrectMatch) {
         parsingState = "whyCorrect";
+        parsingRationale = false;
         if (whyCorrectMatch[1].trim()) whyCorrectLines.push(whyCorrectMatch[1].trim());
         continue;
       }
 
       // ── Distractor Rationales Header ────────────────────────────────────
-      const distractorMatch = cleanLine.match(/^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?|incorrect\s*options?|incorrect\s*rationales?|incorrect\s*explanations?|other\s*options?|why\s*(?:each\s*)?distractor\s*is\s*wrong|why\s*other\s*options\s*are\s*wrong)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      const distractorMatch = cleanLine.match(/^(?:distractor\s*rationales?|distractor\s*explanations?|distractor\s*breakdown|distractor\s*analysis|distractors?|incorrect\s*options?|incorrect\s*rationales?|incorrect\s*explanations?|other\s*options?|why\s*(?:each\s*|other\s*|all\s*)?distractor\s*(?:is|are)?\s*(?:wrong|incorrect|false)|why\s*(?:other\s*|incorrect\s*)?(?:options?|choices?|answers?)\s*(?:are|is)?\s*(?:wrong|incorrect|false)|explanation\s*of\s*distractors|explanation\s*of\s*incorrect\s*options?|option\s*rationales?|option\s*explanations?|rationales?\s*for\s*incorrect\s*options?|why\s*each\s*option\s*is\s*right\s*or\s*wrong)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (distractorMatch) {
         parsingState = "distractors";
+        parsingRationale = false;
         if (distractorMatch[1].trim()) distractorLines.push(distractorMatch[1].trim());
+        continue;
+      }
+
+      // ── Inline Distractor Line Detection (when options have already been parsed) ──
+      const inlineDistractorMatch = cleanLine.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-]\s*(?:Incorrect|Wrong|False)|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\b\s*[:\-\=\–\—]?\s*(.*)$/i);
+      if (inlineDistractorMatch && options.length >= 2 && parsingState !== "stem" && parsingState !== "leadIn") {
+        parsingState = "distractors";
+        parsingRationale = false;
+        distractorLines.push(line.trim());
         continue;
       }
 
@@ -2289,6 +2374,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       const kbMatch = cleanLine.match(/^(?:knowledge\s*bank|educational\s*bank|deep\s*dive|guidelines?|reference\s*summary)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (kbMatch) {
         parsingState = "knowledgeBank";
+        parsingRationale = false;
         if (kbMatch[1].trim()) knowledgeBankLines.push(kbMatch[1].trim());
         continue;
       }
@@ -2297,6 +2383,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       const pearlMatch = cleanLine.match(/^(?:clinical\s*pearl|pearl|key\s*takeaway|exam\s*pearl|take\s*home\s*message)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (pearlMatch) {
         parsingState = "pearl";
+        parsingRationale = false;
         if (pearlMatch[1].trim()) pearlLines.push(pearlMatch[1].trim());
         continue;
       }
@@ -2322,6 +2409,16 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
         const numIndex = optionMatch[4] ? parseInt(optionMatch[4], 10) - 1 : -1;
         const letter = letterRaw || (numIndex >= 0 ? String.fromCharCode(65 + numIndex) : "A");
         const optText = optionMatch[5].trim();
+        
+        // If options are already parsed (>= 2 options) and line explicitly indicates distractor explanation, switch to distractor state
+        const isDistractorExp = options.length >= 2 && /^(?:is\s+)?(?:incorrect|wrong|false|not\s+indicated|not\s+recommended)\b/i.test(optText);
+        if (isDistractorExp) {
+          parsingState = "distractors";
+          parsingRationale = false;
+          distractorLines.push(line.trim());
+          continue;
+        }
+
         const looksRealOption = optText.length >= 1;
         // Strip out placeholder options (e.g. [Enter Option E text here])
         if (looksRealOption && !optText.includes("[Enter Option")) {
@@ -2360,9 +2457,17 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
         }
       } else if (parsingState === "metadata") {
         if (parsingRationale && !isMetadataLine(line)) {
-          const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
-          if (cleanRationaleLine) {
-            rationale += (rationale ? "\n" : "") + cleanRationaleLine;
+          // If a distractor header was embedded in rationale text (e.g. "● Why each distractor is wrong:"), switch to distractors
+          if (/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)/i.test(line.trim())) {
+            parsingState = "distractors";
+            parsingRationale = false;
+            const strippedHeader = line.trim().replace(/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)\s*/i, "").trim();
+            if (strippedHeader) distractorLines.push(strippedHeader);
+          } else {
+            const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
+            if (cleanRationaleLine) {
+              rationale += (rationale ? "\n" : "") + cleanRationaleLine;
+            }
           }
         }
       }
@@ -2370,9 +2475,21 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
 
     let stem = stemLines.join("\n\n").trim();
     let leadIn = leadInLines.join("\n\n").trim();
-    const whyCorrect = whyCorrectLines.join("\n\n").trim();
+    let whyCorrect = whyCorrectLines.join("\n\n").trim();
     const knowledgeBank = knowledgeBankLines.join("\n\n").trim();
     const pearl = pearlLines.join("\n\n").trim();
+
+    // If whyCorrect or rationale accidentally captured a distractor block, separate them
+    const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
+    let cleanedWhyCorrect = whyCorrect || rationale;
+    if (distractorHeaderInWhy) {
+      cleanedWhyCorrect = distractorHeaderInWhy[1].trim();
+      const extractedDistractorText = distractorHeaderInWhy[2].trim();
+      if (extractedDistractorText) {
+        const lines = extractedDistractorText.split("\n").map(l => l.trim()).filter(Boolean);
+        distractorLines.push(...lines);
+      }
+    }
 
     // If no explicit Lead-in header was provided, separate the clinical scenario from the question sentence (?)
     if (!leadIn && questionTextLines.length > 0) {
@@ -2426,16 +2543,11 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       topic = tags[0];
     }
 
-    let finalDistractorRationales = distractorLines
-      .map((l) => l.trim().replace(/^[\s•\*\-\u2013\u2014–—]+\s*/, ""))
-      .filter(Boolean);
-    // If no explicit Distractor Rationales section header was found, attempt to extract option-by-option explanations from general rationale
-    if (finalDistractorRationales.length === 0 && rationale) {
-      const optionExpMatches = rationale.match(/(?:(?:Option|Choice)\s*[A-J]|^[A-J][\.\):\-]|Why\s+[A-J]\s+is\s+incorrect)\s*[:\-\=\–\—]?\s*[\s\S]*?(?=(?:(?:Option|Choice)\s*[A-J]|^[A-J][\.\):\-]|Why\s+[A-J]\s+is\s+incorrect)|$)/gim);
+    let finalDistractorRationales = formatDistractorRationales(distractorLines, finalOptions, correctIndices);
+    if (finalDistractorRationales.every(d => !d) && cleanedWhyCorrect) {
+      const optionExpMatches = cleanedWhyCorrect.match(/(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))\s*[:\-\=\–\—]?\s*[\s\S]*?(?=(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))|$)/gim);
       if (optionExpMatches && optionExpMatches.length > 0) {
-        finalDistractorRationales = optionExpMatches
-          .map(m => m.trim().replace(/^[\s•\*\-\u2013\u2014–—]+\s*/, ""))
-          .filter(Boolean);
+        finalDistractorRationales = formatDistractorRationales(optionExpMatches, finalOptions, correctIndices);
       }
     }
 
@@ -2448,12 +2560,12 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
       kfpCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
       kftCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
-      whyCorrect: whyCorrect || rationale,
+      whyCorrect: cleanedWhyCorrect,
       distractorRationales: finalDistractorRationales,
       knowledgeBank,
       pearl,
       examType,
-      rationale: (whyCorrect || rationale).trim() || "No explanation provided.",
+      rationale: cleanedWhyCorrect.trim() || "No explanation provided.",
       topic,
       subtopic,
       difficulty,
