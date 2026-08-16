@@ -2011,7 +2011,7 @@ function parseTextToQuestions(text: string): any[] {
   // Regex that identifies a line as the start of a new question (e.g. "Question 1:", "Question 1", "Q1.", "1.")
   const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i;
 
-  // Group lines into blocks — strictly start grouping from the FIRST question marker
+  // Group lines into blocks — initialize on first QUESTION_START line, or first content line if non-template file
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
 
@@ -2025,6 +2025,9 @@ function parseTextToQuestions(text: string): any[] {
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
+      } else if (trimmed && !/^(?:THE GP EDGE|Applied Knowledge Test|Key Feature Test|INSTRUCTIONS FOR)/i.test(trimmed)) {
+        // For non-template PDFs/files, start capturing from first actual content line
+        current = [trimmed];
       }
     }
   }
