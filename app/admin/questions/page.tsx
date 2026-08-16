@@ -29,14 +29,14 @@ import { addUserNotification } from "@/utils/notifications";
 import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
-import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction } from "@/actions/question.actions";
+import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
-type StatusFilter = "all" | "published";
+type StatusFilter = "all" | "published" | "review" | "draft" | "archived";
 
 function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): Promise<string> {
   return new Promise((resolve) => {
@@ -136,6 +136,7 @@ export default function QuestionsPage() {
   const [zoomImage, setZoomImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [duplicatePrompt, setDuplicatePrompt] = useState<{ count: number; onConfirm: (overwrite: boolean) => void } | null>(null);
+  const [deleteConfirmQuestion, setDeleteConfirmQuestion] = useState<Question | null>(null);
 
   const [alertConfig, setAlertConfig] = useState<{
     isOpen: boolean;
@@ -257,10 +258,11 @@ export default function QuestionsPage() {
 
   const filtered = questions.filter((q) => {
     const searchLower = searchQuery.trim().toLowerCase();
+    const matchStatus = statusFilter === "all" ? q.status !== "archived" : q.status === statusFilter;
+    const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
+    const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
+
     if (!searchLower) {
-      const matchStatus = statusFilter === "all" || q.status === statusFilter;
-      const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
-      const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
       return matchStatus && matchTopic && matchDifficulty;
     }
 
@@ -282,9 +284,6 @@ export default function QuestionsPage() {
       (q.examType && q.examType.toLowerCase().includes(searchLower)) ||
       (q.difficulty && q.difficulty.toLowerCase().includes(searchLower));
 
-    const matchStatus = statusFilter === "all" || q.status === statusFilter;
-    const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
-    const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
     return matchSearch && matchStatus && matchTopic && matchDifficulty;
   });
 
@@ -305,7 +304,27 @@ export default function QuestionsPage() {
     const updated = questions.map((q) => (q.id === id ? { ...q, status: "archived" as const } : q));
     setQuestions(updated);
     await deleteQuestionAction(targetQ.dbId || targetQ.text, currentAdmin);
-    showAlert(`Question #${id} has been archived.`, "Question Archived", "info");
+    showAlert(`Question #${id} has been moved to Archive.`, "Question Archived", "info");
+  };
+
+  const handlePermanentlyDeleteQuestion = (q: Question) => {
+    if (!canRestoreItem) {
+      showAlert("Permanent deletion of questions is strictly SA-only (Super Admin).", "Permission Denied", "error");
+      return;
+    }
+    setDeleteConfirmQuestion(q);
+  };
+
+  const executePermanentDelete = async (q: Question) => {
+    setDeleteConfirmQuestion(null);
+    const targetId = q.dbId || String(q.id);
+    const res = await permanentlyDeleteQuestionAction(targetId, currentAdmin);
+    if (res.success) {
+      setQuestions((prev) => prev.filter((item) => item.id !== q.id));
+      showAlert(`Question #${q.id} has been permanently deleted.`, "Permanently Deleted", "success");
+    } else {
+      showAlert(res.error || "Failed to permanently delete question.", "Error", "error");
+    }
   };
 
   const handleCreateQuestion = async () => {
@@ -896,7 +915,7 @@ export default function QuestionsPage() {
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 items-start">
                       <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
-                        {q.uqid || `#${q.id}`}
+                        {q.uqid || `${q.examType === "KFP" ? "KFT" : (q.examType || "AKT")}-${String(q.id).padStart(6, "0")}`}
                       </span>
                       <div className="flex items-center gap-1">
                         <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${q.examType === "KFT" || q.examType === "KFP" ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"}`}>
@@ -980,14 +999,27 @@ export default function QuestionsPage() {
                         </svg>
                       </button>
 
-                      {q.status === "archived" && canRestoreItem ? (
-                        <button
-                          onClick={() => handleRestoreQuestion(q)}
-                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
-                          title="Restore Question (SA Only)"
-                        >
-                          <Lucide.RotateCcw className="w-4 h-4" />
-                        </button>
+                      {q.status === "archived" ? (
+                        <div className="flex items-center gap-1">
+                          {canRestoreItem && (
+                            <button
+                              onClick={() => handleRestoreQuestion(q)}
+                              className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
+                              title="Restore Question (SA Only)"
+                            >
+                              <Lucide.RotateCcw className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canRestoreItem && (
+                            <button
+                              onClick={() => handlePermanentlyDeleteQuestion(q)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all cursor-pointer border-none bg-transparent"
+                              title="Delete Permanently (SA Only)"
+                            >
+                              <Lucide.Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       ) : (
                         canArchiveItem && (
                           <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Archive Question">
@@ -1063,7 +1095,7 @@ export default function QuestionsPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-lg border border-teal-200/60 dark:border-teal-900/40">
-                      {previewQuestion.uqid || `#${previewQuestion.id}`}
+                      {previewQuestion.uqid || `${previewQuestion.examType === "KFP" ? "KFT" : (previewQuestion.examType || "AKT")}-${String(previewQuestion.id).padStart(6, "0")}`}
                     </span>
                     {previewQuestion.version && (
                       <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
@@ -2499,6 +2531,55 @@ export default function QuestionsPage() {
                     className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
                   >
                     Overwrite & Replace
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+        {deleteConfirmQuestion && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
+              onClick={() => setDeleteConfirmQuestion(null)}
+            />
+            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-rose-100 dark:border-rose-900/30 overflow-hidden p-6 text-center"
+              >
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 flex items-center justify-center mb-4 text-rose-600 dark:text-rose-400">
+                  <Lucide.Trash2 className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Permanently Delete Question?</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  Are you sure you want to permanently delete <strong>Question #{deleteConfirmQuestion.id}</strong> ({deleteConfirmQuestion.uqid || `ID: ${deleteConfirmQuestion.id}`})?
+                </p>
+                <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                  <p className="font-semibold">⚠️ Danger Zone</p>
+                  <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge options, subtopic tags, and attempt references from the database.</p>
+                </div>
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmQuestion(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => executePermanentDelete(deleteConfirmQuestion)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+                  >
+                    Permanently Delete
                   </button>
                 </div>
               </motion.div>

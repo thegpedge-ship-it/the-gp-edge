@@ -565,4 +565,43 @@ export async function restoreQuestionAction(questionId: string, adminUser: Permi
   }
 }
 
+/**
+ * Permanently deletes a question from the database.
+ * SA-ONLY (Super Admin)!
+ */
+export async function permanentlyDeleteQuestionAction(questionId: string, adminUser: PermissionUser) {
+  try {
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item", // SA-only capability
+      item: { id: questionId, type: "question" },
+    });
+
+    if (!check.allowed) {
+      return { success: false, error: check.reason };
+    }
+
+    // Delete related child rows first
+    await execute(`DELETE FROM question_options WHERE question_id = $1`, [questionId]);
+    await execute(`DELETE FROM question_tags WHERE question_id = $1`, [questionId]);
+    await execute(`DELETE FROM condition_questions WHERE question_id = $1`, [questionId]);
+    await execute(`DELETE FROM attempt_questions WHERE question_id = $1`, [questionId]);
+    await execute(`DELETE FROM questions WHERE id = $1`, [questionId]);
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "delete_permanent",
+      category: "question",
+      entityType: "question",
+      entityId: questionId,
+      metadata: { deletedPermanentlyBy: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error permanently deleting question:", error);
+    return { success: false, error: error.message };
+  }
+}
+
 
