@@ -1981,7 +1981,7 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
   }
 }
 
-function parseTextToQuestions(text: string): any[] {
+function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AKT"): any[] {
   const questions: any[] = [];
   
   // Normalize line endings, BOM, zero-width characters, and non-breaking spaces (\u00A0)
@@ -2011,7 +2011,7 @@ function parseTextToQuestions(text: string): any[] {
   // Regex that identifies a line as the start of a new question (e.g. "Question 1:", "Question 1", "Q1.", "1.")
   const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i;
 
-  // Group lines into blocks — initialize on first QUESTION_START line, or first content line if non-template file
+  // Group lines into blocks — strictly start grouping from the FIRST explicit question header line
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
 
@@ -2025,9 +2025,6 @@ function parseTextToQuestions(text: string): any[] {
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
-      } else if (trimmed && !/^(?:THE GP EDGE|Applied Knowledge Test|Key Feature Test|INSTRUCTIONS FOR)/i.test(trimmed)) {
-        // For non-template PDFs/files, start capturing from first actual content line
-        current = [trimmed];
       }
     }
   }
@@ -2069,10 +2066,18 @@ function parseTextToQuestions(text: string): any[] {
       }
     }
 
-    // Strip all image placeholders and horizontal rule divider lines
+    // Strip image placeholders, divider lines, and document-level header / source preamble metadata
     const filteredLines = blockLines
       .map(l => l.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim())
-      .filter(l => l && !/^[_\-=\s]{3,}$/.test(l) && !looksLikeBase64OrBinary(l));
+      .filter(l => {
+        if (!l || /^[_\-=\s]{3,}$/.test(l) || looksLikeBase64OrBinary(l)) return false;
+        // Filter document titles, batch metadata, and global source header lines that appear before the question
+        if (/^(?:AKT|KFT|KFP)\s*Question\s*Bank\b/i.test(l)) return false;
+        if (/^Batch\s*\d+\s*[·•|-]/i.test(l)) return false;
+        if (/^Sources?\s*[:\-\=\–\—]/i.test(l)) return false;
+        if (/^(?:Health\s*Australia|RACGP|ACRRM|Therapeutic\s*Guidelines|CKD\s*Management\s*Handbook)\b.*(?:Handbook|edn|supplied|version)/i.test(l)) return false;
+        return true;
+      });
 
     if (filteredLines.length === 0) continue;
 
@@ -2088,7 +2093,7 @@ function parseTextToQuestions(text: string): any[] {
     let correctIndex = 0;
     let correctIndices: number[] = [0];
     let kfpCorrectCount = 1;
-    let examType: "AKT" | "KFT" = "AKT";
+    let examType: "AKT" | "KFT" = defaultExamType;
     let rationale = "";
     let topic = "General";
     let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
@@ -2143,16 +2148,22 @@ function parseTextToQuestions(text: string): any[] {
           if (next && !isMetadataLine(next)) { ansVal = next; j++; }
         }
         
-        // Extract multiple option letters (e.g. "A, B, D" or "A, C, F" or "A")
-        const letters = ansVal.toUpperCase().match(/[A-J]/g);
-        if (letters && letters.length > 0) {
-          correctIndices = letters.map((l) => l.charCodeAt(0) - 65).filter((idx) => idx >= 0 && idx < 10);
+        // Extract correct option letters
+        const letterMatches = ansVal.toUpperCase().match(/\b[A-J]\b/g) || ansVal.toUpperCase().match(/[A-J]/g);
+        if (letterMatches && letterMatches.length > 0) {
+          correctIndices = letterMatches.map((l) => l.charCodeAt(0) - 65).filter((idx) => idx >= 0 && idx < 10);
           correctIndex = correctIndices[0] ?? 0;
-          if (letters.length > 1) {
+          // If explicit multiple letters are found AND format is KFT, enable multi-select
+          if (letterMatches.length > 1 && defaultExamType === "KFT") {
             examType = "KFT";
             if (kfpCorrectCount <= 1) {
-              kfpCorrectCount = letters.length;
+              kfpCorrectCount = letterMatches.length;
             }
+          } else if (defaultExamType === "AKT") {
+            // For AKT, strictly enforce single-choice answer
+            examType = "AKT";
+            correctIndices = [correctIndex];
+            kfpCorrectCount = 1;
           }
         }
 
@@ -2259,7 +2270,7 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Why Correct Header ──────────────────────────────────────────────
-      const whyCorrectMatch = cleanLine.match(/^(?:why\s*correct|master\s*rationale|correct\s*rationale)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      const whyCorrectMatch = cleanLine.match(/^(?:why\s*correct|master\s*rationale|correct\s*rationale|correct\s*answer\s*explanation)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (whyCorrectMatch) {
         parsingState = "whyCorrect";
         if (whyCorrectMatch[1].trim()) whyCorrectLines.push(whyCorrectMatch[1].trim());
@@ -2267,7 +2278,7 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Distractor Rationales Header ────────────────────────────────────
-      const distractorMatch = cleanLine.match(/^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      const distractorMatch = cleanLine.match(/^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?|incorrect\s*options?|incorrect\s*rationales?|incorrect\s*explanations?|other\s*options?|why\s*(?:each\s*)?distractor\s*is\s*wrong|why\s*other\s*options\s*are\s*wrong)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (distractorMatch) {
         parsingState = "distractors";
         if (distractorMatch[1].trim()) distractorLines.push(distractorMatch[1].trim());
@@ -2275,7 +2286,7 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Knowledge Bank Header ───────────────────────────────────────────
-      const kbMatch = cleanLine.match(/^(?:knowledge\s*bank|educational\s*bank|deep\s*dive|guidelines?)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      const kbMatch = cleanLine.match(/^(?:knowledge\s*bank|educational\s*bank|deep\s*dive|guidelines?|reference\s*summary)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (kbMatch) {
         parsingState = "knowledgeBank";
         if (kbMatch[1].trim()) knowledgeBankLines.push(kbMatch[1].trim());
@@ -2283,7 +2294,7 @@ function parseTextToQuestions(text: string): any[] {
       }
 
       // ── Clinical Pearl Header ───────────────────────────────────────────
-      const pearlMatch = cleanLine.match(/^(?:clinical\s*pearl|pearl|key\s*takeaway|exam\s*pearl)\s*[:\-\=\–\—]?\s*(.*)$/i);
+      const pearlMatch = cleanLine.match(/^(?:clinical\s*pearl|pearl|key\s*takeaway|exam\s*pearl|take\s*home\s*message)\s*[:\-\=\–\—]?\s*(.*)$/i);
       if (pearlMatch) {
         parsingState = "pearl";
         if (pearlMatch[1].trim()) pearlLines.push(pearlMatch[1].trim());
@@ -2357,15 +2368,45 @@ function parseTextToQuestions(text: string): any[] {
       }
     }
 
-    const stem = stemLines.join("\n").trim();
-    const leadIn = leadInLines.join("\n").trim();
-    const whyCorrect = whyCorrectLines.join("\n").trim();
-    const knowledgeBank = knowledgeBankLines.join("\n").trim();
-    const pearl = pearlLines.join("\n").trim();
+    let stem = stemLines.join("\n\n").trim();
+    let leadIn = leadInLines.join("\n\n").trim();
+    const whyCorrect = whyCorrectLines.join("\n\n").trim();
+    const knowledgeBank = knowledgeBankLines.join("\n\n").trim();
+    const pearl = pearlLines.join("\n\n").trim();
+
+    // If no explicit Lead-in header was provided, separate the clinical scenario from the question sentence (?)
+    if (!leadIn && questionTextLines.length > 0) {
+      const fullText = questionTextLines.join("\n").trim();
+      // Look for the last line or question sentence ending with a ?
+      const qIndex = fullText.lastIndexOf("?");
+      if (qIndex !== -1) {
+        // Find the start of the question sentence before ?
+        const beforeQ = fullText.substring(0, qIndex);
+        const lastNewline = beforeQ.lastIndexOf("\n");
+        const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf("! "));
+        
+        const splitIdx = lastNewline !== -1 ? lastNewline + 1 : (lastPeriod !== -1 ? lastPeriod + 2 : 0);
+        if (splitIdx > 0 && splitIdx < fullText.length) {
+          stem = fullText.substring(0, splitIdx).trim();
+          leadIn = fullText.substring(splitIdx).trim();
+        } else {
+          leadIn = fullText;
+          stem = "";
+        }
+      } else {
+        // Fallback if no ? mark is found
+        if (questionTextLines.length > 1) {
+          leadIn = questionTextLines[questionTextLines.length - 1];
+          stem = questionTextLines.slice(0, -1).join("\n").trim();
+        } else {
+          stem = fullText;
+        }
+      }
+    }
 
     const finalQuestionText = stem
       ? (leadIn ? `${stem}\n\n${leadIn}` : stem)
-      : questionTextLines.join("\n").trim();
+      : (leadIn || questionTextLines.join("\n").trim());
 
     // Skip empty text blocks
     if (!finalQuestionText) continue;
@@ -2385,6 +2426,19 @@ function parseTextToQuestions(text: string): any[] {
       topic = tags[0];
     }
 
+    let finalDistractorRationales = distractorLines
+      .map((l) => l.trim().replace(/^[\s•\*\-\u2013\u2014–—]+\s*/, ""))
+      .filter(Boolean);
+    // If no explicit Distractor Rationales section header was found, attempt to extract option-by-option explanations from general rationale
+    if (finalDistractorRationales.length === 0 && rationale) {
+      const optionExpMatches = rationale.match(/(?:(?:Option|Choice)\s*[A-J]|^[A-J][\.\):\-]|Why\s+[A-J]\s+is\s+incorrect)\s*[:\-\=\–\—]?\s*[\s\S]*?(?=(?:(?:Option|Choice)\s*[A-J]|^[A-J][\.\):\-]|Why\s+[A-J]\s+is\s+incorrect)|$)/gim);
+      if (optionExpMatches && optionExpMatches.length > 0) {
+        finalDistractorRationales = optionExpMatches
+          .map(m => m.trim().replace(/^[\s•\*\-\u2013\u2014–—]+\s*/, ""))
+          .filter(Boolean);
+      }
+    }
+
     questions.push({
       text: finalQuestionText,
       stem: stem || finalQuestionText,
@@ -2395,7 +2449,7 @@ function parseTextToQuestions(text: string): any[] {
       kfpCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
       kftCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
       whyCorrect: whyCorrect || rationale,
-      distractorRationales: distractorLines.filter(Boolean),
+      distractorRationales: finalDistractorRationales,
       knowledgeBank,
       pearl,
       examType,
@@ -2667,6 +2721,9 @@ export async function POST(req: NextRequest) {
       fileName.toLowerCase().includes("quiz");
 
     if (isQuestionType) {
+      const examFormatParam = (formData.get("examType") as string | null) || (formData.get("examFormat") as string | null) || "AKT";
+      const targetExamFormat: "AKT" | "KFT" = examFormatParam.toUpperCase().includes("KFT") ? "KFT" : "AKT";
+
       let rawText = "";
       if (ext === "pdf") {
         rawText = await extractTextAndImagesFromPdfBuffer(buffer);
@@ -2678,7 +2735,7 @@ export async function POST(req: NextRequest) {
         rawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }
       
-      const questions = parseTextToQuestions(rawText);
+      const questions = parseTextToQuestions(rawText, targetExamFormat);
 
       // ── Debug: log first 3000 chars and question count to server console ──
       console.log("[extract] rawText first 3000 chars:\n" + rawText.substring(0, 3000));

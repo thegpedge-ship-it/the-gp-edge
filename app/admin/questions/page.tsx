@@ -171,6 +171,7 @@ export default function QuestionsPage() {
   const [extractionProgress, setExtractionProgress] = useState(0);
   const [extractionLog, setExtractionLog] = useState("");
   const [extractedQuestions, setExtractedQuestions] = useState<any[]>([]);
+  const [overwriteDuplicates, setOverwriteDuplicates] = useState(true);
   const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
@@ -308,7 +309,8 @@ export default function QuestionsPage() {
     const updated = questions.map((q) => (q.id === id ? { ...q, status: "archived" as const } : q));
     setQuestions(updated);
     await deleteQuestionAction(targetQ.dbId || targetQ.text, currentAdmin);
-    showAlert(`Question #${id} has been moved to Archive.`, "Question Archived", "info");
+    const displayId = targetQ.uqid || `${(targetQ.examType || "AKT").toUpperCase()}-${String(id).padStart(6, "0")}`;
+    showAlert(`Question ${displayId} has been moved to Archive.`, "Question Archived", "info");
   };
 
   const handlePermanentlyDeleteQuestion = (q: Question) => {
@@ -323,9 +325,10 @@ export default function QuestionsPage() {
     setDeleteConfirmQuestion(null);
     const targetId = q.dbId || String(q.id);
     const res = await permanentlyDeleteQuestionAction(targetId, currentAdmin);
+    const displayId = q.uqid || `${(q.examType || "AKT").toUpperCase()}-${String(q.id).padStart(6, "0")}`;
     if (res.success) {
       setQuestions((prev) => prev.filter((item) => item.id !== q.id));
-      showAlert(`Question #${q.id} has been permanently deleted.`, "Permanently Deleted", "success");
+      showAlert(`Question ${displayId} has been permanently deleted.`, "Permanently Deleted", "success");
     } else {
       showAlert(res.error || "Failed to permanently delete question.", "Error", "error");
     }
@@ -501,18 +504,20 @@ export default function QuestionsPage() {
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Simulate incremental progress smoothly
+        // Simulate incremental progress smoothly up to 99% until complete
         let currentProgress = 10;
         const progressTimer = setInterval(() => {
-          currentProgress += Math.random() * 8 + 2;
-          if (currentProgress > 90) currentProgress = 90;
+          currentProgress += Math.random() * 5 + 2;
+          if (currentProgress > 98) currentProgress = 98;
           updateBatchFile(idx, { progress: Math.round(currentProgress) });
-        }, 250);
+        }, 200);
 
         try {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("type", "question");
+          formData.append("examType", uploadExamType);
+          formData.append("examFormat", uploadExamType);
 
           // Keep current progress but update status to extracting
           updateBatchFile(idx, { status: "extracting" });
@@ -523,6 +528,7 @@ export default function QuestionsPage() {
           });
 
           clearInterval(progressTimer);
+          updateBatchFile(idx, { progress: 99 });
 
           const result = await res.json();
           if (result.success && result.type === "question") {
@@ -637,61 +643,61 @@ export default function QuestionsPage() {
 
       const hasImages = newQs.some((q: any) => q.image && q.image.startsWith("data:image/"));
 
+      const totalCount = newQs.length;
       setUploadProgress(0);
-      setUploadedFileName("Publishing to database...");
+      setUploadedFileName(`Publishing ${totalCount} question${totalCount > 1 ? "s" : ""}...`);
       setUploadState("uploading");
 
-      let completedCount = 0;
-      const totalCount = newQs.length;
+      let processedCount = 0;
+      const updatePublishProgress = (count: number) => {
+        const pct = Math.min(99, Math.round((count / totalCount) * 100));
+        setUploadProgress(pct);
+        setUploadedFileName(`Publishing question ${count} of ${totalCount} (${pct}%)...`);
+      };
 
-      const uploadedNewQs = await Promise.all(
-        newQs.map(async (q) => {
-          let updatedQ = q;
-          if (q.image && q.image.startsWith("data:image/")) {
-            try {
-              const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
-              updatedQ = { ...q, image: fileUrl };
-            } catch (err) {
-              console.error("Client image upload failed:", err);
-            }
+      // 1. Process image uploads if present
+      const uploadedNewQs: typeof newQs = [];
+      for (const q of newQs) {
+        let updatedQ = q;
+        if (q.image && q.image.startsWith("data:image/")) {
+          try {
+            const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+            updatedQ = { ...q, image: fileUrl };
+          } catch (err) {
+            console.error("Client image upload failed:", err);
           }
-          completedCount++;
-          if (hasImages) {
-            const progressVal = Math.round((completedCount / totalCount) * 50);
-            setUploadProgress(progressVal);
-          }
-          return updatedQ;
-        })
-      );
+        }
+        uploadedNewQs.push(updatedQ);
+      }
 
+      // Update state locally
       const filteredExisting = questions.filter(
         (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
       );
-      const updated = [...uploadedNewQs, ...filteredExisting];
-      setQuestions(updated);
+      setQuestions([...uploadedNewQs, ...filteredExisting]);
 
-      const startProgress = hasImages ? 50 : 0;
-      setUploadProgress(startProgress);
-      const progressTimer = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressTimer);
-            return 95;
+      // 2. Import questions to DB in chunks of 5 to report precise per-question progress
+      const chunkSize = 5;
+      const allResults: any[] = [];
+      for (let i = 0; i < uploadedNewQs.length; i += chunkSize) {
+        const chunk = uploadedNewQs.slice(i, i + chunkSize);
+        try {
+          const res = await importQuestionsAction(chunk);
+          if (res?.success && res.results) {
+            allResults.push(...res.results);
           }
-          return prev + 1;
-        });
-      }, 150);
-
-      let res;
-      try {
-        res = await importQuestionsAction(uploadedNewQs);
-      } finally {
-        clearInterval(progressTimer);
-        setUploadProgress(100);
+        } catch (err) {
+          console.error("Failed to import question chunk:", err);
+        }
+        processedCount += chunk.length;
+        updatePublishProgress(processedCount);
       }
 
-      if (res?.success && res.results) {
-        const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+      setUploadProgress(100);
+      setUploadedFileName("Publishing complete!");
+
+      if (allResults.length > 0) {
+        const resultsMap = new Map(allResults.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
         setQuestions((prev) =>
           prev.map((q) => {
             const dbId = resultsMap.get(q.text.trim().toLowerCase());
@@ -716,7 +722,7 @@ export default function QuestionsPage() {
       showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
     };
 
-    if (duplicates.length > 0) {
+    if (duplicates.length > 0 && !overwriteDuplicates) {
       setDuplicatePrompt({
         count: duplicates.length,
         onConfirm: (overwrite) => {
@@ -724,7 +730,7 @@ export default function QuestionsPage() {
         }
       });
     } else {
-      proceedWithImport(true);
+      proceedWithImport(overwriteDuplicates);
     }
   };
 
@@ -739,7 +745,7 @@ export default function QuestionsPage() {
       <AdminPageHeader
         title="Question"
         highlightedText="Management"
-        subtitle={`${questions.length} questions in bank`}
+        subtitle={`Showing ${filtered.length} of ${questions.length} questions in bank`}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Unified Download Template Dropdown */}
@@ -904,6 +910,14 @@ export default function QuestionsPage() {
           ]}
           className="w-48"
         />
+
+        {/* Count summary badge */}
+        <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-800/40 text-xs font-bold text-teal-800 dark:text-teal-300 ml-auto shrink-0 shadow-sm">
+          <span>{filtered.length}</span>
+          <span className="text-teal-600/70 dark:text-teal-400/70 font-normal">of</span>
+          <span>{questions.length}</span>
+          <span className="font-medium text-teal-700/80 dark:text-teal-300/80">Questions</span>
+        </div>
       </motion.div>
 
       {/* Questions table */}
@@ -2120,10 +2134,21 @@ export default function QuestionsPage() {
                     {/* Extraction success - show preview */}
                     {extractionState === "success" && (
                       <div className="space-y-4 flex flex-col h-full">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                            Extracted Questions ({extractedQuestions.length})
-                          </h4>
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-3">
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              Extracted Questions ({extractedQuestions.length})
+                            </h4>
+                            <label className="inline-flex items-center gap-2 cursor-pointer bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500/50 transition-all text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              <input
+                                type="checkbox"
+                                checked={overwriteDuplicates}
+                                onChange={(e) => setOverwriteDuplicates(e.target.checked)}
+                                className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-700"
+                              />
+                              <span>Overwrite existing duplicates if found</span>
+                            </label>
+                          </div>
                           <button
                             onClick={() => {
                               setUploadState("idle");
@@ -2164,45 +2189,44 @@ export default function QuestionsPage() {
                                     </svg>
                                   </button>
                                 </div>
-                                {/* Zone 1: Clinical Presentation & Prompt */}
-                                <div className="p-3 bg-teal-50/40 dark:bg-teal-950/20 border border-teal-100/70 dark:border-teal-900/30 rounded-xl space-y-3">
-                                  <span className="text-[11px] font-bold text-teal-800 dark:text-teal-400 uppercase tracking-wide">Zone 1 — Clinical Presentation & Prompt</span>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Clinical Vignette (Stem)</label>
-                                    <textarea
-                                      rows={3}
-                                      value={q.stem || q.text || ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        handleUpdateExtractedQuestion(qidx, "stem", val);
-                                        handleUpdateExtractedQuestion(qidx, "text", q.leadIn ? `${val}\n\n${q.leadIn}` : val);
-                                      }}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
-                                      placeholder="Clinical scenario / patient history..."
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Lead-In Prompt</label>
-                                    <input
-                                      type="text"
-                                      value={q.leadIn || ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        handleUpdateExtractedQuestion(qidx, "leadIn", val);
-                                        const stemText = q.stem || q.text || "";
-                                        handleUpdateExtractedQuestion(qidx, "text", val ? `${stemText}\n\n${val}` : stemText);
-                                      }}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg border ${themeInput}`}
-                                      placeholder="Lead-in question directive (e.g., Which initial investigation is most appropriate?)..."
-                                    />
-                                  </div>
+
+                                 {/* Stem (Case Vignette) */}
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Stem (Clinical Case Narrative)</label>
+                                  <textarea
+                                    rows={4}
+                                    value={q.stem || q.text || ""}
+                                    onChange={(e) => {
+                                      const newStem = e.target.value;
+                                      handleUpdateExtractedQuestion(qidx, "stem", newStem);
+                                      handleUpdateExtractedQuestion(qidx, "text", q.leadIn ? `${newStem}\n\n${q.leadIn}` : newStem);
+                                    }}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[100px]`}
+                                    placeholder="Clinical case scenario / patient background..."
+                                  />
+                                </div>
+
+                                {/* Lead-in */}
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Lead-In (Question Directive)</label>
+                                  <input
+                                    type="text"
+                                    value={q.leadIn || ""}
+                                    onChange={(e) => {
+                                      const newLeadIn = e.target.value;
+                                      handleUpdateExtractedQuestion(qidx, "leadIn", newLeadIn);
+                                      handleUpdateExtractedQuestion(qidx, "text", newLeadIn ? `${q.stem || ""}\n\n${newLeadIn}` : (q.stem || ""));
+                                    }}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all dark:text-slate-100 ${themeInput}`}
+                                    placeholder="e.g. Which of the following is the most appropriate initial management step?"
+                                  />
                                 </div>
 
                                 {/* Options grid */}
                                 <div className="space-y-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      <label className="block text-[11px] font-semibold text-slate-500">Zone 2 — Options & Correct Answer</label>
+                                      <label className="block text-[11px] font-semibold text-slate-500">Options & Correct Answer</label>
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                         q.examType === "KFT"
                                           ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
@@ -2371,62 +2395,57 @@ export default function QuestionsPage() {
                                   />
                                 </div>
 
-                                {/* Zone 3: Educational Rationales & Key Takeaways */}
-                                <div className="p-3 bg-purple-50/40 dark:bg-purple-950/20 border border-purple-100/70 dark:border-purple-900/30 rounded-xl space-y-3">
-                                  <span className="text-[11px] font-bold text-purple-800 dark:text-purple-400 uppercase tracking-wide">Zone 3 — Educational Rationales & Takeaways</span>
-                                  
-                                  {/* Why Correct / Master Rationale */}
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Why Correct (Master Rationale)</label>
-                                    <textarea
-                                      rows={3}
-                                      value={q.whyCorrect || q.rationale || ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        handleUpdateExtractedQuestion(qidx, "whyCorrect", val);
-                                        handleUpdateExtractedQuestion(qidx, "rationale", val);
-                                      }}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
-                                      placeholder="Detailed explanation of why correct option(s) are right..."
-                                    />
-                                  </div>
+                                {/* Why Correct */}
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Why Correct (Master Rationale)</label>
+                                  <textarea
+                                    rows={3}
+                                    value={q.whyCorrect || q.rationale || ""}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      handleUpdateExtractedQuestion(qidx, "whyCorrect", v);
+                                      handleUpdateExtractedQuestion(qidx, "rationale", v);
+                                    }}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[80px]`}
+                                    placeholder="Explain why the correct answer is right..."
+                                  />
+                                </div>
 
-                                  {/* Distractor Rationales */}
-                                  <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Distractor Rationales (Why Incorrect)</label>
-                                    <textarea
-                                      rows={3}
-                                      value={Array.isArray(q.distractorRationales) ? q.distractorRationales.join("\n") : (q.distractorRationales || "")}
-                                      onChange={(e) => {
-                                        const arr = e.target.value.split("\n");
-                                        handleUpdateExtractedQuestion(qidx, "distractorRationales", arr);
-                                      }}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
-                                      placeholder="One per line explaining why incorrect options are wrong..."
-                                    />
-                                  </div>
+                                {/* Distractor Rationales */}
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Distractor Rationales (Why incorrect options are wrong)</label>
+                                  <textarea
+                                    rows={3}
+                                    value={Array.isArray(q.distractorRationales) ? q.distractorRationales.join("\n") : (q.distractorRationales || "")}
+                                    onChange={(e) => {
+                                      const lines = e.target.value.split("\n");
+                                      handleUpdateExtractedQuestion(qidx, "distractorRationales", lines);
+                                    }}
+                                    className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[80px]`}
+                                    placeholder="Option A: Incorrect because...&#10;Option B: Incorrect because..."
+                                  />
+                                </div>
 
-                                  {/* Knowledge Bank */}
+                                {/* Knowledge Bank & Clinical Pearl */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Knowledge Bank (Deep Dive & Guidelines)</label>
+                                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Knowledge Bank (Deep Dive)</label>
                                     <textarea
                                       rows={2}
                                       value={q.knowledgeBank || ""}
                                       onChange={(e) => handleUpdateExtractedQuestion(qidx, "knowledgeBank", e.target.value)}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg transition-all resize-y dark:text-slate-100 ${themeInput}`}
-                                      placeholder="Guidelines, references, therapeutic guidelines notes..."
+                                      className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="Guidelines, references, evidence summary..."
                                     />
                                   </div>
-
-                                  {/* Clinical Pearl */}
                                   <div>
                                     <label className="block text-[11px] font-semibold text-slate-500 mb-1">Clinical Pearl (Key Takeaway)</label>
-                                    <input
-                                      type="text"
+                                    <textarea
+                                      rows={2}
                                       value={q.pearl || ""}
                                       onChange={(e) => handleUpdateExtractedQuestion(qidx, "pearl", e.target.value)}
-                                      className={`w-full px-3 py-1.5 text-xs rounded-lg border ${themeInput}`}
-                                      placeholder="High-yield exam takeaway..."
+                                      className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput}`}
+                                      placeholder="High-yield examination key point..."
                                     />
                                   </div>
                                 </div>
@@ -2702,7 +2721,7 @@ export default function QuestionsPage() {
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Permanently Delete Question?</h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                  Are you sure you want to permanently delete <strong>Question #{deleteConfirmQuestion.id}</strong> ({deleteConfirmQuestion.uqid || `ID: ${deleteConfirmQuestion.id}`})?
+                  Are you sure you want to permanently delete <strong>Question {deleteConfirmQuestion.uqid || `${(deleteConfirmQuestion.examType || "AKT").toUpperCase()}-${String(deleteConfirmQuestion.id).padStart(6, "0")}`}</strong>?
                 </p>
                 <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
                   <p className="font-semibold">⚠️ Danger Zone</p>
