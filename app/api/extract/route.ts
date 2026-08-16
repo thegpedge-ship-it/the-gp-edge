@@ -2008,8 +2008,8 @@ function parseTextToQuestions(text: string): any[] {
 
   const allLines = preProcessed.split("\n");
 
-  // Regex that identifies a line as the start of a new question (e.g. "Question 1 |", "Question 1:", "1.")
-  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i;
+  // Regex that identifies a line as the start of a new question (e.g. "Question 1", "Q1.", "Question:", "Stem:", "Clinical Vignette:", "1.", "[Question 1]")
+  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case|Question\s*Bank)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+)|(?:stem|clinical\s*vignette|vignette|question\s*stem|question\s*text|scenario)\s*[:\-\=\–\—])/i;
 
   // Group lines into blocks
   let rawBlocks: string[][] = [];
@@ -2020,23 +2020,30 @@ function parseTextToQuestions(text: string): any[] {
     if (QUESTION_START.test(trimmed)) {
       if (current && current.length > 0) rawBlocks.push(current);
       // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i, "").trim();
+      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case|Question\s*Bank)\s*#?\s*\d+\s*[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i, "").trim();
       current = stripped ? [stripped] : [];
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
+      } else if (trimmed) {
+        // Handle documents that start directly with question content before an explicit "Question 1" header
+        current = [trimmed];
       }
     }
   }
   if (current && current.length > 0) rawBlocks.push(current);
 
-  // Fallback: If no QUESTION_START matched, split by double newlines where option lines are found
-  if (rawBlocks.length === 0) {
+  // Fallback: If no QUESTION_START matched or rawBlocks is empty, split by double newlines or option lines
+  if (rawBlocks.length === 0 || !rawBlocks.some(blk => blk.some(l => /^\s*(?:\[?[A-J]\]?|\(?\d{1,2}\))[\.\/):\-]/i.test(l)))) {
     const doubleNewlineBlocks = preProcessed.split(/\n\s*\n/).map(b => b.split("\n").map(l => l.trim()).filter(Boolean)).filter(b => b.length > 0);
+    const fallbackBlocks: string[][] = [];
     for (const blk of doubleNewlineBlocks) {
-      if (blk.some(l => /^\s*(?:\[?[A-H]\]?|\(?\d{1,2}\))[\.\/):\-]/i.test(l))) {
-        rawBlocks.push(blk);
+      if (blk.some(l => /^\s*(?:\[?[A-J]\]?|\(?\d{1,2}\))[\.\/):\-]/i.test(l)) || blk.some(l => isMetadataLine(l))) {
+        fallbackBlocks.push(blk);
       }
+    }
+    if (fallbackBlocks.length > 0) {
+      rawBlocks = fallbackBlocks;
     }
   }
 
@@ -2362,8 +2369,11 @@ function parseTextToQuestions(text: string): any[] {
 
     // Skip empty or placeholder blocks
     if (!finalQuestionText || finalQuestionText.includes("[Enter question text here]") || finalQuestionText.includes("[Enter patient clinical scenario")) continue;
-    // Skip blocks with no options (likely a preamble / instructions block)
-    if (options.length === 0) continue;
+
+    // Fallback: If no option lines were explicitly tagged with A/B/C/D markers, use default 4 options
+    if (options.length === 0) {
+      options.push("Option A", "Option B", "Option C", "Option D");
+    }
 
     const finalOptions: string[] = [];
     const numOptions = Math.max(4, options.length);
