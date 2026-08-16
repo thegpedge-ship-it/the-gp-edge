@@ -722,7 +722,7 @@ export default function QuestionsPage() {
       showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
     };
 
-    if (duplicates.length > 0 && !overwriteDuplicates) {
+    if (duplicates.length > 0) {
       setDuplicatePrompt({
         count: duplicates.length,
         onConfirm: (overwrite) => {
@@ -730,7 +730,7 @@ export default function QuestionsPage() {
         }
       });
     } else {
-      proceedWithImport(overwriteDuplicates);
+      proceedWithImport(true);
     }
   };
 
@@ -2134,21 +2134,10 @@ export default function QuestionsPage() {
                     {/* Extraction success - show preview */}
                     {extractionState === "success" && (
                       <div className="space-y-4 flex flex-col h-full">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                              Extracted Questions ({extractedQuestions.length})
-                            </h4>
-                            <label className="inline-flex items-center gap-2 cursor-pointer bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500/50 transition-all text-xs font-semibold text-slate-700 dark:text-slate-300">
-                              <input
-                                type="checkbox"
-                                checked={overwriteDuplicates}
-                                onChange={(e) => setOverwriteDuplicates(e.target.checked)}
-                                className="w-4 h-4 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-700"
-                              />
-                              <span>Overwrite existing duplicates if found</span>
-                            </label>
-                          </div>
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            Extracted Questions ({extractedQuestions.length})
+                          </h4>
                           <button
                             onClick={() => {
                               setUploadState("idle");
