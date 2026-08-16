@@ -161,6 +161,7 @@ export default function QuestionsPage() {
 
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadExamType, setUploadExamType] = useState<"AKT" | "KFT">("AKT");
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -525,11 +526,12 @@ export default function QuestionsPage() {
             const qs = result.questions || [];
             const compressedQs = await Promise.all(
               qs.map(async (q: any) => {
-                if (q.image) {
-                  const comp = await compressBase64Image(q.image);
-                  return { ...q, image: comp };
+                const finalQ = { ...q, examType: uploadExamType };
+                if (finalQ.image) {
+                  const comp = await compressBase64Image(finalQ.image);
+                  return { ...finalQ, image: comp };
                 }
-                return q;
+                return finalQ;
               })
             );
             allExtracted.push(...compressedQs);
@@ -1909,42 +1911,98 @@ export default function QuestionsPage() {
               <div className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[calc(90vh-160px)]">
                 {uploadState === "idle" && (
                   <div className="space-y-5">
+                    {/* Exam Type Selector Pill */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Question Exam Format</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUploadExamType("AKT")}
+                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                            uploadExamType === "AKT"
+                              ? "bg-teal-50/80 dark:bg-teal-950/40 border-teal-500 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/20 shadow-sm"
+                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            uploadExamType === "AKT" ? "bg-teal-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}>
+                            AKT
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">AKT (Single MCQ)</p>
+                            <p className="text-[10px] opacity-75">Applied Knowledge Test single-answer format</p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setUploadExamType("KFT")}
+                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                            uploadExamType === "KFT"
+                              ? "bg-purple-50/80 dark:bg-purple-950/40 border-purple-500 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm"
+                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            uploadExamType === "KFT" ? "bg-purple-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}>
+                            KFT
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">KFT (Multi-Select)</p>
+                            <p className="text-[10px] opacity-75">Key Feature Test multi-select clinical cases</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Instructions Card */}
-                    <div className="bg-teal-50/40 dark:bg-teal-950/10 border border-teal-100/50 dark:border-teal-900/30 rounded-2xl p-4 space-y-3">
-                      <div className="flex items-center gap-2 text-teal-800 dark:text-teal-400">
+                    <div className={`border rounded-2xl p-4 space-y-3 ${
+                      uploadExamType === "KFT" ? "bg-purple-50/40 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/30" : "bg-teal-50/40 dark:bg-teal-950/10 border-teal-100/50 dark:border-teal-900/30"
+                    }`}>
+                      <div className={`flex items-center gap-2 ${uploadExamType === "KFT" ? "text-purple-800 dark:text-purple-300" : "text-teal-800 dark:text-teal-400"}`}>
                         <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-xs font-bold uppercase tracking-wider">Instructions & Guidelines</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{uploadExamType} Template & Upload Guidelines</span>
                       </div>
-                      <p className="text-xs text-teal-950/70 dark:text-teal-300/80 leading-relaxed">
-                        To successfully import practice questions, please use our standardized DOCX templates. 
-                        We provide specialized formats for both <strong>AKT</strong> (single-answer MCQ) and <strong>KFT</strong> (multi-select key feature clinical cases with 3-zone architecture).
+                      <p className={`text-xs leading-relaxed ${uploadExamType === "KFT" ? "text-purple-950/70 dark:text-purple-300/80" : "text-teal-950/70 dark:text-teal-300/80"}`}>
+                        {uploadExamType === "KFT"
+                          ? "Uploading KFT Questions: Please use the specialized KFT DOCX template. Extracted questions will feature multi-select answer keys, subtopic tags, and 3-zone clinical explanation fields."
+                          : "Uploading AKT Questions: Please use the standardized AKT DOCX template. Extracted questions will feature single-answer MCQs, clinical stem/lead-in, and core rationale."}
                       </p>
                       <div className="flex items-center gap-2 pt-1">
-                        <a
-                          href="/templates/question_template.docx?v=2"
-                          download
-                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-teal-100/70 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 hover:bg-teal-200/80 transition-colors inline-flex items-center gap-1"
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
-                          Download AKT Template
-                        </a>
-                        <a
-                          href="/templates/kft_template.docx?v=1"
-                          download
-                          className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-amber-100/70 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 hover:bg-amber-200/80 transition-colors inline-flex items-center gap-1"
-                        >
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
-                          Download KFT Template
-                        </a>
+                        {uploadExamType === "AKT" ? (
+                          <a
+                            href="/templates/question_template.docx?v=2"
+                            download
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 hover:bg-teal-200 transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                            Download AKT Template (.docx)
+                          </a>
+                        ) : (
+                          <a
+                            href="/templates/kft_template.docx?v=1"
+                            download
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                            Download KFT Template (.docx)
+                          </a>
+                        )}
                       </div>
                     </div>
 
                     {/* File Upload Zone */}
                     <div
                       onClick={() => uploadFileInputRef.current?.click()}
-                      className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-8 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center min-h-[160px]"
+                      className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] ${
+                        uploadExamType === "KFT"
+                          ? "border-purple-200 dark:border-purple-800 hover:border-purple-500 bg-purple-50/20 dark:bg-purple-950/10"
+                          : "border-slate-200 dark:border-slate-700 hover:border-teal-500 bg-slate-50/50 dark:bg-slate-800/30"
+                      }`}
                     >
                       <input
                         type="file"
@@ -1954,11 +2012,13 @@ export default function QuestionsPage() {
                         multiple
                         className="hidden"
                       />
-                      <svg className="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-10 h-10 mb-2 ${uploadExamType === "KFT" ? "text-purple-400" : "text-teal-600 dark:text-teal-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Question DOCX or PDF files here</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose one or more files from your system (Max 10MB each)</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Drag & Drop <strong>{uploadExamType}</strong> Question DOCX or PDF files here
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from your system (Max 10MB each)</p>
                     </div>
                   </div>
                 )}
