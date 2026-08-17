@@ -1022,13 +1022,39 @@ export default function TestPage() {
             />
           </div>
           
-          {question?.topic && (
-            <div className="flex justify-end mt-2.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 mt-2.5">
+            {question?.uqid && (
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800/40 tracking-wider">
+                {question.uqid}
+              </span>
+            )}
+            {question?.topic && (
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
                 {question.topic}
               </span>
-            </div>
-          )}
+            )}
+            {question?.difficulty && (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold border tracking-wider uppercase ${
+                String(question.difficulty).toLowerCase() === 'easy'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/50'
+                  : String(question.difficulty).toLowerCase() === 'hard' || String(question.difficulty) === '3' || String(question.difficulty) === '4' || String(question.difficulty) === '3/4'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200/70 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/50'
+                  : 'bg-amber-50 text-amber-700 border-amber-200/70 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/50'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  String(question.difficulty).toLowerCase() === 'easy'
+                    ? 'bg-emerald-500'
+                    : (String(question.difficulty).toLowerCase() === 'hard' || String(question.difficulty) === '3' || String(question.difficulty) === '4' || String(question.difficulty) === '3/4')
+                    ? 'bg-rose-500'
+                    : 'bg-amber-500'
+                }`} />
+                {(() => {
+                  const d = question.difficulty as any;
+                  return d === 3 || d === 4 || d === '3' || d === '4' || d === '3/4' ? 'Level 3/4' : `${d}`;
+                })()}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Scrollable Question Body */}
