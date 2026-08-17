@@ -849,22 +849,41 @@ export default function QuizzesPage() {
                         className={`p-5 rounded-2xl border ${themeBorder} ${themePanel} space-y-4 shadow-sm text-slate-900 dark:text-slate-100`}
                       >
                         {/* Question Header */}
-                        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
-                          <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-400">
-                            Question {idx + 1} of {previewQuestions.length}
-                          </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-400">
+                              Question {idx + 1} of {previewQuestions.length}
+                            </span>
+                            {q.topic && (
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/50 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/40">
+                                {q.topic}
+                              </span>
+                            )}
+                            {q.difficulty && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                String(q.difficulty).toLowerCase() === 'easy'
+                                  ? 'bg-green-50 text-green-700 border-green-200/60 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800/40'
+                                  : String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4'
+                                  ? 'bg-red-50 text-red-700 border-red-200/60 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  String(q.difficulty).toLowerCase() === 'easy' ? 'bg-green-500' : (String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4') ? 'bg-red-500' : 'bg-amber-500'
+                                }`} />
+                                {(() => {
+                                  const diffVal = q.difficulty as any;
+                                  return diffVal === 3 || diffVal === 4 || diffVal === '3' || diffVal === '4' || diffVal === '3/4' ? 'Level 3/4' : `${q.difficulty}`;
+                                })()}
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200/60 dark:border-teal-800/40 bg-teal-50/50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300">
                             {q.uqid || `${(q.examType || (previewQuiz?.examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
                           </span>
                         </div>
 
                         {/* Question Text */}
-                         <p className="text-sm font-medium leading-relaxed">{q.text}</p>
-                         {(() => {
-                           const diffVal = q.difficulty as any;
-                           const difficultyLabel = diffVal === 3 || diffVal === 4 || diffVal === '3' || diffVal === '4' ? '3/4' : q.difficulty ? `${q.difficulty}` : null;
-                           return difficultyLabel ? <p className="text-xs text-slate-500 mt-1">Difficulty: {difficultyLabel}</p> : null;
-                         })()}
+                        <p className="text-sm font-medium leading-relaxed">{q.text}</p>
 
                         {/* Diagnostic Image (if exists) */}
                         {q.image && (

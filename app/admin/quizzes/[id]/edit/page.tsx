@@ -88,6 +88,7 @@ export default function EditQuizPage() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [questionSearch, setQuestionSearch] = useState("");
   const [topicFilter, setTopicFilter] = useState("all");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
 
   // Question creation modal state
@@ -697,9 +698,14 @@ export default function EditQuizPage() {
         (q.uqid && q.uqid.toLowerCase().includes(questionSearch.toLowerCase())) ||
         q.id.toString().includes(questionSearch);
       const matchTopic = topicFilter === "all" || q.topic.split(",").map(t => t.trim().toLowerCase()).includes(topicFilter.toLowerCase());
-      return matchSearch && matchTopic;
+      const matchDifficulty = difficultyFilter === "all" || (
+        difficultyFilter === "3/4"
+          ? (String(q.difficulty) === "3" || String(q.difficulty) === "4" || String(q.difficulty) === "3/4")
+          : String(q.difficulty).toLowerCase() === difficultyFilter.toLowerCase()
+      );
+      return matchSearch && matchTopic && matchDifficulty;
     });
-  }, [allQuestions, questionIds, questionSearch, topicFilter, examType]);
+  }, [allQuestions, questionIds, questionSearch, topicFilter, difficultyFilter, examType]);
 
   const toggleTopic = (topic: string) => {
     setTopics((prev) => (prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]));
@@ -1118,14 +1124,30 @@ export default function EditQuizPage() {
                         </span>
                       </div>
                       <p className={`text-sm font-medium leading-snug ${themeText}`}>{q.text}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                         {q.topic.split(",").map((t) => (
                           <span key={t.trim()} className={`${themeBadgeSm} bg-teal-50 text-teal-800 border border-teal-200/40 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900/40 font-semibold`}>{t.trim()}</span>
                         ))}
                         {q.tags && q.tags.map((tag) => (
                           <span key={tag} className={`${themeBadgeSm} bg-slate-50 text-slate-600 border border-slate-200/40 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800/40`}>{tag}</span>
                         ))}
-                        <span className={themeBadgeSm}>{q.difficulty}</span>
+                        {q.difficulty && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            String(q.difficulty).toLowerCase() === 'easy'
+                              ? 'bg-green-50 text-green-700 border-green-200/60 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800/40'
+                              : String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4'
+                              ? 'bg-red-50 text-red-700 border-red-200/60 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40'
+                              : 'bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              String(q.difficulty).toLowerCase() === 'easy' ? 'bg-green-500' : (String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4') ? 'bg-red-500' : 'bg-amber-500'
+                            }`} />
+                            {(() => {
+                              const diffVal = q.difficulty as any;
+                              return diffVal === 3 || diffVal === 4 || diffVal === '3' || diffVal === '4' || diffVal === '3/4' ? 'Level 3/4' : `${q.difficulty}`;
+                            })()}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col gap-0.5 shrink-0">
@@ -1168,12 +1190,26 @@ export default function EditQuizPage() {
                 onChange={(e) => setQuestionSearch(e.target.value)}
                 className={`w-full px-4 py-2 text-sm rounded-xl ${themeInput}`}
               />
-              <CustomSelect
-                value={topicFilter}
-                onChange={setTopicFilter}
-                options={[{ value: "all", label: "All Topics" }, ...AVAILABLE_TOPICS.map((t) => ({ value: t, label: t }))]}
-                className="w-full"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <CustomSelect
+                  value={topicFilter}
+                  onChange={setTopicFilter}
+                  options={[{ value: "all", label: "All Topics" }, ...AVAILABLE_TOPICS.map((t) => ({ value: t, label: t }))]}
+                  className="w-full"
+                />
+                <CustomSelect
+                  value={difficultyFilter}
+                  onChange={setDifficultyFilter}
+                  options={[
+                    { value: "all", label: "All Difficulties" },
+                    { value: "Easy", label: "Easy" },
+                    { value: "Medium", label: "Medium" },
+                    { value: "Hard", label: "Hard" },
+                    { value: "3/4", label: "Level 3/4" },
+                  ]}
+                  className="w-full"
+                />
+              </div>
             </div>
             <div className="divide-y divide-teal-50 dark:divide-teal-900/20 max-h-[400px] overflow-y-auto">
               {availableQuestions.length === 0 ? (
@@ -1189,14 +1225,30 @@ export default function EditQuizPage() {
                         {q.uqid || `${(q.examType || (examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
                       </p>
                       <p className={`text-sm leading-snug ${themeText}`}>{q.text}</p>
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                         {q.topic.split(",").map((t) => (
                           <span key={t.trim()} className={`${themeBadgeSm} bg-teal-50 text-teal-800 border border-teal-200/40 dark:bg-teal-950/20 dark:text-teal-400 dark:border-teal-900/40 font-semibold`}>{t.trim()}</span>
                         ))}
                         {q.tags && q.tags.map((tag) => (
                           <span key={tag} className={`${themeBadgeSm} bg-slate-50 text-slate-600 border border-slate-200/40 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800/40`}>{tag}</span>
                         ))}
-                        <span className={themeBadgeSm}>{q.difficulty}</span>
+                        {q.difficulty && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            String(q.difficulty).toLowerCase() === 'easy'
+                              ? 'bg-green-50 text-green-700 border-green-200/60 dark:bg-green-950/30 dark:text-green-400 dark:border-green-800/40'
+                              : String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4'
+                              ? 'bg-red-50 text-red-700 border-red-200/60 dark:bg-red-950/30 dark:text-red-400 dark:border-red-800/40'
+                              : 'bg-amber-50 text-amber-700 border-amber-200/60 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800/40'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              String(q.difficulty).toLowerCase() === 'easy' ? 'bg-green-500' : (String(q.difficulty).toLowerCase() === 'hard' || String(q.difficulty) === '3' || String(q.difficulty) === '4' || String(q.difficulty) === '3/4') ? 'bg-red-500' : 'bg-amber-500'
+                            }`} />
+                            {(() => {
+                              const diffVal = q.difficulty as any;
+                              return diffVal === 3 || diffVal === 4 || diffVal === '3' || diffVal === '4' || diffVal === '3/4' ? 'Level 3/4' : `${q.difficulty}`;
+                            })()}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <button
