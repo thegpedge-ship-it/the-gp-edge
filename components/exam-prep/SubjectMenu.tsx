@@ -147,7 +147,7 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
     setSelectedSubtopic(subtopic);
     if (!quizzesBySubtopic[subtopic.id]) {
       setLoadingQuizzes(true);
-      const qs = await cachedQuizzes(subtopic.id);
+      const qs = await cachedQuizzes(subtopic.id, examMode);
       setQuizzesBySubtopic((prev) => ({ ...prev, [subtopic.id]: qs }));
       setLoadingQuizzes(false);
     }

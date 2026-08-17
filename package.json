@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
-    "build": "next build",
+    "dev": "node scripts/fetch-taxonomy.js && next dev --webpack",
+    "build": "node scripts/fetch-taxonomy.js && next build",
     "start": "next start",
     "lint": "next lint",
     "db:pull": "prisma db pull",

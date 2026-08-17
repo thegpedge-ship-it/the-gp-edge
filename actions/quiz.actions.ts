@@ -16,7 +16,7 @@ export interface SyncQuizInput {
   randomize: boolean;
   isFree?: boolean;
   status: "draft" | "active" | "archived";
-  examType: "AKT" | "KFP";
+  examType: "AKT" | "KFP" | "KFT";
   questionLimit?: number;
 }
 
@@ -248,7 +248,7 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
     attempts: number;
     avgScore: number;
     status: "active" | "draft" | "suspended" | "archived";
-    examType: "AKT" | "KFP" | "Mixed";
+    examType: "AKT" | "KFP" | "KFT" | "Mixed";
     randomize: boolean;
     isFree: boolean;
     questionLimit: number;

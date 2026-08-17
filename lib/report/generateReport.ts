@@ -285,7 +285,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     setText(C.slate400);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const meta = `${isKft ? "KFT · " : "AKT · "}${q.topic} · ${q.difficulty}`;
+    const meta = `${isKft ? "KFP · " : "AKT · "}${q.topic} · ${q.difficulty}`;
     doc.text(meta, PAGE.w - PAGE.margin, y, { align: "right" });
     y += 16;
 

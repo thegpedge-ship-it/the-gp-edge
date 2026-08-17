@@ -103,8 +103,9 @@ export function cachedSubtopics(subjectId: string, examCode?: string): Promise<E
   return cached(key, () => getSubtopics(subjectId, examCode));
 }
 
-export function cachedQuizzes(subtopicId: string): Promise<ExamQuiz[]> {
-  return cached(`quizzes:${subtopicId}`, () => getQuizzesForSubtopic(subtopicId));
+export function cachedQuizzes(subtopicId: string, examCode?: string): Promise<ExamQuiz[]> {
+  const key = examCode ? `quizzes:${subtopicId}:${examCode}` : `quizzes:${subtopicId}`;
+  return cached(key, () => getQuizzesForSubtopic(subtopicId, examCode));
 }
 
 export function cachedExamTree(examCode?: string): Promise<ExamTreeSubject[]> {

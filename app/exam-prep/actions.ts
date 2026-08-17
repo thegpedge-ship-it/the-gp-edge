@@ -150,6 +150,7 @@ const DIFFICULTY_LABEL: Record<difficulty_level, UiDifficulty> = {
 function examCodeFromTarget(target: string | null | undefined): string {
   if (!target) return "AKT";
   const t = target.toUpperCase();
+  if (t.includes("KFT")) return "KFT";
   if (t.includes("KFP")) return "KFP";
   return "AKT";
 }
@@ -173,13 +174,17 @@ function majorityDifficulty(diffs: difficulty_level[]): UiDifficulty {
 export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
 
   // Published-question counts per subject (optionally for this exam type).
   const questionWhere = {
     status: "published" as const,
     deleted_at: null,
     subject_id: { not: null },
-    ...(examCode ? { exam_type_code: examCode } : {}),
+    ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
   };
 
   const [subjects, qCounts, stCounts] = await Promise.all([
@@ -223,6 +228,10 @@ export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSu
 export async function getSubtopics(subjectId: string, overrideExamCode?: string): Promise<ExamSubtopic[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
 
   const [subtopics, qCounts] = await Promise.all([
     prisma.subtopics.findMany({
@@ -237,7 +246,7 @@ export async function getSubtopics(subjectId: string, overrideExamCode?: string)
         status: "published",
         deleted_at: null,
         subtopic_id: { not: null },
-        ...(examCode ? { exam_type_code: examCode } : {}),
+        ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
       },
       _count: { _all: true },
     }),
@@ -257,14 +266,26 @@ export async function getSubtopics(subjectId: string, overrideExamCode?: string)
  * STEP 3 — Exams (quizzes) available in a subtopic.
  *   A quiz qualifies if any of its questions belong to this subtopic.
  * ========================================================================== */
-export async function getQuizzesForSubtopic(subtopicId: string): Promise<ExamQuiz[]> {
+export async function getQuizzesForSubtopic(subtopicId: string, overrideExamCode?: string): Promise<ExamQuiz[]> {
+  const examCode = overrideExamCode;
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
+
   const quizzes = await prisma.quizzes.findMany({
     where: {
       deleted_at: null,
       status: "active",
+      ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
       quiz_questions: {
         some: {
-          questions: { subtopic_id: subtopicId, deleted_at: null, status: "published" },
+          questions: {
+            subtopic_id: subtopicId,
+            deleted_at: null,
+            status: "published",
+            ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
+          },
         },
       },
     },
@@ -733,7 +754,11 @@ export interface ExamTreeSubject extends ExamSubject {
 export async function getExamTree(overrideExamCode?: string): Promise<ExamTreeSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const examFilter = examCode ? { exam_type_code: examCode } : {};
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
+  const examFilter = examCodes ? { exam_type_code: { in: examCodes } } : {};
 
   const [subjects, subtopics, qBySubject, qBySubtopic] = await Promise.all([
     prisma.subjects.findMany({
@@ -808,12 +833,16 @@ export async function buildCustomQuestionSet(params: {
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
   const examCode = params.examCode ?? examCodeFromTarget(dbUser?.exam_target);
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
 
   const rows = await prisma.questions.findMany({
     where: {
       status: "published",
       deleted_at: null,
-      ...(examCode ? { exam_type_code: examCode } : {}),
+      ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
       ...(params.subtopicIds.length ? { subtopic_id: { in: params.subtopicIds } } : {}),
     },
     select: { id: true },
@@ -830,11 +859,11 @@ export async function buildCustomQuestionSet(params: {
   return { name: params.title ?? "Custom Quiz", questionIds: ids.slice(0, take) };
 }
 
-function buildWeakSubjectFilter(subjectIds: string[], examCode: string) {
+function buildWeakSubjectFilter(subjectIds: string[], examCodes: string[] | null) {
   return {
     status: "published" as const,
     deleted_at: null,
-    ...(examCode ? { exam_type_code: examCode } : {}),
+    ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
     ...(subjectIds.length
       ? {
           OR: [
@@ -850,9 +879,16 @@ export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<n
   const dbUser = await ensureDbUser();
   if (!dbUser) return 0;
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser.exam_target);
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
-    where: { user_id: dbUser.id, exam_type_code: examCode },
+    where: {
+      user_id: dbUser.id,
+      ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
+    },
     orderBy: { mastery_percent: "asc" },
     select: { subject_id: true },
     take: 5,
@@ -861,7 +897,7 @@ export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<n
   return prisma.questions.count({
     where: buildWeakSubjectFilter(
       weakSubjects.map((s) => s.subject_id),
-      examCode,
+      examCodes,
     ),
   });
 }
@@ -873,9 +909,16 @@ export async function buildMockDrillQuestionSet(params: {
   const dbUser = await ensureDbUser();
   if (!dbUser) return { name: "Mock Drill", questionIds: [] };
   const examCode = params.examCode ?? examCodeFromTarget(dbUser.exam_target);
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
-    where: { user_id: dbUser.id, exam_type_code: examCode },
+    where: {
+      user_id: dbUser.id,
+      ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
+    },
     orderBy: { mastery_percent: "asc" },
     select: { subject_id: true },
     take: 5,
@@ -884,7 +927,7 @@ export async function buildMockDrillQuestionSet(params: {
   const rows = await prisma.questions.findMany({
     where: buildWeakSubjectFilter(
       weakSubjects.map((s) => s.subject_id),
-      examCode,
+      examCodes,
     ),
     select: { id: true },
   });
@@ -912,6 +955,7 @@ export interface UiMockTest {
   availability: "available" | "locked";
   unlockHint: string | null;
   isFree?: boolean;
+  examType?: string | null;
   /** Per-user history. */
   attempts: number;
   bestScore: number | null;
@@ -922,12 +966,19 @@ export async function getMockTests(overrideExamCode?: string): Promise<UiMockTes
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
 
+  // KFT and KFP are the same exam family — match both in the DB so that
+  // quizzes tagged with either code appear under the user's KFP/KFT toggle.
+  const kftFamily = ["KFP", "KFT"];
+  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+    ? kftFamily
+    : examCode ? [examCode] : null;
+
   let tests: any[] = [];
   try {
     tests = await prisma.mock_tests.findMany({
       where: {
         deleted_at: null,
-        ...(examCode ? { exam_type_code: examCode } : {}),
+        ...(examCodes ? { exam_type_code: { in: examCodes } } : {}),
       },
       orderBy: { sort_order: "asc" },
       select: {
@@ -939,16 +990,18 @@ export async function getMockTests(overrideExamCode?: string): Promise<UiMockTes
         availability: true,
         unlock_hint: true,
         is_free: true,
+        exam_type_code: true,
       },
     });
   } catch (err) {
     console.warn("Prisma findMany failed for mock_tests (falling back to raw query):", err);
+    const codesParam = examCodes ? examCodes.join(",") : null;
     const rows = await query<any>(
-      `SELECT id, name, subtitle, question_count, duration_min, availability, unlock_hint, is_free
+      `SELECT id, name, subtitle, question_count, duration_min, availability, unlock_hint, is_free, exam_type_code
          FROM mock_tests
-        WHERE deleted_at IS NULL ${examCode ? "AND exam_type_code = $1" : ""}
+        WHERE deleted_at IS NULL ${codesParam ? `AND exam_type_code = ANY($1::text[])` : ""}
         ORDER BY sort_order ASC`,
-      examCode ? [examCode] : []
+      codesParam ? [examCodes] : []
     );
     tests = rows.map((r) => ({
       id: r.id,
@@ -959,6 +1012,7 @@ export async function getMockTests(overrideExamCode?: string): Promise<UiMockTes
       availability: r.availability,
       unlock_hint: r.unlock_hint,
       is_free: r.is_free,
+      exam_type_code: r.exam_type_code,
     }));
   }
 
@@ -992,6 +1046,7 @@ export async function getMockTests(overrideExamCode?: string): Promise<UiMockTes
       availability: t.availability === "locked" ? "locked" : "available",
       unlockHint: t.unlock_hint,
       isFree: t.is_free ?? false,
+      examType: t.exam_type_code ?? null,
       attempts: stat?._count._all ?? 0,
       bestScore: best != null ? Math.round(Number(best)) : null,
       completed: (stat?._count._all ?? 0) > 0,

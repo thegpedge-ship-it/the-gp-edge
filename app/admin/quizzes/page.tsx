@@ -59,12 +59,14 @@ export default function QuizzesPage() {
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [selectedExamType, setSelectedExamType] = useState<'ALL' | 'AKT' | 'KFP'>('ALL');
   const [quizName, setQuizName] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [quizLimit, setQuizLimit] = useState(50);
   const [quizTimeLimit, setQuizTimeLimit] = useState(60);
   const [quizPassingScore, setQuizPassingScore] = useState(65);
   const [quizRandomize, setQuizRandomize] = useState(true);
+  const [quizExamType, setQuizExamType] = useState<'AKT' | 'KFP'>('AKT');
   const [visibleCount, setVisibleCount] = useState(9);
 
   const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null);
@@ -74,9 +76,12 @@ export default function QuizzesPage() {
     return quizzes.filter((q) => {
       const matchSearch = !searchQuery || q.name.toLowerCase().includes(searchQuery.toLowerCase()) || q.description.toLowerCase().includes(searchQuery.toLowerCase());
       const matchStatus = statusFilter === "all" ? (q.status !== "archived") : (q.status === statusFilter);
-      return matchSearch && matchStatus;
+      const rawExamType = (q.examType ?? "AKT").toUpperCase();
+      const examType = rawExamType === "KFT" ? "KFP" : rawExamType;
+      const matchExam = selectedExamType === 'ALL' || examType === selectedExamType;
+      return matchSearch && matchStatus && matchExam;
     });
-  }, [quizzes, searchQuery, statusFilter]);
+  }, [quizzes, searchQuery, statusFilter, selectedExamType]);
 
   const sortedQuizzes = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -252,6 +257,7 @@ export default function QuizzesPage() {
                 setQuizTimeLimit(60);
                 setQuizPassingScore(65);
                 setQuizRandomize(true);
+                setQuizExamType('AKT');
                 setShowCreateModal(true);
               }}
               disabled={isReadOnly}
@@ -304,8 +310,19 @@ export default function QuizzesPage() {
             { value: "suspended", label: "Suspended" },
             ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
           ]}
-          className="w-48"
-        />
+          className="w-48"/>
+        {/* Exam Type Tabs */}
+        <div className="flex gap-2 items-center">
+          {([ 'ALL', 'AKT', 'KFP' ] as const).map(type => (
+            <button
+              key={type}
+              onClick={() => setSelectedExamType(type)}
+              className={`px-3 py-1 rounded-full text-sm font-medium border ${selectedExamType === type ? 'bg-teal-100 text-teal-800 border-teal-600' : 'bg-white dark:bg-slate-800 text-slate-600 border-slate-300'} transition-all`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
       </motion.div>
 
       {viewMode === "grid" && (
@@ -656,7 +673,47 @@ export default function QuizzesPage() {
                   <button onClick={() => setShowCreateModal(false)} className={`p-2 rounded-xl transition-all ${themeIconBtn}`}><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
                 <div className="space-y-4">
-                  <div><label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Quiz Name</label><input type="text" value={quizName} onChange={(e) => setQuizName(e.target.value)} className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`} placeholder="e.g. AKT Mock Exam 2026" /></div>
+                  {/* Exam Type Selector */}
+                  <div>
+                    <label className={`block text-xs font-semibold mb-2 ${themeLabel}`}>Exam Type</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setQuizExamType('AKT')}
+                        className={`relative flex flex-col items-start p-4 rounded-xl border-2 transition-all text-left ${
+                          quizExamType === 'AKT'
+                            ? 'border-teal-600 bg-teal-50/60 dark:bg-teal-950/30'
+                            : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 hover:border-teal-400/60'
+                        }`}
+                      >
+                        {quizExamType === 'AKT' && (
+                          <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-teal-600 flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-teal-800 dark:text-teal-300 mb-0.5">AKT</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">Applied Knowledge Test · Single best answer MCQ</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQuizExamType('KFP')}
+                        className={`relative flex flex-col items-start p-4 rounded-xl border-2 transition-all text-left ${
+                          quizExamType === 'KFP'
+                            ? 'border-purple-600 bg-purple-50/60 dark:bg-purple-950/30'
+                            : 'border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/40 hover:border-purple-400/60'
+                        }`}
+                      >
+                        {quizExamType === 'KFP' && (
+                          <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-purple-600 flex items-center justify-center">
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-purple-800 dark:text-purple-300 mb-0.5">KFP</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">Key Feature Problem · Multi-select format</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div><label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Quiz Name</label><input type="text" value={quizName} onChange={(e) => setQuizName(e.target.value)} className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl transition-all ${themeInput}`} placeholder={`e.g. ${quizExamType} Mock Exam 2026`} /></div>
                   <div><label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Description</label><textarea rows={2} value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} className={`w-full px-4 py-3 text-sm dark:text-slate-100 rounded-xl resize-none ${themeInput}`} placeholder="Brief description..." /></div>
                   <div className="grid grid-cols-2 gap-4">
                     <div><label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Question Limit</label><input type="number" value={quizLimit} onChange={(e) => setQuizLimit(Number(e.target.value))} className={`w-full px-4 py-2.5 text-sm dark:text-slate-100 rounded-xl ${themeInput}`} /></div>
@@ -668,7 +725,7 @@ export default function QuizzesPage() {
                     <button onClick={() => setShowCreateModal(false)} className={themeBtnGhost}>Cancel</button>
                     <button
                       onClick={async () => {
-                        const finalName = quizName.trim() || "AKT Mock Exam 2026";
+                        const finalName = quizName.trim() || `${quizExamType} Mock Exam 2026`;
                         const result = await syncQuizToDbAction({
                           name: finalName,
                           description: quizDescription.trim(),
@@ -676,7 +733,7 @@ export default function QuizzesPage() {
                           passingScore: quizPassingScore || 65,
                           randomize: quizRandomize,
                           status: "active",
-                          examType: "AKT",
+                          examType: quizExamType,
                           questionLimit: quizLimit || 50,
                         }, [], currentAdmin?.id);
 
@@ -802,7 +859,12 @@ export default function QuizzesPage() {
                         </div>
 
                         {/* Question Text */}
-                        <p className="text-sm font-medium leading-relaxed">{q.text}</p>
+                         <p className="text-sm font-medium leading-relaxed">{q.text}</p>
+                         {(() => {
+                           const diffVal = q.difficulty as any;
+                           const difficultyLabel = diffVal === 3 || diffVal === 4 || diffVal === '3' || diffVal === '4' ? '3/4' : q.difficulty ? `${q.difficulty}` : null;
+                           return difficultyLabel ? <p className="text-xs text-slate-500 mt-1">Difficulty: {difficultyLabel}</p> : null;
+                         })()}
 
                         {/* Diagnostic Image (if exists) */}
                         {q.image && (

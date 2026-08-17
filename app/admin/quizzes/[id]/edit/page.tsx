@@ -128,6 +128,7 @@ export default function EditQuizPage() {
 
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadExamType, setUploadExamType] = useState<"AKT" | "KFP">("AKT");
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -180,6 +181,7 @@ export default function EditQuizPage() {
       setPassingScore(dbQuiz.passingScore);
       setStatus("active");
       setExamType(dbQuiz.examType as any);
+      setUploadExamType(dbQuiz.examType === "KFP" || dbQuiz.examType === "KFT" ? "KFP" : "AKT");
       setRandomize(dbQuiz.randomize);
       setIsFree(dbQuiz.isFree ?? false);
       setAttempts(0);
@@ -348,6 +350,8 @@ export default function EditQuizPage() {
           const formData = new FormData();
           formData.append("file", file);
           formData.append("type", "question");
+          formData.append("examType", uploadExamType);
+          formData.append("examFormat", uploadExamType);
 
           // Keep current progress but update status to extracting
           updateBatchFile(idx, { status: "extracting" });
@@ -364,11 +368,12 @@ export default function EditQuizPage() {
             const qs = result.questions || [];
             const compressedQs = await Promise.all(
               qs.map(async (q: any) => {
-                if (q.image) {
-                  const comp = await compressBase64Image(q.image);
-                  return { ...q, image: comp };
+                const finalQ = { ...q, examType: uploadExamType };
+                if (finalQ.image) {
+                  const comp = await compressBase64Image(finalQ.image);
+                  return { ...finalQ, image: comp };
                 }
-                return q;
+                return finalQ;
               })
             );
             allExtracted.push(...compressedQs);
@@ -424,31 +429,54 @@ export default function EditQuizPage() {
     }, 1200);
   };
 
+  const normalizeQuestionText = (text: string | undefined): string => {
+    if (!text) return "";
+    return text
+      .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F\u180E\u202F\u205F\u3000]/g, "")
+      .replace(/\u00A0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+  };
+
   const handleSaveImportedQuestions = async () => {
     if (!extractedQuestions || extractedQuestions.length === 0) return;
 
-    // Deduplicate the extracted list itself by question text (case-insensitive)
+    const isMatch = (a: any, b: any) => {
+      const normA = normalizeQuestionText(a.text || a.stem);
+      const normBText = normalizeQuestionText(b.text);
+      const normBStem = normalizeQuestionText(b.stem);
+      return normA === normBText || normA === normBStem;
+    };
+
+    // Deduplicate the extracted list itself by question text (normalized)
     const uniqueQuestionsToImport: any[] = [];
     extractedQuestions.forEach((eq) => {
-      if (!uniqueQuestionsToImport.some((u) => u.text.trim().toLowerCase() === eq.text.trim().toLowerCase())) {
+      const eqNorm = normalizeQuestionText(eq.text || eq.stem);
+      if (!uniqueQuestionsToImport.some((u) => normalizeQuestionText(u.text || u.stem) === eqNorm)) {
         uniqueQuestionsToImport.push(eq);
       }
     });
 
     const duplicates = uniqueQuestionsToImport.filter((eq) =>
-      allQuestions.some((aq) => aq.text.trim().toLowerCase() === eq.text.trim().toLowerCase())
+      allQuestions.some((aq) => isMatch(eq, aq))
     );
 
     const proceedWithImport = async (overwrite: boolean) => {
+      let finalImportList = uniqueQuestionsToImport;
+      if (!overwrite) {
+        finalImportList = uniqueQuestionsToImport.filter(
+          (u) => !allQuestions.some((aq) => isMatch(u, aq))
+        );
+      }
+
       const toAssignIds: number[] = [];
       const newQsToInsert: any[] = [];
 
       let nextId = allQuestions.length > 0 ? Math.max(...allQuestions.map(q => q.id)) + 1 : 2855;
 
-      for (const eq of uniqueQuestionsToImport) {
-        const cleanedText = eq.text.trim().toLowerCase();
-        const existingQuestion = allQuestions.find((aq) => aq.text.trim().toLowerCase() === cleanedText);
-        
+      for (const eq of finalImportList) {
+        const existingQuestion = allQuestions.find((aq) => isMatch(eq, aq));
         const questionId = existingQuestion ? existingQuestion.id : nextId++;
         
         if (existingQuestion) {
@@ -457,14 +485,26 @@ export default function EditQuizPage() {
             const cleanedTags = eq.tags
               ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
               : existingQuestion.tags;
+            const resolvedExamType = eq.examType || (uploadExamType === "KFP" ? "KFP" : "AKT");
+            const correctCount = eq.kftCorrectCount || eq.kfpCorrectCount || (eq.correctIndices && eq.correctIndices.length > 1 ? eq.correctIndices.length : 1);
             const updatedQ = {
               ...existingQuestion,
-              text: eq.text,
-              options: eq.options,
-              correctIndex: eq.correctIndex,
+              text: eq.text || existingQuestion.text,
+              stem: eq.stem || existingQuestion.stem,
+              leadIn: eq.leadIn || existingQuestion.leadIn,
+              options: eq.options || existingQuestion.options,
+              correctIndex: eq.correctIndex !== undefined ? eq.correctIndex : existingQuestion.correctIndex,
+              correctIndices: eq.correctIndices || existingQuestion.correctIndices || [eq.correctIndex !== undefined ? eq.correctIndex : existingQuestion.correctIndex || 0],
+              kftCorrectCount: correctCount,
+              kfpCorrectCount: correctCount,
               rationale: eq.rationale || existingQuestion.rationale,
+              whyCorrect: eq.whyCorrect || existingQuestion.whyCorrect,
+              distractorRationales: eq.distractorRationales || existingQuestion.distractorRationales,
+              knowledgeBank: eq.knowledgeBank || existingQuestion.knowledgeBank,
+              pearl: eq.pearl || existingQuestion.pearl,
               topic: eq.topic ? eq.topic.trim() : existingQuestion.topic,
               difficulty: eq.difficulty || existingQuestion.difficulty,
+              examType: resolvedExamType,
               tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
               image: eq.image || existingQuestion.image,
               status: "published" as const
@@ -480,12 +520,17 @@ export default function EditQuizPage() {
           const cleanedTags = eq.tags
             ? eq.tags.map((t: string) => t.trim()).filter(Boolean)
             : ["General"];
+          const resolvedExamType = eq.examType || (uploadExamType === "KFP" ? "KFP" : "AKT");
+          const correctCount = eq.kftCorrectCount || eq.kfpCorrectCount || (eq.correctIndices && eq.correctIndices.length > 1 ? eq.correctIndices.length : 1);
           const newQ = {
             ...eq,
             id: questionId,
             topic: eq.topic ? eq.topic.trim() : "General",
             difficulty: eq.difficulty || "Medium",
-            examType: "AKT" as const,
+            examType: resolvedExamType,
+            kftCorrectCount: correctCount,
+            kfpCorrectCount: correctCount,
+            correctIndices: eq.correctIndices || [eq.correctIndex || 0],
             tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
             status: "published" as const
           };
@@ -535,16 +580,16 @@ export default function EditQuizPage() {
 
         // Update local state without introducing duplicate elements
         const filteredAllQuestions = allQuestions.filter(
-          (aq) => !uploadedNewQs.some((nq) => nq.text.trim().toLowerCase() === aq.text.trim().toLowerCase())
+          (aq) => !uploadedNewQs.some((nq) => isMatch(nq, aq))
         );
         let updated = [...uploadedNewQs, ...filteredAllQuestions];
         setAllQuestions(updated);
         
         const res = await importQuestionsAction(uploadedNewQs);
         if (res?.success && res.results) {
-          const resultsMap = new Map(res.results.map((r) => [r.text.trim().toLowerCase(), r.dbId]));
+          const resultsMap = new Map(res.results.map((r) => [normalizeQuestionText(r.text), r.dbId]));
           updated = updated.map((q) => {
-            const dbId = resultsMap.get(q.text.trim().toLowerCase());
+            const dbId = resultsMap.get(normalizeQuestionText(q.text || q.stem));
             return dbId ? { ...q, dbId } : q;
           });
           setAllQuestions(updated);
@@ -630,16 +675,23 @@ export default function EditQuizPage() {
   );
 
   const availableQuestions = useMemo(() => {
+    // Normalise KFP / KFT for matching purposes
+    const quizExamCategory = (examType === 'KFP' || examType === 'KFT') ? 'KFP' : 'AKT';
+
     return allQuestions.filter((q) => {
       if (q.status !== "published") return false;
       if (questionIds.includes(q.id)) return false;
-      
+
+      // ── Filter by exam type ──────────────────────────────────────────────
+      const qExamCategory = (q.examType === 'KFP' || q.examType === 'KFT') ? 'KFP' : 'AKT';
+      if (qExamCategory !== quizExamCategory) return false;
+
       // Hide static mock question if its database version exists
       if (q.id >= 2847 && q.id <= 2854) {
         const hasDbVersion = allQuestions.some((other) => other.id >= 2855 && other.text === q.text);
         if (hasDbVersion) return false;
       }
-      
+
       const matchSearch =
         questionSearch === "" ||
         q.text.toLowerCase().includes(questionSearch.toLowerCase()) ||
@@ -647,7 +699,7 @@ export default function EditQuizPage() {
       const matchTopic = topicFilter === "all" || q.topic.split(",").map(t => t.trim().toLowerCase()).includes(topicFilter.toLowerCase());
       return matchSearch && matchTopic;
     });
-  }, [allQuestions, questionIds, questionSearch, topicFilter]);
+  }, [allQuestions, questionIds, questionSearch, topicFilter, examType]);
 
   const toggleTopic = (topic: string) => {
     setTopics((prev) => (prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic]));
@@ -1092,7 +1144,17 @@ export default function EditQuizPage() {
           <motion.div variants={itemVariants} className={`${themePanel} overflow-hidden`}>
             <div className={`px-5 py-4 border-b ${themeBorder} space-y-3`}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className={`text-sm font-bold ${themeText}`}>Question Bank</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className={`text-sm font-bold ${themeText}`}>Question Bank</h3>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    (examType === 'KFT' || examType === 'KFP')
+                      ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
+                      : 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300'
+                  }`}>
+                    {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} only
+                  </span>
+                  <span className={`text-xs ${themeMuted}`}>{availableQuestions.length} available</span>
+                </div>
               </div>
               <input
                 type="text"
@@ -1110,7 +1172,10 @@ export default function EditQuizPage() {
             </div>
             <div className="divide-y divide-teal-50 dark:divide-teal-900/20 max-h-[400px] overflow-y-auto">
               {availableQuestions.length === 0 ? (
-                <p className={`p-6 text-sm text-center ${themeMuted}`}>No matching questions available.</p>
+                <div className="p-6 text-center space-y-1">
+                  <p className={`text-sm ${themeMuted}`}>No {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} questions available.</p>
+                  <p className={`text-xs ${themeMuted} opacity-70`}>Upload questions via the Upload button above to add {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} questions to the bank.</p>
+                </div>
               ) : (
                 availableQuestions.map((q) => (
                   <div key={q.id} className="px-5 py-3 flex items-start gap-3 hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
@@ -1605,23 +1670,98 @@ export default function EditQuizPage() {
               <div className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[calc(90vh-160px)]">
                 {uploadState === "idle" && (
                   <div className="space-y-5">
+                    {/* Exam Type Selector Pill */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-350">Select Question Exam Format</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setUploadExamType("AKT")}
+                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                            uploadExamType === "AKT"
+                              ? "bg-teal-50/80 dark:bg-teal-950/40 border-teal-500 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/20 shadow-sm"
+                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-655 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            uploadExamType === "AKT" ? "bg-teal-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}>
+                            AKT
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">AKT (Single MCQ)</p>
+                            <p className="text-[10px] opacity-75">Applied Knowledge Test single-answer format</p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setUploadExamType("KFP")}
+                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
+                            uploadExamType === "KFP"
+                              ? "bg-purple-50/80 dark:bg-purple-950/40 border-purple-500 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm"
+                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-655 dark:text-slate-400 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                            uploadExamType === "KFP" ? "bg-purple-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}>
+                            KFP
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">KFP (Multi-Select)</p>
+                            <p className="text-[10px] opacity-75">Key Feature Problem multi-select clinical cases</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
                     {/* Instructions Card */}
-                    <div className="bg-teal-50/40 dark:bg-teal-950/10 border border-teal-100/50 dark:border-teal-900/30 rounded-2xl p-4 space-y-2">
-                      <div className="flex items-center gap-2 text-teal-800 dark:text-teal-400">
+                    <div className={`border rounded-2xl p-4 space-y-3 ${
+                      uploadExamType === "KFP" ? "bg-purple-50/40 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/30" : "bg-teal-50/40 dark:bg-teal-950/10 border-teal-100/50 dark:border-teal-900/30"
+                    }`}>
+                      <div className={`flex items-center gap-2 ${uploadExamType === "KFP" ? "text-purple-800 dark:text-purple-300" : "text-teal-800 dark:text-teal-400"}`}>
                         <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span className="text-xs font-bold uppercase tracking-wider">Instructions</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">{uploadExamType} Template & Upload Guidelines</span>
                       </div>
-                      <p className="text-xs text-teal-950/70 dark:text-teal-300/80 leading-relaxed font-semibold">
-                        Note: Please use the questions import template available in the Questions section to format your document before uploading.
+                      <p className={`text-xs leading-relaxed ${uploadExamType === "KFP" ? "text-purple-950/70 dark:text-purple-300/80" : "text-teal-950/70 dark:text-teal-300/80"}`}>
+                        {uploadExamType === "KFP"
+                          ? "Uploading KFP Questions: Please use the specialized KFP DOCX template. Extracted questions will feature multi-select answer keys, subtopic tags, and 3-zone clinical explanation fields."
+                          : "Uploading AKT Questions: Please use the standardized AKT DOCX template. Extracted questions will feature single-answer MCQs, clinical stem/lead-in, and core rationale."}
                       </p>
+                      <div className="flex items-center gap-2 pt-1">
+                        {uploadExamType === "AKT" ? (
+                          <a
+                            href="/templates/question_template.docx?v=2"
+                            download
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-100 dark:bg-teal-900/40 text-teal-800 dark:text-teal-300 hover:bg-teal-200 transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                            Download AKT Template (.docx)
+                          </a>
+                        ) : (
+                          <a
+                            href="/templates/kft_template.docx?v=1"
+                            download
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-colors inline-flex items-center gap-1.5"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
+                            Download KFP Template (.docx)
+                          </a>
+                        )}
+                      </div>
                     </div>
 
                     {/* File Upload Zone */}
                     <div
                       onClick={() => uploadFileInputRef.current?.click()}
-                      className="border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-slate-500 rounded-2xl p-8 text-center cursor-pointer bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-50/10 transition-all flex flex-col items-center justify-center min-h-[160px]"
+                      className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] ${
+                        uploadExamType === "KFP"
+                          ? "border-purple-200 dark:border-purple-800 hover:border-purple-500 bg-purple-50/20 dark:bg-purple-950/10"
+                          : "border-slate-200 dark:border-slate-700 hover:border-teal-500 bg-slate-50/50 dark:bg-slate-800/30"
+                      }`}
                     >
                       <input
                         type="file"
@@ -1631,11 +1771,13 @@ export default function EditQuizPage() {
                         multiple
                         className="hidden"
                       />
-                      <svg className="w-10 h-10 text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-10 h-10 mb-2 ${uploadExamType === "KFP" ? "text-purple-400" : "text-teal-600 dark:text-teal-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
-                      <p className="text-xs font-bold text-slate-700 dark:text-slate-350">Drag & Drop Question DOCX or PDF here</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from your system (Max 10MB)</p>
+                      <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        Drag & Drop <strong>{uploadExamType}</strong> Question DOCX or PDF files here
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from your system (Max 10MB each)</p>
                     </div>
                   </div>
                 )}
