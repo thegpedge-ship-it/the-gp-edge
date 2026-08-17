@@ -1023,11 +1023,6 @@ export default function TestPage() {
           </div>
           
           <div className="flex flex-wrap items-center justify-end gap-2 mt-2.5">
-            {question?.uqid && (
-              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-200/60 dark:border-teal-800/40 tracking-wider">
-                {question.uqid}
-              </span>
-            )}
             {question?.topic && (
               <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
                 {question.topic}
