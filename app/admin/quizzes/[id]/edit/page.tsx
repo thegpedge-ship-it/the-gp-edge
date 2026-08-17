@@ -694,6 +694,7 @@ export default function EditQuizPage() {
       const matchSearch =
         questionSearch === "" ||
         q.text.toLowerCase().includes(questionSearch.toLowerCase()) ||
+        (q.uqid && q.uqid.toLowerCase().includes(questionSearch.toLowerCase())) ||
         q.id.toString().includes(questionSearch);
       const matchTopic = topicFilter === "all" || q.topic.split(",").map(t => t.trim().toLowerCase()).includes(topicFilter.toLowerCase());
       return matchSearch && matchTopic;
@@ -1111,6 +1112,11 @@ export default function EditQuizPage() {
                   <div key={`${q.id}-${index}`} className="px-5 py-3 flex items-start gap-3 group hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
                     <span className={`text-xs font-bold mt-1 shrink-0 ${themeMuted}`}>#{index + 1}</span>
                     <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-200/50 dark:border-teal-800/40">
+                          {q.uqid || `${(q.examType || (examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
+                        </span>
+                      </div>
                       <p className={`text-sm font-medium leading-snug ${themeText}`}>{q.text}</p>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {q.topic.split(",").map((t) => (
@@ -1179,7 +1185,9 @@ export default function EditQuizPage() {
                 availableQuestions.map((q) => (
                   <div key={q.id} className="px-5 py-3 flex items-start gap-3 hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
                     <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold mb-0.5 ${themeMuted}`}>#{q.id}</p>
+                      <p className="text-xs font-bold text-teal-700 dark:text-teal-400 mb-1">
+                        {q.uqid || `${(q.examType || (examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
+                      </p>
                       <p className={`text-sm leading-snug ${themeText}`}>{q.text}</p>
                       <div className="flex flex-wrap gap-1.5 mt-1.5">
                         {q.topic.split(",").map((t) => (

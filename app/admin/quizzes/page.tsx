@@ -853,8 +853,8 @@ export default function QuizzesPage() {
                           <span className="text-xs font-bold uppercase tracking-wider text-teal-800 dark:text-teal-400">
                             Question {idx + 1} of {previewQuestions.length}
                           </span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-400">
-                            ID: #{q.id}
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200/60 dark:border-teal-800/40 bg-teal-50/50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300">
+                            {q.uqid || `${(q.examType || (previewQuiz?.examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
                           </span>
                         </div>
 
