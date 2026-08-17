@@ -183,9 +183,8 @@ export default function EditQuizPage() {
       setExamType(dbQuiz.examType as any);
       setUploadExamType(dbQuiz.examType === "KFP" || dbQuiz.examType === "KFT" ? "KFP" : "AKT");
       setRandomize(dbQuiz.randomize);
-      setIsFree(dbQuiz.isFree ?? false);
-      setAttempts(0);
-      setAvgScore(0);
+      setAttempts(dbQuiz.attempts || 0);
+      setAvgScore(dbQuiz.avgScore || 0);
       setNotFound(false);
 
       // Load all questions from DB, then map quiz question DB UUIDs → numeric ids

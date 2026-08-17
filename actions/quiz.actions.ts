@@ -256,22 +256,38 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
   }[]
 > {
   try {
-    const dbQuizzes = await prisma.quizzes.findMany({
-      where: includeArchived
-        ? {}
-        : {
-            deleted_at: null,
-            NOT: { status: "archived" },
+    const [dbQuizzes, attemptStats, mockTests] = await Promise.all([
+      prisma.quizzes.findMany({
+        where: includeArchived
+          ? {}
+          : {
+              deleted_at: null,
+              NOT: { status: "archived" },
+            },
+        orderBy: [{ is_free: "desc" }, { updated_at: "desc" }],
+        include: {
+          quiz_questions: {
+            orderBy: { position: "asc" },
+            include: { questions: { include: { subjects: { select: { name: true } } } } },
           },
-      orderBy: [{ is_free: "desc" }, { updated_at: "desc" }],
-      include: {
-        quiz_questions: {
-          orderBy: { position: "asc" },
-          include: { questions: { include: { subjects: { select: { name: true } } } } },
         },
-        test_attempts: { select: { id: true, status: true, score_percent: true } },
-      },
-    });
+      }),
+      query<{
+        quiz_id: string | null;
+        mock_test_id: string | null;
+        title_snapshot: string | null;
+        score_percent: string | null;
+      }>(
+        `SELECT quiz_id, mock_test_id, title_snapshot, score_percent
+           FROM test_attempts
+          WHERE status = 'completed' OR score_percent IS NOT NULL`
+      ),
+      query<{ id: string; name: string }>(
+        `SELECT id, name FROM mock_tests WHERE deleted_at IS NULL`
+      ),
+    ]);
+
+    const mockNameToId = new Map(mockTests.map((m) => [m.name.trim().toLowerCase(), m.id]));
 
     if (dbQuizzes && dbQuizzes.length > 0) {
       return dbQuizzes.map((q: any, idx: number) => {
@@ -283,9 +299,22 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
           )
         );
 
-        const completedAttempts = q.test_attempts.filter((ta: any) => ta.status === "completed" || ta.score_percent !== null);
-        const totalScore = completedAttempts.reduce((acc: number, curr: any) => acc + Number(curr.score_percent || 0), 0);
-        const avgScore = completedAttempts.length > 0 ? Math.round(totalScore / completedAttempts.length) : 0;
+        const qNameLower = q.name.trim().toLowerCase();
+        const mockId = mockNameToId.get(qNameLower);
+
+        const matchedAttempts = attemptStats.filter(
+          (ta) =>
+            ta.quiz_id === q.id ||
+            (mockId && ta.mock_test_id === mockId) ||
+            (ta.title_snapshot && ta.title_snapshot.trim().toLowerCase() === qNameLower)
+        );
+
+        const totalScore = matchedAttempts.reduce(
+          (acc: number, curr) => acc + Number(curr.score_percent || 0),
+          0
+        );
+        const avgScore =
+          matchedAttempts.length > 0 ? Math.round(totalScore / matchedAttempts.length) : 0;
 
         const isDeleted = q.deleted_at !== null && q.deleted_at !== undefined;
         // Preserve the real status; only mark as archived if explicitly deleted/archived
@@ -301,7 +330,7 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
           questionCount: q.quiz_questions.length,
           timeLimit: q.time_limit_min ?? 60,
           passingScore: q.passing_score ?? 65,
-          attempts: q.test_attempts.length,
+          attempts: matchedAttempts.length,
           avgScore,
           status: status as any,
           examType: (q.exam_type_code ?? "AKT") as any,
@@ -415,6 +444,8 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
   examType: string;
   questionLimit: number;
   questionDbIds: string[];
+  attempts: number;
+  avgScore: number;
 } | null> {
   try {
     const quiz = await queryOne<{
@@ -434,10 +465,27 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
     );
     if (!quiz) return null;
 
-    const qqs = await query<{ question_id: string }>(
-      `SELECT question_id FROM quiz_questions WHERE quiz_id = $1 ORDER BY position ASC`,
-      [dbId]
+    const [qqs, mock] = await Promise.all([
+      query<{ question_id: string }>(
+        `SELECT question_id FROM quiz_questions WHERE quiz_id = $1 ORDER BY position ASC`,
+        [dbId]
+      ),
+      queryOne<{ id: string }>(
+        `SELECT id FROM mock_tests WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND deleted_at IS NULL LIMIT 1`,
+        [quiz.name]
+      ),
+    ]);
+
+    const attemptsRows = await query<{ score_percent: string | null }>(
+      `SELECT score_percent FROM test_attempts 
+        WHERE (quiz_id = $1 OR ($2::uuid IS NOT NULL AND mock_test_id = $2) OR LOWER(TRIM(title_snapshot)) = LOWER(TRIM($3)))
+          AND (status = 'completed' OR score_percent IS NOT NULL)`,
+      [dbId, mock?.id || null, quiz.name]
     );
+
+    const attemptsCount = attemptsRows.length;
+    const totalScore = attemptsRows.reduce((acc, curr) => acc + Number(curr.score_percent || 0), 0);
+    const avgScore = attemptsCount > 0 ? Math.round(totalScore / attemptsCount) : 0;
 
     return {
       name: quiz.name,
@@ -450,6 +498,8 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
       examType: quiz.exam_type_code ?? "AKT",
       questionLimit: 50,
       questionDbIds: qqs.map((q) => q.question_id),
+      attempts: attemptsCount,
+      avgScore,
     };
   } catch (error: any) {
     console.error("fetchQuizByDbIdAction error:", error);

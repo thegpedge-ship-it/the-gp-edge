@@ -556,7 +556,7 @@ export default function QuizzesPage() {
                 {displayedQuizzes.map((q) => (
                   <tr
                     key={q.id}
-                    onClick={() => router.push(`/admin/quizzes/${q.id}/edit`)}
+                    onClick={() => router.push(`/admin/quizzes/${(q as any).dbId || q.id}/edit`)}
                     className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
                   >
                     <td className="px-6 py-4">
