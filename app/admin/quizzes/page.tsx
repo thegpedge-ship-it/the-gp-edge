@@ -344,7 +344,14 @@ export default function QuizzesPage() {
                       <p className="text-sm font-semibold text-white leading-snug">{quiz.name}</p>
                       <p className="text-[11px] text-teal-100 mt-1">{quiz.questionCount} questions · {quiz.timeLimit} min</p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border shrink-0 ${
+                        (quiz.examType === 'KFP' || quiz.examType === 'KFT')
+                          ? 'bg-purple-500/25 text-purple-200 border-purple-400/40'
+                          : 'bg-teal-400/20 text-teal-100 border-teal-300/40'
+                      }`}>
+                        {(quiz.examType === 'KFP' || quiz.examType === 'KFT') ? 'KFP' : (quiz.examType || 'AKT')}
+                      </span>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -543,6 +550,7 @@ export default function QuizzesPage() {
               <thead>
                 <tr className={`border-b ${themeBorder}`}>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-6 py-3">Quiz</th>
+                  <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Type</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Questions</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Time</th>
                   <th className="text-left text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider px-4 py-3">Pass %</th>
@@ -562,6 +570,15 @@ export default function QuizzesPage() {
                     <td className="px-6 py-4">
                       <p className="text-sm font-semibold text-teal-950 dark:text-teal-50/90">{q.name}</p>
                       <div className="flex items-center gap-1 mt-1">{q.topics.map((t) => <span key={t} className={themeBadgeSm}>{t}</span>)}</div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
+                        (q.examType === 'KFP' || q.examType === 'KFT')
+                          ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/40'
+                          : 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/40'
+                      }`}>
+                        {(q.examType === 'KFP' || q.examType === 'KFT') ? 'KFP' : (q.examType || 'AKT')}
+                      </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-teal-800/80 dark:text-teal-300/80">{q.questionCount}</td>
                     <td className="px-4 py-4 text-sm text-teal-800/80 dark:text-teal-300/80">{q.timeLimit} min</td>
@@ -790,7 +807,16 @@ export default function QuizzesPage() {
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-[#090d16] text-white rounded-t-2xl">
                 <div>
-                  <h3 className="font-serif text-lg font-bold">Quiz Preview</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-lg font-bold">Quiz Preview</h3>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
+                      (previewQuiz.examType === 'KFP' || previewQuiz.examType === 'KFT')
+                        ? 'bg-purple-500/30 text-purple-200 border-purple-400/40'
+                        : 'bg-teal-500/30 text-teal-200 border-teal-400/40'
+                    }`}>
+                      {(previewQuiz.examType === 'KFP' || previewQuiz.examType === 'KFT') ? 'KFP' : (previewQuiz.examType || 'AKT')}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-400">Reviewing: {previewQuiz.name}</p>
                 </div>
                 <button
