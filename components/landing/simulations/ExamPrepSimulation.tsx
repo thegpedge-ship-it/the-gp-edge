@@ -1,7 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence, useAnimate } from "framer-motion";
+import {
+  LibraryBig,
+  ClipboardList,
+  FilePenLine,
+  BookCheck,
+  ArrowRight,
+  Info,
+  CheckCircle2,
+  Clock,
+  Bookmark,
+  FileText,
+  RotateCcw,
+  Download,
+} from "lucide-react";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 30 },
@@ -18,6 +33,23 @@ const phaseVariants = {
   exit: { opacity: 0, scale: 1.02, filter: "blur(4px)", transition: { duration: 0.25, ease: [0.22, 1, 0.36, 1] } },
 };
 
+const BARS = [
+  { color: "bg-slate-200 dark:bg-slate-700", minH: 6, maxH: 14, delay: 0.1 },
+  { color: "bg-slate-200 dark:bg-slate-700", minH: 10, maxH: 22, delay: 0.2 },
+  { color: "bg-slate-300 dark:bg-slate-600", minH: 14, maxH: 28, delay: 0.3 },
+  { color: "bg-[#1B895C] dark:bg-teal-400", minH: 18, maxH: 36, delay: 0.0 },
+  { color: "bg-slate-300 dark:bg-slate-600", minH: 14, maxH: 28, delay: 0.3 },
+  { color: "bg-slate-200 dark:bg-slate-700", minH: 10, maxH: 22, delay: 0.2 },
+  { color: "bg-slate-200 dark:bg-slate-700", minH: 6, maxH: 14, delay: 0.1 },
+];
+
+const STAGES = [
+  { key: "connecting", label: "Connecting" },
+  { key: "fetching", label: "Fetching Questions" },
+  { key: "preparing", label: "Preparing Test" },
+  { key: "ready", label: "Almost Ready" },
+];
+
 interface Question {
   index: number;
   label: string;
@@ -30,40 +62,25 @@ interface Question {
 const questions: Question[] = [
   {
     index: 0,
-    label: "Question 1 of 3",
-    category: "GENERAL PRACTICE",
-    text: "Olivia Barrett, aged 25 years, attends for her first Cervical Screening Test. She is asymptomatic with no relevant history. The result returns HPV not detected. What is the MOST appropriate management?",
+    label: "Question 1 of 5",
+    category: "GENERAL",
+    text: "Grade: Medium Vanessa Crowe, aged 44 years, has a history of biopsy-confirmed adenocarcinoma in situ (AIS) and undergoes a total hysterectomy. The hysterectomy specimen itself is clear of disease. What is the MOST appropriate follow-up?",
     options: [
-      { id: "A", text: "Discharge from screening program" },
-      { id: "B", text: "Repeat Cervical Screening Test in 5 years" },
-      { id: "C", text: "Repeat Cervical Screening Test in 3 years" },
-      { id: "D", text: "Co-test with cytology in 12 months" },
+      { id: "A", text: "A single exit co-test" },
+      { id: "B", text: "Annual co-tests until two consecutive tests are both negative" },
+      { id: "C", text: "Annual HPV testing until two consecutive negative results" },
     ],
     correctId: "B",
   },
   {
     index: 1,
-    label: "Question 2 of 3",
+    label: "Question 2 of 5",
     category: "CARDIOLOGY",
     text: "A 68-year-old man presents with progressive exertional dyspnoea and ankle oedema. Echo reveals an LVEF of 35%. Which medication reduces long-term mortality in this patient?",
     options: [
       { id: "A", text: "Furosemide 40mg daily" },
       { id: "B", text: "Ramipril 2.5mg daily" },
-      { id: "C", text: "Digoxin 125mcg daily" },
-      { id: "D", text: "Amlodipine 5mg daily" },
-    ],
-    correctId: "B",
-  },
-  {
-    index: 2,
-    label: "Question 3 of 3",
-    category: "ENDOCRINOLOGY",
-    text: "A 52-year-old woman with T2DM has HbA1c 8.2% despite Metformin 1000mg BD. She has documented ischemic heart disease. Which agent is recommended next?",
-    options: [
-      { id: "A", text: "Gliclazide MR 30mg daily" },
-      { id: "B", text: "Empagliflozin 10mg daily" },
-      { id: "C", text: "Sitagliptin 100mg daily" },
-      { id: "D", text: "Acarbose 50mg TID" },
+      { id: "C", text: "Spironolactone 25mg daily" },
     ],
     correctId: "B",
   },
@@ -72,23 +89,24 @@ const questions: Question[] = [
 export default function ExamPrepSimulation() {
   const [scope, animate] = useAnimate();
 
-  // Phases matching exact 7-stage Exam Prep lifecycle:
-  // 0: Exam Prep / Mock Selection Hub
-  // 1: Test Instructions Page
-  // 2: Preparing / Loading Questions Screen
+  // Lifecycle Stages:
+  // 0: Exam Prep Hub Page (Image 1)
+  // 1: Test Instructions Screen
+  // 2: Exam Loading Screen (Image 2)
   // 3: Live Question Interface
-  // 4: Submit Test Confirmation Popup Modal
-  // 5: Test Results / Submitted Successfully Page
+  // 4: Submit Confirmation Modal
+  // 5: Test Submitted Successfully Page
   const [phase, setPhase] = useState<number>(0);
 
-  // Interaction states
-  const [isRetakeHovered, setIsRetakeHovered] = useState(false);
+  // States
+  const [isCardHovered, setIsCardHovered] = useState(false);
   const [instructionsChecked, setInstructionsChecked] = useState(false);
   const [startHovered, setStartHovered] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
 
-  const [loadProgress, setLoadProgress] = useState(0);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
+  const [flagged, setFlagged] = useState<Set<number>>(new Set());
   const [hoveredOpt, setHoveredOpt] = useState<string | null>(null);
   const [isNextHovered, setIsNextHovered] = useState(false);
   const [isSubmitHovered, setIsSubmitHovered] = useState(false);
@@ -97,7 +115,6 @@ export default function ExamPrepSimulation() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [scoreCounter, setScoreCounter] = useState(0);
 
-  // Manual interaction handlers
   const handleSelectOption = (optId: string) => {
     setUserAnswers((prev) => ({ ...prev, [questionIndex]: optId }));
   };
@@ -107,6 +124,15 @@ export default function ExamPrepSimulation() {
       const copy = { ...prev };
       delete copy[questionIndex];
       return copy;
+    });
+  };
+
+  const toggleFlagged = () => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      if (next.has(questionIndex)) next.delete(questionIndex);
+      else next.add(questionIndex);
+      return next;
     });
   };
 
@@ -124,11 +150,11 @@ export default function ExamPrepSimulation() {
     }
   };
 
-  // Derived metrics
   const answeredCount = Object.keys(userAnswers).length;
-  const progressPct = Math.round((answeredCount / questions.length) * 100);
+  const totalCount = 5;
+  const progressPct = Math.round((answeredCount / totalCount) * 100);
 
-  // Helper function to dynamically calculate target element coordinates relative to container
+  // Helper to dynamically calculate target element coordinates
   const getTargetCoords = (elementId: string) => {
     if (!scope.current) return null;
     const container = scope.current.getBoundingClientRect();
@@ -136,13 +162,11 @@ export default function ExamPrepSimulation() {
     if (!target) return null;
     const targetRect = target.getBoundingClientRect();
 
-    // Center offset of target relative to container center (0,0)
     const x = targetRect.left + targetRect.width / 2 - (container.left + container.width / 2);
     const y = targetRect.top + targetRect.height / 2 - (container.top + container.height / 2);
     return { x, y };
   };
 
-  // Auto-play animation loop with dynamic DOM-based target positioning
   useEffect(() => {
     let isMounted = true;
 
@@ -166,7 +190,6 @@ export default function ExamPrepSimulation() {
 
     const triggerClick = async () => {
       if (!isMounted) return;
-      // Trigger subtle ripple ring + cursor click bounce
       safeAnimate("#prep-cursor-ripple", { opacity: [0, 0.7, 0], scale: [0.4, 1.8, 2.2] }, { duration: 0.35 });
       await safeAnimate("#prep-cursor", { scale: [1, 0.8, 1] }, { duration: 0.15, ease: "easeInOut" });
     };
@@ -174,14 +197,15 @@ export default function ExamPrepSimulation() {
     const runAnimation = async () => {
       if (!isMounted || !scope.current) return;
 
-      // Reset states
+      // Reset to Image 1 Hub starting state
       setPhase(0);
-      setIsRetakeHovered(false);
+      setIsCardHovered(false);
       setInstructionsChecked(false);
       setStartHovered(false);
-      setLoadProgress(0);
+      setLoadingStage(0);
       setQuestionIndex(0);
       setUserAnswers({});
+      setFlagged(new Set());
       setHoveredOpt(null);
       setIsNextHovered(false);
       setIsSubmitHovered(false);
@@ -189,172 +213,139 @@ export default function ExamPrepSimulation() {
       setShowSubmitModal(false);
       setScoreCounter(0);
 
-      // Hide cursor initially at bottom right
-      safeAnimate("#prep-cursor", { x: 240, y: 220, opacity: 0, scale: 1 }, { duration: 0 });
-      await new Promise((r) => setTimeout(r, 600));
-      if (!isMounted) return;
-
-      // ==========================================
-      // STAGE 0: MOCK SELECTION -> Glide to Retake Button
-      // ==========================================
-      setIsRetakeHovered(true);
-      await glideTo("btn-retake", 0.75);
-      if (!isMounted) return;
-
-      await new Promise((r) => setTimeout(r, 250));
-      if (!isMounted) return;
-
-      await triggerClick();
-      if (!isMounted) return;
-
-      safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(1); // Go to Instructions
+      safeAnimate("#prep-cursor", { x: 180, y: 160, opacity: 0, scale: 1 }, { duration: 0 });
       await new Promise((r) => setTimeout(r, 700));
       if (!isMounted) return;
 
-      // ==========================================
-      // STAGE 1: INSTRUCTIONS -> Glide to Checkbox
-      // ==========================================
+      // STAGE 0: Image 1 -> Cursor glides to Card 2 ("Do a Mock Test") & clicks it
+      setIsCardHovered(true);
+      await glideTo("hub-card-mock", 0.75);
+      if (!isMounted) return;
+      await new Promise((r) => setTimeout(r, 300));
+      if (!isMounted) return;
+      await triggerClick();
+      if (!isMounted) return;
+      safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
+      setPhase(1); // Instructions
+      await new Promise((r) => setTimeout(r, 700));
+      if (!isMounted) return;
+
+      // STAGE 1: Instructions -> Check checkbox & click Start Test
       await glideTo("checkbox-agree", 0.65);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 200));
       if (!isMounted) return;
-
       await triggerClick();
       setInstructionsChecked(true);
-      await new Promise((r) => setTimeout(r, 450));
+      await new Promise((r) => setTimeout(r, 400));
       if (!isMounted) return;
 
-      // Glide to 'Start Test' button
       setStartHovered(true);
       await glideTo("btn-start-test", 0.65);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       if (!isMounted) return;
-
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(2); // Go to Loading Screen
+      setPhase(2); // Loading (Image 2)
 
-      // ==========================================
-      // STAGE 2: LOADING / PREPARING QUESTIONS
-      // ==========================================
-      for (let p = 0; p <= 100; p += 10) {
-        if (!isMounted) return;
-        setLoadProgress(p);
-        await new Promise((r) => setTimeout(r, 70));
-      }
-      await new Promise((r) => setTimeout(r, 250));
+      // STAGE 2: Image 2 Loading Stepper Animation
+      setLoadingStage(0);
+      await new Promise((r) => setTimeout(r, 450));
+      if (!isMounted) return;
+      setLoadingStage(1);
+      await new Promise((r) => setTimeout(r, 600));
+      if (!isMounted) return;
+      setLoadingStage(2);
+      await new Promise((r) => setTimeout(r, 550));
+      if (!isMounted) return;
+      setLoadingStage(3);
+      await new Promise((r) => setTimeout(r, 400));
       if (!isMounted) return;
 
-      setPhase(3); // Go to Live Questions (Q1)
+      setPhase(3); // Live Question
       await new Promise((r) => setTimeout(r, 700));
       if (!isMounted) return;
 
-      // ==========================================
-      // STAGE 3: QUESTION 1 -> Glide to Option B row
-      // ==========================================
+      // STAGE 3 Q1: Select Option B -> Click Next
       setHoveredOpt("B");
       await glideTo("opt-B", 0.7);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       setUserAnswers((prev) => ({ ...prev, 0: "B" }));
       setHoveredOpt(null);
       await new Promise((r) => setTimeout(r, 550));
       if (!isMounted) return;
 
-      // Glide to 'Next →' button
       setIsNextHovered(true);
       await glideTo("btn-next", 0.65);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       setIsNextHovered(false);
       if (!isMounted) return;
 
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setQuestionIndex(1); // Move to Q2
+      setQuestionIndex(1);
       await new Promise((r) => setTimeout(r, 800));
       if (!isMounted) return;
 
-      // ==========================================
-      // STAGE 3: QUESTION 2 -> Glide to Option B row
-      // ==========================================
+      // STAGE 3 Q2: Select Option B -> Click Submit Test
       setHoveredOpt("B");
       await glideTo("opt-B", 0.7);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       setUserAnswers((prev) => ({ ...prev, 1: "B" }));
       setHoveredOpt(null);
       await new Promise((r) => setTimeout(r, 550));
       if (!isMounted) return;
 
-      // Glide to 'Submit Test' header button
       setIsSubmitHovered(true);
       await glideTo("btn-submit-header", 0.7);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       setIsSubmitHovered(false);
       if (!isMounted) return;
 
-      // ==========================================
-      // STAGE 4: SUBMIT CONFIRMATION POPUP OVERLAY
-      // ==========================================
+      // STAGE 4: Modal popup -> Click Confirm & Submit
       setShowSubmitModal(true);
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
       await new Promise((r) => setTimeout(r, 650));
       if (!isMounted) return;
 
-      // Glide cursor directly to 'Confirm & Submit' button inside modal
       setIsConfirmHovered(true);
       await glideTo("btn-confirm-submit", 0.65);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 250));
       if (!isMounted) return;
-
       await triggerClick();
       setIsConfirmHovered(false);
       if (!isMounted) return;
 
       setShowSubmitModal(false);
       safeAnimate("#prep-cursor", { opacity: 0 }, { duration: 0.2 });
-      setPhase(5); // Go to Results Page
+      setPhase(5);
       await new Promise((r) => setTimeout(r, 650));
       if (!isMounted) return;
 
-      // ==========================================
-      // STAGE 5: RESULTS SCREEN -> Animate Score
-      // ==========================================
-      for (let i = 0; i <= 88; i += 4) {
+      // STAGE 5: Results screen score animation
+      for (let i = 0; i <= 40; i += 4) {
         if (!isMounted) return;
         setScoreCounter(i);
-        await new Promise((r) => setTimeout(r, 25));
+        await new Promise((r) => setTimeout(r, 30));
       }
-      setScoreCounter(88);
+      setScoreCounter(40);
 
       await glideTo("btn-back-to-prep", 0.7);
       if (!isMounted) return;
-
       await new Promise((r) => setTimeout(r, 3500));
       if (!isMounted) return;
 
@@ -368,20 +359,17 @@ export default function ExamPrepSimulation() {
     };
   }, [animate]);
 
-  const currentQ = questions[questionIndex];
+  const currentQ = questions[questionIndex] || questions[0];
   const selectedOpt = userAnswers[questionIndex] || null;
-  const radius = 30;
-  const circ = 2 * Math.PI * radius;
-  const strokeDash = ((progressPct / 100) * circ).toFixed(1);
 
   return (
     <motion.div
       ref={scope}
       variants={cardVariants}
-      className="w-full relative bg-white dark:bg-[#1B212C] rounded-3xl overflow-hidden cursor-pointer border border-slate-200 dark:border-[rgba(255,255,255,0.07)] shadow-[0_4px_20px_rgb(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.35)] hover:border-slate-300 dark:hover:border-[rgba(90,200,176,0.25)] active:scale-[0.99] transition-all duration-300 h-[500px] flex items-center justify-center"
+      className="w-full relative bg-white dark:bg-[#151b23] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-slate-800 shadow-[0_8px_30px_-12px_rgba(0,0,0,0.08)] transition-all duration-300 min-h-[370px] max-h-[400px] flex flex-col justify-between select-none"
     >
       <AnimatePresence mode="wait">
-        {/* STAGE 0: EXAM PREP MOCK SELECTION */}
+        {/* STAGE 0: EXAM PREP HUB PAGE */}
         {phase === 0 && (
           <motion.div
             key="phase0"
@@ -389,85 +377,105 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex flex-col p-6"
+            className="w-full h-full flex flex-col p-5 sm:p-6 bg-white dark:bg-[#151b23] justify-center items-center my-auto"
           >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="font-sans text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Mock Tests</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">Continue where you left off or start a new simulation.</p>
-              </div>
-              <div className="flex gap-2">
-                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-600 dark:text-slate-300">AKT</span>
-                <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-[10px] font-medium text-slate-600 dark:text-slate-300">KFP</span>
+            {/* Header Section */}
+            <div className="text-center mb-5">
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
+                What's your <span className="text-[#1B895C] dark:text-[#34d399]">study plan</span> today?
+              </h2>
+              <div className="inline-flex items-center rounded-xl bg-slate-100 dark:bg-slate-800/80 p-1 mt-2.5 text-xs font-semibold">
+                <span className="px-4 py-1 rounded-lg bg-white dark:bg-slate-700 text-teal-800 dark:text-teal-300 shadow-xs">AKT</span>
+                <span className="px-4 py-1 rounded-lg text-slate-500 dark:text-slate-400">KFP</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Card 1 */}
-              <div
-                id="card-mock-1"
-                onClick={() => setPhase(1)}
-                className={`p-4 rounded-2xl border transition-all duration-300 relative overflow-hidden cursor-pointer ${
-                  isRetakeHovered
-                    ? "border-teal-300 dark:border-teal-700 bg-teal-50/50 dark:bg-teal-900/10 shadow-lg shadow-teal-500/10 -translate-y-1"
-                    : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                }`}
-              >
-                {isRetakeHovered && (
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-teal-400/20 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                )}
-                <div className="flex justify-between items-start mb-3 relative z-10">
-                  <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-400">COMPLETED</span>
-                  <span className="text-[10px] text-slate-400">Best: 85%</span>
+            {/* 4 Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+              {/* Card 1: Study by Topic */}
+              <div className="flex flex-col text-left rounded-2xl p-4 sm:p-4.5 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-xs border-b-4 border-b-[#1B895C]">
+                <div className="flex items-start justify-between mb-3">
+                  <LibraryBig className="w-6 h-6 text-slate-900 dark:text-slate-100" strokeWidth={1.75} />
+                  <span className="font-serif text-base font-medium text-[#1B895C] opacity-80">01</span>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1 relative z-10">RACGP AKT Full Mock 1</h4>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 relative z-10">150 Questions • 4 Hours</p>
-                <div className="flex items-center justify-between relative z-10">
-                  <span className="text-[10px] font-medium text-slate-400">Attempted 2d ago</span>
-                  <button
-                    id="btn-retake"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPhase(1);
-                    }}
-                    className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
-                      isRetakeHovered ? "bg-teal-500 text-white shadow-md shadow-teal-500/20 scale-105" : "bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    Retake
-                  </button>
+                <div className="flex items-center gap-1 mb-1">
+                  <h3 className="font-sans text-xs sm:text-sm font-bold text-[#1B895C] dark:text-[#34d399]">Study by Topic</h3>
+                  <Info className="w-3 h-3 text-slate-400" />
+                </div>
+                <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                  Browse subjects and subtopics, then take a focused quiz.
+                </p>
+                <div className="flex justify-end mt-auto">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#1B895C]" strokeWidth={2} />
                 </div>
               </div>
 
-              {/* Card 2 */}
+              {/* Card 2: Do a Mock Test (Targeted by Cursor) */}
               <div
+                id="hub-card-mock"
                 onClick={() => setPhase(1)}
-                className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cursor-pointer hover:border-amber-400/60 transition-colors"
+                className={`flex flex-col text-left rounded-2xl p-4 sm:p-4.5 bg-white dark:bg-[#151b23] border shadow-xs border-b-4 border-b-[#1B895C] cursor-pointer transition-all duration-300 ${
+                  isCardHovered
+                    ? "border-[#1B895C] dark:border-teal-500 bg-teal-50/40 dark:bg-teal-950/20 -translate-y-0.5 shadow-md"
+                    : "border-slate-100 dark:border-slate-800"
+                }`}
               >
-                <div className="flex justify-between items-start mb-3">
-                  <span className="px-2 py-0.5 rounded text-[9px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400">IN PROGRESS</span>
-                  <span className="text-[10px] text-slate-400">32%</span>
+                <div className="flex items-start justify-between mb-3">
+                  <ClipboardList className="w-6 h-6 text-slate-900 dark:text-slate-100" strokeWidth={1.75} />
+                  <span className="font-serif text-base font-medium text-[#1B895C] opacity-80">02</span>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">RACGP KFP Mini Mock</h4>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4">26 Cases • 1.5 Hours</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-400">Last saved 1h ago</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPhase(1);
-                    }}
-                    className="px-4 py-1.5 rounded-lg text-[10px] font-bold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-                  >
-                    Resume
-                  </button>
+                <div className="flex items-center gap-1 mb-1">
+                  <h3 className="font-sans text-xs sm:text-sm font-bold text-[#1B895C] dark:text-[#34d399]">Do a Mock Test</h3>
+                  <Info className="w-3 h-3 text-slate-400" />
+                </div>
+                <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                  Sit a full exam-condition simulation from start to finish.
+                </p>
+                <div className="flex justify-end mt-auto">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#1B895C]" strokeWidth={2} />
+                </div>
+              </div>
+
+              {/* Card 3: Create Your Own Quiz */}
+              <div className="flex flex-col text-left rounded-2xl p-4 sm:p-4.5 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-xs border-b-4 border-b-[#1B895C]">
+                <div className="flex items-start justify-between mb-3">
+                  <FilePenLine className="w-6 h-6 text-slate-900 dark:text-slate-100" strokeWidth={1.75} />
+                  <span className="font-serif text-base font-medium text-[#1B895C] opacity-80">03</span>
+                </div>
+                <div className="flex items-center gap-1 mb-1">
+                  <h3 className="font-sans text-xs sm:text-sm font-bold text-[#1B895C] dark:text-[#34d399]">Create Your Own Quiz</h3>
+                  <Info className="w-3 h-3 text-slate-400" />
+                </div>
+                <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                  Pick your topics and rules to build a custom quiz.
+                </p>
+                <div className="flex justify-end mt-auto">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#1B895C]" strokeWidth={2} />
+                </div>
+              </div>
+
+              {/* Card 4: Created for You */}
+              <div className="flex flex-col text-left rounded-2xl p-4 sm:p-4.5 bg-white dark:bg-[#151b23] border border-slate-100 dark:border-slate-800 shadow-xs border-b-4 border-b-[#1B895C]">
+                <div className="flex items-start justify-between mb-3">
+                  <BookCheck className="w-6 h-6 text-slate-900 dark:text-slate-100" strokeWidth={1.75} />
+                  <span className="font-serif text-base font-medium text-[#1B895C] opacity-80">04</span>
+                </div>
+                <div className="flex items-center gap-1 mb-1">
+                  <h3 className="font-sans text-xs sm:text-sm font-bold text-[#1B895C] dark:text-[#34d399]">Created for You</h3>
+                  <Info className="w-3 h-3 text-slate-400" />
+                </div>
+                <p className="font-sans text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                  Jump into a ready-made mixed quiz across every topic.
+                </p>
+                <div className="flex justify-end mt-auto">
+                  <ArrowRight className="w-3.5 h-3.5 text-[#1B895C]" strokeWidth={2} />
                 </div>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* STAGE 1: TEST INSTRUCTIONS PAGE */}
+        {/* STAGE 1: TEST INSTRUCTIONS */}
         {phase === 1 && (
           <motion.div
             key="phase1"
@@ -475,98 +483,97 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex flex-col p-6"
+            className="w-full h-full flex flex-col p-4 sm:p-5 bg-white dark:bg-[#151b23] border-t-4 border-[#1B895C] justify-between min-h-[370px]"
           >
-            <div className="flex items-center gap-3 pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-                <svg className="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 mb-3">
+                <div>
+                  <h2 className="font-serif text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">TEST INSTRUCTIONS</h2>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">TEST: Akt</p>
+                </div>
+                <div className="flex items-center gap-3 text-center">
+                  <div>
+                    <span className="block text-sm font-extrabold text-slate-900 dark:text-slate-100">5</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">QUESTIONS</span>
+                  </div>
+                  <div>
+                    <span className="block text-sm font-extrabold text-slate-900 dark:text-slate-100">60 min</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">DURATION</span>
+                  </div>
+                  <div>
+                    <span className="block text-sm font-extrabold text-slate-900 dark:text-slate-100">5</span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase">MARKS</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="font-sans text-lg font-bold text-slate-900 dark:text-slate-100 mb-0.5">Test Instructions</h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">RACGP AKT Full Mock 1</p>
+
+              <p className="text-[9px] font-extrabold text-slate-400 tracking-wider uppercase mb-1.5">READ CAREFULLY BEFORE YOU BEGIN</p>
+              <div className="space-y-1 text-[11px] text-slate-600 dark:text-slate-300 mb-3">
+                <p><strong className="text-slate-800 dark:text-slate-200">01</strong> The timer starts when you click <strong>"Start Test"</strong> and counts down in the top bar.</p>
+                <p><strong className="text-slate-800 dark:text-slate-200">02</strong> Each question has <strong>one correct answer</strong>. Select an option to answer a question.</p>
+                <p><strong className="text-slate-800 dark:text-slate-200">03</strong> Use <strong>"Next"</strong> or select a question number from the palette to navigate.</p>
+              </div>
+
+              <p className="text-[9px] font-extrabold text-slate-400 tracking-wider uppercase mb-1.5">QUESTION PALETTE COLOURS</p>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 dark:bg-emerald-950/20 flex items-center gap-2">
+                  <span className="w-4.5 h-4.5 rounded bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                  <div>
+                    <p className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300">Answered</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 dark:bg-amber-950/20 flex items-center gap-2">
+                  <span className="w-4.5 h-4.5 rounded bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                  <div>
+                    <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">Not Answered</p>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/40 flex items-center gap-2">
+                  <span className="w-4.5 h-4.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold flex items-center justify-center">1</span>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-700 dark:text-slate-300">Not Visited</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-5">
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Questions</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">150</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Duration</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">240 Mins</p>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 text-center">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Marks</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">150</p>
-              </div>
-            </div>
-
-            <div className="flex-1 space-y-2 text-[11px] text-slate-600 dark:text-slate-400">
-              <p className="flex items-start gap-2">
-                <span className="text-teal-500 mt-0.5">•</span>
-                The clock will be set at the server. The countdown timer at the top will display the remaining time available for you to complete the examination.
-              </p>
-              <p className="flex items-start gap-2">
-                <span className="text-teal-500 mt-0.5">•</span>
-                Click on one of the options to select your answer. To change your answer, simply click on another desired option.
-              </p>
-              <p className="flex items-start gap-2">
-                <span className="text-teal-500 mt-0.5">•</span>
-                You can save a question for review later by leaving it unselected and moving to the next.
-              </p>
-            </div>
-
-            <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-4">
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div
                 id="checkbox-agree"
                 onClick={() => setInstructionsChecked(!instructionsChecked)}
-                className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                  instructionsChecked ? "bg-teal-50 dark:bg-teal-900/10 border-teal-200 dark:border-teal-800/50" : "bg-slate-50 dark:bg-slate-800/50 border-transparent"
-                }`}
+                className="flex items-center gap-2 cursor-pointer"
               >
-                <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                  instructionsChecked ? "bg-teal-500 border-teal-500 text-white" : "bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600"
+                <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                  instructionsChecked ? "bg-[#1B895C] border-[#1B895C] text-white" : "border-slate-300 bg-white"
                 }`}>
-                  {instructionsChecked && (
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
+                  {instructionsChecked && <CheckCircle2 className="w-3 h-3" />}
                 </div>
-                <span className={`text-[11px] font-medium ${instructionsChecked ? "text-teal-700 dark:text-teal-400" : "text-slate-600 dark:text-slate-400"}`}>
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                   I have read and understood the instructions.
                 </span>
               </div>
 
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setPhase(0)}
-                  className="px-5 py-2 rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                >
-                  Go Back
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPhase(0)} className="px-3 py-1 text-xs font-semibold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50">
+                  ← Go Back
                 </button>
                 <button
                   id="btn-start-test"
-                  onClick={() => {
-                    if (instructionsChecked) setPhase(2);
-                  }}
-                  className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${
-                    instructionsChecked 
-                      ? startHovered ? "bg-teal-600 text-white shadow-lg shadow-teal-500/20 scale-105" : "bg-teal-500 text-white shadow-md shadow-teal-500/20 cursor-pointer"
-                      : "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 opacity-70 cursor-not-allowed"
+                  onClick={() => instructionsChecked && setPhase(2)}
+                  className={`px-4 py-1 text-xs font-bold rounded-xl text-white transition-all ${
+                    instructionsChecked
+                      ? "bg-[#1B895C] hover:bg-[#156e49] shadow-md shadow-emerald-600/20 cursor-pointer"
+                      : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
                   }`}
                 >
-                  Start Test
+                  Start Test →
                 </button>
               </div>
             </div>
           </motion.div>
         )}
 
-        {/* STAGE 2: PREPARING YOUR QUESTIONS / LOADING PAGE */}
+        {/* STAGE 2: LOADING SCREEN */}
         {phase === 2 && (
           <motion.div
             key="phase2"
@@ -574,31 +581,120 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/50 dark:bg-slate-900/60"
+            className="w-full h-full flex flex-col items-center justify-center p-6 bg-white dark:bg-[#151b23] text-center select-none min-h-[370px]"
           >
-            <div className="relative mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-teal-100 dark:bg-teal-900/40 border border-teal-200 dark:border-teal-800 flex items-center justify-center text-teal-600 dark:text-teal-400 shadow-md">
-                <svg className="w-8 h-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L5.6 15.12a2 2 0 01-1.183-1.875V5.016A2 2 0 015.6 3.141l2.387.477a6 6 0 003.86-.517l.318-.158a6 6 0 013.86-.517l2.387.477A2 2 0 0120 4.777v8.776a2 2 0 01-.572 1.875z" />
-                </svg>
-              </div>
-            </div>
-
-            <h3 className="font-sans text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">Preparing Your Questions</h3>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 max-w-xs mb-6">Fetching question bank &amp; configuring exam conditions...</p>
-
-            <div className="w-full max-w-xs bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden mb-3">
-              <motion.div
-                className="bg-teal-500 h-full rounded-full"
-                animate={{ width: `${loadProgress}%` }}
-                transition={{ ease: "easeInOut" }}
+            {/* 1. Centered GP Edge Logo */}
+            <div className="mb-4">
+              <Image
+                src="/assets/logo.png"
+                alt="GP Edge"
+                width={52}
+                height={52}
+                priority
+                className="w-13 h-13 object-contain"
               />
             </div>
-            <span className="text-[10px] font-mono text-teal-600 dark:text-teal-400 font-bold">{loadProgress}% Complete</span>
+
+            {/* 2. Waveform Equalizer Bars */}
+            <div className="flex items-center justify-center gap-1.5 h-8 mb-4">
+              {BARS.map((bar, i) => (
+                <motion.div
+                  key={i}
+                  className={`w-1 rounded-full ${bar.color}`}
+                  initial={{ height: bar.minH }}
+                  animate={{ height: [bar.minH, bar.maxH, bar.minH] }}
+                  transition={{
+                    duration: 1.1,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: bar.delay,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* 3. Title */}
+            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight mb-1">
+              Preparing your questions
+            </h2>
+
+            {/* 4. Subtle Line - Dot - Line Divider */}
+            <div className="flex items-center gap-2 my-2">
+              <div className="w-8 h-[1px] bg-slate-200 dark:bg-slate-700" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#1B895C]" />
+              <div className="w-8 h-[1px] bg-slate-200 dark:bg-slate-700" />
+            </div>
+
+            {/* 5. Subtitle */}
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-6">
+              Please wait while we load your test.
+            </p>
+
+            {/* 6. 4-Stage Progress Indicator */}
+            <div className="w-full max-w-sm">
+              <div className="relative flex items-center justify-between mb-2">
+                <div className="absolute left-3 right-3 top-1/2 -translate-y-1/2 h-[2px] bg-slate-200 dark:bg-slate-800 z-0" />
+                <motion.div
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-[2px] bg-[#1B895C] z-0"
+                  animate={{
+                    width: `${(loadingStage / (STAGES.length - 1)) * 94}%`,
+                  }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                />
+
+                {STAGES.map((st, idx) => {
+                  const isCompleted = idx < loadingStage;
+                  const isCurrent = idx === loadingStage;
+
+                  return (
+                    <div key={st.key} className="relative z-10 flex flex-col items-center">
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full flex items-center justify-center transition-all duration-300 ${
+                          isCurrent
+                            ? "border-2 border-[#1B895C] bg-white dark:bg-slate-900 ring-4 ring-emerald-500/15"
+                            : isCompleted
+                            ? "border-2 border-[#1B895C] bg-[#1B895C] text-white"
+                            : "border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                        }`}
+                      >
+                        {isCurrent && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-[#1B895C]" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="flex justify-between w-full text-[10px] sm:text-[11px]">
+                {STAGES.map((st, idx) => {
+                  const isActive = idx <= loadingStage;
+                  return (
+                    <span
+                      key={st.key}
+                      className={`font-medium transition-colors duration-200 ${
+                        idx === 0
+                          ? "text-left"
+                          : idx === STAGES.length - 1
+                          ? "text-right"
+                          : "text-center"
+                      } ${
+                        isActive
+                          ? "text-[#1B895C] dark:text-teal-400 font-semibold"
+                          : "text-slate-400"
+                      }`}
+                      style={{ width: "25%" }}
+                    >
+                      {st.label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
           </motion.div>
         )}
 
-        {/* STAGE 3: ACTUAL EXAM / QUESTION GIVING INTERFACE */}
+        {/* STAGE 3: LIVE QUESTION INTERFACE */}
         {phase === 3 && (
           <motion.div
             key="phase3"
@@ -606,174 +702,192 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex relative"
+            className="w-full h-full flex p-4 sm:p-5 bg-white dark:bg-[#151b23] gap-4 min-h-[370px]"
           >
-            {/* LEFT — Question Interface */}
-            <div className="flex-1 flex flex-col p-5 border-r border-slate-100 dark:border-slate-800 min-w-0">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{currentQ.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400">03:59:54</span>
-                  {questionIndex < questions.length - 1 && (
+            <div className="flex-1 flex flex-col justify-between min-w-0 h-full">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-sans text-sm font-bold text-slate-900 dark:text-slate-100">{currentQ.label}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs font-medium text-slate-600 dark:text-slate-300">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      <span>59:43</span>
+                    </div>
                     <button
                       id="btn-submit-header"
                       onClick={() => setShowSubmitModal(true)}
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                        isSubmitHovered ? "bg-red-600 text-white shadow-md shadow-red-500/20 scale-105" : "bg-teal-500 text-white hover:bg-teal-600"
+                      className={`px-3 py-1 rounded-xl text-xs font-bold text-white transition-all cursor-pointer ${
+                        isSubmitHovered ? "bg-teal-700 scale-105" : "bg-[#1B895C]"
                       }`}
                     >
                       Submit Test
                     </button>
-                  )}
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
+                  <div className="bg-[#1B895C] h-full rounded-full w-1/5" />
+                </div>
+
+                <div className="flex justify-end mb-1.5">
+                  <span className="text-[9px] font-extrabold text-slate-400 tracking-wider uppercase border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md">
+                    {currentQ.category}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 mb-2.5 text-xs leading-relaxed text-slate-800 dark:text-slate-200 font-medium">
+                  {currentQ.text}
+                </div>
+
+                <div className="space-y-2">
+                  {currentQ.options.map((opt) => {
+                    const isSelected = selectedOpt === opt.id;
+                    const isHovered = hoveredOpt === opt.id;
+
+                    return (
+                      <div
+                        key={opt.id}
+                        id={`opt-${opt.id}`}
+                        onClick={() => handleSelectOption(opt.id)}
+                        className={`p-2.5 rounded-xl border text-xs font-medium flex items-center gap-3 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-[#1B895C] bg-teal-50/60 dark:bg-teal-950/30 text-teal-900 dark:text-teal-200 shadow-xs"
+                            : isHovered
+                            ? "border-teal-300 dark:border-teal-800 bg-teal-50/20"
+                            : "border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`w-5 h-5 rounded-lg border text-xs font-bold flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? "bg-[#1B895C] border-[#1B895C] text-white"
+                              : "border-slate-200 dark:border-slate-700 text-slate-500 bg-slate-50 dark:bg-slate-800"
+                          }`}
+                        >
+                          {opt.id}
+                        </span>
+                        <span className="leading-snug">{opt.text}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="h-px bg-slate-100 dark:bg-slate-700 mb-3" />
-              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">{currentQ.category}</p>
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={questionIndex}
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex-1 min-h-0"
-                >
-                  <p className="text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 mb-4">{currentQ.text}</p>
-                  <div className="space-y-2">
-                    {currentQ.options.map((opt) => {
-                      const isSelected = selectedOpt === opt.id;
-                      const isHovered = hoveredOpt === opt.id;
-                      let rowCls = "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40 text-slate-700 dark:text-slate-300 hover:border-teal-300 dark:hover:border-teal-700";
-                      let circleCls = "border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400";
-
-                      if (isSelected) {
-                        rowCls = "border-teal-500 bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 shadow-[0_0_10px_rgba(20,184,166,0.12)]";
-                        circleCls = "border-teal-500 bg-teal-500 text-white";
-                      } else if (isHovered) {
-                        rowCls = "border-teal-300 dark:border-teal-700 bg-teal-50/40 dark:bg-teal-900/10 text-teal-800 dark:text-teal-200";
-                      }
-
-                      return (
-                        <div
-                          key={opt.id}
-                          id={`opt-${opt.id}`}
-                          onClick={() => handleSelectOption(opt.id)}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border text-[11px] font-medium transition-all duration-200 cursor-pointer ${rowCls}`}
-                        >
-                          <span className={`w-4 h-4 rounded-full border flex-shrink-0 flex items-center justify-center text-[9px] font-bold ${circleCls}`}>{opt.id}</span>
-                          <span className="leading-snug">{opt.text}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              </AnimatePresence>
-
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <button
-                  onClick={handleClearResponse}
-                  className="text-[10px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors cursor-pointer"
-                >
-                  ☐ Clear Response
-                </button>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-3">
+                  <button onClick={handleClearResponse} className="text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer">
+                    <RotateCcw className="w-3.5 h-3.5" /> Clear Response
+                  </button>
+                  <button onClick={toggleFlagged} className="text-slate-400 hover:text-amber-600 transition-colors flex items-center gap-1 text-[11px] font-medium cursor-pointer">
+                    <Bookmark className={`w-3.5 h-3.5 ${flagged.has(questionIndex) ? "fill-amber-500 text-amber-500" : ""}`} /> Mark for Review
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrevQuestion}
                     disabled={questionIndex === 0}
-                    className={`text-[10px] transition-colors ${questionIndex === 0 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed" : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 cursor-pointer"}`}
+                    className={`px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                      questionIndex === 0
+                        ? "border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-700 cursor-not-allowed"
+                        : "border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                    }`}
                   >
                     ← Previous
                   </button>
                   <button
                     id="btn-next"
                     onClick={handleNextQuestion}
-                    className={`text-[10px] font-bold px-3 py-1.5 rounded-lg text-white transition-all cursor-pointer ${
-                      isNextHovered ? "bg-teal-600 shadow-md shadow-teal-500/20 scale-105" : "bg-teal-500 hover:bg-teal-600"
+                    className={`px-4 py-1.5 rounded-xl text-xs font-bold text-white transition-all cursor-pointer ${
+                      isNextHovered ? "bg-teal-700 scale-105" : "bg-[#1B895C] hover:bg-[#156e49]"
                     }`}
                   >
-                    {questionIndex === questions.length - 1 ? "Submit Test" : "Next →"}
+                    Next →
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* RIGHT — Progress Sidebar */}
-            <div className="w-[130px] flex-shrink-0 flex flex-col items-center p-4 bg-slate-50 dark:bg-slate-800/50">
-              <p className="text-[8px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Your Progress</p>
-              <div className="relative w-20 h-20 mb-4">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r={radius} fill="none" stroke="currentColor" strokeWidth="6" className="text-slate-100 dark:text-slate-700" />
-                  <motion.circle
-                    cx="40" cy="40" r={radius} fill="none" stroke="#14b8a6" strokeWidth="6" strokeLinecap="round"
-                    strokeDasharray={circ}
-                    animate={{ strokeDashoffset: circ - Number(strokeDash) }}
-                    transition={{ duration: 0.7, ease: "easeOut" }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100">{progressPct}%</span>
+            {/* Right Sidebar */}
+            <div className="w-32 shrink-0 border-l border-slate-100 dark:border-slate-800 pl-3 flex flex-col items-center justify-between py-1 h-full">
+              <div className="flex flex-col items-center w-full">
+                <span className="text-[9px] font-extrabold text-slate-400 tracking-wider uppercase mb-2">YOUR PROGRESS</span>
+
+                <div className="relative w-16 h-16 mb-3 flex items-center justify-center">
+                  <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+                    <circle cx="40" cy="40" r="32" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="6" fill="none" />
+                    <circle cx="40" cy="40" r="32" className="stroke-[#1B895C]" strokeWidth="6" strokeLinecap="round" fill="none" strokeDasharray="201" strokeDashoffset={201 - (progressPct / 100) * 201} />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center select-none">
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white">{progressPct}%</span>
+                    <span className="text-[7px] font-bold text-slate-400 uppercase">ANSWERED</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1 w-full text-[9px] font-medium text-slate-500 dark:text-slate-400 mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>Answered</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span>Not Answered</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-600" />
+                    <span>Marked</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700" />
+                    <span>Not Visited</span>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-1.5 w-full mb-5">
-                {[
-                  { label: "Answered", color: "bg-teal-500", count: answeredCount },
-                  { label: "Not Answered", color: "bg-rose-400", count: questions.length - answeredCount },
-                ].map(({ label, color, count }) => (
-                  <div key={label} className="flex items-center gap-1.5">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
-                    <span className="text-[9px] text-slate-500 dark:text-slate-400 flex-1">{label}</span>
-                    <span className="text-[9px] font-semibold text-slate-600 dark:text-slate-300">{count}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-1.5 flex-wrap justify-center">
-                {questions.map((q, i) => {
-                  const isActive = i === questionIndex;
+
+              <div className="grid grid-cols-4 gap-1 w-full">
+                {[1, 2, 3, 4, 5].map((num, i) => {
+                  const isCurrent = i === questionIndex;
                   const isAns = !!userAnswers[i];
+                  const isMk = flagged.has(i);
+
+                  let bgCls = "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700";
+                  if (isMk) bgCls = "bg-purple-600 text-white border-purple-600";
+                  else if (isAns) bgCls = "bg-emerald-500 text-white border-emerald-500";
+
                   return (
-                    <motion.div
-                      key={i}
+                    <button
+                      key={num}
                       onClick={() => setQuestionIndex(i)}
-                      animate={{ scale: isActive ? 1.1 : 1 }}
-                      className={`w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold border transition-all duration-200 cursor-pointer ${
-                        isAns ? "bg-teal-500 border-teal-500 text-white" : isActive ? "bg-white border-teal-400 text-teal-600" : "bg-white border-slate-200 text-slate-500"
+                      className={`w-5 h-5 rounded-lg border text-[9px] font-bold flex items-center justify-center transition-all ${bgCls} ${
+                        isCurrent ? "ring-2 ring-[#1B895C] ring-offset-1" : ""
                       }`}
                     >
-                      {i + 1}
-                    </motion.div>
+                      {num}
+                    </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* STAGE 4: SUBMIT TEST CONFIRMATION POPUP OVERLAY */}
+            {/* STAGE 4: SUBMIT CONFIRMATION MODAL OVERLAY */}
             {showSubmitModal && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 z-40 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+                className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4"
               >
                 <motion.div
-                  initial={{ scale: 0.9, y: 10 }}
+                  initial={{ scale: 0.95, y: 10 }}
                   animate={{ scale: 1, y: 0 }}
-                  className="bg-white dark:bg-slate-800 rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-200 dark:border-slate-700 text-center"
+                  className="bg-white dark:bg-slate-900 rounded-2xl p-5 max-w-xs w-full shadow-2xl border border-slate-200 dark:border-slate-800 text-center"
                 >
-                  <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 mx-auto flex items-center justify-center mb-3">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <h4 className="font-sans text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Submit Examination?</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4">
-                    You have answered {answeredCount} of {questions.length} questions. Are you sure you want to finish and submit your exam now?
+                  <h4 className="font-serif text-base font-bold text-slate-900 dark:text-slate-100 mb-1">Submit Test?</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    You have answered {answeredCount} of {totalCount} questions. Are you sure you want to finish and submit?
                   </p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setShowSubmitModal(false)}
-                      className="flex-1 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+                      className="flex-1 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50"
                     >
                       Cancel
                     </button>
@@ -783,8 +897,8 @@ export default function ExamPrepSimulation() {
                         setShowSubmitModal(false);
                         setPhase(5);
                       }}
-                      className={`flex-1 py-2 rounded-xl text-xs font-bold text-white transition-all cursor-pointer ${
-                        isConfirmHovered ? "bg-teal-600 shadow-md shadow-teal-500/20 scale-105" : "bg-teal-500 hover:bg-teal-600"
+                      className={`flex-1 py-1.5 rounded-xl text-xs font-bold text-white transition-all ${
+                        isConfirmHovered ? "bg-teal-700 scale-105" : "bg-[#1B895C] hover:bg-[#156e49]"
                       }`}
                     >
                       Confirm &amp; Submit
@@ -796,7 +910,7 @@ export default function ExamPrepSimulation() {
           </motion.div>
         )}
 
-        {/* STAGE 5: TEST RESULT / SUBMITTED SUCCESSFULLY PAGE */}
+        {/* STAGE 5: TEST SUBMITTED SUCCESSFULLY PAGE (FULL WIDTH UTILIZATION) */}
         {phase === 5 && (
           <motion.div
             key="phase5"
@@ -804,81 +918,82 @@ export default function ExamPrepSimulation() {
             initial="enter"
             animate="center"
             exit="exit"
-            className="w-full h-full flex flex-col items-center justify-center p-6 bg-slate-50/50 dark:bg-slate-900/50 relative overflow-hidden"
+            className="w-full h-full flex flex-col items-center justify-between p-5 sm:p-6 bg-white dark:bg-[#151b23] text-center min-h-[370px]"
           >
-            {/* Background glow */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-teal-400/20 rounded-full blur-[60px] pointer-events-none" />
-            
-            <div className="relative z-10 flex flex-col items-center text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20, delay: 0.1 }}
-                className="w-16 h-16 rounded-full bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 text-teal-500"
-              >
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </motion.div>
-              
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-1">Test Submitted Successfully</h2>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-6">RACGP AKT Full Mock 1</p>
+            <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-xs my-auto">
+              <div className="flex items-center justify-center gap-2 text-[#1B895C] dark:text-teal-400 mb-4">
+                <CheckCircle2 className="w-5.5 h-5.5" />
+                <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100">Test Submitted Successfully</h2>
+              </div>
 
-              <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-xl shadow-slate-200/20 dark:shadow-black/20 p-5 mb-6">
-                <div className="flex flex-col items-center pb-4 border-b border-slate-100 dark:border-slate-700 mb-4">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Final Score</span>
-                  <div className="flex items-baseline gap-1 text-teal-500">
-                    <span className="text-4xl font-black tabular-nums">{scoreCounter}</span>
-                    <span className="text-lg font-bold">%</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pb-4 border-b border-slate-100 dark:border-slate-800 mb-4">
+                <div className="flex flex-col items-center border-r-0 sm:border-r border-slate-100 dark:border-slate-800 sm:pr-4">
+                  <span className="text-[9px] font-extrabold text-slate-400 uppercase mb-1 tracking-wider">YOUR SCORE</span>
+                  <div className="relative w-20 h-20 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
+                      <circle cx="40" cy="40" r="32" className="stroke-slate-100 dark:stroke-slate-800" strokeWidth="6" fill="none" />
+                      <circle cx="40" cy="40" r="32" className="stroke-[#1B895C]" strokeWidth="6" strokeLinecap="round" fill="none" strokeDasharray="201" strokeDashoffset={201 - (scoreCounter / 100) * 201} />
+                    </svg>
+                    <span className="absolute text-lg font-extrabold text-slate-900 dark:text-white">{scoreCounter}%</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 text-center divide-x divide-slate-100 dark:divide-slate-700">
-                  <div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Correct</p>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">132 / 150</p>
+                <div className="space-y-2 text-left sm:pl-2">
+                  <div className="flex items-center gap-2.5 text-xs">
+                    <FileText className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Correct</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 text-xs">0 / 5</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Attempted</p>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">148 / 150</p>
+                  <div className="flex items-center gap-2.5 text-xs">
+                    <CheckCircle2 className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Attempted</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 text-xs">2 / 5</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Time</p>
-                    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">2h 45m</p>
+                  <div className="flex items-center gap-2.5 text-xs">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    <div>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Time Taken</p>
+                      <p className="font-bold text-slate-800 dark:text-slate-200 text-xs">00:34</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setPhase(0)}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                >
-                  Download Report
+              <div className="flex items-center gap-2.5">
+                <button className="flex-1 py-2 rounded-xl text-xs font-bold text-[#1B895C] border border-[#1B895C] hover:bg-teal-50 dark:hover:bg-teal-950/30 flex items-center justify-center gap-1.5 transition-colors">
+                  <Download className="w-3.5 h-3.5" /> Download Report
                 </button>
                 <button
                   id="btn-back-to-prep"
                   onClick={() => setPhase(0)}
-                  className="px-6 py-2.5 rounded-xl text-xs font-bold text-white bg-teal-500 shadow-md shadow-teal-500/20 hover:bg-teal-600 transition-colors cursor-pointer"
+                  className="flex-1 py-2 rounded-xl text-xs font-bold text-white bg-[#1B895C] hover:bg-[#156e49] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  Back to Exam Prep
+                  Back to Exam Prep →
                 </button>
               </div>
+            </div>
+
+            <div className="w-full max-w-xl p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Your detailed report has been generated and is ready for download.</span>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Animated Mac-style Mouse Cursor with Click Ripple Ring */}
+      {/* Mac-style Cursor */}
       <motion.div
         id="prep-cursor"
         className="absolute pointer-events-none z-50 flex items-center justify-center"
         style={{ left: "50%", top: "50%" }}
       >
-        {/* Click ripple circle */}
         <motion.div
           id="prep-cursor-ripple"
-          className="absolute w-8 h-8 rounded-full border-2 border-teal-500 bg-teal-400/30 opacity-0 pointer-events-none"
+          className="absolute w-8 h-8 rounded-full border-2 border-[#1B895C] bg-teal-400/30 opacity-0 pointer-events-none"
         />
 
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="relative z-10 drop-shadow-md">

@@ -451,7 +451,7 @@ export default function PricingPageClient({
         {/* ── Section 1: Hero Section ───────────────────────────────────────── */}
         <section className="mb-8 w-full flex flex-col items-center text-center justify-center max-w-3xl mx-auto">
           {/* Small Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-955/40 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 uppercase tracking-[0.14em] mb-4">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-50/90 dark:bg-[#151922] text-xs font-bold text-emerald-800 dark:text-emerald-300 border border-emerald-200/80 dark:border-[rgba(90,200,176,0.3)] shadow-[0_2px_8px_rgba(20,184,166,0.08)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] uppercase tracking-[0.12em] mb-4 transition-all">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
@@ -549,7 +549,7 @@ export default function PricingPageClient({
                       <td className="py-4 px-6 font-semibold text-slate-800 dark:text-slate-200 text-left">
                         <span>{row.page}</span>
                         {row.fullPaidOnly && (
-                          <span className="ml-2 inline-block text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/40 border border-amber-200/60 dark:border-amber-800/40 px-2 py-0.5 rounded-xl uppercase tracking-wider">
+                          <span className="ml-2.5 inline-flex items-center px-2.5 py-0.5 rounded-xl bg-amber-100/90 dark:bg-amber-950/70 text-[10px] font-bold text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 shadow-[0_1px_4px_rgba(217,119,6,0.12)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] uppercase tracking-wider transition-all align-middle">
                             Registrar only
                           </span>
                         )}

@@ -97,11 +97,11 @@ function paletteClasses(status: QuestionStatus, isCurrent: boolean): string {
   const ring = isCurrent ? " ring-2 ring-teal-600 dark:ring-teal-400 ring-offset-2 dark:ring-offset-slate-900 font-bold" : "";
   switch (status) {
     case "marked":
-      return `${base} bg-amber-500 border-amber-500 text-white shadow-xs${ring}`;
+      return `${base} bg-purple-600 border-purple-600 text-white shadow-xs${ring}`;
     case "answered":
       return `${base} bg-emerald-500 border-emerald-500 text-white shadow-xs${ring}`;
     case "not-answered":
-      return `${base} bg-rose-500 border-rose-500 text-white shadow-xs${ring}`;
+      return `${base} bg-amber-500 border-amber-500 text-white shadow-xs${ring}`;
     default:
       return `${base} bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400${ring}`;
   }
@@ -304,10 +304,10 @@ function QuestionPalette({
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered
           </div>
           <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Not Answered
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Not Answered
           </div>
           <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Marked for Review
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-600" /> Marked for Review
           </div>
           <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" /> Not Visited
@@ -1194,11 +1194,11 @@ export default function TestPage() {
               onClick={toggleFlagged}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer ${
                 isFlagged
-                  ? "bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-300/80 dark:border-amber-700/60 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                  ? "bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300/80 dark:border-purple-700/60 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/20"
               }`}
             >
-              <Bookmark className={`w-4 h-4 ${isFlagged ? "fill-amber-500 text-amber-500" : ""}`} strokeWidth={1.8} />
+              <Bookmark className={`w-4 h-4 ${isFlagged ? "fill-purple-600 text-purple-600 dark:fill-purple-400 dark:text-purple-400" : ""}`} strokeWidth={1.8} />
               <span className="hidden sm:inline">{isFlagged ? "Marked for Review" : "Mark for Review"}</span>
               <span className="sm:hidden">{isFlagged ? "Marked" : "Review"}</span>
             </button>

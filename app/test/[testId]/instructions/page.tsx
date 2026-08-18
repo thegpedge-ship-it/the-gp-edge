@@ -35,9 +35,9 @@ const PALETTE_LEGEND = [
   {
     label: "Not Answered",
     description: "Visited but no option selected",
-    dotClass: "bg-rose-500",
-    badgeClass: "bg-rose-500 text-white",
-    cardClass: "border-rose-200/60 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/20",
+    dotClass: "bg-amber-500",
+    badgeClass: "bg-amber-500 text-white",
+    cardClass: "border-amber-200/60 dark:border-amber-900/30 bg-amber-50/20 dark:bg-amber-950/20",
   },
   {
     label: "Not Visited",
