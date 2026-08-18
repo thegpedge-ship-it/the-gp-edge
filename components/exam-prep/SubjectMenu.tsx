@@ -8,7 +8,7 @@ import type { ExamSubject, ExamSubtopic, ExamQuiz } from "@/app/exam-prep/action
 import { cachedExamSubjects, cachedSubtopics, cachedQuizzes, cachedMockTests } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 /* ─── Green Theme ─────────────────────────────────────────────────────── */
 const theme = {
@@ -22,6 +22,67 @@ function Spinner({ label }: { label: string }) {
     <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
       <div className="w-7 h-7 rounded-full border-2 border-emerald-100 dark:border-emerald-900/40 border-t-emerald-500 animate-spin" />
       <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500">{label}</p>
+    </div>
+  );
+}
+
+/* Chevron that rotates when its section is open. */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`w-4 h-4 flex-shrink-0 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  );
+}
+
+/* A single quiz/test card — shared by the desktop column and the mobile accordion. */
+function QuizCard({
+  quiz,
+  starting,
+  onStart,
+}: {
+  quiz: ExamQuiz;
+  starting: boolean;
+  onStart: (quiz: ExamQuiz) => void;
+}) {
+  return (
+    <div className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">{quiz.name}</h4>
+        <span className={`flex-shrink-0 text-[10px] font-normal tracking-wide px-2 py-0.5 rounded-full ${
+          quiz.difficulty === "Easy"
+            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
+            : quiz.difficulty === "Medium"
+            ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
+            : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
+        }`}>
+          {quiz.difficulty}
+        </span>
+      </div>
+      <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">{quiz.description}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
+          <span>{quiz.duration}</span>
+          <span>&middot;</span>
+          <span>{quiz.questionCount} Qs</span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <ViewReportButton testId={quiz.id} variant="link" />
+          <button
+            onClick={() => onStart(quiz)}
+            disabled={starting}
+            className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[12px] font-normal tracking-wide transition-colors duration-200"
+          >
+            {starting ? "Loading…" : "Start"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -120,9 +181,9 @@ export default function SubjectMenu() {
 
   return (
     <div className="flex flex-col h-full">
-      {startingId && <FullScreenLoader message="Preparing your quiz" />}
-      {/* ─── 3-Column Vertical Menu ───────────────────────────────────── */}
-      <div className="flex-1 flex min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
+      {startingId && <ExamLoadingScreen title="Preparing your quiz" />}
+      {/* ─── Desktop: 3-Column Vertical Menu (hidden on mobile) ───────── */}
+      <div className="hidden lg:flex flex-1 min-h-0 gap-0 rounded-xl border border-slate-200/60 dark:border-slate-700/40 overflow-hidden bg-white/40 dark:bg-slate-800/20">
 
         {/* ── Column 1: Subjects ──────────────────────────────────────── */}
         <div
@@ -277,45 +338,7 @@ export default function SubjectMenu() {
                   className="p-4 flex flex-col gap-3"
                 >
                   {(quizzes ?? []).map((quiz) => (
-                    <div
-                      key={quiz.id}
-                      className="relative rounded-2xl p-4 border border-slate-100 dark:border-slate-700/40 bg-white/60 dark:bg-slate-800/30 text-left hover:scale-[1.03] hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="text-[14px] font-bold text-slate-800 dark:text-slate-100">
-                          {quiz.name}
-                        </h4>
-                        <span className={`text-[10px] font-normal tracking-wide px-2 py-0.5 rounded-full ${
-                          quiz.difficulty === "Easy"
-                            ? "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400"
-                            : quiz.difficulty === "Medium"
-                            ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
-                            : "bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
-                        }`}>
-                          {quiz.difficulty}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
-                        {quiz.description}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-400 dark:text-slate-500">
-                          <span>{quiz.duration}</span>
-                          <span>&middot;</span>
-                          <span>{quiz.questionCount} Qs</span>
-                        </div>
-                        <div className="flex items-center gap-2.5">
-                          <ViewReportButton testId={quiz.id} variant="link" />
-                          <button
-                            onClick={() => handleStart(quiz)}
-                            disabled={startingId === quiz.id}
-                            className="px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-wait text-white text-[12px] font-normal tracking-wide transition-colors duration-200"
-                          >
-                            {startingId === quiz.id ? "Loading…" : "Start"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <QuizCard key={quiz.id} quiz={quiz} starting={startingId === quiz.id} onStart={handleStart} />
                   ))}
 
                   {/* Subtopic summary */}
@@ -332,6 +355,97 @@ export default function SubjectMenu() {
                 </motion.div>
               </AnimatePresence>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Mobile: nested accordion (hidden on desktop) ─────────────────
+          Tap a subject → its subtopics expand underneath; tap a subtopic →
+          its tests expand underneath. Tapping again collapses. */}
+      <div className="lg:hidden flex-1 min-h-0 overflow-y-auto scrollbar-hide rounded-xl border border-slate-200/60 dark:border-slate-700/40 bg-white/40 dark:bg-slate-800/20">
+        {subjects === null ? (
+          <Spinner label="Loading subjects…" />
+        ) : subjects.length === 0 ? (
+          <p className="px-4 py-10 text-center text-[12px] text-slate-400 dark:text-slate-500">No subjects available for your exam yet.</p>
+        ) : (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            {subjects.map((subject) => {
+              const subjectOpen = selectedSubject?.id === subject.id;
+              const sts = subtopicsBySubject[subject.id];
+              return (
+                <div key={subject.id}>
+                  <button
+                    onClick={() => handleSubjectClick(subject)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-3 text-left transition-colors ${subjectOpen ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"}`}
+                  >
+                    <Chevron open={subjectOpen} />
+                    <span className={`text-[14px] flex-1 min-w-0 truncate ${subjectOpen ? `font-bold ${theme.text}` : "font-semibold text-slate-900 dark:text-slate-100"}`}>{subject.name}</span>
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">{subject.questionCount} Qs</span>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {subjectOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        className="overflow-hidden bg-slate-50/40 dark:bg-slate-800/20"
+                      >
+                        {!sts && loadingSubtopics ? (
+                          <Spinner label="Loading subtopics…" />
+                        ) : sts && sts.length === 0 ? (
+                          <p className="px-4 py-6 text-center text-[12px] text-slate-400 dark:text-slate-500">No subtopics yet.</p>
+                        ) : (
+                          <div className="divide-y divide-slate-100/70 dark:divide-slate-800/50">
+                            {(sts ?? []).map((st) => {
+                              const stOpen = selectedSubtopic?.id === st.id;
+                              const qs = quizzesBySubtopic[st.id];
+                              return (
+                                <div key={st.id}>
+                                  <button
+                                    onClick={() => handleSubtopicClick(st)}
+                                    className={`w-full flex items-center gap-2.5 pl-9 pr-4 py-2.5 text-left transition-colors ${stOpen ? theme.activeBg : "hover:bg-slate-50 dark:hover:bg-slate-800/40"}`}
+                                  >
+                                    <Chevron open={stOpen} />
+                                    <span className={`text-[13px] flex-1 min-w-0 truncate ${stOpen ? `font-bold ${theme.text}` : "font-medium text-slate-700 dark:text-slate-200"}`}>{st.name}</span>
+                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">{st.questionCount} Qs</span>
+                                  </button>
+
+                                  <AnimatePresence initial={false}>
+                                    {stOpen && (
+                                      <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: "auto", opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                        className="overflow-hidden"
+                                      >
+                                        {!qs && loadingQuizzes ? (
+                                          <Spinner label="Loading tests…" />
+                                        ) : qs && qs.length === 0 ? (
+                                          <p className="px-4 py-6 text-center text-[12px] text-slate-400 dark:text-slate-500">No tests available yet.</p>
+                                        ) : (
+                                          <div className="px-4 py-3 pl-9 flex flex-col gap-3">
+                                            {(qs ?? []).map((quiz) => (
+                                              <QuizCard key={quiz.id} quiz={quiz} starting={startingId === quiz.id} onStart={handleStart} />
+                                            ))}
+                                          </div>
+                                        )}
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

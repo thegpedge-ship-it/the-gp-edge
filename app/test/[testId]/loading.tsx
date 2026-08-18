@@ -1,4 +1,4 @@
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 /**
  * Covers both /test/[testId]/instructions and /test/[testId]/start.
@@ -8,5 +8,5 @@ import { FullScreenLoader } from "@/components/ui/BrandedLoader";
  * previous page with no feedback and assumes the button did nothing.
  */
 export default function Loading() {
-  return <FullScreenLoader message="Preparing your test" />;
+  return <ExamLoadingScreen title="Preparing your test" />;
 }

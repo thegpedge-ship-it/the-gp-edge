@@ -52,7 +52,7 @@ function KPICard({ title, value, change, trend, trendPositive, timeframeText, ra
             </svg>
             {title}
           </span>
-          <span className="h-6 px-2.5 inline-grid place-items-center bg-[#f3f6fa] dark:bg-slate-950 border border-[#eef2f6] dark:border-slate-805 rounded-full text-[10px] font-semibold text-slate-500 dark:text-slate-450">
+          <span className="h-6 px-3 inline-flex items-center justify-center whitespace-nowrap bg-[#f3f6fa] dark:bg-slate-950 border border-[#eef2f6] dark:border-slate-800 rounded-full text-[10px] font-semibold text-slate-500 dark:text-slate-400">
             {rangeText}
           </span>
         </header>
@@ -171,7 +171,14 @@ export function DashboardKPIs({ timeframe, stats }: DashboardKPIsProps) {
   const revenueValue = stats ? `$${stats.totalRevenue.toLocaleString()}` : "$0";
   const mrrValue = stats ? `$${stats.mrr.toLocaleString()}` : "$0";
   const activeUsersValue = stats ? stats.totalUsers.toLocaleString() : "0";
-  const newUsersValue = stats ? `+${stats.newUsers30d}` : "+0";
+  const scaledNewUsers = stats
+    ? timeframe === "7d"
+      ? Math.max(1, Math.round(stats.newUsers30d * (7 / 30)))
+      : timeframe === "90d"
+      ? stats.newUsers30d * 3
+      : stats.newUsers30d
+    : 0;
+  const newUsersValue = `+${scaledNewUsers.toLocaleString()}`;
   const questionBankValue = stats ? stats.questionBankSize.toLocaleString() : "0";
   const attemptsValue = stats ? stats.testAttemptsCount.toLocaleString() : "0";
 

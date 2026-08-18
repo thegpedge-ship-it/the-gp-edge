@@ -2,11 +2,24 @@
 
 import { memo, useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { SignOutButton, useAuth } from "@clerk/nextjs";
-import { House } from "lucide-react";
+import { House, Menu, X, Sun, Moon } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
+import { useSidebarOptional } from "@/contexts/SidebarContext";
+import { useTheme } from "@/contexts/ThemeContext";
+
+// The complete public navbar, surfaced inside the mobile hamburger menu.
+const MENU_LINKS: { href: string; label: string }[] = [
+  { href: "/", label: "Home" },
+  { href: "/exam-prep", label: "Exam Prep" },
+  { href: "/dashboard/medical-library", label: "Medical Library" },
+  { href: "/dashboard/clinical-autofills", label: "Clinical Autofills" },
+  { href: "/dashboard/billing", label: "MBS Billing" },
+  { href: "/dashboard/pricing", label: "Pricing" },
+];
 
 // Custom reactive authentication state wrappers since SignedIn/SignedOut are removed in this Clerk version
 function SignedIn({ children }: { children: React.ReactNode }) {
@@ -26,8 +39,20 @@ interface HeaderProps {
 const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   const pathname = usePathname();
   const { isSignedIn } = useAuth();
+  // null on pages without a SidebarProvider (landing, auth, etc.) — the mobile
+  // sidebar hamburger only renders inside the dashboard where this exists.
+  const sidebar = useSidebarOptional();
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const [isScrolled, setIsScrolled] = useState(false);
   const [mounted, setMounted] = useState(false);
+  // Mobile navbar menu (used on pages without the dashboard sidebar drawer).
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     setMounted(true);
@@ -73,7 +98,20 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
   return (
     <header className={outerClass}>
       <div className={innerClass}>
- 
+
+         {/* Mobile logo — far left of the navbar for every user (signed in or
+             out). Hidden at lg+, where the floating GlobalLogo is used instead. */}
+         <Link href="/" aria-label="Home" className="lg:hidden flex-shrink-0 flex items-center">
+           <Image
+             src="/assets/logo.png"
+             alt="The GP Edge"
+             width={240}
+             height={160}
+             className="w-auto h-10 object-contain"
+             priority
+           />
+         </Link>
+
          {/* Navigation */}
          <nav className="hidden md:flex items-center gap-5 lg:gap-7 transition-all duration-500 flex-wrap lg:flex-nowrap">
            <Link
@@ -128,7 +166,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
              <Link href="/sign-in" className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
                Log in
              </Link>
-             <Link href="/sign-up" className="bg-teal-600 hover:bg-teal-700 whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors">
+             <Link href="/sign-up" className="hidden md:inline-block bg-teal-600 hover:bg-teal-700 whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors">
                Sign up
              </Link>
            </SignedOut>
@@ -195,9 +233,114 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
               to { transform: rotate(360deg); }
             }
           `}</style>
-          <ThemeToggle />
+
+          {/* Theme toggle — shown alongside the inline nav (md+). Below md it
+              lives inside the hamburger menu / dashboard drawer instead. */}
+          <div className="hidden md:flex items-center">
+            <ThemeToggle />
+          </div>
+
+          {/* Dashboard pages: hamburger opens the sidebar drawer (full dashboard nav). */}
+          {sidebar?.hasDrawer && (
+            <button
+              type="button"
+              onClick={() => sidebar.toggleMobile()}
+              aria-label="Open navigation menu"
+              aria-expanded={sidebar.mobileOpen}
+              className="lg:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-slate-600 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Every other page (incl. signed-out landing/auth): hamburger opens
+              the complete navbar menu below. Shown only below md, where the
+              inline nav links are hidden. */}
+          {!sidebar?.hasDrawer && (
+            <button
+              type="button"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-label="Open menu"
+              aria-expanded={menuOpen}
+              className="md:hidden flex-shrink-0 flex items-center justify-center w-9 h-9 rounded-xl text-slate-600 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+            >
+              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Mobile navbar menu — the complete navbar for pages without the
+          dashboard sidebar (signed-out landing, auth pages, etc.).
+          Collapses/expands via the hamburger; hidden at md+ where the inline
+          nav is shown. */}
+      {!sidebar?.hasDrawer && (
+        <div
+          className={`md:hidden mx-auto w-[94%] max-w-[920px] grid transition-all duration-300 ease-out ${
+            menuOpen ? "grid-rows-[1fr] opacity-100 mt-2" : "grid-rows-[0fr] opacity-0 pointer-events-none"
+          }`}
+        >
+          <div className="overflow-hidden">
+            <div className="bg-white/95 dark:bg-[rgba(21,25,34,0.96)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_8px_30px_rgba(0,0,0,0.12)] rounded-2xl p-2 flex flex-col gap-0.5">
+              {MENU_LINKS.map((l) => {
+                const active = l.href === "/" ? pathname === "/" : pathname?.startsWith(l.href);
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={`px-3 py-2.5 rounded-xl text-[14px] font-medium transition-colors ${
+                      active
+                        ? "text-teal-600 dark:text-teal-400 bg-teal-50/70 dark:bg-teal-900/15"
+                        : "text-slate-700 dark:text-[#E2E6EC] hover:bg-slate-100/70 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    {l.label}
+                  </Link>
+                );
+              })}
+
+              <div className="my-1 border-t border-slate-100 dark:border-white/10" />
+
+              <SignedOut>
+                <Link
+                  href="/sign-in"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-3 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 dark:text-[#E2E6EC] hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/sign-up"
+                  onClick={() => setMenuOpen(false)}
+                  className="mt-0.5 px-3 py-2.5 rounded-xl text-[14px] font-semibold text-center text-white bg-teal-600 hover:bg-teal-700 transition-colors"
+                >
+                  Sign up
+                </Link>
+              </SignedOut>
+
+              <SignedIn>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMenuOpen(false)}
+                  className="px-3 py-2.5 rounded-xl text-[14px] font-semibold text-center text-white bg-teal-600 hover:bg-teal-700 transition-colors"
+                >
+                  Dashboard
+                </Link>
+              </SignedIn>
+
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                className="mt-0.5 flex items-center gap-2 px-3 py-2.5 rounded-xl text-[14px] font-medium text-slate-700 dark:text-[#E2E6EC] hover:bg-slate-100/70 dark:hover:bg-white/5 transition-colors"
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDark ? "Light mode" : "Dark mode"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 });

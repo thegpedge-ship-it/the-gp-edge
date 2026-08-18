@@ -1,60 +1,104 @@
 import { memo } from "react";
 import Link from "next/link";
+import { Receipt, FileEdit, BookOpen, ChevronRight, LucideIcon } from "lucide-react";
 import { quickAccess as fallbackQuickAccess } from "./data";
 
-type QuickAccessItem = { key: string; title: string; caption: string; accent: string; badge: string };
+type QuickAccessItem = {
+  key: string;
+  title: string;
+  caption: string;
+  accent?: string;
+  badge?: string;
+};
 
-/**
- * QuickAccessCard — quick access grid.
- * - No entry animation — handled by PageTransition.
- * - Removed per-item stagger (overkill for 4 items, causes layout shift).
- * - Wrapped in React.memo.
- * - Hover states retained.
- */
+type ToolConfig = {
+  icon: LucideIcon;
+  href: string;
+  bg: string;
+  text: string;
+  border: string;
+};
+
+const TOOL_CONFIG: Record<string, ToolConfig> = {
+  mbs: {
+    icon: Receipt,
+    href: "/dashboard/billing",
+    bg: "bg-emerald-50/90 dark:bg-emerald-950/40",
+    text: "text-emerald-600 dark:text-emerald-400",
+    border: "border-emerald-200/60 dark:border-emerald-800/40",
+  },
+  autofills: {
+    icon: FileEdit,
+    href: "/dashboard/clinical-autofills",
+    bg: "bg-teal-50/90 dark:bg-teal-950/40",
+    text: "text-teal-600 dark:text-teal-400",
+    border: "border-teal-200/60 dark:border-teal-800/40",
+  },
+  conditions: {
+    icon: BookOpen,
+    href: "/dashboard/medical-library",
+    bg: "bg-sky-50/90 dark:bg-sky-950/40",
+    text: "text-sky-600 dark:text-sky-400",
+    border: "border-sky-200/60 dark:border-sky-800/40",
+  },
+};
+
 const QuickAccessCard = memo(function QuickAccessCard({
   quickAccess = fallbackQuickAccess,
 }: {
   quickAccess?: QuickAccessItem[];
 }) {
+  const items = quickAccess.filter((q) => q.key !== "notes" && TOOL_CONFIG[q.key]);
+
   return (
-    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shadow-sm p-7">
-      <p className="text-[12px] uppercase tracking-widest font-semibold text-slate-500 dark:text-slate-400 mb-4">
-        Quick access
-      </p>
+    <div className="rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 shadow-sm p-6 sm:p-7">
+      <div>
+        <p className="text-[11px] uppercase tracking-widest font-semibold text-slate-400 dark:text-slate-500 mb-1">
+          Quick access
+        </p>
+        <h3 className="font-serif text-2xl text-slate-900 dark:text-slate-50">
+          Clinical tools & shortcuts
+        </h3>
+      </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {quickAccess.map((q) => (
-          <Link
-            key={q.key}
-            href={
-              q.key === "mbs"
-                ? "/dashboard/billing"
-                : q.key === "conditions"
-                ? "/dashboard/medical-library"
-                : q.key === "autofills"
-                ? "/dashboard/tools"
-                : "/dashboard/profile"
-            }
-            className="group relative overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 min-h-[78px] flex flex-col justify-center hover:border-emerald-400 dark:hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
-          >
-            <div className="pr-9">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 leading-snug">
-                {q.title}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{q.caption}</p>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+        {items.map((q) => {
+          const config = TOOL_CONFIG[q.key];
+          if (!config) return null;
+          const Icon = config.icon;
 
-            {/* Arrow — vertically centered */}
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 group-hover:bg-emerald-500 group-hover:text-white flex items-center justify-center transition-colors duration-200">
-              <svg className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M5 12h14m0 0l-6-6m6 6l-6 6" />
-              </svg>
-            </span>
+          return (
+            <Link
+              key={q.key}
+              href={config.href}
+              className="group relative overflow-hidden flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-slate-50/60 dark:bg-slate-900/30 border border-slate-200/70 dark:border-slate-700/70 hover:bg-white dark:hover:bg-slate-800/90 hover:border-emerald-300 dark:hover:border-emerald-600/60 hover:shadow-[0_4px_16px_-4px_rgba(16,185,129,0.12)] dark:hover:shadow-[0_4px_16px_-4px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 transition-all duration-200 ease-out"
+            >
+              {/* Left accent bar — only visible on hover (matches metric cards) */}
+              <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out pointer-events-none" />
 
-            {/* Hover underline accent */}
-            <span className="absolute bottom-0 left-0 h-[3px] w-0 bg-gradient-to-r from-emerald-400 to-teal-500 group-hover:w-full transition-all duration-300" />
-          </Link>
-        ))}
+              <div className="flex items-center min-w-0 pr-3">
+                <div
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${config.bg} ${config.text} border ${config.border} group-hover:scale-105 transition-transform duration-200 ease-out`}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 pl-3.5">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 group-hover:text-emerald-800 dark:group-hover:text-emerald-300 transition-colors duration-200 leading-snug truncate">
+                    {q.title}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-normal truncate">
+                    {q.caption}
+                  </p>
+                </div>
+              </div>
+
+              {/* Refined Chevron Navigation Indicator */}
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 group-hover:bg-emerald-50/80 dark:group-hover:bg-emerald-950/40 transition-all duration-200 ease-out">
+                <ChevronRight className="w-4 h-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" strokeWidth={2.2} />
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

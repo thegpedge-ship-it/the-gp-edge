@@ -47,23 +47,26 @@ const ALL_FEATURES = [
 
 const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
 
-/* ── Role presets ── */
+/* ── Role presets (canonical — no duplicates) ── */
 const ROLE_PRESETS: Record<string, string[]> = {
-  "Super Admin": [...ALL_FEATURE_KEYS],
-  Admin: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"],
-  Moderator: ["dashboard", "questions", "content", "approaches"],
-  Viewer: ["dashboard"],
+  "SA (Super Admin)": [...ALL_FEATURE_KEYS],
+  "CE (Clinical Editor)": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"],
+  "OM (Operations Manager)": ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"],
+  "DR (Drafter)": ["dashboard", "questions", "content", "approaches"],
+  "PR (Peer Reviewer)": ["dashboard", "questions", "content", "approaches"],
+  "SUB (Subscriber)": ["dashboard"],
 };
 
 interface AdminUser {
   id: string;
   name: string;
   email: string;
-  role: "Super Admin" | "Admin";
+  role: string;
+  roles?: string[];
   permissions: string[];
   lastLogin: string;
   lastActiveAt?: number;
-  status: "active" | "inactive";
+  status: "active" | "inactive" | "deactivated" | "suspended";
   username: string;
   forgotPasswordEnabled: boolean;
   oauthEnabled: boolean;
@@ -86,10 +89,17 @@ function getRelativeLastActive(timestampMs?: number, isCurrentLoggedIn?: boolean
 }
 
 export default function AuditPage() {
-  const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin } = useAdminRole();
+  const { currentAdmin: loggedInAdmin, isReadOnly, isSuperAdmin, isOperationsManager } = useAdminRole();
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [nowTick, setNowTick] = useState(Date.now());
+
+  /* 3G Governance Capability Flags */
+  const canInviteContributor = isSuperAdmin || isOperationsManager;
+  const canInviteAnyAccount = isSuperAdmin;
+  const canDeactivateContributor = isSuperAdmin || isOperationsManager;
+  const canDeactivateAnyAccount = isSuperAdmin;
+  const canEditPermissionBundle = isSuperAdmin;
 
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -104,7 +114,7 @@ export default function AuditPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
-  const [editRole, setEditRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [editRole, setEditRole] = useState<string>("Admin");
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [editForgotPassword, setEditForgotPassword] = useState(true);
   const [editOauth, setEditOauth] = useState(false);
@@ -116,7 +126,7 @@ export default function AuditPage() {
   const [addUsername, setAddUsername] = useState("");
   const [addPassword, setAddPassword] = useState("");
   const [showAddPassword, setShowAddPassword] = useState(false);
-  const [addRole, setAddRole] = useState<"Super Admin" | "Admin">("Admin");
+  const [addRole, setAddRole] = useState<string>("Admin");
   const [addPermissions, setAddPermissions] = useState<string[]>([...ALL_FEATURE_KEYS]);
   const [addForgotPassword, setAddForgotPassword] = useState(true);
   const [addOauth, setAddOauth] = useState(false);
@@ -158,10 +168,26 @@ export default function AuditPage() {
         try {
           const credsList = JSON.parse(stored);
           const mappedAdmins = credsList.map((u: any) => {
+            const uRoles: string[] = u.roles || [];
             let permissions = u.permissions || [];
+            const uIsSA = uRoles.includes("SA") || u.role === "Super Admin" || u.role === "SA (Super Admin)";
+            const uIsCE = uRoles.includes("CE") || u.role === "Clinical Editor" || u.role === "CE (Clinical Editor)";
+            const uIsOM = uRoles.includes("OM") || u.role === "Operations Manager" || u.role === "OM (Operations Manager)";
+            const uIsDR = uRoles.includes("DR") || u.role === "Drafter" || u.role === "DR (Drafter)";
+            const uIsPR = uRoles.includes("PR") || u.role === "Peer Reviewer" || u.role === "PR (Peer Reviewer)";
+            const uIsSUB = uRoles.includes("SUB") || u.role === "Subscriber" || u.role === "SUB (Subscriber)";
+
             if (permissions.length === 0) {
-              if (u.role === "Super Admin" || u.role === "Viewer") {
+              if (uIsSA) {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+              } else if (uIsCE) {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+              } else if (uIsOM) {
+                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+              } else if (uIsDR || uIsPR) {
+                permissions = ["dashboard", "questions", "content", "approaches"];
+              } else if (uIsSUB) {
+                permissions = ["dashboard"];
               } else if (u.role === "Admin") {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
               } else if (u.role === "Moderator") {
@@ -177,11 +203,28 @@ export default function AuditPage() {
 
             const lastActiveAt = lastActiveMap[u.id] || u.lastActiveAt || defaultPastTimes[u.id] || (u.id === activeId ? Date.now() : undefined);
 
+            const canonicalTitle = uIsSA ? "Super Admin"
+              : uIsCE ? "Clinical Editor"
+              : uIsOM ? "Operations Manager"
+              : uIsDR ? "Drafter"
+              : uIsPR ? "Peer Reviewer"
+              : uIsSUB ? "Subscriber"
+              : "Operations Manager";
+
+            const canonicalCode = uIsSA ? "SA"
+              : uIsCE ? "CE"
+              : uIsOM ? "OM"
+              : uIsDR ? "DR"
+              : uIsPR ? "PR"
+              : uIsSUB ? "SUB"
+              : "OM";
+
             return {
               id: u.id,
               name: u.name,
               email: u.email,
-              role: u.role,
+              role: canonicalTitle,
+              roles: [canonicalCode],
               permissions,
               lastLogin: u.id === activeId ? "Active now" : getRelativeLastActive(lastActiveAt, u.id === activeId),
               lastActiveAt,
@@ -243,10 +286,36 @@ export default function AuditPage() {
       a.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  function isContributorAccount(u: AdminUser): boolean {
+    const uRoles = u.roles || [];
+    return (
+      uRoles.includes("DR") ||
+      uRoles.includes("PR") ||
+      u.role.includes("DR") ||
+      u.role.includes("PR") ||
+      u.role === "Drafter" ||
+      u.role === "Peer Reviewer"
+    );
+  }
+
+  function getCanonicalRoleOptionValue(role: string, roles?: string[]): string {
+    const r = role || (roles && roles[0]) || "";
+    if (r.includes("SA") || r === "Super Admin" || roles?.includes("SA")) return "SA (Super Admin)";
+    if (r.includes("CE") || r === "Clinical Editor" || roles?.includes("CE")) return "CE (Clinical Editor)";
+    if (r.includes("OM") || r === "Operations Manager" || roles?.includes("OM")) return "OM (Operations Manager)";
+    if (r.includes("DR") || r === "Drafter" || roles?.includes("DR")) return "DR (Drafter)";
+    if (r.includes("PR") || r === "Peer Reviewer" || roles?.includes("PR")) return "PR (Peer Reviewer)";
+    if (r.includes("SUB") || r === "Subscriber" || roles?.includes("SUB")) return "SUB (Subscriber)";
+    return "OM (Operations Manager)";
+  }
+
   /* ── Handlers ── */
   function openEdit(admin: AdminUser) {
+    const canEditTarget = isSuperAdmin || (isOperationsManager && isContributorAccount(admin));
+    if (!canEditTarget || isReadOnly) return;
     setEditingAdmin(admin);
-    setEditRole(admin.role);
+    const optionVal = getCanonicalRoleOptionValue(admin.role, admin.roles);
+    setEditRole(optionVal);
     setEditPermissions([...admin.permissions]);
     setEditName(admin.name);
     setEditEmail(admin.email);
@@ -259,21 +328,43 @@ export default function AuditPage() {
   }
 
   async function saveEdit() {
-    if (!editingAdmin) return;
-    if (isReadOnly) return;
+    if (!editingAdmin || isReadOnly) return;
     if (!editName.trim() || !editEmail.trim() || !editUsername.trim()) {
       alert("Please fill in all required fields.");
       return;
     }
 
-    const isTargetSuperAdmin = editRole === "Super Admin";
+    if (!isSuperAdmin && !isContributorAccount(editingAdmin)) {
+      alert("Section 3G Rule Violation: Operations Manager can modify Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
+      return;
+    }
+
+    const isTargetSuperAdmin = editRole.includes("SA") || editRole === "Super Admin";
+    const derivedRoles = editRole.includes("SA") ? ["SA"] :
+      editRole.includes("CE") ? ["CE"] :
+      editRole.includes("OM") ? ["OM"] :
+      editRole.includes("DR") ? ["DR"] :
+      editRole.includes("PR") ? ["PR"] :
+      editRole.includes("SUB") ? ["SUB"] : ["OM"];
+
+    const cleanRoleTitle = editRole.includes("SA") ? "Super Admin" :
+      editRole.includes("CE") ? "Clinical Editor" :
+      editRole.includes("OM") ? "Operations Manager" :
+      editRole.includes("DR") ? "Drafter" :
+      editRole.includes("PR") ? "Peer Reviewer" :
+      editRole.includes("SUB") ? "Subscriber" : "Operations Manager";
+
+    // Under 3G, OM cannot alter permission bundles — force preset permissions if non-SA
+    const finalPermissions = isSuperAdmin ? [...editPermissions] : [...(ROLE_PRESETS[editRole] || editPermissions)];
+
     const updatedUser = {
       id: editingAdmin.id,
       name: editName.trim(),
       email: editEmail.trim(),
       username: editUsername.trim(),
-      role: editRole,
-      permissions: [...editPermissions],
+      role: cleanRoleTitle,
+      roles: derivedRoles,
+      permissions: finalPermissions,
       lastChanged: "Just now",
       ...(editPassword.trim() ? { password: editPassword } : {}),
       forgotPasswordEnabled: isTargetSuperAdmin ? editForgotPassword : true,
@@ -304,12 +395,14 @@ export default function AuditPage() {
   }
 
   function openAdd() {
+    if (!canInviteContributor || isReadOnly) return;
     setAddName("");
     setAddEmail("");
     setAddUsername("");
     setAddPassword("");
-    setAddRole("Admin");
-    setAddPermissions([...ALL_FEATURE_KEYS]);
+    const defaultRole = isSuperAdmin ? "SA (Super Admin)" : "DR (Drafter)";
+    setAddRole(defaultRole);
+    setAddPermissions([...(ROLE_PRESETS[defaultRole] || ALL_FEATURE_KEYS)]);
     setAddForgotPassword(true);
     setAddOauth(false);
     setAddMfa(false);
@@ -318,13 +411,20 @@ export default function AuditPage() {
   }
 
   async function saveAdd() {
-    if (isReadOnly) return;
+    if (!canInviteContributor || isReadOnly) return;
     if (!addName.trim() || !addEmail.trim() || !addUsername.trim() || !addPassword.trim()) {
       alert("Please fill in all required fields.");
       return;
     }
+
+    if (!isSuperAdmin && !["DR (Drafter)", "PR (Peer Reviewer)", "DR", "PR"].includes(addRole)) {
+      alert("Section 3G Rule Violation: Operations Manager can invite Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
+      return;
+    }
     
     const isTargetSuperAdmin = addRole === "Super Admin";
+    const finalPermissions = isSuperAdmin ? [...addPermissions] : [...(ROLE_PRESETS[addRole] || addPermissions)];
+
     const newCred = {
       id: String(Date.now()),
       name: addName.trim(),
@@ -332,7 +432,7 @@ export default function AuditPage() {
       username: addUsername.trim(),
       password: addPassword,
       role: addRole,
-      permissions: [...addPermissions],
+      permissions: finalPermissions,
       lastChanged: "Just now",
       forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
       oauthEnabled: isTargetSuperAdmin ? addOauth : false,
@@ -353,7 +453,7 @@ export default function AuditPage() {
         localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
       }
       window.dispatchEvent(new Event("gpedge_admin_changed"));
-      addUserNotification("Admin User Added", `Successfully created credentials for "${addName}" (${addRole}).`, 1, "custom");
+      addUserNotification("Contributor Account Invited", `Successfully created credentials for "${addName}" (${addRole}). Account set to force password reset on first login.`, 1, "custom");
     } catch (err: any) {
       console.error("Failed to add admin to DB:", err);
       alert(err.message || "An unexpected error occurred.");
@@ -365,6 +465,10 @@ export default function AuditPage() {
     if (isReadOnly) return;
     if (admin.role === "Super Admin" || admin.id === "1" || admin.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00") {
       alert("Cannot delete Super Admin account.");
+      return;
+    }
+    if (!isSuperAdmin && !isContributorAccount(admin)) {
+      alert("Section 3G Rule Violation: Operations Manager can deactivate Drafter (DR) and Peer Reviewer (PR) contributor accounts ONLY.");
       return;
     }
     setAdminToDelete(admin);
@@ -414,6 +518,7 @@ export default function AuditPage() {
   }
 
   function togglePermission(perms: string[], key: string, setter: (v: string[]) => void) {
+    if (!canEditPermissionBundle) return;
     setter(perms.includes(key) ? perms.filter((p) => p !== key) : [...perms, key]);
   }
 
@@ -437,11 +542,22 @@ export default function AuditPage() {
     return `${labels.slice(0, 3).join(", ")} +${labels.length - 3} more`;
   }
 
-  // Lock role selections strictly to Admin only (not Super Admin, Moderator, or Viewer)
-  const addRoleOptions = [{ value: "Admin", label: "Admin" }];
-  const editRoleOptions = editingAdmin?.role === "Super Admin"
-    ? [{ value: "Super Admin", label: "Super Admin" }]
-    : [{ value: "Admin", label: "Admin" }];
+  const ALL_ROLE_OPTIONS = [
+    { value: "SA (Super Admin)", label: "SA — Section 3G Super Admin (Full Privilege Management)" },
+    { value: "CE (Clinical Editor)", label: "CE — Section 3A Clinical Editor (Publishing & Reference Attachment)" },
+    { value: "OM (Operations Manager)", label: "OM — Section 3 Operations Manager (Pipeline & Contributor Delegation)" },
+    { value: "DR (Drafter)", label: "DR — Section 3A Drafter (Assigned Draft Writing)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Section 3A Peer Reviewer (Review Task Management)" },
+    { value: "SUB (Subscriber)", label: "SUB — Section 3 Subscriber (Read Only Access)" },
+  ];
+
+  const CONTRIBUTOR_ROLE_OPTIONS = [
+    { value: "DR (Drafter)", label: "DR — Section 3A Drafter (Assigned Draft Writing)" },
+    { value: "PR (Peer Reviewer)", label: "PR — Section 3A Peer Reviewer (Review Task Management)" },
+  ];
+
+  const addRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
+  const editRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
 
   /* ── Render ── */
   return (
@@ -494,18 +610,18 @@ export default function AuditPage() {
                 />
               </div>
               <button
-                onClick={isSuperAdmin ? openAdd : undefined}
-                disabled={!isSuperAdmin || isReadOnly}
+                onClick={canInviteContributor ? openAdd : undefined}
+                disabled={!canInviteContributor || isReadOnly}
                 className={`inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all duration-200 ${
-                  isSuperAdmin && !isReadOnly
+                  canInviteContributor && !isReadOnly
                     ? "hover:shadow-md active:scale-[0.97] cursor-pointer hover:opacity-95"
                     : "opacity-50 cursor-not-allowed"
                 }`}
-                style={{ background: isSuperAdmin && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
-                title={isSuperAdmin ? "Add new administrator" : "Only Super Admins can add team members"}
+                style={{ background: canInviteContributor && !isReadOnly ? "linear-gradient(135deg, #0f766e, #115e59)" : "#94a3b8" }}
+                title={isSuperAdmin ? "Add team member & assign roles" : isOperationsManager ? "Invite Drafter (DR) or Peer Reviewer (PR) contributor account" : "Account creation is restricted"}
               >
                 <Lucide.Plus className="w-3.5 h-3.5" />
-                Add Admin
+                {isOperationsManager ? "Invite Contributor" : "Add Admin"}
               </button>
             </div>
 
@@ -513,8 +629,12 @@ export default function AuditPage() {
               <div className="mx-4 sm:mx-6 mt-4 p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/40 dark:border-amber-900/30 rounded-xl flex items-start gap-2.5 text-xs text-amber-700 dark:text-amber-300">
                 <Lucide.Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                 <div>
-                  <p className="font-semibold text-amber-900 dark:text-amber-200">Permissions Locked</p>
-                  <p className="mt-0.5 opacity-90 leading-normal">You are viewing as <span className="font-semibold">{loggedInAdmin?.name} ({loggedInAdmin?.role})</span>. Only Super Administrators are permitted to add team members, modify roles, or assign feature permissions.</p>
+                  <p className="font-semibold text-amber-900 dark:text-amber-200">Section 3G Governance Mode</p>
+                  <p className="mt-0.5 opacity-90 leading-normal">
+                    {isOperationsManager
+                      ? "As Operations Manager (OM), you can invite and deactivate Drafter (DR) and Peer Reviewer (PR) contributor accounts. Assigning/revoking elevated roles (SA/CE/OM) and editing permission bundles are restricted to Super Admins."
+                      : "Account creation, role modification, access log viewing, and audit log exports are restricted."}
+                  </p>
                 </div>
               </div>
             )}
@@ -533,84 +653,102 @@ export default function AuditPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredAdmins.map((a) => (
-                    <tr
-                      key={a.id}
-                      className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
-                            {a.name.split(" ").map((n) => n[0]).join("")}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60">
-                          {a.role}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-1.5 select-none">
-                          <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
-                            <Lucide.Key className="w-2.5 h-2.5" />
-                            Pass
-                          </span>
+                  {filteredAdmins.map((a) => {
+                    const isTargetContributor = isContributorAccount(a);
+                    const canEditTargetUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                    const canDeleteTargetUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
 
-                          {a.mustResetPassword && (
-                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
-                              Reset Pending
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
-                          <span className="text-xs text-slate-500 font-medium">
-                            {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                    return (
+                      <tr
+                        key={a.id}
+                        className="hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${a.status === "active" ? "bg-gradient-to-br from-teal-400 to-emerald-500" : "bg-gradient-to-br from-slate-300 to-slate-400"}`}>
+                              {a.name.split(" ").map((n) => n[0]).join("")}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">{a.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">{a.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                            (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
+                              ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300 dark:border-purple-900/60"
+                              : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
+                              ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300 dark:border-blue-900/60"
+                              : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
+                              ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300 dark:border-amber-900/60"
+                              : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
+                              ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300 dark:border-green-900/60"
+                              : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
+                              ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300 dark:border-orange-900/60"
+                              : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 dark:border-teal-900/60"
+                          }`}>
+                            {a.role}
                           </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
-                          <button
-                            onClick={() => isSuperAdmin && openEdit(a)}
-                            disabled={!isSuperAdmin || isReadOnly}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                              isSuperAdmin && !isReadOnly
-                                ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
-                                : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
-                            }`}
-                            title={isSuperAdmin ? "Modify user details & permissions" : "Only Super Admins can modify accounts"}
-                          >
-                            Edit details
-                          </button>
-                          {a.role !== "Super Admin" && (
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap items-center gap-1.5 select-none">
+                            <span className="flex items-center gap-0.5 text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400 px-1.5 py-0.5 rounded" title="Forgot Password Recovery Route">
+                              <Lucide.Key className="w-2.5 h-2.5" />
+                              Pass
+                            </span>
+
+                            {a.mustResetPassword && (
+                              <span className="flex items-center gap-0.5 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/50" title="Administrator has not completed first login password reset">
+                                Reset Pending
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-xs text-slate-500 max-w-[200px] truncate" title={a.permissions.join(", ")}>{permSummary(a.permissions)}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${a.id === currentAdminId ? "bg-emerald-500 animate-pulse" : a.status === "active" ? "bg-emerald-400" : "bg-slate-300"}`} />
+                            <span className="text-xs text-slate-500 font-medium">
+                              {getRelativeLastActive(a.lastActiveAt, a.id === currentAdminId)}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
                             <button
-                              onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
-                              disabled={!isSuperAdmin || isReadOnly}
-                              className={`p-1.5 rounded-lg transition-all ${
-                                isSuperAdmin && !isReadOnly
-                                  ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
-                                  : "text-slate-300 cursor-not-allowed opacity-50"
-                                }`}
-                              title={isSuperAdmin ? "Remove this admin" : "Only Super Admins can remove team members"}
+                              onClick={() => canEditTargetUser && openEdit(a)}
+                              disabled={!canEditTargetUser || isReadOnly}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                                canEditTargetUser && !isReadOnly
+                                  ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                                  : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                              }`}
+                              title={canEditTargetUser ? "Modify user details & permissions" : "Only Super Admins can modify non-contributor accounts"}
                             >
-                              <Lucide.Trash className="w-4 h-4" />
+                              Edit details
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                            {a.role !== "Super Admin" && (
+                              <button
+                                onClick={() => canDeleteTargetUser && requestDeleteAdmin(a)}
+                                disabled={!canDeleteTargetUser || isReadOnly}
+                                className={`p-1.5 rounded-lg transition-all ${
+                                  canDeleteTargetUser && !isReadOnly
+                                    ? "text-slate-400 hover:text-red-500 hover:bg-red-50 cursor-pointer"
+                                    : "text-slate-300 cursor-not-allowed opacity-50"
+                                  }`}
+                                title={canDeleteTargetUser ? "Deactivate this account" : "Only Super Admins can deactivate non-contributor accounts"}
+                              >
+                                <Lucide.Trash className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -629,7 +767,19 @@ export default function AuditPage() {
                         <p className="text-[10px] text-slate-400 font-mono truncate">{a.email}</p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-teal-50/70 text-teal-900 border border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300 shrink-0">
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 ${
+                      (a as any).roles?.includes("SA") || a.role === "Super Admin" || a.role.includes("SA")
+                        ? "bg-purple-50/70 text-purple-900 border-purple-300/80 dark:bg-purple-950/45 dark:text-purple-300"
+                        : (a as any).roles?.includes("CE") || a.role === "Clinical Editor" || a.role.includes("CE")
+                        ? "bg-blue-50/70 text-blue-900 border-blue-300/80 dark:bg-blue-950/45 dark:text-blue-300"
+                        : (a as any).roles?.includes("OM") || a.role === "Operations Manager" || a.role.includes("OM")
+                        ? "bg-amber-50/70 text-amber-900 border-amber-300/80 dark:bg-amber-950/45 dark:text-amber-300"
+                        : (a as any).roles?.includes("DR") || a.role === "Drafter" || a.role.includes("DR")
+                        ? "bg-green-50/70 text-green-900 border-green-300/80 dark:bg-green-950/45 dark:text-green-300"
+                        : (a as any).roles?.includes("PR") || a.role === "Peer Reviewer" || a.role.includes("PR")
+                        ? "bg-orange-50/70 text-orange-900 border-orange-300/80 dark:bg-orange-950/45 dark:text-orange-300"
+                        : "bg-teal-50/70 text-teal-900 border-teal-300/80 dark:bg-teal-950/45 dark:text-teal-300"
+                    }`}>
                       {a.role}
                     </span>
                   </div>
@@ -647,30 +797,39 @@ export default function AuditPage() {
                   </div>
 
                   <div className="flex items-center gap-2 pt-2 border-t border-slate-100/60 dark:border-slate-800/60 justify-end">
-                    <button
-                      onClick={() => isSuperAdmin && openEdit(a)}
-                      disabled={!isSuperAdmin || isReadOnly}
-                      className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                        isSuperAdmin && !isReadOnly
-                          ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
-                          : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
-                      }`}
-                    >
-                      Edit details
-                    </button>
-                    {a.role !== "Super Admin" && (
-                      <button
-                        onClick={() => isSuperAdmin && requestDeleteAdmin(a)}
-                        disabled={!isSuperAdmin || isReadOnly}
-                        className={`p-1.5 rounded-lg border transition-all ${
-                          isSuperAdmin && !isReadOnly
-                            ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
-                            : "text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
-                        }`}
-                      >
-                        <Lucide.Trash className="w-4 h-4" />
-                      </button>
-                    )}
+                    {(() => {
+                      const isTargetContributor = isContributorAccount(a);
+                      const canEditThisUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                      const canDeleteThisUser = isSuperAdmin || (isOperationsManager && isTargetContributor);
+                      return (
+                        <>
+                          <button
+                            onClick={() => canEditThisUser && openEdit(a)}
+                            disabled={!canEditThisUser || isReadOnly}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                              canEditThisUser && !isReadOnly
+                                ? "text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100 cursor-pointer"
+                                : "text-slate-400 bg-slate-50 border-slate-100 cursor-not-allowed opacity-60"
+                            }`}
+                          >
+                            Edit details
+                          </button>
+                          {a.role !== "Super Admin" && (
+                            <button
+                              onClick={() => canDeleteThisUser && requestDeleteAdmin(a)}
+                              disabled={!canDeleteThisUser || isReadOnly}
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                canDeleteThisUser && !isReadOnly
+                                  ? "text-red-600 bg-red-50 border-red-200 hover:bg-red-100 cursor-pointer"
+                                  : "text-slate-300 border-slate-100 cursor-not-allowed opacity-50"
+                              }`}
+                            >
+                              <Lucide.Trash className="w-4 h-4" />
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
@@ -783,13 +942,28 @@ export default function AuditPage() {
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Security Validation Rules (Role-based)</span>
                   
-                  {editRole !== "Super Admin" ? (
+                  {(editRole === "Super Admin" || editRole.startsWith("SA")) ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
+                        <button
+                          type="button"
+                          onClick={() => setEditForgotPassword(!editForgotPassword)}
+                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
+                            editForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
+                          }`}
+                        >
+                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${editForgotPassword ? "left-4" : "left-0.5"}`} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <div className="p-3 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/35 dark:border-amber-900/20 rounded-xl space-y-2 text-xs text-slate-500 dark:text-slate-400">
                       <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
                         <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <div>
-                          <p className="font-bold">Credential Restrictions Apply</p>
-                          <p className="mt-0.5">Admin, Moderator, and Viewer roles are restricted to username/password login recovery. OAuth, SAML SSO, and physical authenticators are disabled.</p>
+                          <p className="font-bold">Security & Relational Validation Rules</p>
+                          <p className="mt-0.5">SA and CE roles require mandatory 2FA. OM, DR, and PR roles are governed by item-scoped relational permissions.</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 font-semibold">
@@ -804,35 +978,28 @@ export default function AuditPage() {
                         <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">Enforced</span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
-                        <button
-                          type="button"
-                          onClick={() => setEditForgotPassword(!editForgotPassword)}
-                          className={`w-8 h-5 rounded-full relative transition-all border-none cursor-pointer ${
-                            editForgotPassword ? "bg-teal-700" : "bg-slate-200 dark:bg-slate-800"
-                          }`}
-                        >
-                          <span className={`absolute w-3.5 h-3.5 bg-white rounded-full top-0.5 transition-all ${editForgotPassword ? "left-4" : "left-0.5"}`} />
-                        </button>
-                      </div>
-
-                    </div>
                   )}
                 </div>
 
                 {/* Feature permissions checkbox list */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Feature Permissions</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
-                      <span className="text-slate-300">·</span>
-                      <button onClick={() => setEditPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
-                    </div>
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Feature Permissions {!canEditPermissionBundle && "(Locked by Preset)"}
+                    </label>
+                    {canEditPermissionBundle && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
+                        <span className="text-slate-300">·</span>
+                        <button onClick={() => setEditPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
+                      </div>
+                    )}
                   </div>
+                  {!canEditPermissionBundle && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2.5 bg-amber-50/50 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/40">
+                      Section 3G Governance: Feature permission bundles are locked to predefined role presets. Only Super Admins can customize permission bundles.
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {ALL_FEATURES.map((feature) => {
                       const checked = editPermissions.includes(feature.key);
@@ -840,8 +1007,11 @@ export default function AuditPage() {
                         <button
                           key={feature.key}
                           type="button"
+                          disabled={!canEditPermissionBundle}
                           onClick={() => togglePermission(editPermissions, feature.key, setEditPermissions)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 ${
+                            !canEditPermissionBundle ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                          } ${
                             checked
                               ? "bg-teal-50/60 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/40 shadow-sm"
                               : "bg-slate-50/40 dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700"
@@ -980,28 +1150,7 @@ export default function AuditPage() {
                 <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Security Validation Rules (Role-based)</span>
                   
-                  {addRole !== "Super Admin" ? (
-                    <div className="p-3 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/35 dark:border-amber-900/20 rounded-xl space-y-2 text-xs text-slate-500 dark:text-slate-400">
-                      <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
-                        <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="font-bold">Credential Restrictions Apply</p>
-                          <p className="mt-0.5">Admin, Moderator, and Viewer roles are restricted to username/password login recovery. OAuth, SAML SSO, and physical authenticators are disabled.</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 font-semibold">
-                        <Lucide.Check className="w-3.5 h-3.5 text-teal-650" />
-                        <span>Username & Password Authentication (Enforced)</span>
-                      </div>
-                      <div className="flex items-center justify-between font-semibold">
-                        <div className="flex items-center gap-2">
-                          <Lucide.Check className="w-3.5 h-3.5 text-teal-650" />
-                          <span>Forgot Password Email Recovery Option</span>
-                        </div>
-                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">Enforced</span>
-                      </div>
-                    </div>
-                  ) : (
+                  {(addRole === "Super Admin" || addRole.startsWith("SA")) ? (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs text-slate-655 dark:text-slate-350">Allow Forgot Password email recovery</label>
@@ -1017,19 +1166,49 @@ export default function AuditPage() {
                       </div>
 
                     </div>
+                  ) : (
+                    <div className="p-3 bg-amber-50/50 dark:bg-amber-950/10 border border-amber-200/35 dark:border-amber-900/20 rounded-xl space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex gap-2 items-start text-[10px] text-amber-800 dark:text-amber-350">
+                        <Lucide.Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="font-bold">Security & Relational Validation Rules</p>
+                          <p className="mt-0.5">SA and CE roles require mandatory 2FA. OM, DR, and PR roles are governed by item-scoped relational permissions.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 font-semibold">
+                        <Lucide.Check className="w-3.5 h-3.5 text-teal-650" />
+                        <span>Username & Password Authentication (Enforced)</span>
+                      </div>
+                      <div className="flex items-center justify-between font-semibold">
+                        <div className="flex items-center gap-2">
+                          <Lucide.Check className="w-3.5 h-3.5 text-teal-650" />
+                          <span>Forgot Password Email Recovery Option</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded">Enforced</span>
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 {/* Feature Permissions Checkboxes */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">Feature Permissions</label>
-                    <div className="flex gap-2">
-                      <button onClick={() => setAddPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
-                      <span className="text-slate-300">·</span>
-                      <button onClick={() => setAddPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
-                    </div>
+                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Feature Permissions {!canEditPermissionBundle && "(Locked by Preset)"}
+                    </label>
+                    {canEditPermissionBundle && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setAddPermissions([...ALL_FEATURE_KEYS])} className="text-[10px] font-semibold text-teal-600 hover:text-teal-700 transition-colors border-none bg-transparent cursor-pointer">Select All</button>
+                        <span className="text-slate-300">·</span>
+                        <button onClick={() => setAddPermissions([])} className="text-[10px] font-semibold text-slate-450 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer">Clear All</button>
+                      </div>
+                    )}
                   </div>
+                  {!canEditPermissionBundle && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 mb-2.5 bg-amber-50/50 dark:bg-amber-950/20 p-2 rounded-lg border border-amber-200/40">
+                      Section 3G Governance: Feature permission bundles are locked to predefined role presets. Only Super Admins can customize permission bundles.
+                    </p>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {ALL_FEATURES.map((feature) => {
                       const checked = addPermissions.includes(feature.key);
@@ -1037,8 +1216,11 @@ export default function AuditPage() {
                         <button
                           key={feature.key}
                           type="button"
+                          disabled={!canEditPermissionBundle}
                           onClick={() => togglePermission(addPermissions, feature.key, setAddPermissions)}
-                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                          className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all duration-200 ${
+                            !canEditPermissionBundle ? "cursor-not-allowed opacity-75" : "cursor-pointer"
+                          } ${
                             checked
                               ? "bg-teal-50/60 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/40 shadow-sm"
                               : "bg-slate-50/40 dark:bg-slate-800/10 border-slate-100 dark:border-slate-800/80 hover:border-slate-200 dark:hover:border-slate-700"

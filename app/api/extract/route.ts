@@ -296,7 +296,7 @@ async function extractPdfViaSubprocess(buffer: Buffer): Promise<{
  * Extract plain text from a PDF buffer.
  * Tries subprocess first, then in-process PDFParse, then byte-scan fallback.
  */
-export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Try subprocess first
   try {
     const subResult = await extractPdfViaSubprocess(buffer);
@@ -632,7 +632,29 @@ function carveImagesFromBuffer(buffer: Buffer): string[] {
  *   3. Fall back to text-only extraction
  *   4. Last resort: byte-scan fallback with base64 filtering + image carving
  */
-export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
+
+/**
+ * Robust question-bank detector for any MCQ document format.
+ * Returns true when the text looks like a question bank / MCQ document,
+ * regardless of whether it uses:
+ *   "Question 1", "Q.1", "1.", "1)", "(1)", numbered or lettered options,
+ *   "Answer:", "Correct answer:", "A)", "A.", "[A]", "Tags:", "High-Yield Rationale:", etc.
+ */
+function isQuestionBankText(text: string): boolean {
+  const t = text.replace(/\u00A0/g, " ");
+  // Must have at least one question-number marker
+  const hasQuestionMarker =
+    /(?:^|\n)\s*(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station)\s*#?\s*\d+/im.test(t) ||
+    /(?:^|\n)\s*\(?\d{1,3}[\.\)\:\-]\s+[A-Z]/m.test(t);
+  if (!hasQuestionMarker) return false;
+  // Must also have at least one of: lettered option, answer line, rationale, or tags
+  const hasOptionOrAnswer =
+    /(?:^|\n)\s*\(?[A-H][\.\):\-]\s+\S/m.test(t) ||
+    /\b(?:answer|correct\s*answer|answer\s*key)\s*[:\-\=\u2013\u2014]/i.test(t) ||
+    /\b(?:rationale|explanation|high[- ]yield|clinical\s*pearl|tags?)\s*[:\-\=\u2013\u2014]/i.test(t);
+  return hasOptionOrAnswer;
+}
+async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string> {
   // Carve images from raw binary once (used as fallback when pdf-parse finds 0 images)
   let carvedImageUrls: string[] | null = null;
   function getCarvedImages(): string[] {
@@ -680,7 +702,7 @@ export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise
         if (allImageUrls.length > 0) {
           // If the text looks like a question bank, use the specialized regex association
           // to pair images with specific question numbers/options.
-          const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(combinedText) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(combinedText);
+          const isQuestionText = isQuestionBankText(combinedText);
           if (isQuestionText) {
             return associateImagesWithText(combinedText, allImageUrls);
           }
@@ -735,7 +757,7 @@ export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise
     if (combinedText.length > 20) {
       console.log(`PDF extracted via in-process PDFParse: ${textResult.pages.length} pages, ${allImageUrls.length} images`);
       if (allImageUrls.length > 0) {
-        const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(combinedText) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(combinedText);
+        const isQuestionText = isQuestionBankText(combinedText);
         if (isQuestionText) {
           return associateImagesWithText(combinedText, allImageUrls);
         }
@@ -765,7 +787,7 @@ export async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise
     if (text.trim().length > 20) {
       const images = getCarvedImages();
       if (images.length > 0) {
-        const isQuestionText = /((?:Question|Q)\s*\d+[:.]?)/i.test(text) || /((?:\n|^)\s*\d+[\.\)]\s+)/.test(text);
+        const isQuestionText = isQuestionBankText(text);
         if (isQuestionText) {
           return associateImagesWithText(text, images);
         }
@@ -916,8 +938,6 @@ function polishDocxHtml(rawHtml: string): string {
   );
 
   // ── 2. Style paragraphs ───────────────────────────────────────────────────
-  // [\s\S]*? matches across newlines without the dotAll flag (unavailable below ES2018).
-  // Non-greedy *? stops at the first </p>, so adjacent paragraphs are handled correctly.
   html = html.replace(/<p([^>]*?)>([\s\S]*?)<\/p>/gi, (_m, attrs, inner) => {
     if (inner.includes("<img")) return `<p${attrs}>${inner}</p>`;
     const plain = inner.replace(/<[^>]+>/g, "").trim();
@@ -942,12 +962,27 @@ function polishDocxHtml(rawHtml: string): string {
   // ── 5. Style images ───────────────────────────────────────────────────────
   html = styleHtmlImages(html);
 
-  // ── 6. Apply highlight colours and callout blocks ──────────────────────────
-  html = highlightWarningText(html);
+  // ── 6. Strip emojis BEFORE callout detection (keep ⚠ for warning triggers)
+  html = html.replace(/(?![⚠️⚠])\p{Extended_Pictographic}/gu, "");
+
+  // ── 7. Callout detection — TWO passes to cover both DOCX and plain-text formats
+  // styleHtmlCallouts: converts single-column tables with callout keywords (e.g. a
+  //   one-column table whose cell reads "Key Points:") into coloured callout divs.
+  // convertTextCallouts: converts <p>/<h3>/<h4> elements whose text matches callout
+  //   keywords (e.g. <h3>Key Points:</h3> followed by a <ul>) into callout divs.
+  // Both must run so that callouts created with either document convention are caught.
   html = styleHtmlCallouts(html);
+  html = convertTextCallouts(html);
+
+  // ── 8. Warning text highlight ─────────────────────────────────────────────
+  html = highlightWarningText(html);
+
+  // ── 9. Strip any residual emojis after processing ─────────────────────────
+  html = html.replace(/\p{Extended_Pictographic}/gu, "");
 
   return html.trim();
 }
+
 
 function convertPlainTextToHtml(text: string): string {
   const lines = text.split("\n").map(l => l.trim());
@@ -1811,6 +1846,7 @@ function isDocxFilename(name: string): boolean {
 }
 
 function fixZipSeparators(buffer: Buffer): Buffer {
+  if (!buffer.includes(0x5C)) return buffer;
   const result = Buffer.from(buffer);
   let offset = 0;
   while (offset < result.length - 30) {
@@ -1821,19 +1857,16 @@ function fixZipSeparators(buffer: Buffer): Buffer {
       const fileNameEnd = fileNameStart + fileNameLength;
       
       if (fileNameEnd <= result.length) {
-        const fileName = result.toString('utf8', fileNameStart, fileNameEnd);
-        if (isDocxFilename(fileName)) {
-          for (let i = fileNameStart; i < fileNameEnd; i++) {
-            if (result[i] === 0x5C) { // '\\'
-              result[i] = 0x2F; // '/'
-            }
+        for (let i = fileNameStart; i < fileNameEnd; i++) {
+          if (result[i] === 0x5C) {
+            result[i] = 0x2F;
           }
-          const compressedSize = result.readUInt32LE(offset + 18);
-          const extraFieldLength = result.readUInt16LE(offset + 28);
-          if (compressedSize > 0) {
-            offset += 30 + fileNameLength + extraFieldLength + compressedSize;
-            continue;
-          }
+        }
+        const compressedSize = result.readUInt32LE(offset + 18);
+        const extraFieldLength = result.readUInt16LE(offset + 28);
+        if (compressedSize > 0) {
+          offset += 30 + fileNameLength + extraFieldLength + compressedSize;
+          continue;
         }
       }
       offset++;
@@ -1844,23 +1877,22 @@ function fixZipSeparators(buffer: Buffer): Buffer {
         const fileNameEnd = fileNameStart + fileNameLength;
         
         if (fileNameEnd <= result.length) {
-          const fileName = result.toString('utf8', fileNameStart, fileNameEnd);
-          if (isDocxFilename(fileName)) {
-            for (let i = fileNameStart; i < fileNameEnd; i++) {
-              if (result[i] === 0x5C) { // '\\'
-                result[i] = 0x2F; // '/'
-              }
+          for (let i = fileNameStart; i < fileNameEnd; i++) {
+            if (result[i] === 0x5C) {
+              result[i] = 0x2F;
             }
-            const extraFieldLength = result.readUInt16LE(offset + 30);
-            const fileCommentLength = result.readUInt16LE(offset + 32);
-            offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
-            continue;
           }
+          const extraFieldLength = result.readUInt16LE(offset + 30);
+          const fileCommentLength = result.readUInt16LE(offset + 32);
+          offset += 46 + fileNameLength + extraFieldLength + fileCommentLength;
+          continue;
         }
       }
       offset++;
     } else {
-      offset++;
+      const nextSig = result.indexOf(0x50, offset + 1);
+      if (nextSig === -1) break;
+      offset = nextSig;
     }
   }
   return result;
@@ -1870,68 +1902,95 @@ function fixZipSeparators(buffer: Buffer): Buffer {
 
 async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<string> {
   const fixedBuffer = fixZipSeparators(buffer);
+
+  // Strategy 1: Extract plain text directly using mammoth.extractRawText
+  let rawText = "";
   try {
-    const result = await mammoth.convertToHtml({ buffer: fixedBuffer }, {
+    const rawResult = await mammoth.extractRawText({ buffer: fixedBuffer });
+    rawText = rawResult.value || "";
+  } catch (e) {
+    try {
+      const rawResult = await mammoth.extractRawText({ buffer });
+      rawText = rawResult.value || "";
+    } catch (e2) {
+      console.error("mammoth.extractRawText failed:", e2);
+    }
+  }
+
+  // Strategy 2: Extract embedded images and HTML text via convertToHtml
+  let htmlText = "";
+  let imageUrls: string[] = [];
+  try {
+    const htmlResult = await mammoth.convertToHtml({ buffer: fixedBuffer }, {
       convertImage: mammoth.images.imgElement(function(image) {
         return image.read("base64").then(function(imageBuffer) {
-          let contentType = image.contentType;
+          let contentType = image.contentType || "image/png";
           if (contentType === "application/octet-stream" || !contentType.startsWith("image/")) {
-            if (imageBuffer.startsWith("iVBORw0KGgo")) {
-              contentType = "image/png";
-            } else if (imageBuffer.startsWith("/9j/")) {
-              contentType = "image/jpeg";
-            } else if (imageBuffer.startsWith("R0lGOD")) {
-              contentType = "image/gif";
-            } else if (imageBuffer.startsWith("UklGR")) {
-              contentType = "image/webp";
-            } else {
-              contentType = "image/png"; // safe fallback
-            }
+            if (imageBuffer.startsWith("iVBORw0KGgo")) contentType = "image/png";
+            else if (imageBuffer.startsWith("/9j/")) contentType = "image/jpeg";
+            else contentType = "image/png";
           }
-          return {
-            src: "data:" + contentType + ";base64," + imageBuffer
-          };
+          return { src: "data:" + contentType + ";base64," + imageBuffer };
         });
       })
     });
     
-    let html = result.value;
-    
-    // Replace inline formatting tags with empty string to prevent splitting keys from values (e.g. <strong>Difficulty: </strong>Easy)
-    let cleaned = html.replace(/<\/?(strong|b|em|i|u|span|a)\b[^>]*>/gi, "");
-    
-    // Replace inline images with image tags
-    cleaned = cleaned.replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n");
-    
-    // Replace remaining block tags with newlines
-    cleaned = cleaned.replace(/<[^>]+>/g, "\n");
-    
-    return cleaned.trim();
-  } catch (error) {
-    console.error("Mammoth HTML conversion failed:", error);
-    try {
-      const textResult = await mammoth.extractRawText({ buffer });
-      return textResult.value.trim();
-    } catch (e) {
-      console.error("Mammoth extractRawText also failed. Trying word-extractor fallback...", e);
-      try {
-        const WordExtractor = require("word-extractor");
-        const extractor = new WordExtractor();
-        const doc = await extractor.extract(buffer);
-        return doc.getBody().trim();
-      } catch (extractorErr) {
-        console.error("word-extractor fallback failed:", extractorErr);
-        throw error;
+    const html = htmlResult.value || "";
+    const matches = html.match(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi) || [];
+    for (const m of matches) {
+      const srcMatch = m.match(/src=["'](data:[^"']+)["']/i);
+      if (srcMatch && srcMatch[1]) {
+        imageUrls.push(srcMatch[1]);
       }
     }
+
+    htmlText = html
+      .replace(/<\/?(strong|b|em|i|u|span|a)\b[^>]*>/gi, "")
+      .replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n")
+      .replace(/<[^>]+>/g, "\n");
+  } catch (e) {
+    console.warn("Mammoth image extraction warning:", e);
+  }
+
+  // Pick the text with higher content length to guarantee complete extraction
+  let finalText = (rawText.trim().length >= htmlText.trim().length ? rawText : htmlText) || rawText || htmlText;
+
+  if (finalText && finalText.trim().length > 10) {
+    let cleanText = finalText
+      .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F\u180E\u202F\u205F\u3000]/g, "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n")
+      .replace(/\u00A0/g, " ")
+      .replace(/&nbsp;/gi, " ");
+
+    if (imageUrls.length > 0) {
+      cleanText = associateImagesWithText(cleanText, imageUrls);
+    }
+    return cleanText.trim();
+  }
+
+  // Fallback to WordExtractor for legacy files
+  try {
+    const WordExtractor = require("word-extractor");
+    const extractor = new WordExtractor();
+    const doc = await extractor.extract(buffer);
+    return doc.getBody().trim();
+  } catch (err) {
+    console.error("WordExtractor fallback failed:", err);
+    return finalText.trim();
   }
 }
 
-export function parseTextToQuestions(text: string): any[] {
+function parseTextToQuestions(text: string): any[] {
   const questions: any[] = [];
   
-  // Normalize line endings
-  const normalizedText = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // Normalize line endings, BOM, zero-width characters, and non-breaking spaces (\u00A0)
+  const normalizedText = text
+    .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F\u180E\u202F\u205F\u3000]/g, "")
+    .replace(/\u00A0/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
   
   // Extract and replace all [IMAGE: ...] tags with placeholders so base64 data
   // doesn't interfere with the question-number detection below.
@@ -1942,23 +2001,18 @@ export function parseTextToQuestions(text: string): any[] {
   });
 
   // ── STEP 1: Split into lines and group them into per-question blocks ──────
-  //
-  // A "question-start line" is one that matches ANY of:
-  //   • "Question 1", "Question #1", "Q1", "Q 1", "Q.1", "Question.1"
-  //   • "1.", "1)", "1:", "1 -", "(1)", "[1]"
-  //
   // Pre-process: insert newlines before inline question numbers so they become their own lines.
   const preProcessed = textWithPlaceholders
-    .replace(/([\.\?!])\s+(?=(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s)/gi, "$1\n")
+    .replace(/([\.\?!])\s+(?=(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station)\s*#?\s*\d+\s*[:.|\\-—]?\s)/gi, "$1\n")
     .replace(/([\.\?!])\s+(?=\(?\d{1,3}[\.\):\-]\s+[A-Z])/g, "$1\n");
 
   const allLines = preProcessed.split("\n");
 
-  // Regex that identifies a line as the start of a new question
-  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i;
+  // Regex that identifies a line as the start of a new question (e.g. "Question 1 |", "Question 1:", "1.")
+  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i;
 
   // Group lines into blocks
-  const rawBlocks: string[][] = [];
+  let rawBlocks: string[][] = [];
   let current: string[] | null = null;
 
   for (const rawLine of allLines) {
@@ -1966,7 +2020,7 @@ export function parseTextToQuestions(text: string): any[] {
     if (QUESTION_START.test(trimmed)) {
       if (current && current.length > 0) rawBlocks.push(current);
       // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|MCQ)\s*#?\s*\d+\s*[:.]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i, "").trim();
+      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Stem|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|\(?\d{1,3}[\.\):\-]\s+)/i, "").trim();
       current = stripped ? [stripped] : [];
     } else {
       if (current !== null) {
@@ -1975,6 +2029,16 @@ export function parseTextToQuestions(text: string): any[] {
     }
   }
   if (current && current.length > 0) rawBlocks.push(current);
+
+  // Fallback: If no QUESTION_START matched, split by double newlines where option lines are found
+  if (rawBlocks.length === 0) {
+    const doubleNewlineBlocks = preProcessed.split(/\n\s*\n/).map(b => b.split("\n").map(l => l.trim()).filter(Boolean)).filter(b => b.length > 0);
+    for (const blk of doubleNewlineBlocks) {
+      if (blk.some(l => /^\s*(?:\[?[A-H]\]?|\(?\d{1,2}\))[\.\/):\-]/i.test(l))) {
+        rawBlocks.push(blk);
+      }
+    }
+  }
 
   // ── STEP 2: Parse each block for stem / options / metadata ───────────────
   for (const blockLines of rawBlocks) {
@@ -1998,10 +2062,10 @@ export function parseTextToQuestions(text: string): any[] {
       }
     }
 
-    // Strip all image placeholders from lines before line-by-line parsing
+    // Strip all image placeholders and horizontal rule divider lines
     const filteredLines = blockLines
       .map(l => l.replace(/\[IMAGE_PLACEHOLDER_\d+\]/gi, "").trim())
-      .filter(l => l && !looksLikeBase64OrBinary(l));
+      .filter(l => l && !/^[_\-=\s]{3,}$/.test(l) && !looksLikeBase64OrBinary(l));
 
     if (filteredLines.length === 0) continue;
 
@@ -2022,7 +2086,16 @@ export function parseTextToQuestions(text: string): any[] {
       if (!line) continue;
       const cleanLine = line.trim().replace(/^[*#•\-\s]+/, "");
 
-      // ── Correct Answer ──────────────────────────────────────────────────
+      // Check for inline difficulty marker anywhere in rationale or explanation lines
+      const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)/i);
+      if (inlineDiffMatch) {
+        const d = inlineDiffMatch[1].toLowerCase();
+        if (/easy|basic/i.test(d)) difficulty = "Easy";
+        else if (/hard|advanced/i.test(d)) difficulty = "Hard";
+        else difficulty = "Medium";
+      }
+
+      // ── Correct Answer (e.g. "Answer: C — Repeat the Cervical...") ──────────
       const correctMatch = cleanLine.match(/^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]\s*(.*)$/i);
       const isRealCorrect = correctMatch && isStrictMetadataMatch(correctMatch[1], "correct", parsingRationale);
       if (isRealCorrect && correctMatch) {
@@ -2038,8 +2111,6 @@ export function parseTextToQuestions(text: string): any[] {
           correctIndex = (isNaN(idx) || idx < 0 || idx > 10) ? 0 : idx;
         }
 
-        // Check if inline explanation is attached to the answer line
-        // e.g. "A. Explanation: STEMI is caused by RCA occlusion."
         const inlineExpMatch = ansVal.match(/^[A-H][\.\)\-\s]*[:\-\=\–\—]?\s*(?:(?:explanation|rationale|because|why|discussion|reasoning)\s*[:\-\=\–\—]?\s*)?(.+)$/i);
         if (inlineExpMatch && inlineExpMatch[1].trim().length > 5 && !/^[A-H]$/i.test(inlineExpMatch[1].trim())) {
           const extractedExp = inlineExpMatch[1].trim().replace(/^(?:explanation|rationale|because|why)\s*[:\-\=\–\—]?\s*/i, "").trim();
@@ -2054,8 +2125,10 @@ export function parseTextToQuestions(text: string): any[] {
       // ── Topic ───────────────────────────────────────────────────────────
       const topicMatch = cleanLine.match(/^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]\s*(.*)$/i);
       if (topicMatch && isStrictMetadataMatch(topicMatch[1], "topic", parsingRationale)) {
-        parsingState = "metadata";
-        parsingRationale = false;
+        if (options.length > 0) {
+          parsingState = "metadata";
+          parsingRationale = false;
+        }
         let v = topicMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2068,8 +2141,10 @@ export function parseTextToQuestions(text: string): any[] {
       // ── Subtopic ────────────────────────────────────────────────────────
       const subtopicMatch = cleanLine.match(/^sub[- ]?(?:topics?|category|categories?|section)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (subtopicMatch && isStrictMetadataMatch(subtopicMatch[1], "subtopic", parsingRationale)) {
-        parsingState = "metadata";
-        parsingRationale = false;
+        if (options.length > 0) {
+          parsingState = "metadata";
+          parsingRationale = false;
+        }
         let v = subtopicMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2079,11 +2154,13 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
 
-      // ── Difficulty / Grade / Level ─────────────────────────────────────
+      // ── Difficulty / Grade / Level (e.g. "Grade: Easy" or "Difficulty: Medium") ──
       const diffMatch = cleanLine.match(/^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (diffMatch && isStrictMetadataMatch(diffMatch[1], "difficulty", parsingRationale)) {
-        parsingState = "metadata";
-        parsingRationale = false;
+        if (options.length > 0) {
+          parsingState = "metadata";
+          parsingRationale = false;
+        }
         let v = diffMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2096,11 +2173,13 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
 
-      // ── Tags ────────────────────────────────────────────────────────────
+      // ── Tags (e.g. "Tags: Women's Health , Cervical Screening Test...") ──
       const tagMatch = cleanLine.match(/^(?:tags?|keywords?|labels?)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (tagMatch && isStrictMetadataMatch(tagMatch[1], "tags", parsingRationale)) {
-        parsingState = "metadata";
-        parsingRationale = false;
+        if (options.length > 0) {
+          parsingState = "metadata";
+          parsingRationale = false;
+        }
         let v = tagMatch[1].trim();
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
@@ -2109,7 +2188,7 @@ export function parseTextToQuestions(text: string): any[] {
         if (v) {
           const newTags = v
             .split(/[,;·•|/]+/)
-            .map(t => t.trim().replace(/^[*#•·\-\s]+/, "").replace(/[*#•·\-\s]+$/, ""))
+            .map(t => t.trim().replace(/^[*#•·\-\s]+/, "").replace(/[*#•·\-\s_]+$/, ""))
             .filter(Boolean);
           for (const t of newTags) {
             if (!tags.includes(t)) tags.push(t);
@@ -2118,27 +2197,31 @@ export function parseTextToQuestions(text: string): any[] {
         continue;
       }
 
-      // ── Rationale / Explanation ─────────────────────────────────────────
-      const rationaleMatch = cleanLine.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—\s]\s*(.*)$/i);
+      // ── Rationale / High-Yield Rationale / Clinical Pearl ─────────────
+      const rationaleMatch = cleanLine.match(/^(?:rationale|high\s*-?\s*yield\s*rationale|clinical\s*pearl|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|why\s*each\s*distractor\s*is\s*wrong|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—\s]\s*(.*)$/i);
       if (rationaleMatch) {
         parsingState = "metadata";
         parsingRationale = true;
         const v = rationaleMatch[1].trim();
         if (v) {
-          rationale = (rationale ? rationale + "\n" : "") + v;
+          rationale = (rationale ? rationale + "\n" : "") + cleanLine;
+        } else {
+          rationale = (rationale ? rationale + "\n" : "") + line.trim();
         }
         continue;
       }
 
-      // ── Option lines (A. B. C. D. or (A) etc.) ─────────────────────────
-      const optionMatch = line.match(/^\(?([A-H])[.\/):\-]\s*(.+)$/i);
+      // ── Option lines (A. B. C. D. or A), (A), [A], 1. 2. 3. 4.) ─────────────────
+      const optionMatch = cleanLine.match(/^\s*(?:\[([A-H])\]|\(?([A-H])[\.\/):\-]|([A-H])\)|(?:\(?(\d{1,2})[\.\):\-]))\s*(.+)$/i);
       if (optionMatch) {
-        const letter = optionMatch[1].toUpperCase();
-        const optText = optionMatch[2].trim();
-        const looksRealOption = optText.length >= 1 && !/^\d/.test(optText.substring(0, 1) === " " ? optText.substring(1) : "");
+        const letterRaw = (optionMatch[1] || optionMatch[2] || optionMatch[3] || "").toUpperCase();
+        const numIndex = optionMatch[4] ? parseInt(optionMatch[4], 10) - 1 : -1;
+        const letter = letterRaw || (numIndex >= 0 ? String.fromCharCode(65 + numIndex) : "A");
+        const optText = optionMatch[5].trim();
+        const looksRealOption = optText.length >= 1;
         if (parsingState === "question") {
-          const isUnambiguousOptionA = /^\(?A[.\/):\-]\s*/i.test(line) && letter === "A";
-          if (isUnambiguousOptionA) {
+          const isUnambiguousFirstOption = letter === "A" || numIndex === 0;
+          if (isUnambiguousFirstOption) {
             parsingState = "options";
             options.push(optText);
             continue;
@@ -2165,7 +2248,11 @@ export function parseTextToQuestions(text: string): any[] {
         options.push(line);
       } else if (parsingState === "metadata") {
         if (parsingRationale && !isMetadataLine(line)) {
-          rationale += (rationale ? "\n" : "") + line;
+          // Clean out inline "Difficulty: Easy" from rationale text body
+          const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
+          if (cleanRationaleLine) {
+            rationale += (rationale ? "\n" : "") + cleanRationaleLine;
+          }
         }
       }
     }
@@ -2181,6 +2268,11 @@ export function parseTextToQuestions(text: string): any[] {
     const numOptions = Math.max(4, options.length);
     for (let k = 0; k < numOptions; k++) {
       finalOptions.push(options[k] || `Option ${String.fromCharCode(65 + k)}`);
+    }
+
+    // Auto-derive primary Topic from first tag if topic is still "General"
+    if (topic === "General" && tags.length > 0) {
+      topic = tags[0];
     }
 
     questions.push({
@@ -2468,6 +2560,16 @@ export async function POST(req: NextRequest) {
       
       const questions = parseTextToQuestions(rawText);
 
+      // ── Debug: log first 3000 chars and question count to server console ──
+      console.log("[extract] rawText first 3000 chars:\n" + rawText.substring(0, 3000));
+      console.log("[extract] rawText length:", rawText.length);
+      console.log("[extract] questions parsed:", questions.length);
+      if (questions.length === 0 && rawText.length > 50) {
+        // Log lines that look like question starts
+        const lines = rawText.split("\n").slice(0, 60);
+        console.log("[extract] first 60 lines:\n" + lines.map((l, i) => `${i}: ${l}`).join("\n"));
+      }
+
       // Cleanup temp file
       if (tempPath && fs.existsSync(tempPath)) {
         try { fs.unlinkSync(tempPath); } catch {}
@@ -2664,11 +2766,7 @@ export async function POST(req: NextRequest) {
     const rawText = catalogHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
     // Heuristic auto-detect fallback check for questions
-    const hasQuestionPatterns = 
-      /(?:\n|^|\s)(?:Question|Q)\s*\d+\b/i.test(rawText) && 
-      (/(?:correct\s*answer|correct\s*option|correct|answer\s*key)\s*[:\-]/i.test(rawText) || 
-       /(?:rationale|explanation)\s*[:\-]/i.test(rawText) ||
-       /\b[A-E][\.\)\-]\s+/i.test(rawText));
+    const hasQuestionPatterns = isQuestionBankText(rawText);
 
     if (hasQuestionPatterns) {
       let qRawText = "";

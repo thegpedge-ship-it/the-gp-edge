@@ -16,6 +16,7 @@ import {
   getApproachCardsFromDbAction,
   saveApproachCardToDbAction,
   deleteApproachCardFromDbAction,
+  restoreApproachCardFromDbAction,
   syncApproachCardsToDbAction,
   getTagsFromDbAction,
   addTagToDbAction,
@@ -76,11 +77,24 @@ function emptyStep(): ApproachStep {
 }
 
 export default function ApproachesPage() {
-  const { isReadOnly } = useAdminRole();
+  const {
+    isReadOnly,
+    canCreateItem,
+    canEditDraft,
+    canArchiveItem,
+    canRestoreItem,
+    canToggleBilling,
+    isOperationsManager,
+    isDrafter,
+    isPeerReviewer,
+    isSubscriber,
+    currentAdmin,
+  } = useAdminRole();
   const router = useRouter();
   const [cards, setCards] = useState<ApproachCard[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   // Modal states
 
 
@@ -119,7 +133,7 @@ export default function ApproachesPage() {
   };
 
   const handleToggleFreeStatus = async (card: ApproachCard, isFree: boolean) => {
-    if (isReadOnly) return;
+    if (!canToggleBilling) return;
     setCards((prev) =>
       prev.map((c) => (c.id === card.id ? { ...c, isFree } : c))
     );
@@ -140,7 +154,7 @@ export default function ApproachesPage() {
   };
 
   const handleCreateApproach = async () => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     if (!newTitle.trim()) {
       alert("Please enter a title.");
       return;
@@ -192,7 +206,7 @@ export default function ApproachesPage() {
   };
 
   const handleUploadFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -324,7 +338,7 @@ export default function ApproachesPage() {
   };
 
   const handleSaveAllDocuments = async () => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     const successItems = approachUploadQueue.filter((item) => item.status === "success" && item.extractedCard);
     if (successItems.length === 0) {
       alert("No successfully extracted documents to import.");
@@ -388,7 +402,7 @@ export default function ApproachesPage() {
     setCards(sanitizedLocal);
 
     // 2. Fetch fresh data from Neon Database in background
-    getApproachCardsFromDbAction().then(dbCards => {
+    getApproachCardsFromDbAction(canRestoreItem).then(dbCards => {
       if (dbCards && dbCards.length > 0) {
         const sanitizedDb = dbCards.map(sanitize);
         setCards(sanitizedDb);
@@ -397,27 +411,41 @@ export default function ApproachesPage() {
         // Auto-migrate local storage data to database if DB is empty
       }
     });
-  }, []);
+  }, [canRestoreItem]);
 
   const filtered = useMemo(() => {
     return cards.filter(c => {
       const q = searchQuery.toLowerCase();
       const matchSearch = !q || c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.system.toLowerCase().includes(q);
       const matchSystem = systemFilter === "all" || c.system === systemFilter;
-      return matchSearch && matchSystem;
+      const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
+      return matchSearch && matchSystem && matchStatus;
     });
-  }, [cards, searchQuery, systemFilter]);
+  }, [cards, searchQuery, systemFilter, statusFilter]);
 
-  async function deleteCard(id: string) {
-    if (isReadOnly) return;
-    if (!confirm("Delete this approach card?")) return;
-    const updated = cards.filter(c => c.id !== id);
+  async function handleRestoreApproach(card: ApproachCard) {
+    if (!canRestoreItem) return;
+    const res = await restoreApproachCardFromDbAction(card.id, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to restore approach card.");
+      return;
+    }
+    const updated = cards.map((c) => (c.id === card.id ? { ...c, status: "published" as const } : c));
     setCards(updated);
     saveApproachCards(updated);
-    addUserNotification("Approach Deleted", "The approach card has been removed.", 1, "custom");
+    addUserNotification("Approach Restored", `Successfully restored "${card.title}" (SA-Only action).`, 1, "custom");
+  }
+
+  async function deleteCard(id: string) {
+    if (!canArchiveItem) return;
+    if (!confirm("Archive this approach card? Item will be hidden from production and retained in audit log.")) return;
+    const updated = cards.map(c => c.id === id ? { ...c, status: "archived" as const } : c);
+    setCards(updated);
+    saveApproachCards(updated);
+    addUserNotification("Approach Archived", "The approach card has been archived and hidden from production.", 1, "custom");
     
-    // Delete from Neon Postgres DB
-    await deleteApproachCardFromDbAction(id);
+    // Soft-delete from Neon Postgres DB
+    await deleteApproachCardFromDbAction(id, currentAdmin);
   }
 
   return (
@@ -426,20 +454,40 @@ export default function ApproachesPage() {
         title="Clinical Approaches"
         subtitle={`Create and manage structured clinical approach cards displayed in the medical library · ${cards.length} items`}
         actions={
-          !isReadOnly && (
-            <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                onClick={() => { if (isReadOnly) return; resetForm(); setShowUploadModal(true); }}
-                disabled={isReadOnly}
-                className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <Lucide.Plus className="w-4 h-4" />
-                Add Approach
-              </button>
-            </div>
-          )
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => { if (!canCreateItem) return; resetForm(); setShowUploadModal(true); }}
+              disabled={!canCreateItem}
+              title={!canCreateItem ? "Item creation is a clinical act restricted to SA and CE roles only (3A matrix)" : "Add Approach"}
+              className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 ${!canCreateItem ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
+              <Lucide.Plus className="w-4 h-4" />
+              Add Approach
+            </button>
+          </div>
         }
       />
+
+      {!canCreateItem && (
+        <motion.div
+          variants={itemVariants}
+          className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/30 rounded-2xl flex gap-3 text-xs text-amber-850 dark:text-amber-300 leading-relaxed items-center shadow-sm"
+        >
+          <Lucide.ShieldAlert className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-450" />
+          <div>
+            <p className="font-bold">Section 3A Relational Governance Mode</p>
+            <p className="mt-0.5 opacity-90">
+              {isOperationsManager
+                ? "Operations Manager Mode — Item creation, direct content alteration, and attaching source references are restricted to SA/CE clinicians. You can assign, track, and move work through the pipeline."
+                : isDrafter
+                ? "Drafter Mode — Write/edit permissions are scoped to your assigned items. Item creation and post-review edits rest with SA/CE."
+                : isPeerReviewer
+                ? "Peer Reviewer Mode — Source reference attachment and review task completion enabled. Direct content creation is restricted."
+                : "Subscriber Mode — Read-only access to published clinical content."}
+            </p>
+          </div>
+        </motion.div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
@@ -456,6 +504,18 @@ export default function ApproachesPage() {
           value={systemFilter}
           onChange={setSystemFilter}
           options={[{ value: "all", label: "All Systems" }, ...SYSTEMS.map(s => ({ value: s, label: s }))]}
+          className="min-w-[160px]"
+        />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Items" },
+            { value: "published", label: "Published" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "In Review" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
           className="min-w-[160px]"
         />
       </div>
@@ -484,13 +544,13 @@ export default function ApproachesPage() {
                         e.stopPropagation();
                         handleToggleFreeStatus(card, !card.isFree);
                       }}
-                      disabled={isReadOnly}
+                      disabled={!canToggleBilling}
                       className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
                         card.isFree
                           ? "bg-emerald-50 dark:bg-emerald-955/30 text-emerald-700 dark:text-emerald-400 border-emerald-200"
                           : "bg-amber-50 dark:bg-amber-955/30 text-amber-700 dark:text-amber-400 border-amber-200"
-                      } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
-                      title={card.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                      } ${!canToggleBilling ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                      title={!canToggleBilling ? "Billing status toggle is restricted to SA and OM roles" : (card.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)")}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${card.isFree ? "bg-emerald-500" : "bg-amber-500"}`} />
                       {card.isFree ? "Free" : "Paid"}
@@ -513,24 +573,34 @@ export default function ApproachesPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                    {!isReadOnly && (
-                      <>
-                        <Link
-                          href={`/admin/content/editor?id=${card.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          title="Edit Card"
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
-                        >
-                          <Lucide.Edit className="w-4 h-4" />
-                        </Link>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
-                          title="Delete Card"
-                          className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
-                        >
-                          <Lucide.Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
+                    {canEditDraft && card.status !== "archived" && (
+                      <Link
+                        href={`/admin/content/editor?id=${card.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Edit Card"
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
+                      >
+                        <Lucide.Edit className="w-4 h-4" />
+                      </Link>
+                    )}
+                    {card.status === "archived" && canRestoreItem && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRestoreApproach(card); }}
+                        title="Restore Archived Approach Card (SA Only)"
+                        className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      >
+                        <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                        Restore
+                      </button>
+                    )}
+                    {canArchiveItem && card.status !== "archived" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
+                        title="Archive Card"
+                        className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
+                      >
+                        <Lucide.Trash2 className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -542,8 +612,8 @@ export default function ApproachesPage() {
           <motion.div variants={itemVariants} className="col-span-full text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
             <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
             <p className="text-sm font-medium">No approach cards found.</p>
-            {!isReadOnly && (
-              <button onClick={() => { if (isReadOnly) return; resetForm(); setShowUploadModal(true); }} className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent">Create your first approach card →</button>
+            {canCreateItem && (
+              <button onClick={() => { if (!canCreateItem) return; resetForm(); setShowUploadModal(true); }} className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent">Create your first approach card →</button>
             )}
           </motion.div>
         )}

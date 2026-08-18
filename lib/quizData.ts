@@ -1,4 +1,4 @@
-export type QuizStatus = "active" | "draft" | "suspended";
+export type QuizStatus = "active" | "draft" | "suspended" | "archived";
 
 export interface Quiz {
   id: number;
@@ -28,7 +28,7 @@ export interface Question {
   topic: string;
   difficulty: "Easy" | "Medium" | "Hard";
   examType: "AKT" | "KFP";
-  status: "draft" | "review" | "published";
+  status: "draft" | "review" | "published" | "archived";
   tags: string[];
   image?: string;
   dbId?: string;
@@ -75,12 +75,16 @@ export function getQuestions(): Question[] {
 
 /**
  * Async fetch from Neon via /api/questions.
- * Returns only DB questions — no mock defaults.
+ * Returns DB questions with optional archived filter.
  */
-export async function fetchQuestions(): Promise<Question[]> {
+export async function fetchQuestions(includeArchived: boolean = false): Promise<Question[]> {
   try {
-    const res = await fetch("/api/questions", { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const url = includeArchived ? "/api/questions?includeArchived=true" : "/api/questions";
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      console.warn(`fetchQuestions API status: ${res.status}`);
+      return QUESTION_BANK;
+    }
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       QUESTION_BANK.length = 0;
@@ -90,7 +94,7 @@ export async function fetchQuestions(): Promise<Question[]> {
   } catch (err) {
     console.error("fetchQuestions error:", err);
   }
-  return [];
+  return QUESTION_BANK;
 }
 
 /**
@@ -374,43 +378,25 @@ export function saveCustomTags(tags: string[]): void {
 }
 
 export interface AdminUser {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   plan: "premium" | "free";
-  lastActive: string;
+  lastActive?: string;
   status: "active" | "suspended";
   joined: string;
 }
 
-const DEFAULT_USERS: AdminUser[] = [
-  { id: 1001, name: "Account #1001", email: "subscriber@domain.com", plan: "premium", lastActive: "2 mins ago", status: "active", joined: "12 Jan 2026" },
-  { id: 1002, name: "Account #1002", email: "subscriber@domain.com", plan: "premium", lastActive: "1 hour ago", status: "active", joined: "3 Feb 2026" },
-  { id: 1003, name: "Account #1003", email: "subscriber@domain.com", plan: "free", lastActive: "3 hours ago", status: "active", joined: "18 Feb 2026" },
-  { id: 1004, name: "Account #1004", email: "subscriber@domain.com", plan: "premium", lastActive: "5 hours ago", status: "active", joined: "7 Dec 2025" },
-  { id: 1005, name: "Account #1005", email: "subscriber@domain.com", plan: "free", lastActive: "1 day ago", status: "active", joined: "28 Mar 2026" },
-  { id: 1006, name: "Account #1006", email: "subscriber@domain.com", plan: "free", lastActive: "3 days ago", status: "suspended", joined: "15 Apr 2026" },
-  { id: 1007, name: "Account #1007", email: "subscriber@domain.com", plan: "premium", lastActive: "30 mins ago", status: "active", joined: "20 Jan 2026" },
-  { id: 1008, name: "Account #1008", email: "subscriber@domain.com", plan: "free", lastActive: "2 days ago", status: "active", joined: "9 Mar 2026" },
-  { id: 1009, name: "Account #1009", email: "subscriber@domain.com", plan: "premium", lastActive: "6 hours ago", status: "active", joined: "14 Feb 2026" },
-  { id: 1010, name: "Account #1010", email: "subscriber@domain.com", plan: "free", lastActive: "5 days ago", status: "active", joined: "2 May 2026" },
-  { id: 1011, name: "Account #1011", email: "subscriber@domain.com", plan: "premium", lastActive: "15 mins ago", status: "active", joined: "1 Nov 2025" },
-  { id: 1012, name: "Account #1012", email: "subscriber@domain.com", plan: "free", lastActive: "1 week ago", status: "suspended", joined: "22 Apr 2026" },
-];
-
 const ADMIN_USERS_STORAGE_KEY = "gpedge_admin_users";
 
 export function getAdminUsers(): AdminUser[] {
-  if (typeof window === "undefined") return DEFAULT_USERS;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(ADMIN_USERS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(DEFAULT_USERS));
-      return DEFAULT_USERS;
-    }
+    if (!raw) return [];
     return JSON.parse(raw) as AdminUser[];
   } catch {
-    return DEFAULT_USERS;
+    return [];
   }
 }
 
@@ -419,13 +405,25 @@ export function saveAdminUsers(users: AdminUser[]): void {
   localStorage.setItem(ADMIN_USERS_STORAGE_KEY, JSON.stringify(users));
 }
 
+export async function fetchAdminUsersFromDb(): Promise<AdminUser[]> {
+  try {
+    const { getRealUsersFromDbAction } = await import("@/actions/admin.actions");
+    const realUsers = await getRealUsersFromDbAction();
+    saveAdminUsers(realUsers);
+    return realUsers;
+  } catch (error) {
+    console.error("Failed to fetch admin users from DB:", error);
+    return getAdminUsers();
+  }
+}
+
 export interface MedicalContent {
   id: string; // UUID from Neon (was number in localStorage)
   name: string;
   category: string;
   system: string;
   type: "Condition" | "Guideline" | "Protocol" | "Pathway" | "Document" | "Note" | "Approach";
-  status: "published" | "draft" | "review";
+  status: "published" | "draft" | "review" | "archived";
   lastUpdated: string;
   author: string;
   references: number;
@@ -459,16 +457,21 @@ export function getMedicalContent(): MedicalContent[] {
 }
 
 // Async fetch from Neon via API (use this in useEffect / server actions)
-export async function fetchMedicalContent(): Promise<MedicalContent[]> {
+export async function fetchMedicalContent(includeArchived: boolean = false): Promise<MedicalContent[]> {
   try {
-    const res = await fetch("/api/medical-content", { cache: "no-store" });
+    const url = includeArchived ? "/api/medical-content?includeArchived=true" : "/api/medical-content";
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     if (json.success) {
       _medicalContentCache = json.data;
       _cacheLoaded = true;
       if (typeof window !== "undefined") {
-        localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(json.data));
+        try {
+          localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(json.data));
+        } catch (err) {
+          console.warn("localStorage quota exceeded for medical content cache:", err);
+        }
       }
       return json.data as MedicalContent[];
     }
@@ -481,14 +484,30 @@ export async function fetchMedicalContent(): Promise<MedicalContent[]> {
 // Async save to Neon via API
 export async function saveMedicalContentItem(item: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<string | null> {
   try {
+    let adminUser: any = (item as any).adminUser;
+    if (!adminUser && typeof window !== "undefined") {
+      const activeId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+      const credsStr = localStorage.getItem("gpedge_admin_credentials_list");
+      if (credsStr) {
+        try {
+          const creds = JSON.parse(credsStr);
+          const found = creds.find((u: any) => u.id === activeId);
+          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "SA", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
+        } catch (e) {}
+      }
+    }
     const res = await fetch("/api/medical-content", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(item),
+      body: JSON.stringify({ ...item, adminUser }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      console.warn(`[saveMedicalContentItem] Permission or server response: HTTP ${res.status}`, errJson.error || errJson);
+      return null;
+    }
     const json = await res.json();
-    if (json.success) return json.id;
+    return json.success ? json.id : null;
   } catch (err) {
     console.error("saveMedicalContentItem error:", err);
   }
@@ -498,12 +517,29 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
 // Async update existing item in Neon
 export async function updateMedicalContentItem(id: string, updates: Partial<MedicalContent> & { fullHtml?: string; sections?: Record<string, string> }): Promise<boolean> {
   try {
+    let adminUser: any = (updates as any).adminUser;
+    if (!adminUser && typeof window !== "undefined") {
+      const activeId = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
+      const credsStr = localStorage.getItem("gpedge_admin_credentials_list");
+      if (credsStr) {
+        try {
+          const creds = JSON.parse(credsStr);
+          const found = creds.find((u: any) => u.id === activeId);
+          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "SA", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
+        } catch (e) {}
+      }
+    }
+
     const res = await fetch(`/api/medical-content/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates),
+      body: JSON.stringify({ ...updates, adminUser }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      console.warn(`[updateMedicalContentItem] Permission denied or server error: HTTP ${res.status}`, json.error || json);
+      return false;
+    }
     const json = await res.json();
     return json.success;
   } catch (err) {
@@ -516,7 +552,11 @@ export async function updateMedicalContentItem(id: string, updates: Partial<Medi
 export function saveMedicalContent(content: MedicalContent[]): void {
   _medicalContentCache = content;
   if (typeof window !== "undefined") {
-    localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(content));
+    try {
+      localStorage.setItem(MEDICAL_CONTENT_CACHE_KEY, JSON.stringify(content));
+    } catch (err) {
+      console.warn("localStorage quota exceeded for medical content cache:", err);
+    }
   }
 }
 
@@ -536,7 +576,7 @@ export interface ApproachCard {
   subtitle: string;
   system: string;
   category: string;
-  status: "draft" | "review" | "published";
+  status: "draft" | "review" | "published" | "archived";
   lastUpdated: string;
   author: string;
   isPremium: boolean;
@@ -570,11 +610,18 @@ export function getApproachCards(): ApproachCard[] {
 
 export function saveApproachCards(cards: ApproachCard[]): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(cards));
+  try {
+    // Strip heavy fullHtml before storing in localStorage to prevent QuotaExceededError
+    const lightCards = cards.map(({ fullHtml, ...rest }) => rest);
+    localStorage.setItem(APPROACH_CARDS_KEY, JSON.stringify(lightCards));
+  } catch (err) {
+    console.warn("localStorage quota exceeded for approach cards cache:", err);
+  }
 }
 
 export interface AutofillTemplate {
   id: number;
+  dbId?: string;
   name: string;
   category: string;
   system: string;

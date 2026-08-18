@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
 import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
+import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
+import MaintenanceBanner from "@/components/admin/MaintenanceBanner";
 
 const ADMIN_PROFILES = [
   { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
@@ -57,8 +59,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
         if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
           const defaultCreds = [
-            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
-            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" }
+            { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+            { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
+            { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Operations Lead (OM)", username: "ops_lead", role: "Operations Manager", roles: ["OM"], email: "ops@gpedge.com", lastChanged: "5 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "ops123" }
           ];
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(defaultCreds));
           credsList = defaultCreds;
@@ -66,15 +69,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         const foundUser = credsList.find((u: any) => u.id === adminId);
         if (foundUser) {
           let permissions: string[] = foundUser.permissions || [];
-          if (foundUser.role === "Super Admin" || permissions.length === 0) {
-            if (foundUser.role === "Super Admin" || foundUser.role === "Viewer") {
+          const userRoles: string[] = foundUser.roles || [];
+          const isSA = userRoles.includes("SA") || foundUser.role === "Super Admin" || foundUser.role === "SA (Super Admin)";
+          const isCE = userRoles.includes("CE") || foundUser.role === "Clinical Editor" || foundUser.role === "CE (Clinical Editor)";
+          const isOM = userRoles.includes("OM") || foundUser.role === "Operations Manager" || foundUser.role === "OM (Operations Manager)";
+          const isDR = userRoles.includes("DR") || foundUser.role === "Drafter" || foundUser.role === "DR (Drafter)";
+          const isPR = userRoles.includes("PR") || foundUser.role === "Peer Reviewer" || foundUser.role === "PR (Peer Reviewer)";
+          const isSUB = userRoles.includes("SUB") || foundUser.role === "Subscriber" || foundUser.role === "SUB (Subscriber)";
+
+          if (isSA || permissions.length === 0) {
+            if (isSA) {
               permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+            } else if (isCE) {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+            } else if (isOM) {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+            } else if (isDR) {
+              permissions = ["dashboard", "questions", "content", "approaches"];
+            } else if (isPR) {
+              permissions = ["dashboard", "questions", "content", "approaches"];
+            } else if (isSUB) {
+              permissions = ["dashboard"];
             } else if (foundUser.role === "Admin") {
               permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
             } else if (foundUser.role === "Moderator") {
               permissions = ["dashboard", "questions", "content", "approaches"];
+            } else {
+              permissions = ["dashboard"];
             }
+          } else if (isCE && permissions.length === 0) {
+            permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
           }
+
           setCurrentAdmin({
             id: foundUser.id,
             name: foundUser.name,
@@ -88,10 +114,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       updateProfile(stored);
 
       const defaultCreds: CredentialUser[] = [
-        { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant", username: "siddhant_super", role: "Super Admin", email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
-        { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", username: "arun_admin", role: "Admin", email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
-        { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", username: "jessica_mod", role: "Moderator", email: "moderator@gpedge.com", lastChanged: "Yesterday", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "moderator123" },
-        { id: "fa0c92d5-89db-4848-8df0-7d72dfa64303", name: "Sarah Connor", username: "sarah_view", role: "Viewer", email: "viewer@gpedge.com", lastChanged: "Never", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "viewer123" }
+        { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "Siddhant Udavant (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
+        { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
+        { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Operations Lead (OM)", username: "ops_lead", role: "Operations Manager", roles: ["OM"], email: "ops@gpedge.com", lastChanged: "5 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "ops123" }
       ];
 
       syncLocalAdminsWithDbAction(defaultCreds).then((dbAdmins) => {
@@ -99,19 +124,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
           const found = dbAdmins.find((u) => u.id === stored);
           if (found) {
-            // Always derive permissions from role — never trust an empty DB permissions array,
-            // since admin_user_permissions rows may not exist yet for Super Admin.
+            const foundRoles: string[] = (found as any).roles || [];
+            const fIsSA = foundRoles.includes("SA") || found.role === "Super Admin" || found.role === "SA (Super Admin)";
+            const fIsCE = foundRoles.includes("CE") || found.role === "Clinical Editor" || found.role === "CE (Clinical Editor)";
+            const fIsOM = foundRoles.includes("OM") || found.role === "Operations Manager" || found.role === "OM (Operations Manager)";
+            const fIsDR = foundRoles.includes("DR") || found.role === "Drafter" || found.role === "DR (Drafter)";
+            const fIsPR = foundRoles.includes("PR") || found.role === "Peer Reviewer" || found.role === "PR (Peer Reviewer)";
             let permissions: string[] = found.permissions || [];
-            if (found.role === "Super Admin" || permissions.length === 0) {
-              if (found.role === "Super Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
-              } else if (found.role === "Admin") {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing"];
-              } else if (found.role === "Moderator") {
-                permissions = ["dashboard", "questions", "content", "approaches"];
-              } else {
-                permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
-              }
+            if (fIsSA) {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+            } else if (fIsCE) {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
+            } else if (fIsOM) {
+              permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "mbs", "billing", "audit"];
+            } else if (fIsDR || fIsPR) {
+              permissions = ["dashboard", "questions", "content", "approaches"];
+            } else if (permissions.length === 0) {
+              permissions = ["dashboard"];
             }
             setCurrentAdmin({
               id: found.id,
@@ -232,48 +261,51 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
+    <MaintenanceProvider>
+      <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
 
 
-      {/* Backdrop for mobile sidebar */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[45] lg:hidden cursor-pointer"
-          />
-        )}
-      </AnimatePresence>
-
-      <AdminSidebar
-        collapsed={!isExpanded}
-        onToggle={() => setCollapsed(!collapsed)}
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(false)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      />
-      <AdminTopbar
-        collapsed={!isExpanded}
-        onMenuClick={() => setMobileOpen(!mobileOpen)}
-      />
-
-      {/* Main content area */}
-      <main
-        className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
-      >
-        <div className="p-6 lg:p-8">
-          {hasPermission ? children : (
-            <>
-              {deniedContent}
-              <div style={{ display: "none" }}>{children}</div>
-            </>
+        {/* Backdrop for mobile sidebar */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileOpen(false)}
+              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[45] lg:hidden cursor-pointer"
+            />
           )}
-        </div>
-      </main>
-    </div>
+        </AnimatePresence>
+
+        <AdminSidebar
+          collapsed={!isExpanded}
+          onToggle={() => setCollapsed(!collapsed)}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        />
+        <AdminTopbar
+          collapsed={!isExpanded}
+          onMenuClick={() => setMobileOpen(!mobileOpen)}
+        />
+
+        {/* Main content area */}
+        <main
+          className={`admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
+        >
+          <MaintenanceBanner />
+          <div className="p-6 lg:p-8">
+            {hasPermission ? children : (
+              <>
+                {deniedContent}
+                <div style={{ display: "none" }}>{children}</div>
+              </>
+            )}
+          </div>
+        </main>
+      </div>
+    </MaintenanceProvider>
   );
 }

@@ -10,33 +10,16 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/questions
  * Returns all non-deleted questions with their options and tags from Neon.
- * Requires an active Registrar plan — all other tiers receive 403.
+ * Requires an authenticated user.
  */
-export async function GET(_req: NextRequest) {
-  // ── Access control: Registrar-only ──────────────────────────────────────────
+export async function GET(req: NextRequest) {
+  // ── Access control: Authenticated users ──────────────────────────────────
   try {
     const clerkUser = await currentUser();
     if (!clerkUser) {
       return NextResponse.json(
         { success: false, error: "Authentication required." },
         { status: 401 }
-      );
-    }
-    const dbUser = await prisma.users.findUnique({
-      where: { clerk_user_id: clerkUser.id },
-      select: { id: true },
-    });
-    if (!dbUser) {
-      return NextResponse.json({ success: false, error: "User not found." }, { status: 403 });
-    }
-    const access = await getUserAccess(dbUser.id);
-    if (!access?.isRegistrarActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "An active Registrar plan is required to access exam questions.",
-        },
-        { status: 403 }
       );
     }
   } catch (accessErr) {
@@ -46,6 +29,8 @@ export async function GET(_req: NextRequest) {
 
   // ── DB fetch (only reached if access check passes) ───────────────────────────
   try {
+    const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
+
     // Questions
     const rows = await query<any>(
       `SELECT
@@ -54,6 +39,7 @@ export async function GET(_req: NextRequest) {
          q.rationale,
          q.difficulty,
          q.status,
+         q.deleted_at,
          q.exam_type_code    AS "examType",
          s.name              AS topic,
          f.object_key        AS image_object_key,
@@ -62,7 +48,7 @@ export async function GET(_req: NextRequest) {
        FROM questions q
        LEFT JOIN subjects  s ON s.id = q.subject_id
        LEFT JOIN files     f ON f.id = q.image_file_id
-       WHERE q.deleted_at IS NULL
+       WHERE ${includeArchived ? "1=1" : "q.deleted_at IS NULL"}
        ORDER BY q.created_at DESC`
     );
 
@@ -97,6 +83,10 @@ export async function GET(_req: NextRequest) {
     const questions = rows.map((q: any, idx: number) => {
       const opts = (optMap.get(q.id) ?? []).sort((a, b) => a.position - b.position);
       const correctIndex = opts.findIndex((o) => o.is_correct);
+
+      const isDeleted = q.deleted_at !== null && q.deleted_at !== undefined;
+      const status = isDeleted ? "archived" : (q.status === "archived" ? "published" : q.status || "published");
+
       return {
         // Use a stable numeric id for legacy compatibility
         id: idx + 2855,
@@ -108,7 +98,7 @@ export async function GET(_req: NextRequest) {
         topic: q.topic ?? "General",
         difficulty: capitalize(q.difficulty) as "Easy" | "Medium" | "Hard",
         examType: (q.examType ?? "AKT") as "AKT" | "KFP",
-        status: q.status as "draft" | "review" | "published",
+        status: status as any,
         tags: tagMap.get(q.id) ?? ["General"],
         image: q.image_object_key ? `${publicBase}/${q.image_object_key}` : undefined,
       };

@@ -25,6 +25,7 @@ export default function BillingPage() {
   const [data, setData] = useState<BillingPageData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refunds, setRefunds] = useState<RefundRequestItem[]>([]);
+  const [visibleSubsCount, setVisibleSubsCount] = useState(10);
 
   const [activeRefund, setActiveRefund] = useState<RefundRequestItem | null>(null);
   const [actionType, setActionType] = useState<"approve" | "deny" | null>(null);
@@ -322,7 +323,7 @@ export default function BillingPage() {
                     </td>
                   </tr>
                 ) : (
-                  data.subscriptions.map((s, i) => (
+                  data.subscriptions.slice(0, visibleSubsCount).map((s, i) => (
                     <tr
                       key={i}
                       className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group cursor-pointer"
@@ -338,6 +339,28 @@ export default function BillingPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* See More button for Subscriptions */}
+          {visibleSubsCount < data.subscriptions.length && (
+            <div className="p-4 flex justify-center border-t border-slate-100 dark:border-slate-800 bg-slate-50/20 dark:bg-slate-800/10 select-none">
+              <button
+                onClick={() => setVisibleSubsCount((prev) => prev + 10)}
+                className="px-6 py-2.5 text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 dark:text-teal-400 dark:bg-teal-950/40 dark:hover:bg-teal-900/50 border border-teal-200/60 dark:border-teal-900/50 rounded-xl transition-all shadow-sm cursor-pointer flex items-center gap-2 active:scale-95"
+              >
+                <span>See More Subscriptions</span>
+                <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {/* Table footer with count */}
+          <div className="px-6 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Showing {Math.min(visibleSubsCount, data.subscriptions.length)} of {data.subscriptions.length} active subscriptions
+            </p>
           </div>
         </div>
       </motion.div>
@@ -396,6 +419,43 @@ export default function BillingPage() {
                       {r.status}
                     </span>
                   )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Cancellation Feedback Section */}
+      <motion.div variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-red-50/5 dark:to-red-950/10 pointer-events-none rounded-2xl" />
+        <div className="relative z-10">
+          <div className="px-6 py-4 border-b border-slate-200/40 dark:border-slate-800 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Cancellation Feedback</h3>
+          </div>
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.cancellationFeedback.length === 0 ? (
+              <div className="px-6 py-8 text-center text-xs font-medium text-slate-450 dark:text-slate-500">
+                No cancellation feedback recorded.
+              </div>
+            ) : (
+              data.cancellationFeedback.map((fb, i) => (
+                <div key={i} className="px-6 py-4 flex flex-col gap-2 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{fb.user}</p>
+                    <span className="text-[11px] font-semibold text-slate-400">{fb.date}</span>
+                  </div>
+                  <div className="flex items-start flex-col gap-1.5">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded border tracking-wider bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 uppercase">
+                      {fb.reason}
+                    </span>
+                    {fb.feedback && (
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 pl-3 border-l-2 border-red-200 dark:border-red-800/50 italic whitespace-pre-wrap">
+                        "{fb.feedback}"
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))
             )}

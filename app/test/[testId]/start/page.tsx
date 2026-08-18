@@ -4,15 +4,80 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { consumeTestAuthorization, loadTestPlan, planToConfig } from "@/lib/testSession";
+import { CheckCircle2, FileText, Clock, Download, ClipboardList, ArrowRight, Hourglass, AlertCircle, AlertTriangle, HelpCircle, X } from "lucide-react";
 import type { TestConfig, TestPlan } from "@/lib/testSession";
-import { getQuestionsByIds, saveQuizAttempt } from "@/app/exam-prep/actions";
+
+function AnimatedScoreCircle({ score }: { score: number }) {
+  const [animatedScore, setAnimatedScore] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp: number | null = null;
+    const duration = 1300; // 1.3s ease-out animation
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      setAnimatedScore(Math.round(easedProgress * score));
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      }
+    };
+
+    const animationFrame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [score]);
+
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
+
+  return (
+    <div className="relative flex flex-col items-center justify-center shrink-0">
+      <div className="relative w-36 h-36 sm:w-44 sm:h-44 flex items-center justify-center">
+        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 150 150">
+          <circle
+            cx="75"
+            cy="75"
+            r={radius}
+            className="stroke-slate-100 dark:stroke-slate-800"
+            strokeWidth="11"
+            fill="transparent"
+          />
+          <circle
+            cx="75"
+            cy="75"
+            r={radius}
+            className="stroke-emerald-600 dark:stroke-emerald-400 transition-all duration-75 ease-out"
+            strokeWidth="11"
+            strokeDasharray={circumference}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            fill="transparent"
+          />
+        </svg>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
+          <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+            {animatedScore}%
+          </span>
+          <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider">
+            Your Score
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+import { getQuestionsByIds, saveQuizAttempt, saveQuestionFeedback } from "@/app/exam-prep/actions";
 import type { QuizQuestion, SaveAttemptInput } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
 import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
 import { generateReportBlob } from "@/lib/report/generateReport";
 import { saveReport } from "@/lib/report/reportStore";
 import TestNotFound from "@/components/test/TestNotFound";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 
 type QuestionStatus = "answered" | "not-answered" | "not-visited";
 
@@ -27,15 +92,15 @@ function formatTime(totalSeconds: number): string {
 
 function paletteClasses(status: QuestionStatus, isCurrent: boolean): string {
   const base =
-    "w-8 h-8 rounded-full border text-[13px] font-bold flex items-center justify-center transition-all duration-150 hover:scale-110";
-  const ring = isCurrent ? " ring-2 ring-emerald-600 ring-offset-2 dark:ring-offset-slate-900" : "";
+    "w-8 h-8 rounded-lg border text-xs font-semibold flex items-center justify-center transition-all duration-150 hover:scale-105 cursor-pointer";
+  const ring = isCurrent ? " ring-2 ring-teal-600 dark:ring-teal-400 ring-offset-2 dark:ring-offset-slate-900 font-bold" : "";
   switch (status) {
     case "answered":
-      return `${base} bg-emerald-500 border-emerald-500 text-white${ring}`;
+      return `${base} bg-emerald-500 border-emerald-500 text-white shadow-xs${ring}`;
     case "not-answered":
-      return `${base} bg-red-400 border-red-400 text-white${ring}`;
+      return `${base} bg-rose-500 border-rose-500 text-white shadow-xs${ring}`;
     default:
-      return `${base} bg-slate-200 dark:bg-slate-700 border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400${ring}`;
+      return `${base} bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400${ring}`;
   }
 }
 
@@ -83,21 +148,32 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   const onPointerDown = (e: React.PointerEvent) => {
     if (scale <= 1) return;
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, baseX: offset.x, baseY: offset.y };
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+    };
     setDragging(true);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
+    if (!dragRef.current || !dragging) return;
+    const dx = e.clientX - dragRef.current.startX;
+    const dy = e.clientY - dragRef.current.startY;
     setOffset({
-      x: dragRef.current.baseX + (e.clientX - dragRef.current.startX),
-      y: dragRef.current.baseY + (e.clientY - dragRef.current.startY),
+      x: dragRef.current.baseX + dx,
+      y: dragRef.current.baseY + dy,
     });
   };
 
-  const endDrag = () => {
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragging) return;
     dragRef.current = null;
     setDragging(false);
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {}
   };
 
   return (
@@ -105,32 +181,31 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8"
+      transition={{ duration: 0.18 }}
+      className="fixed inset-0 z-[70] bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 select-none"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Controls */}
-      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
-        <button
-          onClick={() => zoomBy(-0.5)}
-          title="Zoom out (-)"
-          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="5" y1="12" x2="19" y2="12" /></svg>
-        </button>
-        <span className="min-w-[3.5rem] text-center text-[12px] font-semibold text-white tabular-nums">{Math.round(scale * 100)}%</span>
+      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
         <button
           onClick={() => zoomBy(0.5)}
-          title="Zoom in (+)"
-          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+          title="Zoom In (+)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg font-bold transition-colors"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="w-5 h-5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          +
+        </button>
+        <button
+          onClick={() => zoomBy(-0.5)}
+          title="Zoom Out (-)"
+          className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-lg font-bold transition-colors"
+        >
+          −
         </button>
         <button
           onClick={reset}
-          title="Reset (0)"
-          className="px-3 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[12px] font-semibold transition-colors"
+          title="Reset zoom (0)"
+          className="px-2.5 h-9 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center text-xs font-semibold transition-colors"
         >
           Reset
         </button>
@@ -173,6 +248,81 @@ function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
+/* Palette contents — progress donut, legend, and the question grid.
+   Shared between the desktop sidebar and the mobile slide-in drawer. */
+function QuestionPalette({
+  progressPercent,
+  questions,
+  current,
+  getStatus,
+  onGoTo,
+}: {
+  progressPercent: number;
+  questions: QuizQuestion[];
+  current: number;
+  getStatus: (index: number) => QuestionStatus;
+  onGoTo: (index: number) => void;
+}) {
+  return (
+    <>
+      {/* Progress & Legend */}
+      <div className="flex-shrink-0 p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/40 flex flex-col items-center">
+        <h3 className="text-[11px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-5">Your Progress</h3>
+
+        {/* Circular Progress */}
+        <div className="relative w-20 h-20 mb-5">
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <path
+              className="text-slate-100 dark:text-slate-800"
+              strokeWidth="2.5"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+            <path
+              className="text-teal-500 transition-all duration-500 ease-out"
+              strokeDasharray={`${progressPercent}, 100`}
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              stroke="currentColor"
+              fill="none"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            />
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
+            <span className="text-[16px] font-bold text-slate-900 dark:text-slate-100 leading-none">{progressPercent}%</span>
+            <span className="text-[8.5px] font-semibold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wider">Answered</span>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="w-full space-y-2.5">
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Not Answered
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" /> Not Visited
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable Palette Grid */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-5">
+        <div className="grid grid-cols-5 gap-2">
+          {questions.map((_, i) => (
+            <button key={i} onClick={() => onGoTo(i)} className={paletteClasses(getStatus(i), i === current)}>
+              {i + 1}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function TestPage() {
   const router = useRouter();
   const { testId } = useParams<{ testId: string }>();
@@ -188,8 +338,15 @@ export default function TestPage() {
   const [elapsed, setElapsed] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false); // mobile palette drawer
   const [submitted, setSubmitted] = useState(false);
   const [timedOut, setTimedOut] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackQuestionIdx, setFeedbackQuestionIdx] = useState(0);
+  const [timerPaused, setTimerPaused] = useState(false);
+
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
   const reportBlobRef = useRef<Blob | null>(null);
   const reportNameRef = useRef<string>("");
@@ -377,9 +534,10 @@ export default function TestPage() {
     }
   }, [generateAndStore]);
 
-  /* Countdown timer — auto-submit at zero. Mock tests only. */
+  /* Countdown timer — auto-submit at zero. Mock tests only. Pauses when
+     the feedback modal is open (timerPaused). */
   useEffect(() => {
-    if (loading || submitted || !config?.timed) return;
+    if (loading || submitted || !config?.timed || timerPaused) return;
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
@@ -392,14 +550,15 @@ export default function TestPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted, handleSubmit, config]);
+  }, [loading, submitted, handleSubmit, config, timerPaused]);
 
-  /* Elapsed count-up — tracks time used for the result screen on every test. */
+  /* Elapsed count-up — tracks time used for the result screen on every test.
+     Also pauses when feedback modal is open on timed tests. */
   useEffect(() => {
-    if (loading || submitted) return;
+    if (loading || submitted || (timerPaused && config?.timed)) return;
     const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
     return () => clearInterval(interval);
-  }, [loading, submitted]);
+  }, [loading, submitted, timerPaused, config]);
 
   /* ─── Exam lockdown: no leaving mid-test ──────────────────────────────
      Active only while a test is in progress (cleans up the moment it is
@@ -421,11 +580,16 @@ export default function TestPage() {
       window.history.pushState(null, "", window.location.href);
     };
 
-    // Native close/reload warning (best-effort; lets an accidental close be
-    // cancelled). Browsers require returnValue to be set to trigger the prompt.
+    // Native close/reload warning: tells the user leaving will submit the exam,
+    // and lets an accidental close be cancelled. Modern browsers show their own
+    // generic wording and ignore this text, but the API still requires
+    // returnValue to be set for the prompt to appear at all.
+    const LEAVE_MESSAGE =
+      "If you leave now your exam will be submitted automatically. Are you sure?";
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
-      e.returnValue = "";
+      e.returnValue = LEAVE_MESSAGE;
+      return LEAVE_MESSAGE;
     };
 
     // Leaving the tab (closing, minimising, or switching away) is treated as
@@ -469,6 +633,27 @@ export default function TestPage() {
     });
   };
 
+  const openFeedback = () => {
+    setFeedbackQuestionIdx(current);
+    setFeedbackText("");
+    setFeedbackOpen(true);
+    if (config?.timed) setTimerPaused(true);
+  };
+
+  const closeFeedback = () => {
+    setFeedbackOpen(false);
+    if (config?.timed) setTimerPaused(false);
+  };
+
+  const submitFeedback = async () => {
+    const q = questions[feedbackQuestionIdx];
+    if (!q || !feedbackText.trim()) return;
+    setFeedbackSubmitting(true);
+    await saveQuestionFeedback({ questionId: q.id, feedback: feedbackText.trim() });
+    setFeedbackSubmitting(false);
+    closeFeedback();
+  };
+
   const getStatus = (index: number): QuestionStatus => {
     if (answers[index] !== undefined) return "answered";
     if (visited.has(index)) return "not-answered";
@@ -482,11 +667,11 @@ export default function TestPage() {
   /* ─── Resolving / unknown test ───────────────────────────────────── */
   // Resolving and fetching are one continuous wait to the user, so both show
   // the same screen — previously this returned null and flashed blank first.
-  if (config === undefined) return <FullScreenLoader message="Preparing your test" />;
+  if (config === undefined) return <ExamLoadingScreen title="Preparing your test" />;
   if (config === null) return <TestNotFound />;
 
   /* ─── Loading state ──────────────────────────────────────────────── */
-  if (loading) return <FullScreenLoader message="Fetching your questions" />;
+  if (loading) return <ExamLoadingScreen title="Preparing your questions" subtitle="Please wait while we load your test." />;
 
   /* ─── Result screen after submission ─────────────────────────────── */
   if (submitted) {
@@ -496,95 +681,165 @@ export default function TestPage() {
     );
     const score = questions.length > 0 ? Math.round((correct / questions.length) * 100) : 0;
     return (
-      <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-col items-center overflow-y-auto px-4 py-6 sm:p-8">
+      <div className="fixed inset-0 z-50 bg-slate-100/70 dark:bg-slate-950 flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto">
         <motion.div
-          initial={{ opacity: 0, scale: 0.98, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-[650px] flex flex-col items-center my-auto bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 pb-6"
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          className="w-full max-w-[780px] bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-6 sm:p-9 md:p-10 my-auto flex flex-col gap-6 sm:gap-7"
         >
-          {/* Banner Container */}
-          <div className="relative w-full h-[160px] sm:h-[180px] rounded-t-[24px] overflow-hidden flex flex-col items-center justify-center bg-emerald-600">
+          {/* 1. Header with Big Dark Standalone Tick Icon (Centered) */}
+          <div className="flex items-center justify-center gap-3 sm:gap-3.5 pb-6 border-b border-slate-200 dark:border-slate-700/90 text-center">
+            <motion.svg
+              initial={{ scale: 0.7, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+              className="w-6 h-6 sm:w-7 sm:h-7 text-slate-900 dark:text-slate-100 shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <motion.path
+                initial={{ pathLength: 0 }}
+                animate={{ pathLength: 1 }}
+                transition={{ duration: 0.45, delay: 0.1, ease: "easeOut" }}
+                d="M20 6L9 17L4 12"
+              />
+            </motion.svg>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-50 tracking-tight">
+              Test Submitted Successfully
+            </h1>
+          </div>
+
+          {/* 2. Score + Performance Section (Horizontal Layout with Visible Dividers) */}
+          <div className="grid grid-cols-1 md:grid-cols-[1.3fr_2fr] gap-6 sm:gap-8 items-center py-1">
             
-            {/* Success Content Overlay */}
-            <div className="relative z-10 text-center px-4 flex flex-col items-center pb-4">
-              <h1 className="text-[24px] sm:text-[28px] font-bold text-white tracking-tight leading-tight mb-1.5 drop-shadow-sm">
-                {timedOut ? "Time's Up!" : "Test Submitted Successfully!"}
-              </h1>
-              <p className="text-[13px] sm:text-[15px] text-white/90 font-medium drop-shadow-sm">
-                {timedOut 
-                  ? `Your time ran out, so ${config.name} was submitted automatically.` 
-                  : "Thanks for completing the test."}
+            {/* Left: YOUR SCORE with Centered, Bigger Semi-Circle Gauge */}
+            <div className="flex flex-col items-center justify-center text-center md:border-r md:border-slate-200 md:dark:border-slate-700/90 md:pr-8 py-2">
+              <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-1.5">
+                YOUR SCORE
+              </span>
+
+              {/* Enlarged Semi-Circle Progress Gauge */}
+              <div className="relative w-52 sm:w-56 h-28 sm:h-30 my-1 flex items-end justify-center">
+                <svg className="w-full h-full" viewBox="0 0 140 80">
+                  {/* Background Track Arc */}
+                  <path
+                    d="M 16 72 A 54 54 0 0 1 124 72"
+                    fill="none"
+                    stroke="currentColor"
+                    className="text-slate-100 dark:text-slate-800"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                  />
+                  {/* Dynamic Gradient Green/Teal Filled Arc */}
+                  <motion.path
+                    d="M 16 72 A 54 54 0 0 1 124 72"
+                    fill="none"
+                    stroke="url(#score-gauge-gradient)"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray="169.65"
+                    initial={{ strokeDashoffset: 169.65 }}
+                    animate={{
+                      strokeDashoffset: 169.65 - (169.65 * (Math.min(100, Math.max(0, score)) / 100)),
+                    }}
+                    transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                  <defs>
+                    <linearGradient id="score-gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#0d9488" />
+                      <stop offset="100%" stopColor="#10b981" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+
+                {/* Score Number in balanced size inside the semi-circle */}
+                <div className="absolute inset-x-0 bottom-1 flex flex-col items-center justify-center text-center">
+                  <span className="text-4xl sm:text-[44px] font-black text-slate-950 dark:text-white tracking-tight leading-none">
+                    {score}%
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs sm:text-[13px] font-medium text-slate-500 dark:text-slate-400 mt-2 max-w-[220px]">
+                Keep practicing to improve your score.
               </p>
             </div>
-          </div>
 
-          {/* Floating Statistics Card */}
-          <div className="relative z-20 -mt-6 w-[92%] sm:w-[85%] bg-white dark:bg-slate-900 rounded-[20px] shadow-[0_12px_30px_rgba(15,23,42,0.10)] dark:shadow-[0_12px_30px_rgba(0,0,0,0.30)] border border-slate-100 dark:border-slate-800 p-5 sm:p-6">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-0 sm:divide-x divide-slate-100 dark:divide-slate-800">
-              
-              {/* Score */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-emerald-600 dark:text-emerald-500 leading-none mb-1.5">{score}%</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Your Score</span>
-              </div>
+            {/* Right: 3 Performance Metrics with Clear Partitions */}
+            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-700/90 text-center">
               
               {/* Correct */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-emerald-500 dark:text-emerald-400 leading-none mb-1.5">{correct}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Correct</span>
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <FileText className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Correct
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none">
+                  {correct}
+                </span>
               </div>
-              
+
               {/* Attempted */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-slate-800 dark:text-slate-200 leading-none mb-1.5">{answeredCount}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Attempted</span>
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <ClipboardList className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Attempted
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none">
+                  {answeredCount}
+                </span>
               </div>
-              
+
               {/* Time Taken */}
-              <div className="flex flex-col items-center justify-center">
-                <span className="text-[28px] sm:text-[34px] font-bold text-slate-500 dark:text-slate-300 leading-none mb-1.5">{formatTime(elapsed)}</span>
-                <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400">Time Taken</span>
+              <div className="flex flex-col items-center justify-center px-2 sm:px-4">
+                <Clock className="w-6 h-6 text-slate-700 dark:text-slate-300" strokeWidth={1.8} />
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-2 mb-2">
+                  Time Taken
+                </span>
+                <span className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white leading-none tabular-nums">
+                  {formatTime(elapsed)}
+                </span>
               </div>
-              
+
             </div>
+
           </div>
 
-          {/* Action Buttons */}
-          <div className="w-[92%] sm:w-[85%] mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* 3. Action Buttons Section */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-3 border-t border-slate-200 dark:border-slate-700/90">
             <button
               onClick={handleDownloadReport}
               disabled={reportState === "generating"}
-              className="flex-1 w-full flex items-center justify-center gap-2 px-6 py-[11px] rounded-[10px] border border-emerald-600 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 bg-white dark:bg-slate-900 text-[13px] sm:text-[14px] font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all duration-200 disabled:opacity-70 disabled:cursor-wait"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-teal-600 dark:border-teal-500 text-teal-700 dark:text-teal-400 bg-white dark:bg-slate-900 text-sm font-bold hover:bg-teal-50/60 dark:hover:bg-teal-950/30 transition-all duration-150 disabled:opacity-70 disabled:cursor-wait shadow-xs cursor-pointer"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <Download className="w-4 h-4 text-teal-600 dark:text-teal-400" strokeWidth={2} />
               {reportState === "generating" ? "Saving report…" : "Download Report"}
             </button>
             
             <button
               onClick={() => router.push("/exam-prep")}
-              className="flex-1 w-full px-6 py-[11px] rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] sm:text-[14px] font-semibold shadow-[0_4px_14px_rgba(16,185,129,0.25)] hover:shadow-[0_6px_20px_rgba(16,185,129,0.3)] transition-all duration-200 hover:-translate-y-0.5"
+              className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-sm hover:shadow transition-all duration-150 cursor-pointer"
             >
-              Back to Exam Prep
+              <span>Back to Exam Prep</span>
+              <ArrowRight className="w-4 h-4" strokeWidth={2} />
             </button>
           </div>
 
-          {/* Supporting Information */}
-          <div className="mt-4 text-center px-4 h-[30px]">
-             {reportState === "error" && (
-                <p className="text-[12px] text-red-500 dark:text-red-400">
-                  Couldn't save the report. Tap the download button to try again.
-                </p>
-              )}
-              {reportState === "ready" && (
-                <p className="text-[12px] text-slate-500 dark:text-slate-400">
-                  Your detailed report has been generated and is ready for download.
-                </p>
-              )}
+          {/* 4. Report Information Strip */}
+          <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl px-4 py-3.5 border border-slate-200/80 dark:border-slate-800 flex items-center gap-3 text-slate-600 dark:text-slate-300 text-xs sm:text-sm font-medium">
+            <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 dark:text-slate-400 shrink-0" strokeWidth={1.8} />
+            <span>
+              {reportState === "error" 
+                ? "Couldn't save the report. Click download to try again." 
+                : "Your detailed report has been generated and is ready for download."}
+            </span>
           </div>
-          
+
         </motion.div>
       </div>
     );
@@ -597,154 +852,167 @@ export default function TestPage() {
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-4 lg:p-6 gap-4 overflow-hidden">
-      
-      {/* ── Left Sidebar (Question Palette) ────────────────────────── */}
-      <div className="w-[260px] lg:w-[280px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
-        
-        {/* Progress & Legend */}
-        <div className="flex-shrink-0 p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center">
-          <h3 className="text-[12px] font-bold text-slate-900 dark:text-slate-100 uppercase tracking-widest mb-6">Your Progress</h3>
-          
-          {/* Circular Progress */}
-          <div className="relative w-20 h-20 mb-6">
-            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-              <path
-                className="text-slate-100 dark:text-slate-800"
-                strokeWidth="2"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-              <path
-                className="text-emerald-500 transition-all duration-500 ease-out"
-                strokeDasharray={`${progressPercent}, 100`}
-                strokeWidth="2"
-                strokeLinecap="round"
-                stroke="currentColor"
-                fill="none"
-                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center mt-0.5">
-              <span className="text-[15px] font-bold text-slate-800 dark:text-slate-100 leading-none">{progressPercent}%</span>
-              <span className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 uppercase tracking-wider">Answered</span>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 bg-slate-50 dark:bg-slate-950 flex flex-row-reverse p-3 sm:p-4 lg:p-6 gap-4 overflow-hidden">
 
-          {/* Legend */}
-          <div className="w-full space-y-3">
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm" /> Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-red-400 shadow-sm" /> Not Answered
-            </div>
-            <div className="flex items-center gap-2.5 text-[13px] text-slate-600 dark:text-slate-300 font-medium">
-              <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 shadow-sm" /> Not Visited
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Palette Grid */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-5">
-          <div className="grid grid-cols-5 gap-2.5">
-            {questions.map((_, i) => (
-              <button key={i} onClick={() => goTo(i)} className={paletteClasses(getStatus(i), i === current)}>
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* ── Desktop Sidebar (Question Palette) — hidden on mobile ──── */}
+      <div className="hidden lg:flex w-[280px] flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0">
+        <QuestionPalette
+          progressPercent={progressPercent}
+          questions={questions}
+          current={current}
+          getStatus={getStatus}
+          onGoTo={goTo}
+        />
       </div>
 
+      {/* ── Mobile Palette Drawer (slides in from the right) ───────── */}
+      <AnimatePresence>
+        {paletteOpen && (
+          <motion.div
+            className="lg:hidden fixed inset-0 z-[65] flex justify-end"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setPaletteOpen(false)} />
+            <motion.div
+              className="relative w-[280px] max-w-[85vw] h-full flex flex-col bg-white dark:bg-slate-900 shadow-2xl"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex-shrink-0 flex items-center justify-between px-5 py-3 border-b border-slate-100 dark:border-slate-800">
+                <span className="text-[13px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest">Palette</span>
+                <button
+                  onClick={() => setPaletteOpen(false)}
+                  aria-label="Close palette"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <QuestionPalette
+                progressPercent={progressPercent}
+                questions={questions}
+                current={current}
+                getStatus={getStatus}
+                onGoTo={(i) => { goTo(i); setPaletteOpen(false); }}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Right Main Area (Question Card) ───────────────────────── */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 min-w-0 overflow-hidden">
         
         {/* Header & Progress Bar */}
-        <div className="flex-shrink-0 px-8 pt-5 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[20px] font-bold text-emerald-700 dark:text-emerald-400">
+        <div className="flex-shrink-0 px-5 sm:px-8 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight truncate">
               Question {current + 1} of {questions.length}
             </h2>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              {/* Mobile-only: open the question palette drawer */}
+              <button
+                onClick={() => setPaletteOpen(true)}
+                aria-label="Open question palette"
+                className="lg:hidden flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+                </svg>
+              </button>
+
               {config.timed && (
                 <div
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold tabular-nums transition-colors ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-semibold tabular-nums transition-colors shadow-2xs ${
                     timeLeft <= 60
-                      ? "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"
-                      : "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400"
+                      ? "border-rose-200 dark:border-rose-900/40 bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 font-bold"
+                      : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200"
                   }`}
                 >
-                  <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  <Clock size={14} strokeWidth={1.8} className={timeLeft <= 60 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"} />
                   {formatTime(timeLeft)}
                 </div>
               )}
+
               <button
                 onClick={() => setShowConfirm(true)}
-                className="px-5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[13px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                className="px-4 sm:px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold shadow-sm hover:shadow transition-all duration-150 cursor-pointer whitespace-nowrap"
               >
-                Submit Test
+                Submit<span className="hidden sm:inline"> Test</span>
               </button>
             </div>
           </div>
           
-          <div className="w-full h-[2px] bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-emerald-500 transition-all duration-300 ease-out" 
+              className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-300 ease-out" 
               style={{ width: `${((current + 1) / questions.length) * 100}%` }}
             />
           </div>
           
-          <div className="flex justify-end mt-3">
-             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-               {question.topic}
-             </span>
-          </div>
+          {question?.topic && (
+            <div className="flex justify-end mt-2.5">
+              <span className="px-2.5 py-0.5 rounded-md text-[10px] font-semibold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 uppercase tracking-wider">
+                {question.topic}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Scrollable Question Body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-8 pb-8">
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-8 py-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
-              initial={{ opacity: 0, x: 12 }}
+              initial={{ opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -12 }}
+              exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15 }}
             >
-              <p className="text-[17px] leading-[1.6] text-slate-800 dark:text-slate-100 mb-6 max-w-4xl font-medium">
-                {question.text}
-              </p>
+              {/* Question Text Box */}
+              <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 mb-6 max-w-4xl shadow-2xs">
+                <p className="text-[15.5px] sm:text-[17px] leading-[1.65] text-slate-950 dark:text-slate-50 font-medium">
+                  {question.text}
+                  {/* Report Issue — inline at end of question text */}
+                  <button
+                    onClick={openFeedback}
+                    title="Report an issue with this question — timer will be paused"
+                    className="group relative inline-flex items-center justify-center w-3.5 h-3.5 ml-1.5 align-middle cursor-pointer"
+                  >
+                    <AlertTriangle className="w-3 h-3 text-rose-500 transition-transform duration-150 group-hover:scale-125" strokeWidth={2.4} fill="rgba(244,63,94,0.15)" />
+                    <span className="pointer-events-none absolute -bottom-7 right-0 whitespace-nowrap rounded-md bg-slate-900 dark:bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-10">
+                      Report issue — we&apos;ll pause the timer
+                    </span>
+                  </button>
+                </p>
+              </div>
 
               {question.image && (
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
                   title="Click to enlarge and zoom"
-                  className="group relative mb-6 block w-fit rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                  className="group relative mb-6 block w-fit rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={question.image}
                     alt="Question illustration"
-                    className="max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
+                    className="max-h-48 sm:max-h-72 object-contain transition-transform duration-200 group-hover:scale-[1.01]"
                   />
-                  <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                      <circle cx="11" cy="11" r="7" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <line x1="11" y1="8" x2="11" y2="14" />
-                      <line x1="8" y1="11" x2="14" y2="11" />
-                    </svg>
+                  <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     Click to zoom
                   </span>
                 </button>
               )}
 
+              {/* Options List */}
               <div className="space-y-3 max-w-4xl">
                 {question.options.map((option, i) => {
                   const isSelected = selectedOption === i;
@@ -752,22 +1020,28 @@ export default function TestPage() {
                     <button
                       key={i}
                       onClick={() => selectOption(i)}
-                      className={`w-full flex items-center gap-3.5 p-4 rounded-xl border text-left transition-all duration-200 ${
+                      className={`group relative w-full flex items-center gap-3.5 p-3.5 sm:p-4 rounded-xl text-left transition-all duration-200 ease-out cursor-pointer ${
                         isSelected
-                          ? "border-emerald-500 bg-emerald-50/60 dark:bg-emerald-900/20 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                          : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] hover:bg-emerald-50/20 dark:hover:bg-emerald-900/10"
+                          ? "border-2 border-teal-600 dark:border-teal-500 bg-teal-50/80 dark:bg-teal-950/40 shadow-sm"
+                          : "border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-teal-400 dark:hover:border-teal-500/70 hover:bg-teal-50/30 dark:hover:bg-teal-950/20 hover:-translate-y-0.5 hover:shadow-xs"
                       }`}
                     >
                       <span
-                        className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center text-[13px] font-bold transition-colors ${
+                        className={`flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center text-xs font-bold transition-all duration-200 ${
                           isSelected
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "border-slate-300 dark:border-slate-600 text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/20"
+                            ? "bg-teal-600 border-teal-600 text-white shadow-xs scale-105"
+                            : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
                         }`}
                       >
                         {String.fromCharCode(65 + i)}
                       </span>
-                      <span className={`text-[16px] leading-relaxed ${isSelected ? "text-emerald-900 dark:text-emerald-100 font-medium" : "text-slate-700 dark:text-slate-300"}`}>
+                      <span
+                        className={`text-sm sm:text-[15.5px] leading-relaxed transition-colors duration-150 ${
+                          isSelected
+                            ? "text-slate-950 dark:text-slate-50 font-semibold"
+                            : "text-slate-900 dark:text-slate-100 font-medium group-hover:text-slate-950 dark:group-hover:text-white"
+                        }`}
+                      >
                         {option}
                       </span>
                     </button>
@@ -779,41 +1053,42 @@ export default function TestPage() {
         </div>
 
         {/* Bottom Navigation */}
-        <div className="flex-shrink-0 px-8 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900">
+        <div className="flex-shrink-0 px-5 sm:px-8 py-3.5 sm:py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/60 dark:bg-slate-900/60">
           <button
             onClick={clearResponse}
             disabled={selectedOption === undefined}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors duration-150 ${
               selectedOption === undefined
                 ? "text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                : "text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10"
+                : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer"
             }`}
           >
-            <svg className="w-[16px] h-[16px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Clear Response
+            <span className="hidden sm:inline">Clear Response</span>
+            <span className="sm:hidden">Clear</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <button
               onClick={() => goTo(current - 1)}
               disabled={current === 0}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg border text-[14px] font-semibold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-4 sm:px-5 py-2 rounded-xl border text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
                 current === 0
-                  ? "border-slate-200 dark:border-slate-700 text-slate-300 dark:text-slate-600 cursor-not-allowed"
-                  : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 shadow-sm"
+                  ? "border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-600 cursor-not-allowed"
+                  : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/60 shadow-xs cursor-pointer"
               }`}
             >
-              &larr; Previous
+              &larr;<span className="hidden sm:inline"> Previous</span>
             </button>
             <button
               onClick={() => goTo(current + 1)}
               disabled={current === questions.length - 1}
-              className={`flex items-center gap-2 px-6 py-2 rounded-lg text-[14px] font-bold transition-all duration-200 ${
+              className={`flex items-center gap-2 px-5 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all duration-150 ${
                 current === questions.length - 1
-                  ? "bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 hover:-translate-y-0.5"
+                  ? "bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                  : "bg-teal-600 hover:bg-teal-500 text-white shadow-sm hover:shadow cursor-pointer"
               }`}
             >
               Next &rarr;
@@ -821,6 +1096,123 @@ export default function TestPage() {
           </div>
         </div>
       </div>
+
+      {/* ── Question Feedback / Report Issue Modal ─────────────────── */}
+      <AnimatePresence>
+        {feedbackOpen && (() => {
+          const fq = questions[feedbackQuestionIdx];
+          if (!fq) return null;
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[62] flex items-center justify-center p-4"
+            >
+              {/* Blurred backdrop */}
+              <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={closeFeedback} />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="relative w-full max-w-[520px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-50/80 dark:bg-rose-950/40 border border-rose-100/60 dark:border-rose-900/30 flex items-center justify-center text-rose-500 dark:text-rose-400 shrink-0">
+                      <AlertTriangle className="w-5.5 h-5.5" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                        Report an Issue
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {config?.timed ? "Timer paused while you write your feedback." : "Share your feedback about this question."}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={closeFeedback}
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+                {/* Question Details */}
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Question ID</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-mono text-xs break-all">{fq.id.slice(0, 8)}…</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subject</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subject}</span>
+                  </div>
+                  {fq.subtopic && (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subtopic</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subtopic}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Question Preview */}
+                <div className="mt-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/50">
+                  <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-4">
+                    {fq.text}
+                  </p>
+                </div>
+
+                <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+                {/* Feedback Text Area */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Your Feedback
+                  </label>
+                  <textarea
+                    value={feedbackText}
+                    onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
+                    placeholder="Describe the issue — wrong answer, unclear wording, incorrect options, etc."
+                    rows={4}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 resize-none transition-colors"
+                  />
+                  <div className="flex justify-end mt-1.5">
+                    <span className={`text-[11px] font-semibold tabular-nums ${feedbackText.length >= 480 ? "text-rose-500" : "text-slate-400 dark:text-slate-500"}`}>
+                      {feedbackText.length}/500
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 mt-2">
+                  <button
+                    onClick={closeFeedback}
+                    className="flex-1 py-3 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold text-sm bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitFeedback}
+                    disabled={!feedbackText.trim() || feedbackSubmitting}
+                    className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-md shadow-rose-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
 
       {/* ── Submit confirmation modal ─────────────────────────────── */}
       <AnimatePresence>
@@ -832,83 +1224,150 @@ export default function TestPage() {
             transition={{ duration: 0.15 }}
             className="fixed inset-0 z-[60] flex items-center justify-center p-4"
           >
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowConfirm(false)} />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setShowConfirm(false)} />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
               transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className="relative w-auto max-w-[90vw] bg-white dark:bg-slate-900 rounded-[16px] shadow-[0_12px_30px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col"
+              className="relative w-full max-w-[480px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col"
             >
-              <div className="flex flex-col sm:flex-row">
-                {/* Left Section */}
-                <div className="w-full sm:w-[260px] p-6 bg-slate-50/80 dark:bg-slate-800/40 sm:border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-800 flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mb-4">
-                    <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
-                    </svg>
+              {/* Header Row: Hourglass Badge + Title/Subtitle + Close Button */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  {/* Green Tinted Hourglass Icon Box */}
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100/60 dark:border-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                    <motion.div
+                      animate={{ rotate: [0, 180, 180, 360, 360] }}
+                      transition={{
+                        duration: 4,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                        times: [0, 0.4, 0.5, 0.9, 1],
+                      }}
+                      className="flex items-center justify-center"
+                    >
+                      <Hourglass className="w-6 h-6" strokeWidth={1.8} />
+                    </motion.div>
                   </div>
-                  <h2 className="text-[22px] font-bold text-slate-900 dark:text-slate-100 mb-2 tracking-tight">Are you sure?</h2>
-                  <div className="space-y-4 text-[14px] leading-[1.6] text-slate-600 dark:text-slate-400">
-                    {config.timed && (
-                      <p>
-                        You still have <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatTime(timeLeft)}</span> remaining to complete the test.
-                      </p>
-                    )}
-                    <p>This action cannot be undone.</p>
+
+                  {/* Title & Subtitle */}
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+                      Submit your test?
+                    </h2>
+                    <p className="text-xs sm:text-[13px] text-slate-500 dark:text-slate-400 mt-1 leading-normal">
+                      Review your answers before submitting.<br />
+                      Your test cannot be reopened after submission.
+                    </p>
                   </div>
                 </div>
 
-                {/* Right Section */}
-                <div className="flex-shrink-0 px-6 py-6 sm:pr-8 flex flex-col justify-center">
-                  <div className="space-y-[14px]">
-                    {/* Answered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{answeredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Answered</span>
-                    </div>
+                {/* Close Button */}
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
+                  title="Close modal"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-                    {/* Unanswered */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-red-500 leading-none w-10">{notAnsweredCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Unanswered</span>
-                    </div>
+              {/* Divider 1 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
 
-                    {/* Not Visited */}
-                    <div className="flex items-center gap-4">
-                      <div className="w-[34px] h-[34px] rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-                        <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
-                        </svg>
-                      </div>
-                      <span className="text-[24px] font-bold text-slate-800 dark:text-slate-100 leading-none w-10">{notVisitedCount}</span>
-                      <span className="text-[14px] font-medium text-slate-600 dark:text-slate-400">Not Visited</span>
-                    </div>
-                  </div>
+              {/* Time Summary Section */}
+              <div className="flex items-center justify-between py-1">
+                {/* Time Elapsed */}
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" /> TIME ELAPSED
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                    {formatTime(elapsed)}
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Time Remaining */}
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-1">
+                    <Clock className={`w-3.5 h-3.5 ${
+                      !config?.timed ? "text-slate-400" : timeLeft <= 300 ? "text-rose-500" : timeLeft <= 600 ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                    }`} /> TIME REMAINING
+                  </span>
+                  <span className={`text-2xl sm:text-3xl font-bold tabular-nums ${
+                    !config?.timed
+                      ? "text-slate-900 dark:text-slate-100"
+                      : timeLeft <= 300
+                        ? "text-rose-600 dark:text-rose-400"
+                        : timeLeft <= 600
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                  }`}>
+                    {config?.timed ? formatTime(timeLeft) : "Untimed"}
+                  </span>
                 </div>
               </div>
 
-              {/* Bottom Buttons */}
-              <div className="px-6 py-5 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-4">
+              {/* Divider 2 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Exam Status Summary (Answered, Unanswered, Not Visited) */}
+              <div className="flex items-center justify-between py-1">
+                {/* Answered */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400 leading-none mb-1">
+                    {answeredCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    ANSWERED
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Unanswered */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-rose-500 dark:text-rose-400 leading-none mb-1">
+                    {notAnsweredCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    UNANSWERED
+                  </span>
+                </div>
+
+                {/* Vertical Divider */}
+                <div className="w-px h-10 bg-slate-200/80 dark:bg-slate-800" />
+
+                {/* Not Visited */}
+                <div className="flex-1 flex flex-col items-center text-center">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-slate-200 leading-none mb-1">
+                    {notVisitedCount}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+                    NOT VISITED
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider 3 */}
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
                 <button
                   onClick={() => setShowConfirm(false)}
-                  className="flex-1 py-[12px] rounded-[10px] border border-slate-200 dark:border-slate-700 text-[15px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors duration-200"
+                  className="flex-1 py-3 px-4 rounded-xl border border-emerald-600/70 dark:border-emerald-500/60 text-emerald-700 dark:text-emerald-400 font-bold text-sm bg-transparent hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
                 >
                   Keep Working
                 </button>
                 <button
                   onClick={handleSubmit}
-                  className="flex-1 py-[12px] rounded-[10px] bg-emerald-600 hover:bg-emerald-500 text-white text-[15px] font-bold shadow-sm shadow-emerald-600/20 transition-all duration-200 hover:-translate-y-0.5"
+                  className="flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md shadow-emerald-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center"
                 >
                   Yes, Submit
                 </button>

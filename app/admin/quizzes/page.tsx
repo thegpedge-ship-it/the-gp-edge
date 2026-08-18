@@ -4,10 +4,12 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 import { Layers } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
+import CustomSelect from "@/components/admin/CustomSelect";
 import {
   themeBadge,
   themeBadgePill,
@@ -26,7 +28,7 @@ import {
 } from "@/lib/adminTheme";
 import { Quiz, Question, fetchQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
-import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizzesFromDbAction, toggleQuizFreeStatus } from "@/actions/quiz.actions";
+import { fetchQuizzesFromDbAction, syncQuizToDbAction, deleteQuizFromDbAction, toggleQuizFreeStatus, restoreQuizInDbAction } from "@/actions/quiz.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -46,12 +48,12 @@ type LiveSession = {
   isStuck: boolean;
 };
 
-
-
 export default function QuizzesPage() {
-  const { currentAdmin, isReadOnly } = useAdminRole();
+  const { currentAdmin, isReadOnly, canRestoreItem, canArchiveItem } = useAdminRole();
   const router = useRouter();
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
@@ -68,8 +70,16 @@ export default function QuizzesPage() {
   const [previewQuiz, setPreviewQuiz] = useState<Quiz | null>(null);
   const [allQuestions, setAllQuestions] = useState<Question[]>([]);
 
+  const filtered = useMemo(() => {
+    return quizzes.filter((q) => {
+      const matchSearch = !searchQuery || q.name.toLowerCase().includes(searchQuery.toLowerCase()) || q.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchStatus = statusFilter === "all" ? (q.status !== "archived") : (q.status === statusFilter);
+      return matchSearch && matchStatus;
+    });
+  }, [quizzes, searchQuery, statusFilter]);
+
   const sortedQuizzes = useMemo(() => {
-    return [...quizzes].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       if (timeA !== timeB) {
@@ -77,7 +87,7 @@ export default function QuizzesPage() {
       }
       return b.id - a.id;
     });
-  }, [quizzes]);
+  }, [filtered]);
 
   const displayedQuizzes = useMemo(() => {
     return sortedQuizzes.slice(0, visibleCount);
@@ -88,7 +98,7 @@ export default function QuizzesPage() {
     try { localStorage.removeItem("gpedge_admin_quizzes"); } catch {}
 
     // Load quizzes from Neon DB
-    fetchQuizzesFromDbAction().then((dbQuizzes) => {
+    fetchQuizzesFromDbAction(canRestoreItem).then((dbQuizzes) => {
       setQuizzes(dbQuizzes as any);
     });
 
@@ -96,7 +106,7 @@ export default function QuizzesPage() {
     fetchQuestions().then((listQs) => {
       setAllQuestions(listQs);
     });
-  }, [currentAdmin]);
+  }, [currentAdmin, canRestoreItem]);
 
   // Lock body scroll when modal or preview is open to prevent background scrolling lag
   useEffect(() => {
@@ -148,11 +158,24 @@ export default function QuizzesPage() {
   };
 
   const confirmDeleteQuiz = async () => {
-    if (!quizToDelete) return;
-    await deleteQuizFromDbAction(quizToDelete.name);
-    const refreshed = await fetchQuizzesFromDbAction();
+    if (!quizToDelete || !canArchiveItem) return;
+    await deleteQuizFromDbAction(quizToDelete.name, currentAdmin);
+    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
     setQuizzes(refreshed as any);
     setQuizToDelete(null);
+    addUserNotification("Quiz Archived", `"${quizToDelete.name}" has been archived.`, 1, "custom");
+  };
+
+  const handleRestoreQuiz = async (quiz: Quiz) => {
+    if (!canRestoreItem) return;
+    const res = await restoreQuizInDbAction(quiz.name, currentAdmin);
+    if (!res.success) {
+      alert(res.error || "Failed to restore quiz.");
+      return;
+    }
+    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+    setQuizzes(refreshed as any);
+    addUserNotification("Quiz Restored", `Successfully restored "${quiz.name}".`, 1, "custom");
   };
 
   const handleToggleQuizFree = async (quiz: Quiz, newIsFree: boolean) => {
@@ -254,7 +277,31 @@ export default function QuizzesPage() {
         </motion.div>
       )}
 
-
+      {/* Filters */}
+      <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Lucide.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search quizzes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700/60 dark:text-slate-100 transition-all"
+          />
+        </div>
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Statuses" },
+            { value: "active", label: "Active" },
+            { value: "draft", label: "Draft" },
+            { value: "suspended", label: "Suspended" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="w-48"
+        />
+      </motion.div>
 
       {viewMode === "grid" && (
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -351,17 +398,31 @@ export default function QuizzesPage() {
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </Link>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          requestDeleteQuiz(quiz);
-                        }}
-                        disabled={isReadOnly}
-                        className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
-                        title={isReadOnly ? "Viewers cannot delete quizzes" : "Delete Quiz"}
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
+                      {quiz.status === "archived" && canRestoreItem ? (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRestoreQuiz(quiz); }}
+                          className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all cursor-pointer border-none bg-transparent"
+                          title="Restore Quiz (SA Only)"
+                        >
+                          <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                        </button>
+                      ) : (
+                        canArchiveItem && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              requestDeleteQuiz(quiz);
+                            }}
+                            disabled={isReadOnly}
+                            className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50/50 dark:hover:bg-red-950/20 transition-all ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                            title={isReadOnly ? "Viewers cannot archive quizzes" : "Archive Quiz"}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        )
+                      )}
                     </div>
                   </div>
                 </div>

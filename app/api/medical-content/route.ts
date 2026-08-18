@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
 
 // Increase body size limit to handle large HTML payloads with embedded images
 export const maxDuration = 60;
@@ -10,9 +11,10 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const search = req.nextUrl.searchParams.get("search")?.trim() || "";
+    const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
 
     let sql = `SELECT
-         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.is_free, mc.updated_at,
+         mc.id, mc.name, mc.category, mc.kind, mc.status, mc.author, mc.is_free, mc.updated_at, mc.deleted_at,
          s.name AS subject_name,
          (
            SELECT ARRAY_AGG(t.label)
@@ -28,7 +30,7 @@ export async function GET(req: NextRequest) {
        LEFT JOIN subjects s ON s.id = mc.subject_id
        LEFT JOIN condition_documents cd ON cd.condition_id = mc.id
        LEFT JOIN files f ON f.id = cd.file_id
-       WHERE mc.deleted_at IS NULL AND mc.kind != 'Approach'`;
+       WHERE ${includeArchived ? "1=1" : "mc.deleted_at IS NULL"} AND mc.kind != 'Approach'`;
 
     const params: any[] = [];
     if (search) {
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
       system: c.subject_name ?? "General",
       category: c.category ?? "Clinical Reference",
       type: c.kind,
-      status: c.status,
+      status: c.deleted_at !== null && c.deleted_at !== undefined ? "archived" : (c.status === "archived" ? "published" : c.status || "published"),
       author: c.author ?? "GP Edge Admin",
       isFree: c.is_free ?? false,
       lastUpdated: new Date(c.updated_at).toISOString().split("T")[0],
@@ -73,8 +75,28 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize } = body;
+    const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
     const isFreeVal = Boolean(isFree ?? is_free ?? false);
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: author || "GP Edge Admin",
+      role: "Admin",
+    };
+
+    // Server-side relational permission check
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability: status === "published" || status === "review" ? "review" : "create",
+      item: { type: "medical_condition", author },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
 
     const slug =
       name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +
@@ -105,14 +127,24 @@ export async function POST(req: NextRequest) {
     );
     const conditionId = condition!.id;
 
-    // Store full_html first — always insert it so the viewer always has content to show.
-    // We insert even when the string is empty so that a later PATCH can update it in-place.
+    // Record Audit Log
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: "create",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: conditionId,
+      metadata: { name, author: author || userContext.name },
+    });
+
+    // Store full_html first
     const fullHtmlValue = sanitizeHtml((fullHtml ?? "").trim());
     await execute(
       `INSERT INTO condition_items (condition_id, item_kind, content, position)
        VALUES ($1, 'full_html', $2, 0)`,
       [conditionId, fullHtmlValue]
     );
+
 
     // Store individual section items (skip genuinely empty ones)
     const sectionMap: Record<string, { kind: string; value: string }> = {

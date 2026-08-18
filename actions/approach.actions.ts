@@ -3,6 +3,8 @@
 import { query, queryOne, execute } from "@/lib/db";
 import { ApproachCard } from "@/lib/quizData";
 
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 function toUUID(str: string): string {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (uuidRegex.test(str)) return str.toLowerCase();
@@ -23,7 +25,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
     subtitle: extra.subtitle || "",
     system: extra.system || "Cardiology",
     category: row.category || "",
-    status: row.status === "published" ? "published" : row.status === "review" ? "review" : "draft",
+    status: (row.deleted_at !== null && row.deleted_at !== undefined) ? "archived" : (row.status === "archived" ? "published" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft"),
     lastUpdated: row.updated_at
       ? new Date(row.updated_at).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
       : new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
@@ -40,14 +42,17 @@ function mapRowToApproachCard(row: any): ApproachCard {
   };
 }
 
-export async function getApproachCardsFromDbAction(): Promise<ApproachCard[]> {
+export async function getApproachCardsFromDbAction(includeArchived: boolean = false): Promise<ApproachCard[]> {
   try {
+    const whereClause = includeArchived
+      ? `WHERE mc.kind = 'Approach'`
+      : `WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL`;
     const rows = await query(
       `SELECT mc.*, ci.content AS full_html
          FROM medical_conditions mc
          LEFT JOIN condition_items ci
            ON ci.condition_id = mc.id AND ci.item_kind = 'full_html'
-        WHERE mc.kind = 'Approach' AND mc.deleted_at IS NULL
+        ${whereClause}
         ORDER BY mc.is_free DESC, mc.updated_at DESC`
     );
     return rows.map(mapRowToApproachCard);
@@ -57,9 +62,26 @@ export async function getApproachCardsFromDbAction(): Promise<ApproachCard[]> {
   }
 }
 
-export async function saveApproachCardToDbAction(card: ApproachCard): Promise<boolean> {
+export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?: PermissionUser): Promise<{ success: boolean; error?: string }> {
   try {
     const dbId = toUUID(card.id);
+    const existing = await queryOne<{ id: string; author: string }>(
+      `SELECT id, author FROM medical_conditions WHERE id = $1 AND kind = 'Approach'`,
+      [dbId]
+    );
+
+    if (adminUser) {
+      const capability = card.status === "published" || card.status === "review" ? "review" : existing ? "edit" : "create";
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability,
+        item: { id: dbId, type: "approach", author: card.author },
+      });
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+    }
+
     const slug = `approach-${card.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}-${dbId.substring(0, 8)}`;
     const extraJson = JSON.stringify({
       subtitle: card.subtitle,
@@ -87,20 +109,19 @@ export async function saveApproachCardToDbAction(card: ApproachCard): Promise<bo
          clinical_notes = EXCLUDED.clinical_notes,
          author = EXCLUDED.author,
          updated_at = NOW()`,
-      [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, card.isFree ?? false, extraJson, card.author || "GP Edge Admin"]
+      [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, card.isFree ?? false, extraJson, card.author || adminUser?.name || "GP Edge Admin"]
     );
 
-    // Store fullHtml in condition_items so the approach viewer renders callouts
-    // using the same pipeline as medical content.
+    // Store fullHtml in condition_items
     if (card.fullHtml) {
-      const existing = await queryOne<{ id: string }>(
+      const existingItem = await queryOne<{ id: string }>(
         `SELECT id FROM condition_items WHERE condition_id = $1 AND item_kind = 'full_html' LIMIT 1`,
         [dbId]
       );
-      if (existing) {
+      if (existingItem) {
         await execute(
           `UPDATE condition_items SET content = $1 WHERE id = $2`,
-          [card.fullHtml, existing.id]
+          [card.fullHtml, existingItem.id]
         );
       } else {
         await execute(
@@ -112,26 +133,98 @@ export async function saveApproachCardToDbAction(card: ApproachCard): Promise<bo
       }
     }
 
-    return true;
-  } catch (error) {
+    await recordAuditLog({
+      adminUserId: adminUser?.id,
+      action: existing ? "update" : "create",
+      category: "approach",
+      entityType: "approach",
+      entityId: dbId,
+      metadata: { title: card.title, author: card.author || adminUser?.name || adminUser?.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
     console.error("Error saving approach card to DB:", error);
-    return false;
+    return { success: false, error: error.message };
   }
 }
 
-export async function deleteApproachCardFromDbAction(id: string): Promise<boolean> {
+export async function deleteApproachCardFromDbAction(id: string, adminUser?: PermissionUser): Promise<{ success: boolean; error?: string }> {
   try {
     const dbId = toUUID(id);
+
+    if (adminUser) {
+      const permCheck = await evaluateRelationalPermission({
+        user: adminUser,
+        capability: "archive_item",
+        item: { id: dbId, type: "approach" },
+      });
+      if (!permCheck.allowed) {
+        return { success: false, error: permCheck.reason };
+      }
+    }
+
     await execute(
       `UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`,
       [dbId]
     );
-    return true;
-  } catch (error) {
-    console.error("Error deleting approach card from DB:", error);
-    return false;
+
+    await recordAuditLog({
+      adminUserId: adminUser?.id,
+      action: "archive",
+      category: "approach",
+      entityType: "approach",
+      entityId: dbId,
+      metadata: { archivedBy: adminUser?.name || adminUser?.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error archiving approach card from DB:", error);
+    return { success: false, error: error.message };
   }
 }
+
+/**
+ * Restores an archived approach card.
+ * SA-ONLY (Super Admin)!
+ */
+export async function restoreApproachCardFromDbAction(id: string, adminUser: PermissionUser): Promise<{ success: boolean; error?: string }> {
+  try {
+    const dbId = toUUID(id);
+
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id: dbId, type: "approach" },
+    });
+
+    if (!permCheck.allowed) {
+      return { success: false, error: permCheck.reason };
+    }
+
+    await execute(
+      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [dbId]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "approach",
+      entityType: "approach",
+      entityId: dbId,
+      metadata: { restoredBy: adminUser.name || adminUser.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error restoring approach card from DB:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+
 
 export async function syncApproachCardsToDbAction(cards: ApproachCard[]): Promise<boolean> {
   try {

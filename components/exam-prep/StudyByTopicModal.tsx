@@ -50,13 +50,13 @@ export default function StudyByTopicModal({
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
             {/* Header */}
-            <div className="relative flex items-center justify-between px-7 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
+            <div className="relative flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
               <div>
-                <h3 className="font-serif text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                <h3 className="font-serif text-xl sm:text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                   Study by Topic
                 </h3>
-                <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
+                <p className="text-[12px] sm:text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Browse subjects and subtopics, then pick a focused quiz.
                 </p>
               </div>

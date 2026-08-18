@@ -8,7 +8,7 @@ import type { UiMockTest } from "@/app/exam-prep/actions";
 import { cachedMockTestQuestionIds } from "@/lib/examCache";
 import { buildInstructionsUrl, saveTestPlan } from "@/lib/testSession";
 import ViewReportButton from "@/components/report/ViewReportButton";
-import { FullScreenLoader } from "@/components/ui/BrandedLoader";
+import ExamLoadingScreen from "@/components/exam-prep/ExamLoadingScreen";
 import { useUserAccess } from "@/hooks/useUserAccess";
 import UpgradeModal from "@/components/UpgradeModal";
 
@@ -32,30 +32,28 @@ function TestCard({
   const statusLabel = isTierLocked
     ? "Registrar Only"
     : test.availability === "locked"
-    ? "Locked"
-    : test.completed
-    ? "Completed"
-    : "Available";
+      ? "Locked"
+      : test.completed
+        ? "Completed"
+        : "Available";
   const action = test.completed ? "Retake" : "Start";
 
   return (
     <div
-      className={`group relative flex flex-col rounded-2xl border p-5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-        isLocked
+      className={`group relative flex flex-col rounded-2xl border p-4 sm:p-5 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isLocked
           ? "border-slate-200 dark:border-slate-700/40 bg-slate-50/60 dark:bg-slate-800/20"
           : "border-slate-200/80 dark:border-slate-700/50 bg-white dark:bg-slate-800/40 hover:-translate-y-0.5 hover:border-emerald-300 dark:hover:border-emerald-600/60 hover:shadow-xl hover:shadow-emerald-500/10"
-      }`}
+        }`}
     >
       {/* Top — icon + name + status pill */}
       <div className="flex items-start gap-3">
         <div
-          className={`flex-shrink-0 flex items-center justify-center w-11 h-11 rounded-xl ${
-            isLocked
+          className={`flex-shrink-0 flex items-center justify-center w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${isLocked
               ? "bg-slate-100 text-slate-400 dark:bg-slate-700/40 dark:text-slate-500"
               : "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/25 dark:text-emerald-400"
-          }`}
+            }`}
         >
-          {isLocked ? <Lock size={18} strokeWidth={2.2} /> : <FileText size={18} strokeWidth={2.2} />}
+          {isLocked ? <Lock size={16} strokeWidth={2.2} className="sm:w-[18px] sm:h-[18px]" /> : <FileText size={16} strokeWidth={2.2} className="sm:w-[18px] sm:h-[18px]" />}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -71,23 +69,22 @@ function TestCard({
 
         <div className="flex flex-col items-end gap-1 shrink-0">
           {isFree ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 dark:bg-emerald-955/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50">
               <Unlock className="w-2.5 h-2.5" /> FREE
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-955/30 text-amber-600 dark:text-amber-400 border border-amber-200/50">
               <Lock className="w-2.5 h-2.5" /> Registrar
             </span>
           )}
 
           <span
-            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-              isLocked
+            className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-semibold ${isLocked
                 ? "bg-slate-100 text-slate-500 dark:bg-slate-700/40 dark:text-slate-400"
                 : test.completed
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : "bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300"
-            }`}
+                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  : "bg-teal-50 text-teal-700 dark:bg-teal-900/25 dark:text-teal-300"
+              }`}
           >
             {test.completed && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
             {statusLabel}
@@ -96,7 +93,7 @@ function TestCard({
       </div>
 
       {/* Meta — kept intentionally minimal */}
-      <div className="flex items-center gap-4 mt-4 text-[12px] font-medium text-slate-500 dark:text-slate-400">
+      <div className="flex items-center gap-4 mt-3 sm:mt-4 text-[12px] font-medium text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-1.5">
           <FileText size={13} className="text-slate-400 dark:text-slate-500" />
           {test.questionCount} Qs
@@ -108,7 +105,7 @@ function TestCard({
       </div>
 
       {/* Footer — best score + action */}
-      <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100 dark:border-slate-700/40">
+      <div className="flex items-center justify-between mt-3 pt-3 sm:mt-5 sm:pt-4 border-t border-slate-100 dark:border-slate-700/40">
         {test.completed && test.bestScore != null ? (
           <span className="flex items-center gap-1.5 text-[12px] font-bold text-emerald-600 dark:text-emerald-400">
             <Trophy size={13} strokeWidth={2.2} />
@@ -151,10 +148,12 @@ export default function MockTestsModal({
   open,
   onClose,
   tests,
+  loading = false,
 }: {
   open: boolean;
   onClose: () => void;
   tests: UiMockTest[];
+  loading?: boolean;
 }) {
   const router = useRouter();
   const { isRegistrarActive } = useUserAccess();
@@ -208,7 +207,7 @@ export default function MockTestsModal({
 
   return (
     <>
-      {startingId && <FullScreenLoader message="Preparing your test" />}
+      {startingId && <ExamLoadingScreen title="Preparing your test" />}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -233,11 +232,11 @@ export default function MockTestsModal({
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             >
               {/* Header */}
-              <div className="relative flex items-center justify-between px-7 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
+              <div className="relative flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
                 <div className="flex items-center gap-3">
-                  <h3 className="font-serif text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                  <h3 className="font-serif text-xl sm:text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                     Mock Tests
                   </h3>
                   {tests.length > 0 && (
@@ -257,18 +256,23 @@ export default function MockTestsModal({
               </div>
 
               {/* Subheading strip */}
-              <div className="px-7 pt-4 flex-shrink-0">
-                <p className="text-[13px] text-slate-500 dark:text-slate-400">
+              <div className="px-5 pt-3 sm:px-7 sm:pt-4 flex-shrink-0">
+                <p className="text-[12px] sm:text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
                   Full AKT simulations under real exam conditions. Free sample tests are available to all users.
                 </p>
               </div>
 
               {/* Cards grid */}
               <div
-                className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-7 py-5"
+                className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-4 py-4 sm:px-7 sm:py-5"
                 style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
               >
-                {tests.length === 0 ? (
+                {tests.length === 0 && loading ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                    <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500/25 border-t-emerald-500 animate-spin" />
+                    <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Loading mock tests…</p>
+                  </div>
+                ) : tests.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center gap-3">
                     <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
                       <FileText size={24} strokeWidth={2} />
@@ -279,7 +283,7 @@ export default function MockTestsModal({
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-[1100px] mx-auto">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 max-w-[1100px] mx-auto">
                     {orderedTests.map((test) => (
                       <TestCard
                         key={test.id}

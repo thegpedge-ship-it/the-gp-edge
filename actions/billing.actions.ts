@@ -49,12 +49,21 @@ export interface RevenueChartItem {
   revenue: number;
 }
 
+export interface CancellationFeedbackItem {
+  id: string;
+  user: string;
+  reason: string;
+  feedback?: string;
+  date: string;
+}
+
 export interface BillingPageData {
   stats: BillingStats;
   subscriptions: SubscriptionItem[];
   failedPayments: FailedPaymentItem[];
   monthlyRevenue: RevenueChartItem[];
   refunds: RefundRequestItem[];
+  cancellationFeedback: CancellationFeedbackItem[];
 }
 
 /**
@@ -283,12 +292,35 @@ export async function getAdminBillingDataAction(): Promise<BillingPageData> {
       monthlySubCount,
     };
 
+    // 7. Fetch Cancellation Feedback
+    const feedbackRows = await query<any>(`
+      SELECT cf.id, cf.reason, cf.feedback, cf.created_at,
+             u.email, u.first_name, u.last_name
+        FROM cancellation_feedback cf
+        JOIN users u ON cf.user_id = u.id
+       ORDER BY cf.created_at DESC
+    `);
+
+    const cancellationFeedback: CancellationFeedbackItem[] = feedbackRows.map(row => {
+      const userName = row.first_name || row.last_name
+        ? `${row.first_name || ""} ${row.last_name || ""}`.trim()
+        : row.email;
+      return {
+        id: row.id,
+        user: userName,
+        reason: row.reason,
+        feedback: row.feedback,
+        date: new Date(row.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+      };
+    });
+
     return {
       stats,
       subscriptions,
       failedPayments,
       monthlyRevenue,
       refunds,
+      cancellationFeedback,
     };
   } catch (err) {
     console.error("Error executing getAdminBillingDataAction:", err);

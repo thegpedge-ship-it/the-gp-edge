@@ -63,18 +63,9 @@ export default function DashboardPage() {
         className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800/80 pb-6"
       >
         <div className="flex-1 min-w-0">
-          <p className="inline-flex items-center gap-2 text-[11px] text-teal-800 dark:text-teal-400 font-bold mb-1 uppercase tracking-widest">
+          <h1 className="font-serif text-3xl lg:text-4xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight uppercase">
             Executive Admin Console
-          </p>
-          <h1 className="font-serif text-3xl lg:text-4xl tracking-tight text-slate-900 dark:text-slate-50 leading-tight">
-            Platform{" "}
-            <span className="bg-gradient-to-r from-teal-700 to-teal-500 bg-clip-text text-transparent">
-              Intelligence
-            </span>
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed max-w-2xl">
-            Real-time operations, core SaaS unit economics, platform user engagement, and system health status.
-          </p>
         </div>
 
         {/* Dynamic Timeframe Selector */}
@@ -129,6 +120,7 @@ export default function DashboardPage() {
           </h2>
         </div>
         <DashboardAnalytics 
+          timeframe={timeframe}
           monthlyStats={monthlyStats} 
           planDistribution={stats?.planDistribution} 
           dauCount={stats?.dauCount}

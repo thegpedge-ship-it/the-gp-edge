@@ -369,29 +369,17 @@ export default function AdminSidebar({
               }}>
                 {/* Banner */}
                 <div style={{
-                  position: "relative",
-                  height: 82,
-                  background: "linear-gradient(135deg, #111827, #0f766e)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "flex-end",
-                  paddingRight: 12,
+                  position: "relative", height: 82,
+                  overflow: "hidden",
                 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 4, opacity: 0.85,
-                    zIndex: 2,
-                  }}>
-                    <div style={{
-                      width: 15, height: 15, borderRadius: 3,
-                      background: "rgba(20,184,166,0.95)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
-                    </div>
-                    <span style={{ color: "#ffffff", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
-                      ADMIN PANEL
-                    </span>
-                  </div>
+                  <Image
+                    src="/assets/profile/banner.png"
+                    alt="Profile Banner"
+                    fill
+                    sizes="288px"
+                    style={{ objectFit: "cover" }}
+                    priority
+                  />
                 </div>
 
                 {/* Info */}

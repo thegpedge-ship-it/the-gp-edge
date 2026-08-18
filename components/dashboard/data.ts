@@ -329,7 +329,6 @@ export const quickAccess = [
   { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald" as const, badge: "1,924 items" },
   { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet" as const, badge: "42 saved" },
   { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan" as const, badge: "318 entries" },
-  { key: "notes", title: "Notes & Flags", caption: "Your bookmarked items", accent: "amber" as const, badge: "27 flagged" },
 ];
 
 export const notifications = [

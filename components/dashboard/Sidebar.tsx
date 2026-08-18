@@ -18,13 +18,14 @@
 //   • "ready" flag   → all transitions suppressed on first render (no flash)
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback } from "react";
 
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutGrid,
+  GraduationCap,
   User,
   Settings,
   ChevronRight,
@@ -33,15 +34,16 @@ import {
   BarChart2,
   BookOpen,
   Receipt,
-  Wrench,
-  FileText,
   FileEdit,
   Tag,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { user as localUser } from "./data";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useProfile } from "@/contexts/ProfileContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { formatJoined } from "@/lib/format";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
@@ -57,15 +59,14 @@ const OP_DUR = "160ms";
 
 // ─── Nav items ───────────────────────────────────────────────────────────────
 const NAV = [
-  { href: "/dashboard",                  icon: LayoutGrid, label: "Dashboard"        },
-  { href: "/exam-prep",                   icon: FileText,   label: "Exam Prep"        },
-  { href: "/dashboard/profile",          icon: User,       label: "My Profile"       },
-  { href: "/dashboard/billing",          icon: Receipt,    label: "MBS Billing"      },
-  { href: "/dashboard/medical-library",  icon: BookOpen,   label: "Medical Library" },
-  { href: "/dashboard/clinical-autofills",icon: FileEdit,   label: "Clinical Autofills" },
-  { href: "/dashboard/pricing",          icon: Tag,        label: "Pricing"         },
-  { href: "/dashboard/tools",            icon: Wrench,     label: "GP Tools"        },
-  { href: "/dashboard/settings",         icon: Settings,   label: "Settings"        },
+  { href: "/dashboard",                  icon: LayoutGrid,     label: "Dashboard"        },
+  { href: "/exam-prep",                   icon: GraduationCap,  label: "Exam Prep"        },
+  { href: "/dashboard/profile",          icon: User,           label: "My Profile"       },
+  { href: "/dashboard/billing",          icon: Receipt,        label: "MBS Billing"      },
+  { href: "/dashboard/medical-library",  icon: BookOpen,       label: "Medical Library" },
+  { href: "/dashboard/clinical-autofills",icon: FileEdit,       label: "Clinical Autofills" },
+  { href: "/dashboard/pricing",          icon: Tag,            label: "Pricing"         },
+  { href: "/dashboard/settings",         icon: Settings,       label: "Settings"        },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -241,13 +242,18 @@ export default function Sidebar() {
             }}
           >
             {/* ── Avatar ── */}
-            <div style={{
-              width: 38, height: 38, borderRadius: "50%",
-              overflow: "hidden", flexShrink: 0,
-              boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
-              marginBottom: 8,
-              position: "relative",
-            }}>
+            <Link
+              href="/dashboard/profile"
+              title="My Profile"
+              className="block rounded-full cursor-pointer transition-transform duration-150 hover:scale-105"
+              style={{
+                width: 38, height: 38, borderRadius: "50%",
+                overflow: "hidden", flexShrink: 0,
+                boxShadow: "0 0 0 2px #fff, 0 0 0 3.5px #dceeed",
+                marginBottom: 8,
+                position: "relative",
+              }}
+            >
               {user?.imageUrl ? (
                 <Image
                   src={user.imageUrl}
@@ -259,7 +265,7 @@ export default function Sidebar() {
               ) : (
                 <AvatarSVG size={38} />
               )}
-            </div>
+            </Link>
 
             <Sep />
 
@@ -290,7 +296,7 @@ export default function Sidebar() {
                       width: 3, borderRadius: "0 3px 3px 0",
                     }} />
                   )}
-                  <Icon size={17} strokeWidth={active ? 2.2 : 1.8} />
+                  <Icon size={18} strokeWidth={1.8} />
                 </Link>
               );
             })}
@@ -298,8 +304,7 @@ export default function Sidebar() {
             <Sep />
 
             {/* ── Utility icons ── */}
-            <RailBtn icon={<BarChart2 size={16} strokeWidth={1.8} />} title="Analytics" />
-            <RailBtn icon={<HelpCircle size={16} strokeWidth={1.8} />} title="Help &amp; Support" />
+            <RailBtn icon={<HelpCircle size={18} strokeWidth={1.8} />} title="Help &amp; Support" />
             <SignOutButton>
               <button title="Log out" className="sidebar-rail-btn" style={{
                 width: 40, height: 40,
@@ -308,7 +313,7 @@ export default function Sidebar() {
                 cursor: "pointer", flexShrink: 0,
                 transition: "background 150ms, color 150ms",
               }}>
-                <LogOut size={16} strokeWidth={1.8} />
+                <LogOut size={18} strokeWidth={1.8} />
               </button>
             </SignOutButton>
 
@@ -358,7 +363,7 @@ export default function Sidebar() {
                 <button
                   onClick={toggle}
                   className="
-                    inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                    inline-flex items-center gap-1.5 px-3 py-1 rounded-xl
                     border border-slate-200 dark:border-slate-800
                     bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400
                     hover:bg-teal-50 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-200 dark:hover:border-teal-900/50
@@ -370,12 +375,18 @@ export default function Sidebar() {
                 </button>
               </div>
 
-              {/* ── Profile Card ── */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
-                borderRadius: 20,
-                overflow: "hidden",
-                boxShadow: "0 2px 12px rgba(15,23,42,0.07)",
-              }}>
+              {/* ── Profile Card (Clickable link to My Profile) ── */}
+              <Link
+                href="/dashboard/profile"
+                title="View My Profile"
+                className="group block bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-teal-300 dark:hover:border-teal-700/60 hover:shadow-[0_4px_20px_rgba(15,23,42,0.11)] dark:hover:shadow-[0_4px_20px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 cursor-pointer transition-all duration-200 ease-out"
+                style={{
+                  borderRadius: 20,
+                  overflow: "hidden",
+                  boxShadow: "0 2px 12px rgba(15,23,42,0.07)",
+                  textDecoration: "none",
+                }}
+              >
                 {/* Banner */}
                 <div style={{
                   position: "relative", height: 82,
@@ -389,22 +400,6 @@ export default function Sidebar() {
                     style={{ objectFit: "cover" }}
                     priority
                   />
-                  <div style={{
-                    position: "absolute", bottom: 8, right: 10,
-                    display: "flex", alignItems: "center", gap: 4, opacity: 0.8,
-                    zIndex: 2,
-                  }}>
-                    <div style={{
-                      width: 15, height: 15, borderRadius: 3,
-                      background: "rgba(20,184,166,0.95)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{ color: "#fff", fontSize: 6, fontWeight: 700, lineHeight: 1 }}>GP</span>
-                    </div>
-                    <span style={{ color: "#ffffff", fontSize: 7, letterSpacing: "0.14em", fontWeight: 600 }}>
-                      THE GP EDGE
-                    </span>
-                  </div>
                 </div>
 
                 {/* Info */}
@@ -413,13 +408,16 @@ export default function Sidebar() {
                   alignItems: "center", textAlign: "center",
                   padding: "0 18px 18px",
                 }}>
-                  <div style={{
-                    marginTop: -42, width: 84, height: 84,
-                    borderRadius: "50%", overflow: "hidden",
-                    boxShadow: "0 0 0 3px #fff, 0 2px 10px rgba(15,23,42,0.12)",
-                    background: "#DCEEED", zIndex: 1,
-                    position: "relative",
-                  }}>
+                  <div
+                    className="transition-transform duration-200 ease-out group-hover:scale-[1.03]"
+                    style={{
+                      marginTop: -42, width: 84, height: 84,
+                      borderRadius: "50%", overflow: "hidden",
+                      boxShadow: "0 0 0 3px #fff, 0 2px 10px rgba(15,23,42,0.12)",
+                      background: "#DCEEED", zIndex: 1,
+                      position: "relative",
+                    }}
+                  >
                     {user?.imageUrl ? (
                       <Image
                         src={user.imageUrl}
@@ -432,7 +430,7 @@ export default function Sidebar() {
                       <AvatarSVG size={84} />
                     )}
                   </div>
-                  <p className="font-sans text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100" style={{ margin: "9px 0 2px" }}>
+                  <p className="font-sans text-lg font-semibold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors duration-150" style={{ margin: "9px 0 2px" }}>
                     {user?.fullName || "User"}
                   </p>
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: 0 }}>
@@ -447,10 +445,10 @@ export default function Sidebar() {
                     Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
                   </p>
                   {profile.examTarget && (
-                    <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 whitespace-nowrap" style={{
+                    <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 group-hover:border-teal-300 dark:group-hover:border-teal-800 whitespace-nowrap transition-colors duration-150" style={{
                       marginTop: 10,
                       display: "inline-flex", alignItems: "center", gap: 6,
-                      padding: "6px 18px", borderRadius: 999,
+                      padding: "6px 18px", borderRadius: 12,
                     }}>
                       <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
                       <span className="font-sans text-xs md:text-[13px] font-semibold tracking-wide text-teal-700 dark:text-teal-400">
@@ -459,7 +457,7 @@ export default function Sidebar() {
                     </div>
                   )}
                 </div>
-              </div>
+              </Link>
 
               {/* ── Navigation ── */}
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800" style={{
@@ -477,11 +475,11 @@ export default function Sidebar() {
                       href={href}
                       prefetch
                       className={`
-                        relative flex items-center gap-2.5 px-3.5 py-2.5
+                        group relative flex items-center gap-3 px-3.5 py-2.5
                         transition-all duration-150 border-b border-slate-100 dark:border-slate-800/80 last:border-b-0
                         ${active
-                          ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-base font-semibold"
-                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium"
+                          ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-[15px] font-semibold"
+                          : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-[15px] font-medium"
                         }
                       `}
                       style={{ textDecoration: "none" }}
@@ -493,17 +491,17 @@ export default function Sidebar() {
                         }} />
                       )}
                       <span className={`
-                        w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center transition-all duration-150
+                        w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center transition-all duration-150
                         ${active
                           ? "bg-teal-100 dark:bg-teal-900/60 text-teal-700 dark:text-teal-400"
-                          : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50/50 dark:group-hover:bg-teal-950/30"
                         }
-                      `} style={{ width: 30, height: 30 }}>
-                        <Icon size={14} strokeWidth={active ? 2.2 : 1.8} />
+                      `}>
+                        <Icon size={18} strokeWidth={1.8} />
                       </span>
                       <span>{label}</span>
-                      <ChevronRight size={12} strokeWidth={2}
-                        className={`ml-auto transition-colors ${active ? "text-teal-400 dark:text-teal-500" : "text-slate-300 dark:text-slate-700"}`} />
+                      <ChevronRight size={14} strokeWidth={1.8}
+                        className={`ml-auto transition-colors ${active ? "text-teal-500 dark:text-teal-400" : "text-slate-300 dark:text-slate-700 group-hover:text-slate-400"}`} />
                     </Link>
                   );
                 })}
@@ -511,15 +509,15 @@ export default function Sidebar() {
 
               {/* ── Help & Support ── */}
               <button className="
-                flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                group flex items-center gap-3 px-3.5 py-2.5 rounded-2xl
                 border border-slate-200 dark:border-slate-800
                 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
                 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
-                font-sans text-sm md:text-base font-medium
+                font-sans text-sm md:text-[15px] font-medium
                 transition-all duration-150 cursor-pointer w-full text-left shadow-sm
               ">
-                <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
-                  <HelpCircle size={14} strokeWidth={1.8} />
+                <span className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 group-hover:bg-teal-50/50 dark:group-hover:bg-teal-950/30 transition-all duration-150">
+                  <HelpCircle size={18} strokeWidth={1.8} />
                 </span>
                 <span>Help &amp; Support</span>
               </button>
@@ -527,15 +525,15 @@ export default function Sidebar() {
               {/* ── Log out ── */}
               <SignOutButton>
                 <button className="
-                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl
+                  group flex items-center gap-3 px-3.5 py-2.5 rounded-2xl
                   border border-slate-200 dark:border-slate-800
                   bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400
-                  hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100
-                  font-sans text-sm md:text-base font-medium
+                  hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-rose-600 dark:hover:text-rose-400 hover:border-rose-200 dark:hover:border-rose-900/40
+                  font-sans text-sm md:text-[15px] font-medium
                   transition-all duration-150 cursor-pointer w-full text-left shadow-sm
                 ">
-                  <span className="w-7.5 h-7.5 rounded-lg flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500" style={{ width: 30, height: 30 }}>
-                    <LogOut size={14} strokeWidth={1.8} />
+                  <span className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 group-hover:text-rose-600 dark:group-hover:text-rose-400 group-hover:bg-rose-50 dark:group-hover:bg-rose-950/30 transition-all duration-150">
+                    <LogOut size={18} strokeWidth={1.8} />
                   </span>
                   <span>Log out</span>
                 </button>
@@ -559,32 +557,21 @@ export default function Sidebar() {
 }
 
 // ─── Mobile Drawer ────────────────────────────────────────────────────────────
+// The open/close trigger (hamburger) lives in the navbar (see Header.tsx) and
+// drives this drawer through SidebarContext. This component renders only the
+// overlay + slide-in panel.
 function MobileDrawer({ pathname }: { pathname: string }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { setOpen(false); }, [pathname]);
+  const { mobileOpen: open, setMobileOpen } = useSidebar();
+  const setOpen = setMobileOpen;
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  useEffect(() => { setOpen(false); }, [pathname, setOpen]);
   const ease = "cubic-bezier(0.22, 1, 0.36, 1)";
 
   return (
     <div className="lg:hidden">
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Open navigation"
-        style={{
-          position: "fixed", top: 90, left: 12, zIndex: 40,
-          width: 38, height: 38, borderRadius: 10,
-          background: "#fff", border: "1px solid #e2e8f0",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "#64748b", cursor: "pointer",
-          boxShadow: "0 2px 8px rgba(15,23,42,0.1)",
-        }}
-      >
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
       <div onClick={() => setOpen(false)} style={{
-        position: "fixed", inset: 0, zIndex: 48,
+        position: "fixed", inset: 0, zIndex: 60,
         background: "rgba(15,23,42,0.3)", backdropFilter: "blur(4px)",
         opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none",
         transition: `opacity 200ms ${ease}`,
@@ -593,7 +580,7 @@ function MobileDrawer({ pathname }: { pathname: string }) {
       <div
         className="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100"
         style={{
-          position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 49,
+          position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 61,
           width: 270,
           boxShadow: "4px 0 24px rgba(15,23,42,0.14)",
           transform: open ? "translateX(0)" : "translateX(-100%)",
@@ -602,7 +589,16 @@ function MobileDrawer({ pathname }: { pathname: string }) {
         }}
       >
         <div className="flex justify-between items-center p-4 border-b border-slate-100 dark:border-slate-800">
-          <span className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">Navigation</span>
+          <Link href="/" aria-label="Home" className="flex items-center">
+            <Image
+              src="/assets/logo.png"
+              alt="The GP Edge"
+              width={240}
+              height={160}
+              className="w-auto h-9 object-contain"
+              priority
+            />
+          </Link>
           <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4 }}>
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -620,7 +616,7 @@ function MobileDrawer({ pathname }: { pathname: string }) {
                 href={href}
                 prefetch
                 className={`
-                  flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150
                   ${active
                     ? "bg-teal-50/50 dark:bg-teal-950/20 text-teal-700 dark:text-teal-400 font-sans text-sm md:text-base font-semibold border border-teal-100 dark:border-teal-900/40"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent"
@@ -628,7 +624,7 @@ function MobileDrawer({ pathname }: { pathname: string }) {
                 `}
                 style={{ textDecoration: "none" }}
               >
-                <Icon size={15} /> {label}
+                <Icon size={18} strokeWidth={1.8} /> {label}
               </Link>
             );
           })}
@@ -636,12 +632,26 @@ function MobileDrawer({ pathname }: { pathname: string }) {
           <div className="my-1 border-t border-slate-100 dark:border-slate-800"></div>
           <SignOutButton>
             <button className="
-              flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
-              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
+              flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150
+              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-rose-600 dark:hover:text-rose-400 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
             ">
-              <LogOut size={15} /> Log out
+              <LogOut size={18} strokeWidth={1.8} /> Log out
             </button>
           </SignOutButton>
+
+          {/* Appearance — last option. A plain button (not a toggle switch),
+              shown only in the mobile drawer since the navbar toggle is hidden
+              on small screens. */}
+          <button
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className="
+              flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-all duration-150
+              text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-slate-100 font-sans text-sm md:text-base font-medium border border-transparent w-full text-left cursor-pointer
+            "
+          >
+            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            {isDark ? "Light mode" : "Dark mode"}
+          </button>
         </div>
       </div>
     </div>

@@ -39,8 +39,8 @@ export default function DuplicatePurchaseModal({ open, accessExpiresAt, onClose 
         <h3 className="text-xl font-bold font-serif mb-2">Active Subscription Detected</h3>
 
         <p className="font-sans text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
-          You already have an active subscription valid until{" "}
-          <strong className="text-slate-900 dark:text-slate-100 font-semibold">{formattedDate}</strong>. If you want to change or cancel your current plan, please manage it from your Profile page.
+          You currently have an active plan valid until{" "}
+          <strong className="text-slate-900 dark:text-slate-100 font-semibold">{formattedDate}</strong>. You cannot purchase a new subscription until your current plan is canceled and reaches the end of its billing cycle.
         </p>
 
         <div className="flex flex-col gap-2.5">
@@ -48,7 +48,7 @@ export default function DuplicatePurchaseModal({ open, accessExpiresAt, onClose 
             href="/dashboard/profile"
             className="w-full inline-flex items-center justify-center gap-2 py-3 px-5 rounded-2xl font-bold text-sm bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white shadow-md shadow-teal-600/20 transition-all"
           >
-            Go to Profile / Manage Billing
+            Manage / Cancel Subscription
             <ArrowRight className="w-4 h-4" />
           </Link>
 

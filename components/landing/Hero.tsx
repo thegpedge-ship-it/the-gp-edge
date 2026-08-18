@@ -146,9 +146,8 @@ export default function Hero() {
 
   return (
     <section className="relative flex items-center min-h-[92vh] pb-4">
-      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 lg:pb-10 ${
-        isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
-      }`}>
+      <div className={`relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 lg:pb-10 ${isSignedIn ? "pt-6 sm:pt-8 lg:pt-10" : "pt-20 sm:pt-24 lg:pt-28"
+        }`}>
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -163,8 +162,8 @@ export default function Hero() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] uppercase tracking-wider">
-                Built for GP Registrars
+              <span className="text-xs font-semibold text-teal-700 dark:text-[#5AC8B0] tracking-wider">
+                Built for GPs
               </span>
             </motion.div>
 
@@ -188,7 +187,7 @@ export default function Hero() {
             >
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">Adaptive mock exams</span>, interactive{" "}
               <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">MBS billing tools</span>, and real-world{" "}
-              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span>—everything you need to ace the AKT and KFP.
+              <span className="font-medium text-teal-600 dark:text-[#5AC8B0]">clinical templates</span> - everything you need to ace the AKT and KFP.
             </motion.p>
 
             {/* CTAs */}
@@ -341,10 +340,7 @@ export default function Hero() {
               {/* Inner glow */}
               <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-white/80 via-transparent to-teal-50/30 dark:from-[rgba(255,255,255,0.05)] dark:to-transparent pointer-events-none" />
 
-              {/* Dashboard header */}
-              <div className="relative flex items-center justify-between mb-4 pl-6">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Dashboard Snapshot</span>
-              </div>
+
 
               {/* Stats Grid */}
               <div className="relative grid grid-cols-2 gap-3">

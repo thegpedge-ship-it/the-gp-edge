@@ -142,7 +142,7 @@ export default async function PricingPage() {
         role_title: true,
         has_purchased_registrar: true,
         subscriptions: {
-          select: { access_level: true, status: true, access_expires_at: true },
+          select: { access_level: true, status: true, access_expires_at: true, cancel_at: true, stripe_price_id: true },
         },
       },
     });
@@ -156,7 +156,7 @@ export default async function PricingPage() {
         role_title: true,
         has_purchased_registrar: true,
         subscriptions: {
-          select: { access_level: true, status: true, access_expires_at: true },
+          select: { access_level: true, status: true, access_expires_at: true, cancel_at: true, stripe_price_id: true },
         },
       },
     });
@@ -203,7 +203,7 @@ export default async function PricingPage() {
   const now = new Date();
   const activeSub = Array.isArray(dbUser.subscriptions)
     ? dbUser.subscriptions.find(
-        (s: { status: string; access_level: string; access_expires_at: Date | null }) =>
+        (s: { status: string; access_level: string; access_expires_at: Date | null; cancel_at: Date | null; stripe_price_id: string | null }) =>
           (s.status === "active" || s.status === "trialing") &&
           s.access_expires_at != null &&
           new Date(s.access_expires_at) > now
@@ -213,6 +213,8 @@ export default async function PricingPage() {
   const currentAccessLevel =
     activeSub
       ? (activeSub.access_level as string)
+      : dbUser.has_purchased_registrar
+      ? "REGISTRAR"
       : "FREE";
 
   return (
@@ -222,6 +224,10 @@ export default async function PricingPage() {
       trainingStage={trainingStage}
       currentAccessLevel={currentAccessLevel}
       accessExpiresAt={activeSub?.access_expires_at?.toISOString() ?? null}
+      cancelAtPeriodEnd={activeSub?.cancel_at != null}
+      activePriceId={activeSub?.stripe_price_id ?? null}
+      hasPaidAccess={currentAccessLevel !== "FREE" || dbUser.has_purchased_registrar}
+      hasPurchasedRegistrar={dbUser.has_purchased_registrar}
     />
   );
 }

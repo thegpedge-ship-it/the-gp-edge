@@ -28,10 +28,21 @@ const typeColors: Record<string, string> = {
   Approach: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-700",
 };
 
-import { splitHtmlIntoPages } from "@/utils/pdfPagination";
-
 export default function ContentPage() {
-  const { isReadOnly } = useAdminRole();
+  const {
+    isReadOnly,
+    canCreateItem,
+    canEditDraft,
+    canEditPostReview,
+    canArchiveItem,
+    canRestoreItem,
+    canToggleBilling,
+    isOperationsManager,
+    isDrafter,
+    isPeerReviewer,
+    isSubscriber,
+    currentAdmin,
+  } = useAdminRole();
   const router = useRouter();
   const [content, setContent] = useState<MedicalContent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,8 +100,8 @@ export default function ContentPage() {
   const [extractedData, setExtractedData] = useState<any>(null);
 
   useEffect(() => {
-    fetchMedicalContent().then(setContent);
-  }, []);
+    fetchMedicalContent(canRestoreItem).then(setContent);
+  }, [canRestoreItem]);
 
   const systems = Array.from(new Set(content.map((c) => c.system)));
 
@@ -98,7 +109,7 @@ export default function ContentPage() {
     const matchSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.system.toLowerCase().includes(searchQuery.toLowerCase());
     const matchSystem = systemFilter === "all" || c.system === systemFilter;
     const matchType = typeFilter === "all" || c.type === typeFilter;
-    const matchStatus = statusFilter === "all" || c.status === statusFilter;
+    const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
     return matchSearch && matchSystem && matchType && matchStatus;
   });
 
@@ -118,22 +129,44 @@ export default function ContentPage() {
   }, [sortedContent, visibleCount]);
 
   const updateStatus = (id: string, newStatus: MedicalContent["status"]) => {
-    if (isReadOnly) return;
+    if (!canEditPostReview && !canEditDraft) return;
     updateMedicalContentItem(id, { status: newStatus });
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
   };
 
+  const handleRestoreContent = async (item: MedicalContent) => {
+    if (!canRestoreItem) return;
+    try {
+      const res = await fetch(`/api/medical-content/${item.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminUser: currentAdmin }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert(data.error || "Failed to restore content.");
+        return;
+      }
+      const updated = content.map((c) => (c.id === item.id ? { ...c, status: "published" as const } : c));
+      setContent(updated);
+      saveMedicalContent(updated);
+      addUserNotification("Content Restored", `Successfully restored "${item.name}" (SA-Only action).`, 1, "custom");
+    } catch (err: any) {
+      alert("Error restoring content.");
+    }
+  };
+
   const deleteContent = (id: string, name: string) => {
-    if (isReadOnly) return;
+    if (!canArchiveItem) return;
     setDeleteTargetId(id);
     setDeleteTargetName(name);
     setShowDeleteModal(true);
   };
 
   const handleToggleLibraryItemFree = async (item: MedicalContent, newIsFree: boolean) => {
-    if (isReadOnly) return;
+    if (!canToggleBilling) return;
 
     // Optimistic state update
     setContent((prev) =>
@@ -171,7 +204,7 @@ export default function ContentPage() {
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -307,7 +340,7 @@ export default function ContentPage() {
   };
 
   const handleSaveAllDocuments = async () => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
     if (successItems.length === 0) {
       alert("No successfully extracted documents to import.");
@@ -434,7 +467,7 @@ export default function ContentPage() {
 
   // Submit and save content
   const handleSaveContent = async (type: MedicalContent["type"]) => {
-    if (isReadOnly) return;
+    if (!canCreateItem) return;
     if (!newTitle.trim()) {
       alert("Please fill in the title field.");
       return;
@@ -529,9 +562,10 @@ export default function ContentPage() {
         subtitle={`Clinical guidelines, protocols, and care pathways · ${content.length} items`}
         actions={
           <button 
-            onClick={() => { if (isReadOnly) return; resetForm(); setShowAddModal(true); }}
-            disabled={isReadOnly}
-            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={() => { if (!canCreateItem) return; resetForm(); setShowAddModal(true); }}
+            disabled={!canCreateItem}
+            title={!canCreateItem ? "Item creation is a clinical act restricted to SA and CE roles only (3A matrix)" : "Add Content"}
+            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 ${!canCreateItem ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Content
@@ -540,18 +574,22 @@ export default function ContentPage() {
         variants={itemVariants}
       />
 
-      {isReadOnly && (
+      {!canCreateItem && (
         <motion.div
           variants={itemVariants}
-          className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100/70 dark:border-blue-900/30 rounded-2xl flex gap-3 text-xs text-blue-850 dark:text-blue-300 leading-relaxed items-center shadow-sm"
+          className="p-3.5 bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/30 rounded-2xl flex gap-3 text-xs text-amber-850 dark:text-amber-300 leading-relaxed items-center shadow-sm"
         >
-          <svg className="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-450" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+          <Lucide.ShieldAlert className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-450" />
           <div>
-            <p className="font-bold">View-Only Mode Enabled</p>
+            <p className="font-bold">Section 3A Relational Governance Mode</p>
             <p className="mt-0.5 opacity-90">
-              You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing, adding, or deleting content is restricted.
+              {isOperationsManager
+                ? "Operations Manager Mode — Item creation, direct content alteration, and attaching source references are restricted to SA/CE clinicians. You can assign, track, and move work through the pipeline."
+                : isDrafter
+                ? "Drafter Mode — Write/edit permissions are scoped to your assigned items. Item creation and post-review edits rest with SA/CE."
+                : isPeerReviewer
+                ? "Peer Reviewer Mode — Source reference attachment and review task completion enabled. Direct content creation is restricted."
+                : "Subscriber Mode — Read-only access to published clinical content."}
             </p>
           </div>
         </motion.div>
@@ -609,6 +647,18 @@ export default function ContentPage() {
           ]}
           className="w-48"
         />
+        <CustomSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: "all", label: "Active Statuses" },
+            { value: "published", label: "Published" },
+            { value: "draft", label: "Draft" },
+            { value: "review", label: "In Review" },
+            ...(canRestoreItem ? [{ value: "archived", label: "Archived (SA Only)" }] : []),
+          ]}
+          className="w-48"
+        />
       </motion.div>
 
       {/* Content cards grid */}
@@ -635,13 +685,13 @@ export default function ContentPage() {
                       e.stopPropagation();
                       handleToggleLibraryItemFree(item, !item.isFree);
                     }}
-                    disabled={isReadOnly}
+                    disabled={!canToggleBilling}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold transition-all border ${
                       item.isFree
                         ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
                         : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                    } ${isReadOnly ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
-                    title={item.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)"}
+                    } ${!canToggleBilling ? "opacity-50 cursor-not-allowed" : "hover:scale-105 cursor-pointer"}`}
+                    title={!canToggleBilling ? "Billing status toggle is restricted to SA and OM roles" : (item.isFree ? "Free Access (Click to make Paid)" : "Paid Only (Click to make Free)")}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${item.isFree ? "bg-emerald-500" : "bg-slate-400"}`} />
                     {item.isFree ? "Free" : "Paid"}
@@ -659,17 +709,31 @@ export default function ContentPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1 opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
-                  <Link
-                    href={`/admin/content/editor?id=${item.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-50/65 dark:hover:bg-slate-950/25 transition-all"
-                    title="Edit Content"
-                  >
-                    <Lucide.Edit className="w-4 h-4" />
-                  </Link>
-                  <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Delete Content">
-                    <Lucide.Trash2 className="w-4 h-4" />
-                  </button>
+                  {canEditDraft && item.status !== "archived" && (
+                    <Link
+                      href={`/admin/content/editor?id=${item.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-50/65 dark:hover:bg-slate-950/25 transition-all"
+                      title="Edit Content"
+                    >
+                      <Lucide.Edit className="w-4 h-4" />
+                    </Link>
+                  )}
+                  {item.status === "archived" && canRestoreItem && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRestoreContent(item); }}
+                      className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      title="Restore Archived Content Item (SA Only)"
+                    >
+                      <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                      Restore
+                    </button>
+                  )}
+                  {canArchiveItem && item.status !== "archived" && (
+                    <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Archive Content">
+                      <Lucide.Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -681,9 +745,9 @@ export default function ContentPage() {
         <motion.div variants={itemVariants} className="text-center py-16 text-slate-400 dark:text-slate-500 space-y-2">
           <Lucide.Layers className="w-10 h-10 mx-auto opacity-30" />
           <p className="text-sm font-medium">No medical content found.</p>
-          {!isReadOnly && (
+          {canCreateItem && (
             <button
-              onClick={() => { if (isReadOnly) return; resetForm(); setShowAddModal(true); }}
+              onClick={() => { if (!canCreateItem) return; resetForm(); setShowAddModal(true); }}
               className="text-teal-600 text-xs font-semibold hover:underline cursor-pointer border-none bg-transparent"
             >
               Create your first medical content →
@@ -1080,7 +1144,7 @@ export default function ContentPage() {
                     if (deleteTargetId !== null) {
                       // API soft-delete
                       fetch(`/api/medical-content/${deleteTargetId}`, { method: "DELETE" }).catch(console.error);
-                      const updated = content.filter((c) => c.id !== deleteTargetId);
+                      const updated = content.map((c) => (c.id === deleteTargetId ? { ...c, status: "archived" as const } : c));
                       setContent(updated);
                       saveMedicalContent(updated);
                       setShowDeleteModal(false);

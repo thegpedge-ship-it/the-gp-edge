@@ -86,6 +86,8 @@ export interface QuizQuestion {
   correctIndex: number;
   rationale: string;
   topic: string; // subtopic (or subject) name, shown in the question header
+  subject: string; // subject name for feedback display
+  subtopic: string; // subtopic name for feedback display
   difficulty: UiDifficulty;
   examType: string | null;
   image?: string;
@@ -388,6 +390,8 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         correctIndex: correctIndex >= 0 ? correctIndex : 0,
         rationale: q.rationale ?? "",
         topic: q.subtopics?.name ?? q.subjects?.name ?? "General",
+        subject: q.subjects?.name ?? "General",
+        subtopic: q.subtopics?.name ?? "",
         difficulty: DIFFICULTY_LABEL[q.difficulty],
         examType: q.exam_type_code,
         image: r2PublicUrl(q.files?.object_key),
@@ -886,4 +890,33 @@ export async function getMockTestQuestionIds(mockTestId: string): Promise<QuizDe
     examType: mock.exam_type_code,
     questionIds,
   };
+}
+
+/* ============================================================================
+ * Question Feedback — lets users report issues with individual questions
+ * during a test. Saved into the `question_feedback` table.
+ * ========================================================================== */
+export async function saveQuestionFeedback(input: {
+  questionId: string;
+  feedback: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const dbUser = await ensureDbUser();
+    if (!dbUser) return { ok: false, error: "You must be signed in." };
+
+    const text = input.feedback.trim();
+    if (!text || text.length > 500) {
+      return { ok: false, error: "Feedback must be between 1 and 500 characters." };
+    }
+
+    await query(
+      `INSERT INTO question_feedback (question_id, user_id, feedback)
+       VALUES ($1, $2, $3)`,
+      [input.questionId, dbUser.id, text]
+    );
+
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not save feedback. Please try again." };
+  }
 }

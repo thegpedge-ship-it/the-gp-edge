@@ -4,6 +4,8 @@ import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { currentUser } from "@clerk/nextjs/server";
 import { getUserAccess } from "@/lib/access";
 import prisma from "@/lib/prisma";
+import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -206,15 +208,55 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, category, type, status, author, isFree, is_free, fullHtml, sections } = body;
+    const { name, category, type, status, author, isFree, is_free, fullHtml, sections, adminUser } = body;
 
     // Verify condition exists
-    const exists = await queryOne<{ id: string }>(
-      `SELECT id FROM medical_conditions WHERE id = $1`,
+    const exists = await queryOne<{ id: string; author: string; status: string }>(
+      `SELECT id, author, status FROM medical_conditions WHERE id = $1`,
       [id]
     );
     if (!exists) {
       return NextResponse.json({ success: false, error: "Condition not found" }, { status: 404 });
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: author || "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const isReviewAction = status === "published" || status === "review";
+    const capability = isReviewAction ? "review" : "edit";
+
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability,
+      item: { id, type: "medical_condition", author: exists.author },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
+    // RULE R10: Republication classification for items in production
+    const isAlreadyInProduction = exists.status === "published" || exists.status === "reviewed";
+    let targetStatus = status;
+
+    if (isAlreadyInProduction && !isReviewAction) {
+      const editClassification = body.editClassification || "material"; // Defaults to material
+      const contentStr = (fullHtml || "") + JSON.stringify(sections || {});
+      const touchesClinicalField = /dose|mg|mcg|ml|threshold|red\s*flag|management|drug/i.test(contentStr);
+
+      if (editClassification === "minor" && !touchesClinicalField) {
+        // Minor edit: logged election by SA/CE only, allows republication without re-review
+        targetStatus = exists.status;
+      } else {
+        // Material edit: returns item to review pipeline requiring R1 review & SA sign-off (Rule R10)
+        targetStatus = "in_review";
+      }
     }
 
     // Update metadata fields that were provided
@@ -224,7 +266,7 @@ export async function PATCH(
     if (name)   { updates.push(`name = $${idx++}`);     vals.push(name); }
     if (category) { updates.push(`category = $${idx++}`); vals.push(category); }
     if (type)   { updates.push(`kind = $${idx++}`);     vals.push(type); }
-    if (status) { updates.push(`status = $${idx++}`);   vals.push(status); }
+    if (targetStatus) { updates.push(`status = $${idx++}`); vals.push(targetStatus); }
     if (author) { updates.push(`author = $${idx++}`);   vals.push(author); }
     if (isFree !== undefined || is_free !== undefined) {
       updates.push(`is_free = $${idx++}`);
@@ -235,6 +277,16 @@ export async function PATCH(
       `UPDATE medical_conditions SET ${updates.join(", ")} WHERE id = $${idx}`,
       vals
     );
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: isReviewAction ? "review" : "update",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { name, status, author: author || userContext.name },
+    });
+
 
     // Upsert full_html (sanitized before storing)
     if (fullHtml !== undefined) {
@@ -306,18 +358,108 @@ export async function PATCH(
 
 // DELETE /api/medical-content/[id] — soft delete
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    let adminUser: PermissionUser | undefined;
+    try {
+      const body = await req.json();
+      adminUser = body?.adminUser;
+    } catch {
+      // Body may be empty on DELETE
+    }
+
+    const userContext: PermissionUser = adminUser || {
+      id: "admin-system",
+      name: "GP Edge Admin",
+      role: "Admin",
+    };
+
+    const permCheck = await evaluateRelationalPermission({
+      user: userContext,
+      capability: "archive_item",
+      item: { id, type: "medical_condition" },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
     await execute(
       `UPDATE medical_conditions SET deleted_at = NOW() WHERE id = $1`,
       [id]
     );
+
+    await recordAuditLog({
+      adminUserId: userContext.id,
+      action: "archive",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { archivedBy: userContext.name },
+    });
+
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("DELETE /api/medical-content/[id] error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
+// POST /api/medical-content/[id] — restore archived condition (SA-ONLY)
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const { adminUser } = body;
+
+    if (!adminUser) {
+      return NextResponse.json(
+        { success: false, error: "Admin user context required for restore." },
+        { status: 400 }
+      );
+    }
+
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id, type: "medical_condition" },
+    });
+
+    if (!permCheck.allowed) {
+      return NextResponse.json(
+        { success: false, error: permCheck.reason, code: permCheck.code },
+        { status: 403 }
+      );
+    }
+
+    await execute(
+      `UPDATE medical_conditions SET deleted_at = NULL, updated_at = NOW() WHERE id = $1`,
+      [id]
+    );
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "restore",
+      category: "medical_condition",
+      entityType: "medical_condition",
+      entityId: id,
+      metadata: { restoredBy: adminUser.name },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("POST /api/medical-content/[id]/restore error:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}
+
+

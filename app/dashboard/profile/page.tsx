@@ -61,18 +61,17 @@ export default async function ProfilePage() {
       <FadeIn delay={0}>
         <PageHeading
           title="My Profile"
-          subtitle="Your professional identity and exam preparation overview"
         />
       </FadeIn>
 
       {/* ── Main Layout Split (Horizontal Baseline Stretching) ────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        
+
         {/* Left Column (Sleek Profile Element & Telemetry) */}
         <div className="lg:col-span-4 w-full flex flex-col">
           <FadeIn delay={0.06} className="h-full flex flex-col flex-1">
             <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-850 rounded-2xl overflow-hidden flex flex-col justify-between h-full shadow-sm text-slate-700 dark:text-slate-300">
-              
+
               {/* Premium Header Banner */}
               <div className="h-28 w-full relative overflow-hidden rounded-t-2xl flex-shrink-0">
                 <Image
@@ -87,7 +86,7 @@ export default async function ProfilePage() {
 
               {/* Profile Identity Content */}
               <div className="px-5 pb-4 pt-0 flex flex-col flex-1 justify-between gap-3">
-                
+
                 <div className="flex flex-col items-center text-center">
                   {/* Overlapping Avatar with white border */}
                   <div className="-mt-12 relative z-10 mx-auto w-24 h-24 rounded-full ring-4 ring-white dark:ring-slate-900 bg-white dark:bg-slate-950 overflow-hidden shadow-sm flex-shrink-0">
@@ -171,7 +170,7 @@ export default async function ProfilePage() {
 
         {/* Right Column (2x2 Metrics Dashboard Grid) */}
         <div className="lg:col-span-8 w-full grid grid-cols-1 md:grid-cols-2 gap-6">
-          
+
           {/* Card 1: Medical Credentials */}
           <FadeIn delay={0.10}>
             <PageCard className="h-full">
@@ -197,17 +196,17 @@ export default async function ProfilePage() {
           {/* Card 2: Exam Preparation */}
           <FadeIn delay={0.14}>
             <PageCard className="h-full">
-              <div className="p-6 h-full flex flex-col gap-4">
+              <div className="p-6 h-full flex flex-col justify-between gap-4">
                 <div>
                   <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1.5">
                     Exam Preparation
                   </h3>
-                  <p className="font-sans text-[13px] text-slate-550 dark:text-slate-400">
+                  <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400">
                     Active exam targets and readiness
                   </p>
                 </div>
 
-                <div className="flex-1 flex flex-col justify-center">
+                <div className="flex-1 flex flex-col justify-around gap-3.5">
                   {examPaths.length === 0 && (
                     <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400 py-2">
                       No exam tracks available yet. Take a mock test to start tracking your readiness.
@@ -216,58 +215,74 @@ export default async function ProfilePage() {
                   {examPaths.map((exam) => {
                     const mockPct =
                       exam.mocksTotal > 0
-                        ? Math.round((exam.mocksDone / exam.mocksTotal) * 100)
-                        : 0;
-                    return (
-                      <div key={exam.code} className="flex-1 flex flex-col justify-around gap-6">
-                        {/* Exam code + name, on one line */}
-                        <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {exam.code}
-                          <span className="font-normal text-slate-500 dark:text-slate-450">
-                            {" "}— {exam.name}
-                          </span>
-                        </p>
+                        ? Math.min(100, Math.max(0, Math.round((exam.mocksDone / exam.mocksTotal) * 100)))
+                        : (exam.mocksDone > 0 ? 100 : 0);
 
-                        {/* Bar 1 — Mock tests completed */}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
-                              Mock Tests
-                            </p>
-                            <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">
-                              {mockPct}%
+                    const quizDone = exam.quizzesDone ?? completeness.quizzesCompleted;
+                    const quizTotal = exam.quizzesTotal ?? completeness.quizzesTotal;
+                    const quizPct =
+                      typeof exam.quizzesPercent === "number"
+                        ? exam.quizzesPercent
+                        : (quizTotal > 0
+                            ? Math.min(100, Math.max(0, Math.round((quizDone / quizTotal) * 100)))
+                            : (quizDone > 0 ? 100 : 0));
+
+                    return (
+                      <div key={exam.code} className="flex flex-col gap-1.5">
+                        {/* Exam code + name header */}
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                          <p className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            {exam.code}
+                            <span className="font-normal text-slate-500 dark:text-slate-400">
+                              {" "}— {exam.name}
                             </span>
-                          </div>
-                          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
-                              style={{ width: `${mockPct}%` }}
-                            />
-                          </div>
-                          <p className="font-sans text-[11px] text-slate-500 dark:text-slate-450 leading-none">
-                            {exam.mocksDone} / {exam.mocksTotal} mock tests completed
                           </p>
                         </div>
 
-                        {/* Bar 2 — Admin-created quizzes completed */}
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <p className="font-sans text-sm font-semibold text-slate-800 dark:text-slate-200">
-                              Quizzes
+                        {/* 2-column grid: [1: Mock Tests] [2: Quizzes] / [3: Mock Tests] [4: Quizzes] */}
+                        <div className="grid grid-cols-2 gap-2.5">
+                          {/* Mock Tests Box */}
+                          <div className="space-y-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                            <div className="flex items-center justify-between">
+                              <p className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                Mock Tests
+                              </p>
+                              <span className="font-sans text-xs font-bold text-teal-600 dark:text-teal-400">
+                                {mockPct}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-200/70 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
+                                style={{ width: `${mockPct}%` }}
+                              />
+                            </div>
+                            <p className="font-sans text-[10.5px] text-slate-500 dark:text-slate-400 leading-none truncate">
+                              {exam.mocksDone} / {exam.mocksTotal} completed
                             </p>
-                            <span className="font-sans text-sm font-bold text-teal-600 dark:text-teal-400">
-                              {completeness.quizzesPercent}%
-                            </span>
                           </div>
-                          <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
-                              style={{ width: `${completeness.quizzesPercent}%` }}
-                            />
+
+                          {/* Quizzes Box */}
+                          <div className="space-y-1.5 bg-slate-50/80 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                            <div className="flex items-center justify-between">
+                              <p className="font-sans text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                Quizzes
+                              </p>
+                              <span className="font-sans text-xs font-bold text-teal-600 dark:text-teal-400">
+                                {quizPct}%
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-slate-200/70 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gradient-to-r from-teal-500 to-emerald-500 rounded-full transition-all duration-700"
+                                style={{ width: `${quizPct}%` }}
+                              />
+                            </div>
+                            <p className="font-sans text-[10.5px] text-slate-500 dark:text-slate-400 leading-none truncate">
+                              {quizDone} / {quizTotal} completed
+                            </p>
                           </div>
-                          <p className="font-sans text-[11px] text-slate-500 dark:text-slate-450 leading-none">
-                            {completeness.quizzesCompleted} / {completeness.quizzesTotal} quizzes completed
-                          </p>
                         </div>
                       </div>
                     );
@@ -302,7 +317,7 @@ export default async function ProfilePage() {
                   <p className="font-sans text-xs text-slate-550 dark:text-slate-400 mb-4">
                     Navigate or update profile settings
                   </p>
-                  
+
                   <div className="mt-5 flex flex-col gap-3">
                     {/* Settings Link */}
                     <Link

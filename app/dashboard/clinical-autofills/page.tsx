@@ -705,11 +705,10 @@ export default function ClinicalAutofillsPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 border shadow-sm ${
-                selectedCategory === cat
+              className={`flex-shrink-0 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all duration-200 border shadow-sm ${selectedCategory === cat
                   ? "bg-teal-600 text-white border-teal-600"
                   : "bg-white text-slate-600 border-slate-200 hover:border-teal-300 hover:bg-teal-50 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-700 dark:hover:bg-teal-900/30"
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -721,9 +720,9 @@ export default function ClinicalAutofillsPage() {
       <div className="flex items-center justify-between mb-4">
         <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
           <FileText className="w-3 h-3" />
-          {showBookmarks ? "Saved Bookmarks" : "All Templates"}
+          {showBookmarks ? "Saved Templates" : "All Templates"}
           {searchQuery && (
-            <span className="ml-2 bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+            <span className="ml-2 bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded-xl">
               {filteredTemplates.length} result{filteredTemplates.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -756,15 +755,7 @@ export default function ClinicalAutofillsPage() {
                 ? <BookmarkCheck className="w-3.5 h-3.5" />
                 : <Bookmark className="w-3.5 h-3.5" />
               }
-              Saved Bookmarks
-              {savedTemplates.length > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showBookmarks
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 text-slate-500"
-                  }`}>
-                  {savedTemplates.length}
-                </span>
-              )}
+              Saved Templates
             </button>
 
             {/* Feature discovery tooltip — always rendered, show prop drives visibility */}
@@ -823,19 +814,15 @@ export default function ClinicalAutofillsPage() {
                 >
                   {/* Locked Banner Overlay */}
                   {isLocked && (
-                    <div className="absolute inset-0 rounded-2xl bg-white/60 dark:bg-slate-900/75 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 text-center">
-                      <button className="group relative flex flex-row items-center bg-[#151922] justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium shadow-[inset_0_-8px_10px_#0d94881f] transition-shadow duration-500 ease-out hover:shadow-[inset_0_-5px_10px_#0d94883f] cursor-pointer">
-                        <div className="absolute inset-0 block h-full w-full animate-gradient-x bg-gradient-to-r from-amber-500/50 via-teal-400/50 to-amber-500/50 bg-[length:200%_auto] [border-radius:inherit] [mask:linear-gradient(#fff_0_0)_content-box,linear-gradient(#fff_0_0)] p-[1px] ![mask-composite:subtract]" />
-                        <svg className="size-4 text-amber-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 15 15" height={15} width={15}>
-                          <path clipRule="evenodd" fillRule="evenodd" fill="currentColor" d="M5 4.63601C5 3.76031 5.24219 3.1054 5.64323 2.67357C6.03934 2.24705 6.64582 1.9783 7.5014 1.9783C8.35745 1.9783 8.96306 2.24652 9.35823 2.67208C9.75838 3.10299 10 3.75708 10 4.63325V5.99999H5V4.63601ZM4 5.99999V4.63601C4 3.58148 4.29339 2.65754 4.91049 1.99307C5.53252 1.32329 6.42675 0.978302 7.5014 0.978302C8.57583 0.978302 9.46952 1.32233 10.091 1.99162C10.7076 2.65557 11 3.57896 11 4.63325V5.99999H12C12.5523 5.99999 13 6.44771 13 6.99999V13C13 13.5523 12.5523 14 12 14H3C2.44772 14 2 13.5523 2 13V6.99999C2 6.44771 2.44772 5.99999 3 5.99999H4ZM3 6.99999H12V13H3V6.99999Z" />
-                        </svg>
-                        <div className="shrink-0 bg-slate-700 w-[1px] h-4" role="none" data-orientation="vertical" />
-                        <span className="inline animate-gradient-x whitespace-pre bg-gradient-to-r from-amber-400 via-teal-300 to-amber-400 bg-[length:200%_auto] bg-clip-text text-transparent text-center font-semibold">Get Access</span>
-                        <svg strokeLinecap="round" className="text-teal-400" strokeWidth="1.5" aria-hidden="true" viewBox="0 0 10 10" height={11} width={11} stroke="currentColor" fill="none">
-                          <path strokeLinecap="round" d="M0 5h7" className="opacity-0 transition group-hover:opacity-100" />
-                          <path strokeLinecap="round" d="M1 1l4 4-4 4" className="transition group-hover:translate-x-[3px]" />
-                        </svg>
-                      </button>
+                    <div className="absolute inset-0 rounded-2xl bg-white/60 dark:bg-slate-900/75 backdrop-blur-[2px] z-10 flex items-center justify-center p-0 text-center">
+                      <div className="premium-btn-wrapper">
+                        <div className="premium-btn" aria-label="Premium access required">
+                          <svg className="premium-logo-icon" height="1.25em" viewBox="0 0 576 512">
+                            <path d="M309 106c11.4-7 19-19.7 19-34c0-22.1-17.9-40-40-40s-40 17.9-40 40c0 14.4 7.6 27 19 34L209.7 220.6c-9.1 18.2-32.7 23.4-48.6 10.7L72 160c5-6.7 8-15 8-24c0-22.1-17.9-40-40-40S0 113.9 0 136s17.9 40 40 40c.2 0 .5 0 .7 0L86.4 427.4c5.5 30.4 32 52.6 63 52.6H426.6c30.9 0 57.4-22.1 63-52.6L535.3 176c.2 0 .5 0 .7 0c22.1 0 40-17.9 40-40s-17.9-40-40-40s-40 17.9-40 40c0 9 3 17.3 8 24l-89.1 71.3c-15.9 12.7-39.5 7.5-48.6-10.7L309 106z" />
+                          </svg>
+                          <span className="premium-tooltip">Premium</span>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -870,15 +857,6 @@ export default function ClinicalAutofillsPage() {
                     <span className="inline-block font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md">
                       {t.category}
                     </span>
-                    {isFree ? (
-                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-955/30 border border-emerald-200/50 px-2 py-0.5 rounded-md">
-                        <Unlock className="w-2.5 h-2.5" /> FREE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 font-sans text-[10px] font-bold tracking-wider uppercase text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-955/30 border border-amber-200/50 px-2 py-0.5 rounded-md">
-                        <Lock className="w-2.5 h-2.5" /> PAID
-                      </span>
-                    )}
                   </div>
 
                   {/* Description — 2-line clamp */}
@@ -1080,13 +1058,79 @@ export default function ClinicalAutofillsPage() {
           background-color: #64748b;
         }
 
+        /* PREMIUM BUTTON STYLES */
+        .premium-btn-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .premium-btn {
+          width: 44px;
+          height: 44px;
+          border: none;
+          border-radius: 50%;
+          background: linear-gradient(-50deg, #0d9488, #2dd4bf, #059669);
+          background-size: 250%;
+          background-position: left;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          position: relative;
+          transition: all 0.4s ease;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+        }
+        .premium-btn:hover {
+          background-position: right;
+          transform: scale(1.06);
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.22);
+        }
+        .premium-logo-icon {
+          fill: #ffffff;
+        }
+        .premium-tooltip {
+          position: absolute;
+          top: -20px;
+          opacity: 0;
+          background: linear-gradient(to right, #0d9488, #059669);
+          color: #ffffff;
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
+          pointer-events: none;
+          letter-spacing: 0.5px;
+          box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
+          white-space: nowrap;
+        }
+        .premium-tooltip::before {
+          position: absolute;
+          content: "";
+          width: 8px;
+          height: 8px;
+          background: linear-gradient(45deg, #0d9488, #059669);
+          transform: rotate(45deg);
+          bottom: -4px;
+          left: calc(50% - 4px);
+          transition: all 0.3s ease;
+        }
+        .premium-btn:hover .premium-tooltip {
+          top: -44px;
+          opacity: 1;
+        }
+
         /* QUICK COPY BUTTON STYLES */
         .quick-copy-btn {
           --button-bg: transparent;
           --button-hover-bg: #f1f5f9;
           --button-text-color: #64748b;
           --button-hover-text-color: #0d9488;
-          --button-border-radius: 8px;
+          --button-border-radius: 12px;
           --button-outline-width: 1px;
           --button-outline-color: #cbd5e1;
           --tooltip-bg: #1e293b;

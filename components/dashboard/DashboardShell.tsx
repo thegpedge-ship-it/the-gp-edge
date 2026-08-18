@@ -12,6 +12,8 @@ import {
   MARGIN_TRANSITION,
 } from "@/contexts/SidebarContext";
 import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
+import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
+import UserMaintenanceGuard from "@/components/dashboard/UserMaintenanceGuard";
 
 /**
  * DashboardInner — reads sidebar context to sync content margin with sidebar width.
@@ -34,14 +36,23 @@ const DashboardInner = memo(function DashboardInner({
   const { isExpanded, ready } = useSidebar();
   const shouldShowSidebar = !hideSidebar && showSidebar;
 
+  // The sidebar is desktop-only (hidden below lg), so the content offset must be
+  // ZERO on mobile — otherwise the page reserves empty space for an invisible
+  // sidebar and shifts right. We expose the desktop offset as a CSS variable and
+  // apply it only at lg+ via `lg:ml-[var(--dash-ml)]`; mobile keeps `ml-0`.
+  const desktopMargin = shouldShowSidebar
+    ? `${isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX}px`
+    : "0px";
+  const offsetStyle = {
+    ["--dash-ml" as string]: desktopMargin,
+    transition: ready ? MARGIN_TRANSITION : "none",
+  } as React.CSSProperties;
+
   return (
     <div className={`min-h-screen ${bgClassName}`}>
       <div
-        className="sticky top-0 z-50 pt-4 pb-2 bg-transparent"
-        style={{
-          marginLeft: shouldShowSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
-          transition: ready ? MARGIN_TRANSITION : "none",
-        }}
+        className="sticky top-0 z-50 pt-4 pb-2 bg-transparent ml-0 lg:ml-[var(--dash-ml)]"
+        style={offsetStyle}
       >
         <Header variant="static" />
       </div>
@@ -49,16 +60,17 @@ const DashboardInner = memo(function DashboardInner({
       {/* Fixed sidebar — suppressed on pages that opt out (e.g. the landing/home page) */}
       {!hideSidebar && (showSidebar ? <Sidebar /> : null)}
 
-      {/* Content — margin-left matches sidebar width only when the sidebar is shown, otherwise 0px */}
+      {/* Content — offset matches sidebar width only at lg+ (desktop); 0 on mobile. */}
       <main
-        style={{
-          marginLeft: shouldShowSidebar ? (isExpanded ? SIDEBAR_PANEL_PX : SIDEBAR_RAIL_PX) : "0px",
-          transition: ready ? MARGIN_TRANSITION : "none",
-        }}
-        className={`min-h-screen ${className}`}
+        style={offsetStyle}
+        className={`min-h-screen ml-0 lg:ml-[var(--dash-ml)] ${className}`}
       >
         {/* PageTransition wraps route content for smooth, single entry animation */}
-        <PageTransition>{children}</PageTransition>
+        <PageTransition>
+          <UserMaintenanceGuard>
+            {children}
+          </UserMaintenanceGuard>
+        </PageTransition>
       </main>
     </div>
   );
@@ -85,12 +97,14 @@ export default function DashboardShell({
   profile?: DbProfile;
 }) {
   return (
-    <ProfileProvider value={profile}>
-      <SidebarProvider>
-        <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
-          {children}
-        </DashboardInner>
-      </SidebarProvider>
-    </ProfileProvider>
+    <MaintenanceProvider>
+      <ProfileProvider value={profile}>
+        <SidebarProvider hasDrawer={!hideSidebar && showSidebar}>
+          <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
+            {children}
+          </DashboardInner>
+        </SidebarProvider>
+      </ProfileProvider>
+    </MaintenanceProvider>
   );
 }

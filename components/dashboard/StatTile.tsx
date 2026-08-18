@@ -75,16 +75,16 @@ const StatTile = memo(function StatTile({
     : "M5 12h14";
 
   return (
-    <div className="rounded-3xl p-px bg-gradient-to-br from-emerald-300/70 via-slate-200/50 to-teal-300/70 dark:from-emerald-500/40 dark:via-slate-700/50 dark:to-teal-500/40 shadow-sm hover:shadow-[0_10px_30px_-8px_rgba(16,185,129,0.35)] transition-shadow duration-300">
-      <div className="group relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white dark:bg-slate-800">
-        {/* Left accent bar */}
-        <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-500 z-10" />
+    <div className="group rounded-3xl p-px bg-gradient-to-br from-emerald-300/70 via-slate-200/50 to-teal-300/70 dark:from-emerald-500/40 dark:via-slate-700/50 dark:to-teal-500/40 shadow-sm hover:shadow-md dark:hover:shadow-slate-900/40 hover:-translate-y-[2px] transition-all duration-200 ease-out">
+      <div className="relative overflow-hidden rounded-[calc(1.5rem-1px)] bg-white dark:bg-slate-800">
+        {/* Left accent bar — only visible on hover */}
+        <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-teal-500 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200 ease-out pointer-events-none" />
 
-        {/* Background sparkline */}
+        {/* Background sparkline — always visible in light subtle green, smoothly highlighted on hover */}
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
-          className="absolute bottom-0 left-0 w-full h-16 opacity-[0.55] dark:opacity-40 pointer-events-none"
+          className="absolute bottom-0 left-0 w-full h-16 opacity-30 dark:opacity-25 group-hover:opacity-85 dark:group-hover:opacity-75 transition-opacity duration-200 ease-out pointer-events-none"
         >
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -98,7 +98,7 @@ const StatTile = memo(function StatTile({
             fill="none"
             stroke={brand.stroke}
             strokeWidth={1.6}
-            strokeOpacity={0.5}
+            strokeOpacity={0.7}
             strokeLinecap="round"
             strokeLinejoin="round"
           />
