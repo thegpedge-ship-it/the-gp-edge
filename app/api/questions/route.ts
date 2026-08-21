@@ -67,13 +67,16 @@ export async function GET(req: NextRequest) {
          q.version,
          q.parent_id             AS "parentId",
          q.batch_id              AS "batchId",
-         s.name                  AS topic,
+         s.name                  AS subject,
+         st.name                 AS subtopic,
+         st.slug                 AS "topicCode",
          f.object_key            AS image_object_key,
          q.created_at,
          q.updated_at
        FROM questions q
-       LEFT JOIN subjects  s ON s.id = q.subject_id
-       LEFT JOIN files     f ON f.id = q.image_file_id
+       LEFT JOIN subjects  s  ON s.id  = q.subject_id
+       LEFT JOIN subtopics st ON st.id = q.subtopic_id
+       LEFT JOIN files     f  ON f.id  = q.image_file_id
        ${whereClause}
        ORDER BY q.created_at DESC`
       , params
@@ -168,7 +171,10 @@ export async function GET(req: NextRequest) {
         knowledgeBank: q.knowledgeBank ?? undefined,
         pearl: q.pearl ?? undefined,
         // Classification
-        topic: q.topic ?? "General",
+        topic: q.subtopic || q.subject || "General",
+        subtopic: q.subtopic ?? undefined,
+        subject: q.subject ?? undefined,
+        topicCode: q.topicCode ?? undefined,
         difficulty: capitalize(q.difficulty) as "Easy" | "Medium" | "Hard",
         examType,
         status: status as any,

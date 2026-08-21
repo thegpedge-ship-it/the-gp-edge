@@ -533,20 +533,6 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T0012",
-      "label": "Elder abuse and neglect",
-      "topicType": "Clinical Condition",
-      "homeUnit": "u01",
-      "group": null,
-      "crossRefs": [],
-      "variants": [],
-      "depth": "Core",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [],
-      "taxonomyVersion": "1.1"
-    },
-    {
       "code": "T0013",
       "label": "Intimate partner violence",
       "topicType": "Clinical Condition",
@@ -14219,6 +14205,20 @@
       "taxonomyVersion": "1.1"
     },
     {
+      "code": "T0959",
+      "label": "Elder abuse and neglect",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u27",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
       "code": "T0960",
       "label": "Frailty",
       "topicType": "Clinical Condition",
@@ -19258,68 +19258,54 @@
     },
     {
       "code": "T1305",
-      "label": "Aortic Stenosis",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "chronic",
-      "group": "chronic",
+      "label": "Sexual health and gender diversity",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u34",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-aortic-stenosis-d76efaa0"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1306",
-      "label": "Approach to Headache",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "chronic",
-      "group": "chronic",
+      "label": "General",
+      "topicType": "Clinical Condition",
+      "homeUnit": "respiratory",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-approach-to-headache-cd2da1ae"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1307",
-      "label": "Approach to Tremor",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "acute",
-      "group": "acute",
+      "label": "Kidney and urinary health",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u19",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-approach-to-tremor-378c6ac3"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1308",
-      "label": "ApproachToTremor_Synapse",
+      "label": "Neurological presentations",
       "topicType": "Clinical Condition",
-      "homeUnit": "endocrine",
-      "group": "Clinical Reference",
+      "homeUnit": "u25",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approachtotremor-synapse-1784479357656"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19328,32 +19314,26 @@
     },
     {
       "code": "T1309",
-      "label": "Atrial Fibrillation & Atrial Flutter",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "acute",
-      "group": "acute",
+      "label": "Cervical Screening Test (CST)",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u36",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-atrial-fibrillation-atrial-flutter-c986cf98"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1310",
-      "label": "Atrial Fibrillation &amp; Atrial Flutter",
+      "label": "Cervical Cancer Screening",
       "topicType": "Clinical Condition",
-      "homeUnit": "cardiovascular",
-      "group": "acute",
+      "homeUnit": "general",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "atrial-fibrillation-amp-atrial-flutter-1784479357591"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19362,14 +19342,12 @@
     },
     {
       "code": "T1311",
-      "label": "Headache1_ApproachToHeadache_Synapse",
+      "label": "Aboriginal and Torres Strait Islander",
       "topicType": "Clinical Condition",
-      "homeUnit": "endocrine",
-      "group": "Clinical Reference",
+      "homeUnit": "women-s-health",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "headache1-approachtoheadache-synapse-1784479357701"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19378,14 +19356,12 @@
     },
     {
       "code": "T1312",
-      "label": "Heart Failure with Preserved &amp; Mildly Reduced Ejection Fraction (HFpEF &amp; HFmrEF)",
+      "label": "National Cervical Screening Program",
       "topicType": "Clinical Condition",
-      "homeUnit": "cardiovascular",
-      "group": "Chronic",
+      "homeUnit": "general",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "heart-failure-with-preserved-amp-mildly-reduced-ejection-fraction-hfpef-amp-hfmref-1785591242177"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19394,14 +19370,12 @@
     },
     {
       "code": "T1313",
-      "label": "Heavy Menstrual Bleeding (HMB) &amp; Abnormal Uterine Bleeding (Reproductive Age)",
+      "label": "Pregnancy and reproductive health",
       "topicType": "Clinical Condition",
-      "homeUnit": "cardiovascular",
-      "group": "screening",
+      "homeUnit": "u30",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "heavy-menstrual-bleeding-hmb-amp-abnormal-uterine-bleeding-reproductive-age-1784479360314"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19410,32 +19384,26 @@
     },
     {
       "code": "T1314",
-      "label": "Secondary Headaches & Painful Cranial Neuropathies",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "acute",
-      "group": "acute",
+      "label": "Trigeminal autonomic cephalalgia",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u25",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-secondary-headaches-painful-cranial-neuropathies-fa36298f"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1315",
-      "label": "Secondary Headaches &amp; Painful Cranial Neuropathies",
+      "label": "Idiopathic intracranial hypertension",
       "topicType": "Clinical Condition",
-      "homeUnit": "respiratory",
-      "group": "acute",
+      "homeUnit": "u25",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "secondary-headaches-amp-painful-cranial-neuropathies-1784479360257"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19444,32 +19412,26 @@
     },
     {
       "code": "T1316",
-      "label": "Stable Angina / Stable IHD",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "Chronic",
-      "group": "Chronic",
+      "label": "Acute angle-closure glaucoma",
+      "topicType": "Clinical Condition",
+      "homeUnit": "u13",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-stable-angina-stable-ihd-4a538cd1"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
-      "crossCuttingTags": [
-        "approach"
-      ],
+      "crossCuttingTags": [],
       "taxonomyVersion": "1.1"
     },
     {
       "code": "T1317",
-      "label": "Tension-Type & Other Primary Headaches",
-      "topicType": "Approach to a Presentation",
+      "label": "Secondary Headaches &amp; Painful Cranial Neuropathies",
+      "topicType": "Clinical Condition",
       "homeUnit": "respiratory",
-      "group": "acute",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "tension-type-amp-other-primary-headaches-1786214182799"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19478,14 +19440,12 @@
     },
     {
       "code": "T1318",
-      "label": "Tension-Type &amp; Other Primary Headaches",
+      "label": "Heavy Menstrual Bleeding (HMB) &amp; Abnormal Uterine Bleeding (Reproductive Age)",
       "topicType": "Clinical Condition",
-      "homeUnit": "respiratory",
-      "group": "acute",
+      "homeUnit": "cardiovascular",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "tension-type-amp-other-primary-headaches-1784479360006"
-      ],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19494,14 +19454,110 @@
     },
     {
       "code": "T1319",
-      "label": "Trigeminal Autonomic Cephalgias (TACs)",
-      "topicType": "Approach to a Presentation",
-      "homeUnit": "Chronic",
-      "group": "Chronic",
+      "label": "Tension-Type &amp; Other Primary Headaches",
+      "topicType": "Clinical Condition",
+      "homeUnit": "respiratory",
+      "group": null,
       "crossRefs": [],
-      "variants": [
-        "approach-trigeminal-autonomic-cephalgias-tacs-3a0366a7"
-      ],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1320",
+      "label": "ApproachToTremor_Synapse",
+      "topicType": "Clinical Condition",
+      "homeUnit": "endocrine",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1321",
+      "label": "Atrial Fibrillation &amp; Atrial Flutter",
+      "topicType": "Clinical Condition",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1322",
+      "label": "Headache1_ApproachToHeadache_Synapse",
+      "topicType": "Clinical Condition",
+      "homeUnit": "endocrine",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1323",
+      "label": "Stable Angina / Stable IHD",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1324",
+      "label": "Atrial Fibrillation & Atrial Flutter",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1325",
+      "label": "Aortic Stenosis",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1326",
+      "label": "Approach to Tremor",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
       "depth": "Core",
       "status": "active",
       "mergedInto": [],
@@ -19511,7 +19567,79 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1320",
+      "code": "T1327",
+      "label": "Trigeminal Autonomic Cephalgias (TACs)",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "respiratory",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1328",
+      "label": "Secondary Headaches & Painful Cranial Neuropathies",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1329",
+      "label": "Tension-Type & Other Primary Headaches",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1330",
+      "label": "Approach to Headache",
+      "topicType": "Approach to a Presentation",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "approach"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1331",
+      "label": "Heart Failure with Preserved &amp; Mildly Reduced Ejection Fraction (HFpEF &amp; HFmrEF)",
+      "topicType": "Clinical Condition",
+      "homeUnit": "cardiovascular",
+      "group": null,
+      "crossRefs": [],
+      "variants": [],
+      "depth": "Core",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1332",
       "label": "RAS Inhibitors",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19530,7 +19658,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1321",
+      "code": "T1333",
       "label": "Colposcopy",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19549,26 +19677,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1322",
-      "label": "Cervical Screening Test (CST)",
-      "topicType": "Question Tag",
-      "homeUnit": "women-s-health",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "cervical-screening-test-cst-"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "cervical-screening-test-cst-"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1323",
+      "code": "T1334",
       "label": "Perimenopausal migraine",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -19587,7 +19696,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1324",
+      "code": "T1335",
       "label": "Medication Review",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19606,7 +19715,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1325",
+      "code": "T1336",
       "label": "Women's Health",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19625,7 +19734,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1326",
+      "code": "T1337",
       "label": "Acute",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -19644,7 +19753,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1327",
+      "code": "T1338",
       "label": "DES",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19663,7 +19772,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1328",
+      "code": "T1339",
       "label": "National Cervical",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -19682,7 +19791,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1329",
+      "code": "T1340",
       "label": "Symptomatic Bleeding",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -19701,7 +19810,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1330",
+      "code": "T1341",
       "label": "Head trauma",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -19720,7 +19829,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1331",
+      "code": "T1342",
       "label": "Special Populations",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -19739,7 +19848,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1332",
+      "code": "T1343",
       "label": "Monitoring",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19758,7 +19867,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1333",
+      "code": "T1344",
       "label": "Ocular",
       "topicType": "Question Tag",
       "homeUnit": "u13",
@@ -19777,7 +19886,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1334",
+      "code": "T1345",
       "label": "Opioid",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -19796,7 +19905,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1335",
+      "code": "T1346",
       "label": "Clinical Action",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19815,7 +19924,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1336",
+      "code": "T1347",
       "label": "AIS",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19834,7 +19943,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1337",
+      "code": "T1348",
       "label": "Stress",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -19853,7 +19962,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1338",
+      "code": "T1349",
       "label": "Hyperkalaemia",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19872,7 +19981,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1339",
+      "code": "T1350",
       "label": "Older Persons",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19891,26 +20000,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1340",
-      "label": "National Cervical Screening Program",
-      "topicType": "Question Tag",
-      "homeUnit": "general",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "national-cervical-screening-program"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "national-cervical-screening-program"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1341",
+      "code": "T1351",
       "label": "Metformin",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19929,7 +20019,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1342",
+      "code": "T1352",
       "label": "SGLT2",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -19948,7 +20038,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1343",
+      "code": "T1353",
       "label": "Cervical",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19967,7 +20057,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1344",
+      "code": "T1354",
       "label": "Pregnancy",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -19986,7 +20076,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1345",
+      "code": "T1355",
       "label": "Assessment",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20005,7 +20095,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1346",
+      "code": "T1356",
       "label": "Aboriginal",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20024,7 +20114,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1347",
+      "code": "T1357",
       "label": "Secondary headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20043,7 +20133,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1348",
+      "code": "T1358",
       "label": "Diabetic",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20062,7 +20152,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1349",
+      "code": "T1359",
       "label": "Lumbar",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20081,7 +20171,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1350",
+      "code": "T1360",
       "label": "Tricyclic",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20100,7 +20190,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1351",
+      "code": "T1361",
       "label": "mental health",
       "topicType": "Question Tag",
       "homeUnit": "mental-health",
@@ -20119,7 +20209,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1352",
+      "code": "T1362",
       "label": "Kidney Health",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20138,7 +20228,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1353",
+      "code": "T1363",
       "label": "Eligibility",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20157,7 +20247,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1354",
+      "code": "T1364",
       "label": "Resistant",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20176,7 +20266,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1355",
+      "code": "T1365",
       "label": "Laboratory Processing",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20195,7 +20285,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1356",
+      "code": "T1366",
       "label": "Physiotherapy",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20214,7 +20304,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1357",
+      "code": "T1367",
       "label": "Trauma-informed Care",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20233,7 +20323,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1358",
+      "code": "T1368",
       "label": "Cardiovascular Risk",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20252,7 +20342,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1359",
+      "code": "T1369",
       "label": "Surveillance",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20271,26 +20361,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1360",
-      "label": "Kidney and urinary health",
-      "topicType": "Question Tag",
-      "homeUnit": "u19",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "kidney-and-urinary-health"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "kidney-and-urinary-health"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1361",
+      "code": "T1370",
       "label": "Migraine with aura",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20309,7 +20380,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1362",
+      "code": "T1371",
       "label": "Bridging",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20328,26 +20399,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1363",
-      "label": "Aboriginal and Torres Strait Islander",
-      "topicType": "Question Tag",
-      "homeUnit": "u36",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "aboriginal-and-torres-strait-islander"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "aboriginal-and-torres-strait-islander"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1364",
+      "code": "T1372",
       "label": "Older",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20366,7 +20418,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1365",
+      "code": "T1373",
       "label": "HPV",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20385,7 +20437,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1366",
+      "code": "T1374",
       "label": "GLP-1 Receptor Agonists",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20404,7 +20456,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1367",
+      "code": "T1375",
       "label": "Diabetic Kidney",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20423,26 +20475,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1368",
-      "label": "Cervical Cancer Screening",
-      "topicType": "Question Tag",
-      "homeUnit": "u36",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "cervical-cancer-screening"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "cervical-cancer-screening"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1369",
+      "code": "T1376",
       "label": "Post-hysterectomy",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20461,7 +20494,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1370",
+      "code": "T1377",
       "label": "Co-test",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20480,7 +20513,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1371",
+      "code": "T1378",
       "label": "borderline personality",
       "topicType": "Question Tag",
       "homeUnit": "mental-health",
@@ -20499,7 +20532,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1372",
+      "code": "T1379",
       "label": "Prophylaxis",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20518,7 +20551,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1373",
+      "code": "T1380",
       "label": "Non-drug therapy",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20537,7 +20570,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1374",
+      "code": "T1381",
       "label": "Subdural",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20556,7 +20589,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1375",
+      "code": "T1382",
       "label": "NCSR",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20575,7 +20608,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1376",
+      "code": "T1383",
       "label": "Acute presentation",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20594,7 +20627,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1377",
+      "code": "T1384",
       "label": "Red Flags",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20613,7 +20646,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1378",
+      "code": "T1385",
       "label": "Immune Deficiency",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -20632,26 +20665,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1379",
-      "label": "Idiopathic intracranial hypertension",
-      "topicType": "Question Tag",
-      "homeUnit": "u25",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "idiopathic-intracranial-hypertension"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "idiopathic-intracranial-hypertension"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1380",
+      "code": "T1386",
       "label": "2025 Guideline",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -20670,7 +20684,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1381",
+      "code": "T1387",
       "label": "Drug Interactions",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20689,7 +20703,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1382",
+      "code": "T1388",
       "label": "uACR",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20708,7 +20722,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1383",
+      "code": "T1389",
       "label": "NSAIDs",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20727,7 +20741,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1384",
+      "code": "T1390",
       "label": "National",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20746,7 +20760,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1385",
+      "code": "T1391",
       "label": "Aboriginal and Torres",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20765,7 +20779,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1386",
+      "code": "T1392",
       "label": "Headache",
       "topicType": "Question Tag",
       "homeUnit": "u13",
@@ -20784,7 +20798,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1387",
+      "code": "T1393",
       "label": "Pre-eclampsia",
       "topicType": "Question Tag",
       "homeUnit": "u30",
@@ -20803,7 +20817,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1388",
+      "code": "T1394",
       "label": "Sick Day Management",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -20822,7 +20836,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1389",
+      "code": "T1395",
       "label": "Cervicogenic headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20841,7 +20855,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1390",
+      "code": "T1396",
       "label": "Giant cell arteritis",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20860,7 +20874,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1391",
+      "code": "T1397",
       "label": "Low CSF",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20879,7 +20893,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1392",
+      "code": "T1398",
       "label": "Thunderclap",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20898,7 +20912,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1393",
+      "code": "T1399",
       "label": "Short-term",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20917,7 +20931,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1394",
+      "code": "T1400",
       "label": "Differential",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -20936,7 +20950,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1395",
+      "code": "T1401",
       "label": "Test of Cure",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -20955,7 +20969,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1396",
+      "code": "T1402",
       "label": "Treatment",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -20974,7 +20988,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1397",
+      "code": "T1403",
       "label": "Exit Testing",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -20993,7 +21007,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1398",
+      "code": "T1404",
       "label": "Triple Whammy",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21012,7 +21026,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1399",
+      "code": "T1405",
       "label": "Diet",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21031,7 +21045,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1400",
+      "code": "T1406",
       "label": "Under-screened",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -21050,7 +21064,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1401",
+      "code": "T1407",
       "label": "Headache diary",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21069,7 +21083,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1402",
+      "code": "T1408",
       "label": "Menstrual migraine",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21088,26 +21102,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1403",
-      "label": "General",
-      "topicType": "Question Tag",
-      "homeUnit": "paediatrics",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "general"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "general"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1404",
+      "code": "T1409",
       "label": "Paroxysmal hemicrania",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21126,7 +21121,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1405",
+      "code": "T1410",
       "label": "Immunosuppression",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21145,7 +21140,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1406",
+      "code": "T1411",
       "label": "Endocervical Curettage",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -21164,7 +21159,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1407",
+      "code": "T1412",
       "label": "Neuroimaging",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21183,7 +21178,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1408",
+      "code": "T1413",
       "label": "SGLT2 Inhibitors",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21202,7 +21197,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1409",
+      "code": "T1414",
       "label": "Androgen",
       "topicType": "Question Tag",
       "homeUnit": "u34",
@@ -21221,26 +21216,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1410",
-      "label": "Sexual health and gender diversity",
-      "topicType": "Question Tag",
-      "homeUnit": "u34",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "sexual-health-and-gender-diversity"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "sexual-health-and-gender-diversity"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1411",
+      "code": "T1415",
       "label": "MRI",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21259,7 +21235,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1412",
+      "code": "T1416",
       "label": "Cluster prophylaxis",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21278,7 +21254,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1413",
+      "code": "T1417",
       "label": "Low-risk",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21297,7 +21273,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1414",
+      "code": "T1418",
       "label": "Combined",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21316,7 +21292,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1415",
+      "code": "T1419",
       "label": "Migraine in children",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21335,7 +21311,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1416",
+      "code": "T1420",
       "label": "HSIL",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -21354,7 +21330,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1417",
+      "code": "T1421",
       "label": "Eye presentations",
       "topicType": "Question Tag",
       "homeUnit": "u13",
@@ -21373,7 +21349,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1418",
+      "code": "T1422",
       "label": "Indometacin",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21392,7 +21368,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1419",
+      "code": "T1423",
       "label": "Contrast Nephropathy",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21411,7 +21387,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1420",
+      "code": "T1424",
       "label": "Sexual",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -21430,7 +21406,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1421",
+      "code": "T1425",
       "label": "2025",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -21449,7 +21425,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1422",
+      "code": "T1426",
       "label": "Self -collection",
       "topicType": "Question Tag",
       "homeUnit": "general",
@@ -21468,7 +21444,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1423",
+      "code": "T1427",
       "label": "Smoking Cessation",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21487,7 +21463,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1424",
+      "code": "T1428",
       "label": "Red eye",
       "topicType": "Question Tag",
       "homeUnit": "u13",
@@ -21506,7 +21482,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1425",
+      "code": "T1429",
       "label": "Older adults",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21525,7 +21501,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1426",
+      "code": "T1430",
       "label": "Chronic Kidney Disease",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21544,7 +21520,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1427",
+      "code": "T1431",
       "label": "Alcohol",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21563,7 +21539,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1428",
+      "code": "T1432",
       "label": "Aura without headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21582,7 +21558,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1429",
+      "code": "T1433",
       "label": "Sample",
       "topicType": "Question Tag",
       "homeUnit": "u36",
@@ -21601,7 +21577,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1430",
+      "code": "T1434",
       "label": "Sinus headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21620,7 +21596,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1431",
+      "code": "T1435",
       "label": "High",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21639,7 +21615,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1432",
+      "code": "T1436",
       "label": "Lifestyle",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21658,7 +21634,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1433",
+      "code": "T1437",
       "label": "Nonopioid",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21677,7 +21653,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1434",
+      "code": "T1438",
       "label": "Hemicrania continua",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21696,7 +21672,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1435",
+      "code": "T1439",
       "label": "Headache recurrence",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21715,7 +21691,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1436",
+      "code": "T1440",
       "label": "Men’s Health",
       "topicType": "Question Tag",
       "homeUnit": "u34",
@@ -21734,7 +21710,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1437",
+      "code": "T1441",
       "label": "eGFR",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21753,7 +21729,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1438",
+      "code": "T1442",
       "label": "CKD Staging",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21772,7 +21748,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1439",
+      "code": "T1443",
       "label": "Preventative Health",
       "topicType": "Question Tag",
       "homeUnit": "women-s-health",
@@ -21791,26 +21767,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1440",
-      "label": "Neurological presentations",
-      "topicType": "Question Tag",
-      "homeUnit": "u25",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "neurological-presentations"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "neurological-presentations"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1441",
+      "code": "T1444",
       "label": "Drug",
       "topicType": "Question Tag",
       "homeUnit": "u34",
@@ -21829,7 +21786,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1442",
+      "code": "T1445",
       "label": "Trigeminal autonomic",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21848,7 +21805,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1443",
+      "code": "T1446",
       "label": "Primary exercise headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21867,7 +21824,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1444",
+      "code": "T1447",
       "label": "Albuminuria",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21886,7 +21843,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1445",
+      "code": "T1448",
       "label": "Fluid Intake",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21905,7 +21862,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1446",
+      "code": "T1449",
       "label": "Intracranial hypotension",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21924,7 +21881,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1447",
+      "code": "T1450",
       "label": "Positional",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21943,7 +21900,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1448",
+      "code": "T1451",
       "label": "Blood Pressure",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -21962,7 +21919,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1449",
+      "code": "T1452",
       "label": "Trigeminal",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -21981,7 +21938,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1450",
+      "code": "T1453",
       "label": "Tension-type headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22000,7 +21957,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1451",
+      "code": "T1454",
       "label": "postpartum mental health",
       "topicType": "Question Tag",
       "homeUnit": "mental-health",
@@ -22019,7 +21976,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1452",
+      "code": "T1455",
       "label": "Referral",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22038,7 +21995,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1453",
+      "code": "T1456",
       "label": "Sick Day",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22057,7 +22014,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1454",
+      "code": "T1457",
       "label": "Triptans",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22076,7 +22033,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1455",
+      "code": "T1458",
       "label": "SUNCT",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22095,7 +22052,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1456",
+      "code": "T1459",
       "label": "Acute migraine treatment",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22114,7 +22071,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1457",
+      "code": "T1460",
       "label": "Diabetic Kidney Disease",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22133,7 +22090,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1458",
+      "code": "T1461",
       "label": "Finerenone",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22152,7 +22109,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1459",
+      "code": "T1462",
       "label": "First Nations Health",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22171,7 +22128,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1460",
+      "code": "T1463",
       "label": "Nonsteroidal MRA",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22190,7 +22147,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1461",
+      "code": "T1464",
       "label": "Lipid",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22209,7 +22166,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1462",
+      "code": "T1465",
       "label": "Screening",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22228,7 +22185,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1463",
+      "code": "T1466",
       "label": "Blood",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22247,7 +22204,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1464",
+      "code": "T1467",
       "label": "Refractory",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22266,7 +22223,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1465",
+      "code": "T1468",
       "label": "Thunderclap headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22285,7 +22242,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1466",
+      "code": "T1469",
       "label": "Statins",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22304,7 +22261,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1467",
+      "code": "T1470",
       "label": "Headache classification",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22323,7 +22280,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1468",
+      "code": "T1471",
       "label": "Focal neurological deficit",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22342,7 +22299,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1469",
+      "code": "T1472",
       "label": "Physical Activity",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22361,7 +22318,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1470",
+      "code": "T1473",
       "label": "Hypnic headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22380,26 +22337,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1471",
-      "label": "Pregnancy and reproductive health",
-      "topicType": "Question Tag",
-      "homeUnit": "u30",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "pregnancy-and-reproductive-health"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "pregnancy-and-reproductive-health"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1472",
+      "code": "T1474",
       "label": "PDE5",
       "topicType": "Question Tag",
       "homeUnit": "u34",
@@ -22418,7 +22356,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1473",
+      "code": "T1475",
       "label": "Visual",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22437,7 +22375,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1474",
+      "code": "T1476",
       "label": "Lipid Modification",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22456,7 +22394,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1475",
+      "code": "T1477",
       "label": "Migraine in pregnancy",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22475,7 +22413,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1476",
+      "code": "T1478",
       "label": "Cough headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22494,7 +22432,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1477",
+      "code": "T1479",
       "label": "Slowing",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22513,7 +22451,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1478",
+      "code": "T1480",
       "label": "Acute treatment",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22532,7 +22470,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1479",
+      "code": "T1481",
       "label": "Status migrainosus",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22551,7 +22489,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1480",
+      "code": "T1482",
       "label": "Specialist referral",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22570,7 +22508,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1481",
+      "code": "T1483",
       "label": "Bridging therapy",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22589,7 +22527,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1482",
+      "code": "T1484",
       "label": "Conservative",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22608,7 +22546,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1483",
+      "code": "T1485",
       "label": "Diagnosis",
       "topicType": "Question Tag",
       "homeUnit": "u19",
@@ -22627,7 +22565,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1484",
+      "code": "T1486",
       "label": "Sexual activity headache",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22646,7 +22584,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1485",
+      "code": "T1487",
       "label": "Verapamil",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22665,7 +22603,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1486",
+      "code": "T1488",
       "label": "Migraine prophylaxis",
       "topicType": "Question Tag",
       "homeUnit": "u25",
@@ -22684,7 +22622,7 @@
       "taxonomyVersion": "1.1"
     },
     {
-      "code": "T1487",
+      "code": "T1489",
       "label": "Penile",
       "topicType": "Question Tag",
       "homeUnit": "u34",
@@ -22699,44 +22637,6 @@
       "crossCuttingTags": [
         "question-bank",
         "penile"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1488",
-      "label": "Trigeminal autonomic cephalalgia",
-      "topicType": "Question Tag",
-      "homeUnit": "u25",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "trigeminal-autonomic-cephalalgia"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "trigeminal-autonomic-cephalalgia"
-      ],
-      "taxonomyVersion": "1.1"
-    },
-    {
-      "code": "T1489",
-      "label": "Acute angle-closure glaucoma",
-      "topicType": "Question Tag",
-      "homeUnit": "u13",
-      "group": null,
-      "crossRefs": [],
-      "variants": [
-        "acute-angle-closure-glaucoma"
-      ],
-      "depth": "Working",
-      "status": "active",
-      "mergedInto": [],
-      "crossCuttingTags": [
-        "question-bank",
-        "acute-angle-closure-glaucoma"
       ],
       "taxonomyVersion": "1.1"
     },

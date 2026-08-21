@@ -71,6 +71,9 @@ export interface Question {
 
   // ── Classification ────────────────────────────────────────────────────────
   topic: string;
+  subtopic?: string;
+  subject?: string;
+  topicCode?: string;
   difficulty: "Easy" | "Medium" | "Hard";
   examType: "AKT" | "KFT" | "KFP";
   status: "draft" | "review" | "published" | "archived";
