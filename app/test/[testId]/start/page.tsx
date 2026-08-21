@@ -352,6 +352,10 @@ export default function TestPage() {
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackQuestionIdx, setFeedbackQuestionIdx] = useState(0);
+  const [fbWhere, setFbWhere] = useState("");
+  const [fbIssue, setFbIssue] = useState("");
+  const [fbSuggestedAnswer, setFbSuggestedAnswer] = useState("");
+  const [fbDisputedAnswer, setFbDisputedAnswer] = useState("");
   const [timerPaused, setTimerPaused] = useState(false);
 
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
@@ -667,6 +671,10 @@ export default function TestPage() {
   const openFeedback = () => {
     setFeedbackQuestionIdx(current);
     setFeedbackText("");
+    setFbWhere("");
+    setFbIssue("");
+    setFbSuggestedAnswer("");
+    setFbDisputedAnswer("");
     setFeedbackOpen(true);
     if (config?.timed) setTimerPaused(true);
   };
@@ -676,11 +684,71 @@ export default function TestPage() {
     if (config?.timed) setTimerPaused(false);
   };
 
+  const feedbackExamType: "AKT" | "KFP" = (() => {
+    if (config?.examMode === "KFP") return "KFP";
+    const q = questions[feedbackQuestionIdx];
+    const et = (q?.examType || "").toUpperCase();
+    return (et === "KFP" || et === "KFT") ? "KFP" : "AKT";
+  })();
+
+  const fbQuestion = questions[feedbackQuestionIdx];
+  const fbOptionCount = fbQuestion?.options?.length ?? 0;
+
+  const fbWhereOptions = [
+    { value: "stem", label: "Stem" },
+    { value: "lead_in", label: "Lead-in" },
+    ...Array.from({ length: fbOptionCount }, (_, i) => ({
+      value: `option_${String.fromCharCode(97 + i)}`,
+      label: `Option ${String.fromCharCode(65 + i)}`,
+    })),
+    { value: "answer_key", label: "Answer key" },
+    { value: "explanation", label: "Explanation" },
+    { value: "reference", label: "Reference" },
+    { value: "image_table", label: "Image / table" },
+  ];
+
+  const fbIssueOptions = feedbackExamType === "AKT"
+    ? [
+        { value: "keyed_answer_wrong", label: "Keyed answer wrong" },
+        { value: "more_than_one_defensible", label: "More than one defensible answer" },
+        { value: "no_correct_option", label: "No correct option" },
+        { value: "out_of_date", label: "Out of date" },
+        { value: "drug_error", label: "Drug error" },
+        { value: "stem_ambiguous", label: "Stem ambiguous" },
+        { value: "explanation_contradicts_key", label: "Explanation contradicts key" },
+        { value: "poor_distractor", label: "Poor distractor" },
+        { value: "typo", label: "Typo" },
+      ]
+    : [
+        { value: "schedule_wrong", label: "Schedule of answers wrong / incorrect" },
+        { value: "more_than_one_defensible", label: "More than one defensible answer" },
+        { value: "no_correct_option", label: "No correct option" },
+        { value: "out_of_date", label: "Out of date" },
+        { value: "drug_error", label: "Drug error" },
+        { value: "stem_ambiguous_or_inconsistent", label: "Stem ambiguous or case data inconsistent" },
+        { value: "explanation_contradicts_key", label: "Explanation contradicts key" },
+        { value: "typo", label: "Typo" },
+      ];
+
+  const fbCanSubmit =
+    fbWhere !== "" &&
+    fbIssue !== "" &&
+    (feedbackExamType !== "AKT" || fbIssue !== "keyed_answer_wrong" || fbSuggestedAnswer !== "") &&
+    (feedbackExamType !== "KFP" || fbIssue !== "schedule_wrong" || fbDisputedAnswer.trim() !== "");
+
   const submitFeedback = async () => {
     const q = questions[feedbackQuestionIdx];
-    if (!q || !feedbackText.trim()) return;
+    if (!q || !fbCanSubmit) return;
     setFeedbackSubmitting(true);
-    await saveQuestionFeedback({ questionId: q.id, feedback: feedbackText.trim() });
+    await saveQuestionFeedback({
+      questionId: q.id,
+      examType: feedbackExamType,
+      issueWhere: fbWhere,
+      issueType: fbIssue,
+      suggestedAnswer: feedbackExamType === "AKT" && fbIssue === "keyed_answer_wrong" ? fbSuggestedAnswer : undefined,
+      disputedAnswer: feedbackExamType === "KFP" && fbIssue === "schedule_wrong" ? fbDisputedAnswer.trim() : undefined,
+      comment: feedbackText.trim() || undefined,
+    });
     setFeedbackSubmitting(false);
     closeFeedback();
   };
@@ -1291,36 +1359,96 @@ export default function TestPage() {
                     <span className="text-slate-700 dark:text-slate-300 font-mono text-xs break-all">{fq.id.slice(0, 8)}…</span>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subject</span>
-                    <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subject}</span>
+                    <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Exam type</span>
+                    <span className="text-slate-700 dark:text-slate-300 font-semibold">{feedbackExamType}</span>
                   </div>
-                  {fq.subtopic && (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-24 shrink-0">Subtopic</span>
-                      <span className="text-slate-700 dark:text-slate-300 font-medium">{fq.subtopic}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Question Preview */}
-                <div className="mt-4 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-700/50">
-                  <p className="text-[13px] leading-relaxed text-slate-700 dark:text-slate-300 line-clamp-4">
-                    {fq.text}
-                  </p>
                 </div>
 
                 <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
 
-                {/* Feedback Text Area */}
+                {/* Where dropdown */}
                 <div>
                   <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
-                    Your Feedback
+                    Where is the issue?
+                  </label>
+                  <select
+                    value={fbWhere}
+                    onChange={(e) => setFbWhere(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 transition-colors cursor-pointer appearance-none"
+                  >
+                    <option value="">Select location…</option>
+                    {fbWhereOptions.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Issue type dropdown */}
+                <div className="mt-4">
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Issue type
+                  </label>
+                  <select
+                    value={fbIssue}
+                    onChange={(e) => {
+                      setFbIssue(e.target.value);
+                      setFbSuggestedAnswer("");
+                      setFbDisputedAnswer("");
+                    }}
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 transition-colors cursor-pointer appearance-none"
+                  >
+                    <option value="">Select issue…</option>
+                    {fbIssueOptions.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Conditional: AKT keyed_answer_wrong → suggested answer dropdown */}
+                {feedbackExamType === "AKT" && fbIssue === "keyed_answer_wrong" && (
+                  <div className="mt-4">
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      Which option do you believe is correct?
+                    </label>
+                    <select
+                      value={fbSuggestedAnswer}
+                      onChange={(e) => setFbSuggestedAnswer(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 transition-colors cursor-pointer appearance-none"
+                    >
+                      <option value="">Select option…</option>
+                      {Array.from({ length: fbOptionCount }, (_, i) => String.fromCharCode(65 + i)).map((l) => (
+                        <option key={l} value={l}>Option {l}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Conditional: KFP schedule_wrong → disputed answer text */}
+                {feedbackExamType === "KFP" && fbIssue === "schedule_wrong" && (
+                  <div className="mt-4">
+                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                      What did you answer that should be accepted?
+                    </label>
+                    <input
+                      type="text"
+                      value={fbDisputedAnswer}
+                      onChange={(e) => setFbDisputedAnswer(e.target.value)}
+                      placeholder="Your answer…"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 transition-colors"
+                    />
+                  </div>
+                )}
+
+                {/* Optional comment */}
+                <div className="mt-4">
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Additional comment <span className="font-normal normal-case">(optional)</span>
                   </label>
                   <textarea
                     value={feedbackText}
                     onChange={(e) => setFeedbackText(e.target.value.slice(0, 500))}
-                    placeholder="Describe the issue — wrong answer, unclear wording, incorrect options, etc."
-                    rows={4}
+                    placeholder="Any extra context…"
+                    rows={3}
                     className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-400 dark:focus:border-rose-500 resize-none transition-colors"
                   />
                   <div className="flex justify-end mt-1.5">
@@ -1340,7 +1468,7 @@ export default function TestPage() {
                   </button>
                   <button
                     onClick={submitFeedback}
-                    disabled={!feedbackText.trim() || feedbackSubmitting}
+                    disabled={!fbCanSubmit || feedbackSubmitting}
                     className="flex-1 py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-md shadow-rose-600/20 active:scale-[0.99] transition-all duration-150 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {feedbackSubmitting ? "Submitting…" : "Submit Feedback"}

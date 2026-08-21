@@ -25,6 +25,7 @@ import {
   Stethoscope,
   MessageSquareWarning,
   BookMarked,
+  FileText,
 } from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -60,6 +61,7 @@ const navGroups = [
     title: "Feedbacks",
     items: [
       { label: "Question Feedback", href: "/admin/feedbacks/questions", icon: MessageSquareWarning },
+      { label: "Note Template Feedback", href: "/admin/feedbacks/note-templates", icon: FileText },
       { label: "Library Feedback", href: "/admin/feedbacks/library", icon: BookMarked },
     ],
   },

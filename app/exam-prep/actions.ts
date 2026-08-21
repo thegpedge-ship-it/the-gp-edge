@@ -1096,21 +1096,107 @@ export async function getMockTestQuestionIds(mockTestId: string): Promise<QuizDe
  * ========================================================================== */
 export async function saveQuestionFeedback(input: {
   questionId: string;
-  feedback: string;
+  examType: "AKT" | "KFP";
+  issueWhere: string;
+  issueType: string;
+  suggestedAnswer?: string;
+  disputedAnswer?: string;
+  comment?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const dbUser = await ensureDbUser();
     if (!dbUser) return { ok: false, error: "You must be signed in." };
 
-    const text = input.feedback.trim();
-    if (!text || text.length > 500) {
-      return { ok: false, error: "Feedback must be between 1 and 500 characters." };
+    if (!input.issueWhere || !input.issueType) {
+      return { ok: false, error: "Please select where the issue is and the issue type." };
+    }
+
+    const comment = input.comment?.trim() || null;
+    if (comment && comment.length > 500) {
+      return { ok: false, error: "Comment must be 500 characters or fewer." };
     }
 
     await query(
-      `INSERT INTO question_feedback (question_id, user_id, feedback)
-       VALUES ($1, $2, $3)`,
-      [input.questionId, dbUser.id, text]
+      `INSERT INTO question_feedback
+         (question_id, user_id, exam_type, issue_where, issue_type,
+          suggested_answer, disputed_answer, comment)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        input.questionId,
+        dbUser.id,
+        input.examType,
+        input.issueWhere,
+        input.issueType,
+        input.suggestedAnswer || null,
+        input.disputedAnswer?.trim() || null,
+        comment,
+      ]
+    );
+
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Could not save feedback. Please try again." };
+  }
+}
+
+/* ============================================================================
+ * Note Template Feedback — lets users report issues with clinical autofill
+ * note templates. Saved into the `note_template_feedback` table.
+ * ========================================================================== */
+export async function saveNoteTemplateFeedback(input: {
+  templateId: string;
+  templateName: string;
+  versionLabel?: string;
+  severity: string;
+  whatsWrong: string;
+  source?: string;
+  sectionWhere: string;
+  issueType: string;
+  wrongDetail?: string;
+  softwareName?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const dbUser = await ensureDbUser();
+    if (!dbUser) return { ok: false, error: "You must be signed in." };
+
+    if (!input.severity || !input.sectionWhere || !input.issueType) {
+      return { ok: false, error: "Please fill in all required fields." };
+    }
+
+    const whatsWrong = input.whatsWrong?.trim() || "";
+    if (!whatsWrong) {
+      return { ok: false, error: "Please describe what's wrong." };
+    }
+    if (whatsWrong.length > 500) {
+      return { ok: false, error: "Description must be 500 characters or fewer." };
+    }
+
+    if (input.issueType === "clinical_content_wrong" && !input.wrongDetail?.trim()) {
+      return { ok: false, error: "Please describe what is wrong or out of date." };
+    }
+    if (input.issueType === "software_issue" && !input.softwareName) {
+      return { ok: false, error: "Please select which software is affected." };
+    }
+
+    await query(
+      `INSERT INTO note_template_feedback
+         (template_id, template_name, version_label, user_id,
+          severity, whats_wrong, source, section_where, issue_type,
+          wrong_detail, software_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        input.templateId,
+        input.templateName,
+        input.versionLabel || null,
+        dbUser.id,
+        input.severity,
+        whatsWrong,
+        input.source?.trim() || null,
+        input.sectionWhere,
+        input.issueType,
+        input.issueType === "clinical_content_wrong" ? input.wrongDetail?.trim() || null : null,
+        input.issueType === "software_issue" ? input.softwareName || null : null,
+      ]
     );
 
     return { ok: true };

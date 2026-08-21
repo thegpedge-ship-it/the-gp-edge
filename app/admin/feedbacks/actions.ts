@@ -7,7 +7,13 @@ export interface QuestionFeedbackRow {
   question_id: string;
   user_email: string;
   user_name: string;
-  feedback: string;
+  exam_type: string | null;
+  issue_where: string | null;
+  issue_type: string | null;
+  suggested_answer: string | null;
+  disputed_answer: string | null;
+  comment: string | null;
+  status: string;
   created_at: string;
 }
 
@@ -35,7 +41,13 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
          qf.question_id,
          u.email AS user_email,
          COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
-         qf.feedback,
+         qf.exam_type,
+         qf.issue_where,
+         qf.issue_type,
+         qf.suggested_answer,
+         qf.disputed_answer,
+         qf.comment,
+         qf.status,
          qf.created_at
        FROM question_feedback qf
        JOIN users u ON u.id = qf.user_id
@@ -51,11 +63,106 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
       question_id: r.question_id,
       user_email: r.user_email,
       user_name: r.user_name,
-      feedback: r.feedback,
+      exam_type: r.exam_type ?? null,
+      issue_where: r.issue_where ?? null,
+      issue_type: r.issue_type ?? null,
+      suggested_answer: r.suggested_answer ?? null,
+      disputed_answer: r.disputed_answer ?? null,
+      comment: r.comment ?? null,
+      status: r.status ?? "open",
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     })),
     total: countRows[0]?.total ?? 0,
   };
+}
+
+export async function updateFeedbackStatus(
+  feedbackId: string,
+  status: "open" | "under_review" | "accepted" | "rejected" | "resolved"
+): Promise<{ ok: boolean }> {
+  await query(`UPDATE question_feedback SET status = $1 WHERE id = $2`, [status, feedbackId]);
+  return { ok: true };
+}
+
+export interface NoteTemplateFeedbackRow {
+  id: string;
+  template_id: string;
+  template_name: string;
+  version_label: string | null;
+  user_email: string;
+  user_name: string;
+  severity: string;
+  whats_wrong: string;
+  source: string | null;
+  section_where: string;
+  issue_type: string;
+  wrong_detail: string | null;
+  software_name: string | null;
+  status: string;
+  created_at: string;
+}
+
+export async function getNoteTemplateFeedbacks(page: number = 1, pageSize: number = 50): Promise<{
+  rows: NoteTemplateFeedbackRow[];
+  total: number;
+}> {
+  const offset = (page - 1) * pageSize;
+
+  const [countRows, dataRows] = await Promise.all([
+    query<{ total: number }>(`SELECT COUNT(*)::int AS total FROM note_template_feedback`),
+    query(
+      `SELECT
+         ntf.id,
+         ntf.template_id,
+         ntf.template_name,
+         ntf.version_label,
+         u.email AS user_email,
+         COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
+         ntf.severity,
+         ntf.whats_wrong,
+         ntf.source,
+         ntf.section_where,
+         ntf.issue_type,
+         ntf.wrong_detail,
+         ntf.software_name,
+         ntf.status,
+         ntf.created_at
+       FROM note_template_feedback ntf
+       JOIN users u ON u.id = ntf.user_id
+       ORDER BY ntf.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [pageSize, offset]
+    ),
+  ]);
+
+  return {
+    rows: dataRows.map((r: any) => ({
+      id: r.id,
+      template_id: r.template_id,
+      template_name: r.template_name,
+      version_label: r.version_label ?? null,
+      user_email: r.user_email,
+      user_name: r.user_name,
+      severity: r.severity,
+      whats_wrong: r.whats_wrong,
+      source: r.source ?? null,
+      section_where: r.section_where,
+      issue_type: r.issue_type,
+      wrong_detail: r.wrong_detail ?? null,
+      software_name: r.software_name ?? null,
+      status: r.status ?? "open",
+      created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    })),
+    total: countRows[0]?.total ?? 0,
+  };
+}
+
+export async function updateNoteTemplateFeedbackStatus(
+  feedbackId: string,
+  status: "open" | "under_review" | "accepted" | "rejected" | "resolved"
+): Promise<{ ok: boolean }> {
+  await query(`UPDATE note_template_feedback SET status = $1 WHERE id = $2`, [status, feedbackId]);
+  return { ok: true };
 }
 
 export async function getLibraryFeedbacks(page: number = 1, pageSize: number = 50): Promise<{

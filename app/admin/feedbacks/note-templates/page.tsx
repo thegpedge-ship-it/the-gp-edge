@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getQuestionFeedbacks, updateFeedbackStatus } from "@/app/admin/feedbacks/actions";
-import type { QuestionFeedbackRow } from "@/app/admin/feedbacks/actions";
+import { getNoteTemplateFeedbacks, updateNoteTemplateFeedbackStatus } from "@/app/admin/feedbacks/actions";
+import type { NoteTemplateFeedbackRow } from "@/app/admin/feedbacks/actions";
 import { X, Copy, Check } from "lucide-react";
 
 const containerVariants = {
@@ -18,32 +18,32 @@ const itemVariants = {
 
 const PAGE_SIZE = 20;
 
+const SEVERITY_LABELS: Record<string, string> = {
+  typo_or_presentation: "Typo / presentation",
+  content_may_be_wrong: "Content may be wrong",
+  could_cause_harm: "Could cause harm",
+};
+
+const SEVERITY_COLORS: Record<string, string> = {
+  typo_or_presentation: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+  content_may_be_wrong: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+  could_cause_harm: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
+};
+
 const ISSUE_LABELS: Record<string, string> = {
-  keyed_answer_wrong: "Keyed answer wrong",
-  schedule_wrong: "Schedule wrong",
-  more_than_one_defensible: "Multiple defensible",
-  no_correct_option: "No correct option",
-  out_of_date: "Out of date",
-  drug_error: "Drug error",
-  stem_ambiguous: "Stem ambiguous",
-  stem_ambiguous_or_inconsistent: "Stem ambiguous / inconsistent",
-  explanation_contradicts_key: "Explanation contradicts key",
-  poor_distractor: "Poor distractor",
+  clinical_content_wrong: "Clinical content wrong / out of date",
+  missing_field: "Missing field for documentation",
+  software_issue: "Doesn't work in software",
+  export_formatting: "Export or formatting breaks",
   typo: "Typo",
 };
 
-const WHERE_LABELS: Record<string, string> = {
-  stem: "Stem",
-  lead_in: "Lead-in",
-  option_a: "Option A",
-  option_b: "Option B",
-  option_c: "Option C",
-  option_d: "Option D",
-  option_e: "Option E",
-  answer_key: "Answer key",
-  explanation: "Explanation",
-  reference: "Reference",
-  image_table: "Image / table",
+const SOFTWARE_LABELS: Record<string, string> = {
+  best_practice: "Best Practice",
+  medical_director: "MedicalDirector",
+  zedmed: "Zedmed",
+  helix: "Helix",
+  other: "Other",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -54,17 +54,17 @@ const STATUS_COLORS: Record<string, string> = {
   resolved: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
 };
 
-export default function QuestionFeedbackPage() {
-  const [rows, setRows] = useState<QuestionFeedbackRow[]>([]);
+export default function NoteTemplateFeedbackPage() {
+  const [rows, setRows] = useState<NoteTemplateFeedbackRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<QuestionFeedbackRow | null>(null);
+  const [selected, setSelected] = useState<NoteTemplateFeedbackRow | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fetchPage = (p: number) => {
     setLoading(true);
-    getQuestionFeedbacks(p, PAGE_SIZE)
+    getNoteTemplateFeedbacks(p, PAGE_SIZE)
       .then((res) => { setRows(res.rows); setTotal(res.total); })
       .finally(() => setLoading(false));
   };
@@ -85,8 +85,8 @@ export default function QuestionFeedbackPage() {
   const fmtDateTime = (iso: string) =>
     new Date(iso).toLocaleString("en-AU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-  const handleStatusChange = async (row: QuestionFeedbackRow, newStatus: string) => {
-    await updateFeedbackStatus(row.id, newStatus as any);
+  const handleStatusChange = async (row: NoteTemplateFeedbackRow, newStatus: string) => {
+    await updateNoteTemplateFeedbackStatus(row.id, newStatus as any);
     const updated = { ...row, status: newStatus };
     setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)));
     if (selected?.id === row.id) setSelected(updated);
@@ -94,27 +94,27 @@ export default function QuestionFeedbackPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <AdminPageHeader title="Question" highlightedText="Feedback" subtitle="User-reported issues and feedback on exam questions" variants={itemVariants} />
+      <AdminPageHeader title="Note Template" highlightedText="Feedback" subtitle="User-reported issues on clinical autofill note templates" variants={itemVariants} />
 
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-fixed">
             <colgroup>
+              <col className="w-[18%]" />
               <col className="w-[10%]" />
-              <col className="w-[7%]" />
+              <col className="w-[16%]" />
+              <col className="w-[14%]" />
               <col className="w-[18%]" />
-              <col className="w-[18%]" />
-              <col className="w-[22%]" />
-              <col className="w-[13%]" />
+              <col className="w-[12%]" />
               <col className="w-[12%]" />
             </colgroup>
             <thead>
               <tr className="border-b border-slate-200/60 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-800/40">
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Question ID</th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Type</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">Template</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Severity</th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Issue</th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">User</th>
-                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Comment</th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">What's Wrong</th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Status</th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-3 py-3">Date</th>
               </tr>
@@ -123,29 +123,30 @@ export default function QuestionFeedbackPage() {
               {loading ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">Loading feedbacks…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">No question feedback yet.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400 dark:text-slate-500">No note template feedback yet.</td></tr>
               ) : rows.map((row) => (
                 <tr key={row.id} onClick={() => setSelected(row)} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
                   <td className="px-4 py-3">
-                    <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 truncate block max-w-full" title={row.question_id}>{row.question_id.slice(0, 10)}…</span>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.template_name}</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{row.section_where}</p>
                   </td>
                   <td className="px-3 py-3">
-                    {row.exam_type && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${row.exam_type === "AKT" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300" : "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300"}`}>
-                        {row.exam_type}
-                      </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${SEVERITY_COLORS[row.severity] || SEVERITY_COLORS.content_may_be_wrong}`}>
+                      {SEVERITY_LABELS[row.severity] || row.severity}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{ISSUE_LABELS[row.issue_type] || row.issue_type}</p>
+                    {row.software_name && (
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{SOFTWARE_LABELS[row.software_name] || row.software_name}</p>
                     )}
-                  </td>
-                  <td className="px-3 py-3">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{ISSUE_LABELS[row.issue_type || ""] || row.issue_type || "—"}</p>
-                    <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{WHERE_LABELS[row.issue_where || ""] || row.issue_where || ""}</p>
                   </td>
                   <td className="px-3 py-3">
                     <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">{row.user_name}</p>
                     <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate">{row.user_email}</p>
                   </td>
                   <td className="px-3 py-3">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{(row.comment || "—").replace(/\n/g, " ")}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{row.whats_wrong.replace(/\n/g, " ")}</p>
                   </td>
                   <td className="px-3 py-3">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${STATUS_COLORS[row.status] || STATUS_COLORS.open}`}>
@@ -185,12 +186,10 @@ export default function QuestionFeedbackPage() {
               {/* Top bar */}
               <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Feedback Detail</span>
-                  {selected.exam_type && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${selected.exam_type === "AKT" ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300" : "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300"}`}>
-                      {selected.exam_type}
-                    </span>
-                  )}
+                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Note Template Feedback</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${SEVERITY_COLORS[selected.severity] || ""}`}>
+                    {SEVERITY_LABELS[selected.severity] || selected.severity}
+                  </span>
                 </div>
                 <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
                   <X className="w-4 h-4" />
@@ -202,10 +201,19 @@ export default function QuestionFeedbackPage() {
                 {/* Left: metadata */}
                 <div className="px-5 py-5 space-y-4 text-sm">
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Question ID</span>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Template</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 break-all">{selected.question_id}</span>
-                      <button onClick={() => copyId(selected.question_id)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 break-words">{selected.template_name}</span>
+                    </div>
+                    {selected.version_label && (
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">{selected.version_label}</p>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Template ID</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 break-all">{selected.template_id}</span>
+                      <button onClick={() => copyId(selected.template_id)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
                         {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                       </button>
                     </div>
@@ -220,23 +228,29 @@ export default function QuestionFeedbackPage() {
                     <p className="text-xs text-slate-600 dark:text-slate-300">{fmtDateTime(selected.created_at)}</p>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Where</span>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">{WHERE_LABELS[selected.issue_where || ""] || selected.issue_where || "—"}</p>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Section</span>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">{selected.section_where}</p>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Issue</span>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">{ISSUE_LABELS[selected.issue_type || ""] || selected.issue_type || "—"}</p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300">{ISSUE_LABELS[selected.issue_type] || selected.issue_type}</p>
                   </div>
-                  {selected.suggested_answer && (
+                  {selected.wrong_detail && (
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Suggested Answer</span>
-                      <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400">Option {selected.suggested_answer}</p>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">What's Wrong / Out of Date</span>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">{selected.wrong_detail}</p>
                     </div>
                   )}
-                  {selected.disputed_answer && (
+                  {selected.software_name && (
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Disputed Answer</span>
-                      <p className="text-sm text-slate-700 dark:text-slate-300">{selected.disputed_answer}</p>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Software</span>
+                      <p className="text-sm font-bold text-violet-600 dark:text-violet-400">{SOFTWARE_LABELS[selected.software_name] || selected.software_name}</p>
+                    </div>
+                  )}
+                  {selected.source && (
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Source / Reference</span>
+                      <p className="text-sm text-slate-700 dark:text-slate-300">{selected.source}</p>
                     </div>
                   )}
                   <div>
@@ -255,10 +269,10 @@ export default function QuestionFeedbackPage() {
                   </div>
                 </div>
 
-                {/* Right: comment */}
+                {/* Right: description */}
                 <div className="px-6 py-5 min-w-0">
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-2">Comment</span>
-                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 break-words">{selected.comment || "No additional comment."}</p>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-2">What's Wrong</span>
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 break-words">{selected.whats_wrong || "No description provided."}</p>
                 </div>
               </div>
             </motion.div>
