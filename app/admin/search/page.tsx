@@ -57,6 +57,7 @@ export default function SearchPage() {
 
   // Taxonomy & unified database topics filters
   const [selectedUnit, setSelectedUnit] = useState<string>("all");
+  const [selectedTopicTitle, setSelectedTopicTitle] = useState<string>("all");
   const [selectedDepth, setSelectedDepth] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string>("all");
@@ -88,7 +89,7 @@ export default function SearchPage() {
   useEffect(() => {
     setVisibleTopicsCount(10);
     setVisibleQuestionsCount(10);
-  }, [selectedUnit, selectedDepth, selectedType, selectedTag, query, activeTab]);
+  }, [selectedUnit, selectedTopicTitle, selectedDepth, selectedType, selectedTag, query, activeTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -224,6 +225,10 @@ export default function SearchPage() {
       );
     }
 
+    if (selectedTopicTitle && selectedTopicTitle !== "all") {
+      list = list.filter((t) => t.label === selectedTopicTitle);
+    }
+
     if (selectedDepth && selectedDepth !== "all") {
       list = list.filter((t) => t.depth === selectedDepth);
     }
@@ -254,7 +259,7 @@ export default function SearchPage() {
     }
 
     return list;
-  }, [taxonomyTopics, selectedUnit, selectedDepth, selectedType, selectedTag, query]);
+  }, [taxonomyTopics, selectedUnit, selectedTopicTitle, selectedDepth, selectedType, selectedTag, query]);
 
   // Dynamically collect all tags from database topics
   const availableTags = useMemo(() => {
@@ -479,6 +484,20 @@ export default function SearchPage() {
                   })),
                 ]}
                 className="w-full sm:w-60"
+              />
+
+              {/* Topic Title Dropdown */}
+              <CustomSelect
+                value={selectedTopicTitle}
+                onChange={setSelectedTopicTitle}
+                options={[
+                  { value: "all", label: `All Topic Titles (${topicTitlesList.length || taxonomyTopics.length})` },
+                  ...topicTitlesList.map((title) => ({
+                    value: title,
+                    label: title,
+                  })),
+                ]}
+                className="w-full sm:w-64"
               />
 
               {/* Depth Tier Dropdown */}

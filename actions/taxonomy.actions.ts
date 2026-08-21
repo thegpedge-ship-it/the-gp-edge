@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import { query, queryOne, execute } from "@/lib/db";
 import { recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+import { MASTER_UNITS } from "@/lib/taxonomyData";
 
 export interface MasterUnit {
   code: string;
@@ -1142,27 +1143,36 @@ export async function getAllDatabaseTopicsAction(): Promise<{
       // tags table query fallback
     }
 
-    // 7. Get distinct Units from taxonomy_units or subjects
-    let units: { code: string; name: string }[] = [];
+    // 7. Get distinct Units from taxonomy_units, subjects, and master units
+    const unitMap = new Map<string, string>();
+    MASTER_UNITS.forEach((u) => unitMap.set(u.code, u.name));
+
+    try {
+      const subjectUnits = await query<any>(`
+        SELECT slug as code, name FROM subjects WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC
+      `);
+      subjectUnits.forEach((s) => {
+        if (s.code && s.name) unitMap.set(s.code, s.name);
+      });
+    } catch {}
+
     try {
       const dbUnits = await query<any>(`
         SELECT code, name FROM taxonomy_units ORDER BY display_order ASC, code ASC
       `);
-      if (dbUnits.length > 0) {
-        units = dbUnits;
-      }
+      dbUnits.forEach((u) => {
+        if (u.code && u.name) unitMap.set(u.code, u.name);
+      });
     } catch {}
 
-    if (units.length === 0) {
-      try {
-        const subjectUnits = await query<any>(`
-          SELECT slug as code, name FROM subjects WHERE deleted_at IS NULL ORDER BY sort_order ASC, name ASC
-        `);
-        if (subjectUnits.length > 0) {
-          units = subjectUnits;
-        }
-      } catch {}
+    // Also collect units attached to any discovered topics
+    for (const t of topicMap.values()) {
+      if (t.homeUnit && t.homeUnitName && !unitMap.has(t.homeUnit)) {
+        unitMap.set(t.homeUnit, t.homeUnitName);
+      }
     }
+
+    const units = Array.from(unitMap.entries()).map(([code, name]) => ({ code, name }));
 
     // 8. Define and normalize topic codes (ensure all have uppercase T0001+ format)
     const usedCodes = new Set<string>();
@@ -1206,7 +1216,9 @@ export async function getAllDatabaseTopicsAction(): Promise<{
     }
 
     const topics = Array.from(topicMap.values()).sort((a, b) => a.code.localeCompare(b.code));
-    const topicTitles = Array.from(new Set(topics.map((t) => t.label))).filter(Boolean);
+    const topicTitles = Array.from(new Set(topics.map((t) => t.label)))
+      .filter((label) => Boolean(label) && !label.includes("[Enter") && !label.includes("enter-"))
+      .sort((a, b) => a.localeCompare(b));
 
     return {
       success: true,
