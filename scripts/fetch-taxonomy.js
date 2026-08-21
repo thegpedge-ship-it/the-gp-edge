@@ -100,7 +100,116 @@ async function run() {
       }
     }
 
-    // 4. Define and normalize topic codes (T0001+)
+    // 4. Fetch Question Tags
+    try {
+      const qTagsResult = await pool.query(`
+        SELECT 
+          t.id as tag_id,
+          t.slug as tag_slug,
+          t.label as tag_label,
+          COALESCE(s.slug, 'general') as "homeUnit"
+        FROM question_tags qt
+        JOIN tags t ON t.id = qt.tag_id
+        JOIN questions q ON q.id = qt.question_id
+        LEFT JOIN subjects s ON s.id = q.subject_id
+        WHERE q.deleted_at IS NULL AND t.label IS NOT NULL
+        GROUP BY t.id, t.slug, t.label, s.slug
+      `);
+
+      for (const row of qTagsResult.rows) {
+        if (!row.tag_label) continue;
+        const key = row.tag_label.trim().toLowerCase();
+        if (!topicMap.has(key)) {
+          topicMap.set(key, {
+            code: row.tag_slug || `QT-${row.tag_id.substring(0, 6)}`,
+            label: row.tag_label.trim(),
+            topicType: "Question Tag",
+            homeUnit: row.homeUnit || "general",
+            group: null,
+            crossRefs: [],
+            variants: row.tag_slug ? [row.tag_slug] : [],
+            depth: "Working",
+            status: "active",
+            mergedInto: [],
+            crossCuttingTags: ["question-bank", row.tag_slug].filter(Boolean),
+            taxonomyVersion: "1.1"
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("fetch question_tags error:", e);
+    }
+
+    // 5. Fetch Condition Tags & Approach JSON tags
+    try {
+      const approachWithTags = await pool.query(`
+        SELECT mc.id, mc.name, mc.kind, mc.category, mc.clinical_notes, s.slug as "homeUnit"
+        FROM medical_conditions mc
+        LEFT JOIN subjects s ON s.id = mc.subject_id
+        WHERE mc.deleted_at IS NULL AND mc.clinical_notes IS NOT NULL AND mc.clinical_notes LIKE '%tags%'
+      `);
+
+      for (const row of approachWithTags.rows) {
+        try {
+          const parsed = JSON.parse(row.clinical_notes);
+          if (Array.isArray(parsed.tags)) {
+            for (const tagStr of parsed.tags) {
+              if (!tagStr || typeof tagStr !== "string") continue;
+              const cleanTag = tagStr.trim();
+              const key = cleanTag.toLowerCase();
+              const tagSlug = key.replace(/[^a-z0-9]+/g, "-");
+              if (!topicMap.has(key)) {
+                topicMap.set(key, {
+                  code: tagSlug || `TAG-${row.id.substring(0, 6)}`,
+                  label: cleanTag,
+                  topicType: "Approach Tag",
+                  homeUnit: row.homeUnit || row.category || "general",
+                  group: row.category || null,
+                  crossRefs: [],
+                  variants: [tagSlug],
+                  depth: "Awareness",
+                  status: "active",
+                  mergedInto: [],
+                  crossCuttingTags: [tagSlug, "approach"],
+                  taxonomyVersion: "1.1"
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("fetch approach tags error:", e);
+    }
+
+    // 6. Fetch Standalone Tags
+    try {
+      const tagRows = await pool.query(`SELECT id, slug, label FROM tags WHERE label IS NOT NULL ORDER BY label ASC`);
+      for (const row of tagRows.rows) {
+        if (!row.label) continue;
+        const key = row.label.trim().toLowerCase();
+        if (!topicMap.has(key)) {
+          topicMap.set(key, {
+            code: row.slug || `TAG-${row.id.substring(0, 6)}`,
+            label: row.label.trim(),
+            topicType: "Clinical Tag",
+            homeUnit: "general",
+            group: null,
+            crossRefs: [],
+            variants: [row.slug],
+            depth: "Awareness",
+            status: "active",
+            mergedInto: [],
+            crossCuttingTags: [row.slug],
+            taxonomyVersion: "1.1"
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("fetch tags error:", e);
+    }
+
+    // 7. Define and normalize topic codes (T0001+)
     const usedCodes = new Set();
     const nextCounter = { val: 1 };
 

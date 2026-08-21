@@ -915,6 +915,163 @@ export async function getAllDatabaseTopicsAction(): Promise<{
       console.warn("[getAllDatabaseTopicsAction] questions query:", e);
     }
 
+    // 5b. Fetch all tags attached to questions (from question_tags & tags tables)
+    try {
+      const questionTagRows = await query<any>(`
+        SELECT 
+          t.id as tag_id,
+          t.slug as tag_slug,
+          t.label as tag_label,
+          COALESCE(s.slug, 'general') as "homeUnit",
+          COALESCE(s.name, 'General') as "homeUnitName",
+          COUNT(DISTINCT qt.question_id) as count
+        FROM question_tags qt
+        JOIN tags t ON t.id = qt.tag_id
+        JOIN questions q ON q.id = qt.question_id
+        LEFT JOIN subjects s ON s.id = q.subject_id
+        WHERE q.deleted_at IS NULL AND t.label IS NOT NULL
+        GROUP BY t.id, t.slug, t.label, s.slug, s.name
+      `);
+
+      for (const row of questionTagRows) {
+        if (!row.tag_label) continue;
+        const key = row.tag_label.trim().toLowerCase();
+        const existing = topicMap.get(key);
+        if (existing) {
+          existing.usageCount = (existing.usageCount || 0) + Number(row.count || 0);
+          if (!existing.crossCuttingTags) existing.crossCuttingTags = [];
+          if (!existing.crossCuttingTags.includes("question-bank")) {
+            existing.crossCuttingTags.push("question-bank");
+          }
+          if (row.tag_slug && !existing.variants.includes(row.tag_slug)) {
+            existing.variants.push(row.tag_slug);
+          }
+        } else {
+          topicMap.set(key, {
+            code: row.tag_slug || `QT-${row.tag_id.substring(0, 6)}`,
+            label: row.tag_label.trim(),
+            topicType: "Question Tag",
+            homeUnit: row.homeUnit || "general",
+            homeUnitName: row.homeUnitName || "General",
+            crossRefs: [],
+            group: null,
+            variants: row.tag_slug ? [row.tag_slug] : [],
+            depth: "Working",
+            status: "active",
+            mergedInto: [],
+            crossCuttingTags: ["question-bank", row.tag_slug].filter(Boolean),
+            source: "question",
+            usageCount: Number(row.count || 0),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[getAllDatabaseTopicsAction] question_tags query:", e);
+    }
+
+    // 5c. Fetch tags attached to medical conditions (from condition_tags & tags tables)
+    try {
+      const conditionTagRows = await query<any>(`
+        SELECT 
+          t.id as tag_id,
+          t.slug as tag_slug,
+          t.label as tag_label,
+          COALESCE(s.slug, mc.category, 'general') as "homeUnit",
+          COALESCE(s.name, mc.category, 'General') as "homeUnitName",
+          mc.kind,
+          COUNT(DISTINCT ct.condition_id) as count
+        FROM condition_tags ct
+        JOIN tags t ON t.id = ct.tag_id
+        JOIN medical_conditions mc ON mc.id = ct.condition_id
+        LEFT JOIN subjects s ON s.id = mc.subject_id
+        WHERE mc.deleted_at IS NULL AND t.label IS NOT NULL
+        GROUP BY t.id, t.slug, t.label, s.slug, s.name, mc.category, mc.kind
+      `);
+
+      for (const row of conditionTagRows) {
+        if (!row.tag_label) continue;
+        const key = row.tag_label.trim().toLowerCase();
+        const isApproach = row.kind === "Approach" || row.tag_label.toLowerCase().startsWith("approach to");
+        const existing = topicMap.get(key);
+        if (existing) {
+          existing.usageCount = (existing.usageCount || 0) + Number(row.count || 0);
+          if (!existing.crossCuttingTags) existing.crossCuttingTags = [];
+          if (row.tag_slug && !existing.crossCuttingTags.includes(row.tag_slug)) {
+            existing.crossCuttingTags.push(row.tag_slug);
+          }
+          if (row.tag_slug && !existing.variants.includes(row.tag_slug)) {
+            existing.variants.push(row.tag_slug);
+          }
+        } else {
+          topicMap.set(key, {
+            code: row.tag_slug || `CT-${row.tag_id.substring(0, 6)}`,
+            label: row.tag_label.trim(),
+            topicType: isApproach ? "Approach to a Presentation" : "Clinical Tag",
+            homeUnit: row.homeUnit || "general",
+            homeUnitName: row.homeUnitName || "General",
+            crossRefs: [],
+            group: row.homeUnitName || null,
+            variants: row.tag_slug ? [row.tag_slug] : [],
+            depth: "Working",
+            status: "active",
+            mergedInto: [],
+            crossCuttingTags: [row.tag_slug, isApproach ? "approach" : "condition"].filter(Boolean),
+            source: isApproach ? "approach" : "condition",
+            usageCount: Number(row.count || 0),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("[getAllDatabaseTopicsAction] condition_tags query:", e);
+    }
+
+    // 5d. Fetch tags stored in medical_conditions.clinical_notes JSON (approaches)
+    try {
+      const approachWithTags = await query<any>(`
+        SELECT mc.id, mc.name, mc.kind, mc.category, mc.clinical_notes, s.slug as "homeUnit", s.name as "homeUnitName"
+        FROM medical_conditions mc
+        LEFT JOIN subjects s ON s.id = mc.subject_id
+        WHERE mc.deleted_at IS NULL AND mc.clinical_notes IS NOT NULL AND mc.clinical_notes LIKE '%tags%'
+      `);
+
+      for (const row of approachWithTags) {
+        try {
+          const parsed = JSON.parse(row.clinical_notes);
+          if (Array.isArray(parsed.tags)) {
+            for (const tagStr of parsed.tags) {
+              if (!tagStr || typeof tagStr !== "string") continue;
+              const cleanTag = tagStr.trim();
+              const key = cleanTag.toLowerCase();
+              const tagSlug = key.replace(/[^a-z0-9]+/g, "-");
+              const existing = topicMap.get(key);
+              if (existing) {
+                if (!existing.crossCuttingTags) existing.crossCuttingTags = [];
+                if (!existing.crossCuttingTags.includes(tagSlug)) existing.crossCuttingTags.push(tagSlug);
+              } else {
+                topicMap.set(key, {
+                  code: tagSlug || `TAG-${row.id.substring(0, 6)}`,
+                  label: cleanTag,
+                  topicType: "Approach Tag",
+                  homeUnit: row.homeUnit || row.category || "general",
+                  homeUnitName: row.homeUnitName || row.category || "General",
+                  crossRefs: [],
+                  group: row.category || null,
+                  variants: [tagSlug],
+                  depth: "Awareness",
+                  status: "active",
+                  mergedInto: [],
+                  crossCuttingTags: [tagSlug, "approach"],
+                  source: "approach",
+                });
+              }
+            }
+          }
+        } catch {}
+      }
+    } catch (e) {
+      console.warn("[getAllDatabaseTopicsAction] clinical_notes tags query:", e);
+    }
+
     // 6. Fetch from autofill_templates in database
     try {
       const autofillRows = await query<any>(`
@@ -969,6 +1126,7 @@ export async function getAllDatabaseTopicsAction(): Promise<{
             label: row.label.trim(),
             topicType: "Clinical Tag",
             homeUnit: "general",
+            homeUnitName: "General",
             crossRefs: [],
             group: null,
             variants: [row.slug],

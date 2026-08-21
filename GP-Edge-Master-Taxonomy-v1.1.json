@@ -19509,6 +19509,4551 @@
         "approach"
       ],
       "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1320",
+      "label": "RAS Inhibitors",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ras-inhibitors"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "ras-inhibitors"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1321",
+      "label": "Colposcopy",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "colposcopy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "colposcopy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1322",
+      "label": "Cervical Screening Test (CST)",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cervical-screening-test-cst-"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cervical-screening-test-cst-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1323",
+      "label": "Perimenopausal migraine",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "perimenopausal-migraine"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "perimenopausal-migraine"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1324",
+      "label": "Medication Review",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "medication-review"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "medication-review"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1325",
+      "label": "Women's Health",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "women-s-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1326",
+      "label": "Acute",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "acute"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "acute"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1327",
+      "label": "DES",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "des"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "des"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1328",
+      "label": "National Cervical",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "national-cervical"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "national-cervical"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1329",
+      "label": "Symptomatic Bleeding",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "symptomatic-bleeding"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "symptomatic-bleeding"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1330",
+      "label": "Head trauma",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "head-trauma"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "head-trauma"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1331",
+      "label": "Special Populations",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "special-populations"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "special-populations"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1332",
+      "label": "Monitoring",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "monitoring"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "monitoring"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1333",
+      "label": "Ocular",
+      "topicType": "Question Tag",
+      "homeUnit": "u13",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ocular"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "ocular"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1334",
+      "label": "Opioid",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "opioid"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "opioid"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1335",
+      "label": "Clinical Action",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "clinical-action"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "clinical-action"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1336",
+      "label": "AIS",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ais"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "ais"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1337",
+      "label": "Stress",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "stress"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "stress"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1338",
+      "label": "Hyperkalaemia",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "hyperkalaemia"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "hyperkalaemia"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1339",
+      "label": "Older Persons",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "older-persons"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "older-persons"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1340",
+      "label": "National Cervical Screening Program",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "national-cervical-screening-program"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "national-cervical-screening-program"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1341",
+      "label": "Metformin",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "metformin"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "metformin"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1342",
+      "label": "SGLT2",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sglt2"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sglt2"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1343",
+      "label": "Cervical",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cervical"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cervical"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1344",
+      "label": "Pregnancy",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "pregnancy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "pregnancy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1345",
+      "label": "Assessment",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "assessment"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "assessment"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1346",
+      "label": "Aboriginal",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "aboriginal"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "aboriginal"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1347",
+      "label": "Secondary headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "secondary-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "secondary-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1348",
+      "label": "Diabetic",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "diabetic"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "diabetic"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1349",
+      "label": "Lumbar",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "lumbar"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "lumbar"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1350",
+      "label": "Tricyclic",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "tricyclic"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "tricyclic"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1351",
+      "label": "mental health",
+      "topicType": "Question Tag",
+      "homeUnit": "mental-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "mental-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "mental-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1352",
+      "label": "Kidney Health",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "kidney-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "kidney-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1353",
+      "label": "Eligibility",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "eligibility"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "eligibility"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1354",
+      "label": "Resistant",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "resistant"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "resistant"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1355",
+      "label": "Laboratory Processing",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "laboratory-processing"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "laboratory-processing"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1356",
+      "label": "Physiotherapy",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "physiotherapy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "physiotherapy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1357",
+      "label": "Trauma-informed Care",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "trauma-informed-care"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "trauma-informed-care"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1358",
+      "label": "Cardiovascular Risk",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cardiovascular-risk"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cardiovascular-risk"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1359",
+      "label": "Surveillance",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "surveillance"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "surveillance"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1360",
+      "label": "Kidney and urinary health",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "kidney-and-urinary-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "kidney-and-urinary-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1361",
+      "label": "Migraine with aura",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "migraine-with-aura"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "migraine-with-aura"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1362",
+      "label": "Bridging",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "bridging"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "bridging"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1363",
+      "label": "Aboriginal and Torres Strait Islander",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "aboriginal-and-torres-strait-islander"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "aboriginal-and-torres-strait-islander"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1364",
+      "label": "Older",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "older"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "older"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1365",
+      "label": "HPV",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "hpv"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "hpv"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1366",
+      "label": "GLP-1 Receptor Agonists",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "glp-1-receptor-agonists"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "glp-1-receptor-agonists"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1367",
+      "label": "Diabetic Kidney",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "diabetic-kidney"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "diabetic-kidney"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1368",
+      "label": "Cervical Cancer Screening",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cervical-cancer-screening"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cervical-cancer-screening"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1369",
+      "label": "Post-hysterectomy",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "post-hysterectomy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "post-hysterectomy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1370",
+      "label": "Co-test",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "co-test"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "co-test"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1371",
+      "label": "borderline personality",
+      "topicType": "Question Tag",
+      "homeUnit": "mental-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "borderline-personality"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "borderline-personality"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1372",
+      "label": "Prophylaxis",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "prophylaxis"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "prophylaxis"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1373",
+      "label": "Non-drug therapy",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "non-drug-therapy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "non-drug-therapy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1374",
+      "label": "Subdural",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "subdural"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "subdural"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1375",
+      "label": "NCSR",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ncsr"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "ncsr"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1376",
+      "label": "Acute presentation",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "acute-presentation"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "acute-presentation"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1377",
+      "label": "Red Flags",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "red-flags"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "red-flags"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1378",
+      "label": "Immune Deficiency",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "immune-deficiency"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "immune-deficiency"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1379",
+      "label": "Idiopathic intracranial hypertension",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "idiopathic-intracranial-hypertension"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "idiopathic-intracranial-hypertension"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1380",
+      "label": "2025 Guideline",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "2025-guideline"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "2025-guideline"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1381",
+      "label": "Drug Interactions",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "drug-interactions"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "drug-interactions"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1382",
+      "label": "uACR",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "uacr"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "uacr"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1383",
+      "label": "NSAIDs",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "nsaids"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "nsaids"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1384",
+      "label": "National",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "national"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1385",
+      "label": "Aboriginal and Torres",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "aboriginal-and-torres"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "aboriginal-and-torres"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1386",
+      "label": "Headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u13",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1387",
+      "label": "Pre-eclampsia",
+      "topicType": "Question Tag",
+      "homeUnit": "u30",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "pre-eclampsia"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "pre-eclampsia"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1388",
+      "label": "Sick Day Management",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sick-day-management"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sick-day-management"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1389",
+      "label": "Cervicogenic headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cervicogenic-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cervicogenic-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1390",
+      "label": "Giant cell arteritis",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "giant-cell-arteritis"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "giant-cell-arteritis"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1391",
+      "label": "Low CSF",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "low-csf"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "low-csf"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1392",
+      "label": "Thunderclap",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "thunderclap"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "thunderclap"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1393",
+      "label": "Short-term",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "short-term"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "short-term"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1394",
+      "label": "Differential",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "differential"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "differential"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1395",
+      "label": "Test of Cure",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "test-of-cure"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "test-of-cure"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1396",
+      "label": "Treatment",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "treatment"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "treatment"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1397",
+      "label": "Exit Testing",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "exit-testing"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "exit-testing"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1398",
+      "label": "Triple Whammy",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "triple-whammy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "triple-whammy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1399",
+      "label": "Diet",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "diet"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "diet"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1400",
+      "label": "Under-screened",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "under-screened"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "under-screened"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1401",
+      "label": "Headache diary",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "headache-diary"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "headache-diary"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1402",
+      "label": "Menstrual migraine",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "menstrual-migraine"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "menstrual-migraine"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1403",
+      "label": "General",
+      "topicType": "Question Tag",
+      "homeUnit": "paediatrics",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "general"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "general"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1404",
+      "label": "Paroxysmal hemicrania",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "paroxysmal-hemicrania"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "paroxysmal-hemicrania"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1405",
+      "label": "Immunosuppression",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "immunosuppression"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "immunosuppression"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1406",
+      "label": "Endocervical Curettage",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "endocervical-curettage"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "endocervical-curettage"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1407",
+      "label": "Neuroimaging",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "neuroimaging"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "neuroimaging"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1408",
+      "label": "SGLT2 Inhibitors",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sglt2-inhibitors"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sglt2-inhibitors"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1409",
+      "label": "Androgen",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "androgen"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "androgen"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1410",
+      "label": "Sexual health and gender diversity",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sexual-health-and-gender-diversity"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sexual-health-and-gender-diversity"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1411",
+      "label": "MRI",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "mri"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "mri"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1412",
+      "label": "Cluster prophylaxis",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cluster-prophylaxis"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cluster-prophylaxis"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1413",
+      "label": "Low-risk",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "low-risk"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "low-risk"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1414",
+      "label": "Combined",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "combined"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "combined"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1415",
+      "label": "Migraine in children",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "migraine-in-children"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "migraine-in-children"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1416",
+      "label": "HSIL",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "hsil"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "hsil"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1417",
+      "label": "Eye presentations",
+      "topicType": "Question Tag",
+      "homeUnit": "u13",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "eye-presentations"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "eye-presentations"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1418",
+      "label": "Indometacin",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "indometacin"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "indometacin"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1419",
+      "label": "Contrast Nephropathy",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "contrast-nephropathy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "contrast-nephropathy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1420",
+      "label": "Sexual",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sexual"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sexual"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1421",
+      "label": "2025",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "2025"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "2025"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1422",
+      "label": "Self -collection",
+      "topicType": "Question Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "self-collection"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "self-collection"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1423",
+      "label": "Smoking Cessation",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "smoking-cessation"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "smoking-cessation"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1424",
+      "label": "Red eye",
+      "topicType": "Question Tag",
+      "homeUnit": "u13",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "red-eye"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "red-eye"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1425",
+      "label": "Older adults",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "older-adults"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "older-adults"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1426",
+      "label": "Chronic Kidney Disease",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "chronic-kidney-disease"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "chronic-kidney-disease"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1427",
+      "label": "Alcohol",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "alcohol"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "alcohol"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1428",
+      "label": "Aura without headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "aura-without-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "aura-without-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1429",
+      "label": "Sample",
+      "topicType": "Question Tag",
+      "homeUnit": "u36",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sample"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sample"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1430",
+      "label": "Sinus headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sinus-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sinus-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1431",
+      "label": "High",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "high"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "high"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1432",
+      "label": "Lifestyle",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "lifestyle"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "lifestyle"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1433",
+      "label": "Nonopioid",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "nonopioid"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "nonopioid"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1434",
+      "label": "Hemicrania continua",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "hemicrania-continua"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "hemicrania-continua"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1435",
+      "label": "Headache recurrence",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "headache-recurrence"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "headache-recurrence"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1436",
+      "label": "Men’s Health",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "men-s-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "men-s-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1437",
+      "label": "eGFR",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "egfr"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "egfr"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1438",
+      "label": "CKD Staging",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ckd-staging"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "ckd-staging"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1439",
+      "label": "Preventative Health",
+      "topicType": "Question Tag",
+      "homeUnit": "women-s-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "preventative-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "preventative-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1440",
+      "label": "Neurological presentations",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "neurological-presentations"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "neurological-presentations"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1441",
+      "label": "Drug",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "drug"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "drug"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1442",
+      "label": "Trigeminal autonomic",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "trigeminal-autonomic"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "trigeminal-autonomic"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1443",
+      "label": "Primary exercise headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "primary-exercise-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "primary-exercise-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1444",
+      "label": "Albuminuria",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "albuminuria"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "albuminuria"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1445",
+      "label": "Fluid Intake",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "fluid-intake"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "fluid-intake"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1446",
+      "label": "Intracranial hypotension",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "intracranial-hypotension"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "intracranial-hypotension"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1447",
+      "label": "Positional",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "positional"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "positional"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1448",
+      "label": "Blood Pressure",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "blood-pressure"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "blood-pressure"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1449",
+      "label": "Trigeminal",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "trigeminal"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "trigeminal"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1450",
+      "label": "Tension-type headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "tension-type-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "tension-type-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1451",
+      "label": "postpartum mental health",
+      "topicType": "Question Tag",
+      "homeUnit": "mental-health",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "postpartum-mental-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "postpartum-mental-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1452",
+      "label": "Referral",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "referral"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "referral"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1453",
+      "label": "Sick Day",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sick-day"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sick-day"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1454",
+      "label": "Triptans",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "triptans"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "triptans"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1455",
+      "label": "SUNCT",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sunct"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sunct"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1456",
+      "label": "Acute migraine treatment",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "acute-migraine-treatment"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "acute-migraine-treatment"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1457",
+      "label": "Diabetic Kidney Disease",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "diabetic-kidney-disease"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "diabetic-kidney-disease"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1458",
+      "label": "Finerenone",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "finerenone"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "finerenone"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1459",
+      "label": "First Nations Health",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "first-nations-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "first-nations-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1460",
+      "label": "Nonsteroidal MRA",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "nonsteroidal-mra"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "nonsteroidal-mra"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1461",
+      "label": "Lipid",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "lipid"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "lipid"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1462",
+      "label": "Screening",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "screening"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "screening"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1463",
+      "label": "Blood",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "blood"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "blood"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1464",
+      "label": "Refractory",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "refractory"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "refractory"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1465",
+      "label": "Thunderclap headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "thunderclap-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "thunderclap-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1466",
+      "label": "Statins",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "statins"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "statins"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1467",
+      "label": "Headache classification",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "headache-classification"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "headache-classification"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1468",
+      "label": "Focal neurological deficit",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "focal-neurological-deficit"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "focal-neurological-deficit"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1469",
+      "label": "Physical Activity",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "physical-activity"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "physical-activity"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1470",
+      "label": "Hypnic headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "hypnic-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "hypnic-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1471",
+      "label": "Pregnancy and reproductive health",
+      "topicType": "Question Tag",
+      "homeUnit": "u30",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "pregnancy-and-reproductive-health"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "pregnancy-and-reproductive-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1472",
+      "label": "PDE5",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "pde5"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "pde5"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1473",
+      "label": "Visual",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "visual"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "visual"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1474",
+      "label": "Lipid Modification",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "lipid-modification"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "lipid-modification"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1475",
+      "label": "Migraine in pregnancy",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "migraine-in-pregnancy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "migraine-in-pregnancy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1476",
+      "label": "Cough headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cough-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "cough-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1477",
+      "label": "Slowing",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "slowing"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "slowing"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1478",
+      "label": "Acute treatment",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "acute-treatment"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "acute-treatment"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1479",
+      "label": "Status migrainosus",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "status-migrainosus"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "status-migrainosus"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1480",
+      "label": "Specialist referral",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "specialist-referral"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "specialist-referral"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1481",
+      "label": "Bridging therapy",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "bridging-therapy"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "bridging-therapy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1482",
+      "label": "Conservative",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "conservative"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "conservative"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1483",
+      "label": "Diagnosis",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "diagnosis"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "diagnosis"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1484",
+      "label": "Sexual activity headache",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "sexual-activity-headache"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "sexual-activity-headache"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1485",
+      "label": "Verapamil",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "verapamil"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "verapamil"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1486",
+      "label": "Migraine prophylaxis",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "migraine-prophylaxis"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "migraine-prophylaxis"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1487",
+      "label": "Penile",
+      "topicType": "Question Tag",
+      "homeUnit": "u34",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "penile"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "penile"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1488",
+      "label": "Trigeminal autonomic cephalalgia",
+      "topicType": "Question Tag",
+      "homeUnit": "u25",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "trigeminal-autonomic-cephalalgia"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "trigeminal-autonomic-cephalalgia"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1489",
+      "label": "Acute angle-closure glaucoma",
+      "topicType": "Question Tag",
+      "homeUnit": "u13",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "acute-angle-closure-glaucoma"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "acute-angle-closure-glaucoma"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1490",
+      "label": "Primary Care",
+      "topicType": "Question Tag",
+      "homeUnit": "u19",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "primary-care"
+      ],
+      "depth": "Working",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "question-bank",
+        "primary-care"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1491",
+      "label": "Antibiotics",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "antibiotics"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "antibiotics"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1492",
+      "label": "Anticoagulation",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "anticoagulation"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "anticoagulation"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1493",
+      "label": "Billing",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "billing"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "billing"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1494",
+      "label": "Coronary",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "coronary"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "coronary"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1495",
+      "label": "Dermoscopy",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "dermoscopy"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "dermoscopy"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1496",
+      "label": "Duke Criteria]",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "duke-criteria-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "duke-criteria-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1497",
+      "label": "ECG",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "ecg"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "ecg"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1498",
+      "label": "Echocardiography",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "echocardiography"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "echocardiography"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1499",
+      "label": "Emergency",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "emergency"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "emergency"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1500",
+      "label": "GPMP",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "gpmp"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "gpmp"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1501",
+      "label": "INR",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "inr"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "inr"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1502",
+      "label": "MBS",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "mbs"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "mbs"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1503",
+      "label": "Melanoma",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "melanoma"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "melanoma"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1504",
+      "label": "NIP",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "nip"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "nip"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1505",
+      "label": "PHQ-9",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "phq-9"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "phq-9"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1506",
+      "label": "Paediatrics",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "paediatrics"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "paediatrics"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1507",
+      "label": "Pharmacology",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "pharmacology"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "pharmacology"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1508",
+      "label": "STEMI",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "stemi"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "stemi"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1509",
+      "label": "Skin Cancer",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "skin-cancer"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "skin-cancer"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1510",
+      "label": "TestTag",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "testtag"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "testtag"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1511",
+      "label": "UTI",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "uti"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "uti"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1512",
+      "label": "Vaccination",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "vaccination"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "vaccination"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1513",
+      "label": "Warfarin",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "warfarin"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "warfarin"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1514",
+      "label": "Women's Health · Cervical Cancer Screening · Colposcopy · Endocervical Curettage · 2025",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-cancer-screening-colposcopy-endocervical-curettage-2025"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-cancer-screening-colposcopy-endocervical-curettage-2025"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1515",
+      "label": "Women's Health · Cervical Cancer Screening · HSIL · Treatment · Colposcopy · National",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-cancer-screening-hsil-treatment-colposcopy-national"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-cancer-screening-hsil-treatment-colposcopy-national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1516",
+      "label": "Women's Health · Cervical Screening Test (CST) · Cervical Cancer Screening · National",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-cervical-cancer-screening-national"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-cervical-cancer-screening-national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1517",
+      "label": "Women's Health · Cervical Screening Test (CST) · Cervical Cancer Screening · National Cervical Screening Program (NCSP) · HPV · Preventative Health",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-cervical-cancer-screening-national-cervical-screening-program-ncsp-hpv-preventative-health"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-cervical-cancer-screening-national-cervical-screening-program-ncsp-hpv-preventative-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1518",
+      "label": "Women's Health · Cervical Screening Test (CST) · Co-test · Cervical Cancer Screening ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-co-test-cervical-cancer-screening-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-co-test-cervical-cancer-screening-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1519",
+      "label": "Women's Health · Cervical Screening Test (CST) · Co-test · Special Populations · DES",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-co-test-special-populations-des"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-co-test-special-populations-des"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1520",
+      "label": "Women's Health · Cervical Screening Test (CST) · Eligibility · HPV · Preventative Health ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-eligibility-hpv-preventative-health-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-eligibility-hpv-preventative-health-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1521",
+      "label": "Women's Health · Cervical Screening Test (CST) · Eligibility · Preventative Health · National",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-eligibility-preventative-health-national"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-eligibility-preventative-health-national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1522",
+      "label": "Women's Health · Cervical Screening Test (CST) · Eligibility · Special Populations ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-eligibility-special-populations-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-eligibility-special-populations-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1523",
+      "label": "Women's Health · Cervical Screening Test (CST) · Exit Testing · HPV · Cervical Cancer",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-exit-testing-hpv-cervical-cancer"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-exit-testing-hpv-cervical-cancer"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1524",
+      "label": "Women's Health · Cervical Screening Test (CST) · Exit Testing · Self-collection · HPV ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-exit-testing-self-collection-hpv-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-exit-testing-self-collection-hpv-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1525",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Aboriginal and Torres Strait Islander",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-aboriginal-and-torres-strait-islander"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-aboriginal-and-torres-strait-islander"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1526",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Cervical Cancer Screening ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-cervical-cancer-screening-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-cervical-cancer-screening-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1527",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Colposcopy · 2025 Guideline",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-2025-guideline"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-2025-guideline"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1528",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Colposcopy · Aboriginal and Torres",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-aboriginal-and-torres"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-aboriginal-and-torres"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1529",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Colposcopy · Cervical Cancer",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-cervical-cancer"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-cervical-cancer"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1530",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Colposcopy · National Cervical",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-national-cervical"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-national-cervical"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1531",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Colposcopy · Special Populations ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-special-populations-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-colposcopy-special-populations-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1532",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · National Cervical Screening Program",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-national-cervical-screening-program"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-national-cervical-screening-program"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1533",
+      "label": "Women's Health · Cervical Screening Test (CST) · HPV · Special Populations · Aboriginal",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-hpv-special-populations-aboriginal"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-hpv-special-populations-aboriginal"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1534",
+      "label": "Women's Health · Cervical Screening Test (CST) · Immune Deficiency · Special Populations ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-immune-deficiency-special-populations-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-immune-deficiency-special-populations-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1535",
+      "label": "Women's Health · Cervical Screening Test (CST) · Post-hysterectomy · AIS · Co-test ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-ais-co-test-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-ais-co-test-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1536",
+      "label": "Women's Health · Cervical Screening Test (CST) · Post-hysterectomy · HPV · Surveillance ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hpv-surveillance-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hpv-surveillance-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1537",
+      "label": "Women's Health · Cervical Screening Test (CST) · Post-hysterectomy · HSIL · HPV ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hsil-hpv-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hsil-hpv-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1538",
+      "label": "Women's Health · Cervical Screening Test (CST) · Post-hysterectomy · HSIL · Test of Cure ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hsil-test-of-cure-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-hsil-test-of-cure-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1539",
+      "label": "Women's Health · Cervical Screening Test (CST) · Post-hysterectomy · Test of Cure · HSIL ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-test-of-cure-hsil-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-post-hysterectomy-test-of-cure-hsil-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1540",
+      "label": "Women's Health · Cervical Screening Test (CST) · Pregnancy · Cervical Cancer Screening ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-pregnancy-cervical-cancer-screening-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-pregnancy-cervical-cancer-screening-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1541",
+      "label": "Women's Health · Cervical Screening Test (CST) · Pregnancy · Special Populations ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-pregnancy-special-populations-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-pregnancy-special-populations-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1542",
+      "label": "Women's Health · Cervical Screening Test (CST) · Self-collection · HPV · Colposcopy ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-self-collection-hpv-colposcopy-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-self-collection-hpv-colposcopy-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1543",
+      "label": "Women's Health · Cervical Screening Test (CST) · Self-collection · HPV · Preventative Health",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-self-collection-hpv-preventative-health"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-self-collection-hpv-preventative-health"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1544",
+      "label": "Women's Health · Cervical Screening Test (CST) · Self-collection · Preventative Health ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-self-collection-preventative-health-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-self-collection-preventative-health-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1545",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Co-test ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1546",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Co-test · Cervical",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-cervical"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-cervical"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1547",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Co-test · National",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-national"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1548",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Co-test · Sample",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-sample"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-sample"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1549",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Co-test · Sexual",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-sexual"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-co-test-sexual"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1550",
+      "label": "Women's Health · Cervical Screening Test (CST) · Symptomatic Bleeding · Self-collection ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-self-collection-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-symptomatic-bleeding-self-collection-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1551",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · AIS · Co-test ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ais-co-test-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ais-co-test-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1552",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · AIS · Co-test · Exit Testing",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ais-co-test-exit-testing"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ais-co-test-exit-testing"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1553",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · HPV · HSIL · National",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-hpv-hsil-national"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-hpv-hsil-national"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1554",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · HSIL · 2025 Guideline",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-hsil-2025-guideline"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-hsil-2025-guideline"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1555",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · Laboratory Processing ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-laboratory-processing-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-laboratory-processing-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1556",
+      "label": "Women's Health · Cervical Screening Test (CST) · Test of Cure · NCSR · 2025 Guideline",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ncsr-2025-guideline"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-test-of-cure-ncsr-2025-guideline"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1557",
+      "label": "Women's Health · Cervical Screening Test (CST) · Under-screened · Trauma-informed Care ·",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "women-s-health-cervical-screening-test-cst-under-screened-trauma-informed-care-"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "women-s-health-cervical-screening-test-cst-under-screened-trauma-informed-care-"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1558",
+      "label": "[Enter comma-separated tags",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "-enter-comma-separated-tags"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "-enter-comma-separated-tags"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1559",
+      "label": "cardio",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "cardio"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "cardio"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1560",
+      "label": "e.g. Blood Cultures",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "e-g-blood-cultures"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "e-g-blood-cultures"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1561",
+      "label": "murmur",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "murmur"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "murmur"
+      ],
+      "taxonomyVersion": "1.1"
+    },
+    {
+      "code": "T1562",
+      "label": "valve",
+      "topicType": "Clinical Tag",
+      "homeUnit": "general",
+      "group": null,
+      "crossRefs": [],
+      "variants": [
+        "valve"
+      ],
+      "depth": "Awareness",
+      "status": "active",
+      "mergedInto": [],
+      "crossCuttingTags": [
+        "valve"
+      ],
+      "taxonomyVersion": "1.1"
     }
   ]
 }
