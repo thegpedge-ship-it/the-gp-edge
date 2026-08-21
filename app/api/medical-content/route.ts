@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
 
 // Increase body size limit to handle large HTML payloads with embedded images
 export const maxDuration = 60;
@@ -204,6 +205,15 @@ export async function POST(req: NextRequest) {
         );
       }
     }
+
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+    await registerOrUpdateTopicWithCodeAction({
+      label: name,
+      homeUnit: system || "General",
+      topicType: type === "Approach" ? "Approach to a Presentation" : "Clinical Condition",
+      tags: tags || [],
+      adminUser: userContext,
+    });
 
     // Store PDF R2 reference in files + condition_documents
     if (pdfUrl) {

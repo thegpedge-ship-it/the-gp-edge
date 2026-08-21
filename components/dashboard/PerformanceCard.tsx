@@ -43,7 +43,7 @@ const PerformanceCard = memo(function PerformanceCard({
           const isActive = selected === row.subject;
           return (
             <div
-              key={row.subject}
+              key={`${row.subject}-${i}`}
               onClick={() => onSelect(isActive ? null : row.subject)}
               className={`cursor-pointer group rounded-lg px-2.5 py-1 -mx-2.5 transition-colors ${
                 isActive

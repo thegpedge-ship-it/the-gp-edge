@@ -4,6 +4,7 @@ import { query, queryOne, execute } from "@/lib/db";
 import { ApproachCard } from "@/lib/quizData";
 
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
 
 function toUUID(str: string): string {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -140,6 +141,15 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       entityType: "approach",
       entityId: dbId,
       metadata: { title: card.title, author: card.author || adminUser?.name || adminUser?.email },
+    });
+
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database
+    await registerOrUpdateTopicWithCodeAction({
+      label: card.title,
+      homeUnit: card.system || card.category || "General",
+      topicType: "Approach to a Presentation",
+      tags: card.tags,
+      adminUser,
     });
 
     return { success: true };

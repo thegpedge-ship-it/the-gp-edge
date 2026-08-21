@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, RotateCcw, Trash2 } from "lucide-react";
+import { AlertCircle, RotateCcw, Trash2, Archive } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
@@ -1190,11 +1190,26 @@ export default function QuestionsPage() {
                           )}
                         </div>
                       ) : (
-                        canArchiveItem && (
-                          <button onClick={() => deleteQuestion(q.id)} className={`p-1.5 rounded-lg transition-all ${themeIconBtn}`} title="Archive Question">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        )
+                        <div className="flex items-center gap-1">
+                          {canArchiveItem && (
+                            <button
+                              onClick={() => deleteQuestion(q.id)}
+                              className="p-1.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/25 transition-all"
+                              title="Archive Question (Soft Delete)"
+                            >
+                              <Archive className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canRestoreItem && (
+                            <button
+                              onClick={() => handlePermanentlyDeleteQuestion(q)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all"
+                              title="Delete Question Permanently (IRREVERSIBLE)"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>

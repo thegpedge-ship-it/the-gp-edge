@@ -53,6 +53,26 @@ export function getUnitName(unitCode: string): string {
 }
 
 /**
+ * Formats or defines topic code ensuring standard format (e.g. T0142)
+ */
+export function formatTopicCode(code: string | undefined | null, fallbackIndex?: number): string {
+  if (!code) {
+    if (fallbackIndex !== undefined) {
+      return `T${String(fallbackIndex).padStart(4, "0")}`;
+    }
+    return "T0000";
+  }
+  const match = code.trim().match(/^t(\d+)$/i);
+  if (match) {
+    return `T${match[1].padStart(4, "0")}`;
+  }
+  if (fallbackIndex !== undefined) {
+    return `T${String(fallbackIndex).padStart(4, "0")}`;
+  }
+  return code.toUpperCase();
+}
+
+/**
  * Gets group name by group code (e.g., U05.G01 -> "Bacterial skin infection")
  */
 export function getGroupName(unitCode: string, groupCode?: string | null): string | null {

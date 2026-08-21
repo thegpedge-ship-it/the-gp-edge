@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import { Archive, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import CustomSelect from "@/components/admin/CustomSelect";
 import {
   getQuestions,
   fetchQuestions,
@@ -25,12 +27,18 @@ import {
   getGroupName,
   filterMasterTopics,
   getTaxonomyAuditMetrics,
+  formatTopicCode,
 } from "@/lib/taxonomyData";
 import {
   syncMasterTaxonomyAction,
   getTaxonomyTopicsAction,
   getTaxonomyUnitsAction,
   moveTopicHomeUnitAction,
+  getAllDatabaseTopicsAction,
+  archiveTaxonomyTopicAction,
+  deleteTaxonomyTopicAction,
+  restoreTaxonomyTopicAction,
+  UnifiedTopicItem,
 } from "@/actions/taxonomy.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
@@ -47,12 +55,18 @@ export default function SearchPage() {
   const [contentList, setContentList] = useState<MedicalContent[]>([]);
   const [autofillList, setAutofillList] = useState<AutofillTemplate[]>([]);
 
-  // Taxonomy filters
+  // Taxonomy & unified database topics filters
   const [selectedUnit, setSelectedUnit] = useState<string>("all");
   const [selectedDepth, setSelectedDepth] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string>("all");
-  const [taxonomyTopics, setTaxonomyTopics] = useState<TopicItem[]>(MASTER_TOPICS);
+  const [taxonomyTopics, setTaxonomyTopics] = useState<UnifiedTopicItem[]>(
+    MASTER_TOPICS.map((t) => ({ ...t, crossCuttingTags: t.crossCuttingTags || [], source: "taxonomy" as const }))
+  );
+  const [topicTitlesList, setTopicTitlesList] = useState<string[]>([]);
+  const [unitsList, setUnitsList] = useState<{ code: string; name: string }[]>(
+    MASTER_UNITS.map((u) => ({ code: u.code, name: u.name }))
+  );
   const [syncingTaxonomy, setSyncingTaxonomy] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -62,7 +76,19 @@ export default function SearchPage() {
   const [moveGroupCode, setMoveGroupCode] = useState<string>("");
   const [isMoving, setIsMoving] = useState(false);
 
-  const metrics = getTaxonomyAuditMetrics();
+  // Delete Topic modal state
+  const [deleteTopicTarget, setDeleteTopicTarget] = useState<UnifiedTopicItem | null>(null);
+  const [isDeletingTopic, setIsDeletingTopic] = useState(false);
+
+  // Pagination / Incremental "See More" (10 items each)
+  const [visibleTopicsCount, setVisibleTopicsCount] = useState<number>(10);
+  const [visibleQuestionsCount, setVisibleQuestionsCount] = useState<number>(10);
+
+  // Reset pagination when filters or query change
+  useEffect(() => {
+    setVisibleTopicsCount(10);
+    setVisibleQuestionsCount(10);
+  }, [selectedUnit, selectedDepth, selectedType, selectedTag, query, activeTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -73,10 +99,14 @@ export default function SearchPage() {
       setAutofillList(getAutofillTemplates());
     }
 
-    // Try fetching database synced topics if available
-    getTaxonomyTopicsAction({ limit: 1000 }).then((res) => {
-      if (isMounted && res.success && res.data && res.data.length > 0) {
-        setTaxonomyTopics(res.data as TopicItem[]);
+    // Fetch all unified topics and titles from PostgreSQL (questions, approaches, conditions, autofills, taxonomy)
+    getAllDatabaseTopicsAction().then((res) => {
+      if (isMounted && res.success && res.topics && res.topics.length > 0) {
+        setTaxonomyTopics(res.topics);
+        setTopicTitlesList(res.topicTitles);
+        if (res.units && res.units.length > 0) {
+          setUnitsList(res.units);
+        }
       }
     });
 
@@ -92,9 +122,13 @@ export default function SearchPage() {
       const res = await syncMasterTaxonomyAction();
       if (res.success) {
         setSyncMessage(`Successfully synced ${res.topicsCount} topics & ${res.unitsCount} units (v${res.version}) to PostgreSQL!`);
-        const updated = await getTaxonomyTopicsAction({ limit: 1000 });
-        if (updated.success && updated.data) {
-          setTaxonomyTopics(updated.data as TopicItem[]);
+        const updated = await getAllDatabaseTopicsAction();
+        if (updated.success && updated.topics) {
+          setTaxonomyTopics(updated.topics);
+          setTopicTitlesList(updated.topicTitles);
+          if (updated.units && updated.units.length > 0) {
+            setUnitsList(updated.units);
+          }
         }
       } else {
         setSyncMessage(`Sync Error: ${res.error}`);
@@ -135,16 +169,138 @@ export default function SearchPage() {
     }
   };
 
+  const handleArchiveTopic = async (topic: UnifiedTopicItem) => {
+    if (!confirm(`Are you sure you want to archive "${topic.label}" (${topic.code})? It will be hidden from active taxonomy views.`)) return;
+    const res = await archiveTaxonomyTopicAction(topic.code);
+    if (res.success) {
+      setTaxonomyTopics((prev) =>
+        prev.map((t) => (t.code === topic.code ? { ...t, status: "archived" } : t))
+      );
+    } else {
+      alert(`Failed to archive topic: ${res.error}`);
+    }
+  };
+
+  const handleRestoreTopic = async (topic: UnifiedTopicItem) => {
+    const res = await restoreTaxonomyTopicAction(topic.code);
+    if (res.success) {
+      setTaxonomyTopics((prev) =>
+        prev.map((t) => (t.code === topic.code ? { ...t, status: "active" } : t))
+      );
+    } else {
+      alert(`Failed to restore topic: ${res.error}`);
+    }
+  };
+
+  const handleExecuteDeleteTopic = async () => {
+    if (!deleteTopicTarget) return;
+    setIsDeletingTopic(true);
+    try {
+      const res = await deleteTaxonomyTopicAction(deleteTopicTarget.code);
+      if (res.success) {
+        setTaxonomyTopics((prev) => prev.filter((t) => t.code !== deleteTopicTarget.code));
+        setDeleteTopicTarget(null);
+      } else {
+        alert(`Failed to permanently delete topic: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsDeletingTopic(false);
+    }
+  };
+
   const hasResults = query.length > 1;
 
-  // Filter taxonomy topics
-  const filteredTaxonomy = filterMasterTopics({
-    query: query.length > 1 ? query : undefined,
-    unitCode: selectedUnit,
-    depthTier: selectedDepth,
-    topicType: selectedType,
-    crossCuttingTag: selectedTag,
-  });
+  // Filter taxonomy topics including database topics from questions, approaches, content
+  const filteredTaxonomy = useMemo(() => {
+    let list = taxonomyTopics.filter((t) => !t.label.includes("[Enter") && !t.code.toLowerCase().includes("enter-"));
+
+    if (selectedUnit && selectedUnit !== "all") {
+      list = list.filter(
+        (t) =>
+          t.homeUnit === selectedUnit ||
+          (t.crossRefs && t.crossRefs.includes(selectedUnit))
+      );
+    }
+
+    if (selectedDepth && selectedDepth !== "all") {
+      list = list.filter((t) => t.depth === selectedDepth);
+    }
+
+    if (selectedType && selectedType !== "all") {
+      const filter = selectedType.toLowerCase();
+      list = list.filter((t) => t.topicType.toLowerCase().includes(filter));
+    }
+
+    if (selectedTag && selectedTag !== "all") {
+      list = list.filter(
+        (t) =>
+          (t.crossCuttingTags && t.crossCuttingTags.includes(selectedTag)) ||
+          (t.source && t.source === selectedTag)
+      );
+    }
+
+    if (query && query.trim().length > 0) {
+      const q = query.trim().toLowerCase();
+      list = list.filter(
+        (t) =>
+          t.code.toLowerCase().includes(q) ||
+          t.label.toLowerCase().includes(q) ||
+          (t.group && t.group.toLowerCase().includes(q)) ||
+          (t.homeUnitName && t.homeUnitName.toLowerCase().includes(q)) ||
+          (t.variants && t.variants.some((v) => v.toLowerCase().includes(q)))
+      );
+    }
+
+    return list;
+  }, [taxonomyTopics, selectedUnit, selectedDepth, selectedType, selectedTag, query]);
+
+  // Dynamically collect all tags from database topics
+  const availableTags = useMemo(() => {
+    const set = new Set<string>(["atsi-relevant", "emergency", "approach", "question-bank", "autofill"]);
+    taxonomyTopics.forEach((t) => {
+      t.crossCuttingTags?.forEach((tag) => { if (tag) set.add(tag); });
+      t.variants?.forEach((v) => {
+        if (v && v.length < 25 && !v.startsWith("T") && !v.startsWith("MC-") && !v.startsWith("AF-") && !v.startsWith("TAG-")) {
+          set.add(v);
+        }
+      });
+    });
+    return Array.from(set).sort();
+  }, [taxonomyTopics]);
+
+  // Compute live metrics across all database topics
+  const metrics = useMemo(() => {
+    const depthCounts = { Core: 0, Working: 0, Awareness: 0 };
+    const typeCounts: Record<string, number> = {};
+    const statusCounts = { active: 0, merged: 0 };
+    const tagCounts: Record<string, number> = {};
+
+    taxonomyTopics.forEach((t) => {
+      if (t.depth in depthCounts) depthCounts[t.depth]++;
+      if (t.status in statusCounts) statusCounts[t.status as keyof typeof statusCounts]++;
+
+      const type = t.topicType || "Clinical Condition";
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+
+      if (t.crossCuttingTags) {
+        t.crossCuttingTags.forEach((tag) => {
+          tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+      }
+    });
+
+    return {
+      totalTopics: taxonomyTopics.length,
+      totalUnits: unitsList.length || MASTER_UNITS.length,
+      depthCounts,
+      typeCounts,
+      statusCounts,
+      tagCounts,
+      version: TAXONOMY_VERSION,
+    };
+  }, [taxonomyTopics, unitsList]);
 
   // Global search filters
   const matchedQuestions = hasResults
@@ -201,7 +357,7 @@ export default function SearchPage() {
       <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 p-6 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
           <div className="relative flex-1">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-teal-600/70 dark:text-teal-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -209,7 +365,7 @@ export default function SearchPage() {
               placeholder="Search across 1000+ Taxonomy topics (T0142), questions, content, users..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 text-sm bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 dark:text-slate-100 transition-all"
+              className="w-full pl-12 pr-4 py-3.5 text-sm bg-teal-50/20 dark:bg-slate-800/80 border border-teal-200/70 dark:border-teal-900/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
             />
           </div>
 
@@ -310,54 +466,61 @@ export default function SearchPage() {
             </div>
 
             {/* Filter controls */}
-            <div className="flex flex-wrap gap-2 items-center">
+            <div className="flex flex-wrap gap-2.5 items-center">
               {/* Unit Dropdown */}
-              <select
+              <CustomSelect
                 value={selectedUnit}
-                onChange={(e) => setSelectedUnit(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-              >
-                <option value="all">All Units (U01–U37)</option>
-                {MASTER_UNITS.map((u) => (
-                  <option key={u.code} value={u.code}>
-                    {u.code}: {u.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedUnit}
+                options={[
+                  { value: "all", label: `All Units (${unitsList.length})` },
+                  ...unitsList.map((u) => ({
+                    value: u.code,
+                    label: `${u.code}: ${u.name}`,
+                  })),
+                ]}
+                className="w-full sm:w-60"
+              />
 
               {/* Depth Tier Dropdown */}
-              <select
+              <CustomSelect
                 value={selectedDepth}
-                onChange={(e) => setSelectedDepth(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-              >
-                <option value="all">All Depth Tiers</option>
-                <option value="Core">Core</option>
-                <option value="Working">Working</option>
-                <option value="Awareness">Awareness</option>
-              </select>
+                onChange={setSelectedDepth}
+                options={[
+                  { value: "all", label: "All Depth Tiers" },
+                  { value: "Core", label: "Core" },
+                  { value: "Working", label: "Working" },
+                  { value: "Awareness", label: "Awareness" },
+                ]}
+                className="w-full sm:w-40"
+              />
 
               {/* Topic Type Dropdown */}
-              <select
+              <CustomSelect
                 value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-              >
-                <option value="all">All Topic Types</option>
-                <option value="Approach">Approach to a Presentation</option>
-                <option value="Condition">Clinical Condition</option>
-              </select>
+                onChange={setSelectedType}
+                options={[
+                  { value: "all", label: "All Topic Types" },
+                  { value: "Approach", label: "Approach to a Presentation" },
+                  { value: "Condition", label: "Clinical Condition" },
+                  { value: "Question", label: "Question Bank Topics" },
+                  { value: "Autofill", label: "Autofill Templates" },
+                ]}
+                className="w-full sm:w-56"
+              />
 
               {/* Cross Cutting Tag Dropdown */}
-              <select
+              <CustomSelect
                 value={selectedTag}
-                onChange={(e) => setSelectedTag(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
-              >
-                <option value="all">All Cross-Cutting Tags</option>
-                <option value="atsi-relevant">atsi-relevant</option>
-                <option value="emergency">emergency</option>
-              </select>
+                onChange={setSelectedTag}
+                options={[
+                  { value: "all", label: "All Cross-Cutting Tags" },
+                  ...availableTags.map((tag) => ({
+                    value: tag,
+                    label: tag,
+                  })),
+                ]}
+                className="w-full sm:w-56"
+              />
             </div>
           </div>
 
@@ -368,35 +531,36 @@ export default function SearchPage() {
                 <tr>
                   <th className="p-3 w-28">topicCode</th>
                   <th className="p-3">Label / Topic Title</th>
-                  <th className="p-3 w-40">homeUnit.group</th>
+                  <th className="p-3 w-44">homeUnit.group</th>
                   <th className="p-3 w-28">crossRefUnits</th>
                   <th className="p-3 w-28">depthTier</th>
-                  <th className="p-3 w-32">topicType</th>
+                  <th className="p-3 w-36">topicType & Source</th>
                   <th className="p-3 w-32">crossCuttingTags</th>
                   <th className="p-3 w-24 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/60 dark:divide-slate-800/60">
-                {filteredTaxonomy.slice(0, 150).map((t) => {
+                {filteredTaxonomy.slice(0, visibleTopicsCount).map((t) => {
                   const grpName = getGroupName(t.homeUnit, t.group);
+                  const displayUnitName = t.homeUnitName || getUnitName(t.homeUnit);
                   return (
-                    <tr key={t.code} className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all">
+                    <tr key={`${t.code}-${t.label}`} className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all">
                       {/* topicCode */}
                       <td className="p-3">
                         <span className="font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
-                          {t.code}
+                          {formatTopicCode(t.code)}
                         </span>
                       </td>
 
                       {/* Label */}
                       <td className="p-3 font-medium text-slate-800 dark:text-slate-200">
-                        <div>{t.label}</div>
+                        <div className="font-semibold text-slate-800 dark:text-slate-100">{t.label}</div>
                         {t.variants && t.variants.length > 0 && (
                           <div className="text-[10px] text-slate-400 mt-0.5">
                             Variants: {t.variants.join(", ")}
                           </div>
                         )}
-                        {t.status === "merged" && (
+                        {t.status === "merged" && t.mergedInto && t.mergedInto.length > 0 && (
                           <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.2 rounded ml-1">
                             Merged → {t.mergedInto.join(", ")}
                           </span>
@@ -405,7 +569,7 @@ export default function SearchPage() {
 
                       {/* homeUnit.group */}
                       <td className="p-3 text-slate-600 dark:text-slate-300">
-                        <div className="font-semibold">{t.homeUnit} ({getUnitName(t.homeUnit)})</div>
+                        <div className="font-semibold">{t.homeUnit} ({displayUnitName})</div>
                         {t.group && <div className="text-[10px] text-slate-400 truncate">{t.group} {grpName ? `· ${grpName}` : ""}</div>}
                       </td>
 
@@ -441,7 +605,14 @@ export default function SearchPage() {
 
                       {/* topicType */}
                       <td className="p-3 text-slate-600 dark:text-slate-300 font-medium">
-                        {t.topicType}
+                        <div className="flex flex-col gap-1">
+                          <span>{t.topicType}</span>
+                          {t.source && t.source !== "taxonomy" && (
+                            <span className="inline-block text-[9px] font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-1.5 py-0.5 rounded border border-teal-200/40 dark:border-teal-900/30 w-fit capitalize">
+                              {t.source === "question" ? `Question (${t.usageCount || 1} Qs)` : t.source}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* crossCuttingTags */}
@@ -468,14 +639,43 @@ export default function SearchPage() {
                         )}
                       </td>
 
-                      {/* Move Unit Action */}
+                      {/* Actions: Move, Archive, Delete */}
                       <td className="p-3 text-right">
-                        <button
-                          onClick={() => handleOpenMoveModal(t)}
-                          className="px-2 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900 rounded border border-teal-200 dark:border-teal-800 transition-all"
-                        >
-                          Move Unit
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenMoveModal(t as TopicItem)}
+                            className="px-2 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900 rounded border border-teal-200 dark:border-teal-800 transition-all"
+                            title="Move topic to another home unit"
+                          >
+                            Move
+                          </button>
+
+                          {t.status === "archived" ? (
+                            <button
+                              onClick={() => handleRestoreTopic(t)}
+                              className="p-1 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/25 transition-all"
+                              title="Restore topic to active"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleArchiveTopic(t)}
+                              className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/25 transition-all"
+                              title="Archive topic (Soft Delete)"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => setDeleteTopicTarget(t)}
+                            className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all"
+                            title="Delete topic permanently (IRREVERSIBLE)"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -483,19 +683,47 @@ export default function SearchPage() {
               </tbody>
             </table>
           </div>
-          {filteredTaxonomy.length > 150 && (
-            <p className="text-xs text-slate-400 text-center pt-2">
-              Showing first 150 of {filteredTaxonomy.length} matching taxonomy items. Refine search query for more.
-            </p>
-          )}
+
+          {/* Pagination & "See More" Controls (10 items per increment) */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/60 dark:border-slate-800">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Showing <strong className="text-teal-600 dark:text-teal-400 font-bold">{Math.min(visibleTopicsCount, filteredTaxonomy.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredTaxonomy.length}</strong> Topics
+            </span>
+
+            {filteredTaxonomy.length > visibleTopicsCount && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setVisibleTopicsCount((prev) => prev + 10)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-900/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <span>See More (+10 Topics)</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {filteredTaxonomy.length > visibleTopicsCount + 10 && (
+                  <button
+                    onClick={() => setVisibleTopicsCount(filteredTaxonomy.length)}
+                    className="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    Show All ({filteredTaxonomy.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </motion.div>
       )}
 
       {/* OTHER SEARCH RESULTS (Questions, Users, Content) */}
       {hasResults && (activeTab === "all" || activeTab === "questions") && matchedQuestions.length > 0 && (
         <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-3">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Questions ({matchedQuestions.length})</h3>
-          {matchedQuestions.slice(0, 10).map((r) => (
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              Questions (Showing {Math.min(visibleQuestionsCount, matchedQuestions.length)} of {matchedQuestions.length})
+            </h3>
+          </div>
+          {matchedQuestions.slice(0, visibleQuestionsCount).map((r) => (
             <div
               key={r.id}
               onClick={() => router.push(`/admin/questions?id=${r.id}`)}
@@ -512,6 +740,20 @@ export default function SearchPage() {
               </div>
             </div>
           ))}
+
+          {matchedQuestions.length > visibleQuestionsCount && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={() => setVisibleQuestionsCount((prev) => prev + 10)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-900/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <span>See More Questions (+10)</span>
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -551,44 +793,42 @@ export default function SearchPage() {
                 <strong>Taxonomy Immutability Rule:</strong> Moving a topic between units updates <code className="font-bold">homeUnit</code>, but topicCode <code className="font-bold font-mono">{moveTopicTarget.code}</code> remains permanently unchanged.
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                     Select New Home Unit:
                   </label>
-                  <select
+                  <CustomSelect
                     value={moveUnitCode}
-                    onChange={(e) => {
-                      setMoveUnitCode(e.target.value);
+                    onChange={(val) => {
+                      setMoveUnitCode(val);
                       setMoveGroupCode("");
                     }}
-                    className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100"
-                  >
-                    {MASTER_UNITS.map((u) => (
-                      <option key={u.code} value={u.code}>
-                        {u.code}: {u.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={unitsList.map((u) => ({
+                      value: u.code,
+                      label: `${u.code}: ${u.name}`,
+                    }))}
+                    className="w-full"
+                  />
                 </div>
 
                 {selectedUnitObj && selectedUnitObj.groups && selectedUnitObj.groups.length > 0 && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                       Select Unit Group (Optional):
                     </label>
-                    <select
+                    <CustomSelect
                       value={moveGroupCode}
-                      onChange={(e) => setMoveGroupCode(e.target.value)}
-                      className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-100"
-                    >
-                      <option value="">No Group</option>
-                      {selectedUnitObj.groups.map((g) => (
-                        <option key={g.code} value={g.code}>
-                          {g.code}: {g.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={setMoveGroupCode}
+                      options={[
+                        { value: "", label: "No Group" },
+                        ...selectedUnitObj.groups.map((g) => ({
+                          value: g.code,
+                          label: `${g.code}: ${g.name}`,
+                        })),
+                      ]}
+                      className="w-full"
+                    />
                   </div>
                 )}
               </div>
@@ -606,6 +846,64 @@ export default function SearchPage() {
                   className="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl disabled:opacity-50"
                 >
                   {isMoving ? "Saving..." : "Confirm Unit Move"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* PERMANENT DELETE TOPIC MODAL */}
+      <AnimatePresence>
+        {deleteTopicTarget && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                <div className="p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                    Delete Topic Permanently?
+                  </h3>
+                  <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold">
+                    This action cannot be undone!
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs space-y-1.5 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                <p><strong>Topic Code:</strong> <span className="font-mono text-teal-600 dark:text-teal-400 font-bold">{deleteTopicTarget.code}</span></p>
+                <p><strong>Title:</strong> {deleteTopicTarget.label}</p>
+                <p><strong>Home Unit:</strong> {deleteTopicTarget.homeUnit}</p>
+                <p className="text-slate-500 dark:text-slate-400 pt-1">
+                  Permanently deleting this topic removes it from taxonomy and database tables. If you just want to hide it, use <strong>Archive</strong> instead.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  onClick={() => setDeleteTopicTarget(null)}
+                  disabled={isDeletingTopic}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleExecuteDeleteTopic}
+                  disabled={isDeletingTopic}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm disabled:opacity-50 transition-all flex items-center gap-1.5"
+                >
+                  {isDeletingTopic ? "Deleting..." : "Delete Permanently"}
                 </button>
               </div>
             </motion.div>

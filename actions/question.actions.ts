@@ -5,6 +5,7 @@ import { r2 } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
 
 
 /**
@@ -433,6 +434,16 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           }
         }
       }
+
+      // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+      const topicLabel = rawSubtopic || rawTopic || "General";
+      await registerOrUpdateTopicWithCodeAction({
+        label: topicLabel,
+        homeUnit: rawTopic || "General",
+        topicType: "Question Topic",
+        tags: q.tags || [],
+        adminUser,
+      });
 
       results.push({ text: q.text, dbId: questionId, uqid: finalUqid });
     }

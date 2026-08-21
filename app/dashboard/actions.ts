@@ -511,47 +511,82 @@ function buildData(a: BuildArgs): DashboardData {
   const upcomingExam = buildCountdown(a.nextMock, a.dbUser.exam_target, now);
 
   /* ── SUBJECT MASTERY (Performance card) ───────────────────────────────────
-   * Straight from user_subject_mastery:
-   *   mastery      = mastery_percent (running correct / total_answered × 100)
-   *   correct/incorrect = the maintained tallies
+   * Group and aggregate user_subject_mastery entries by subject name/id so each
+   * subject appears exactly once (combining multiple exam types like AKT/KFP).
+   *   mastery      = (total correct / total answered × 100)
+   *   correct/incorrect = sum of maintained tallies
    *   unattempted  = published questions in that subject − questions answered,
-   *                  floored at 0 (how much of the subject is still untouched).
-   * `change` needs a historical mastery snapshot we don't keep yet, so it's 0
-   *   for now (the UI simply shows no ± chip). */
+   *                  floored at 0.
+   * `change` needs a historical mastery snapshot we don't keep yet, so it's 0. */
   const qCountBySubject = new Map(
     a.subjectQCounts.map((r) => [r.subject_id, r._count._all])
   );
-  const performance: DashSubjectPerf[] = mastery
-    .filter((m) => m.subjects)
-    .map((m, i) => {
-      const answered = m.total_answered;
-      const poolSize = qCountBySubject.get(m.subjects!.id) ?? answered;
-      return {
-        subject: m.subjects!.name,
-        mastery: Math.round(num(m.mastery_percent)),
-        change: 0,
-        color: SUBJECT_PALETTE[i % SUBJECT_PALETTE.length],
+
+  const subjectAggregates = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      correct: number;
+      incorrect: number;
+      answered: number;
+    }
+  >();
+
+  for (const m of mastery) {
+    if (!m.subjects?.name) continue;
+    const name = m.subjects.name;
+    const existing = subjectAggregates.get(name);
+    if (existing) {
+      existing.correct += m.correct_count;
+      existing.incorrect += m.incorrect_count;
+      existing.answered += m.total_answered;
+    } else {
+      subjectAggregates.set(name, {
+        id: m.subjects.id,
+        name: name,
         correct: m.correct_count,
         incorrect: m.incorrect_count,
-        unattempted: Math.max(0, poolSize - answered),
-      };
-    });
+        answered: m.total_answered,
+      });
+    }
+  }
+
+  const subjectList = Array.from(subjectAggregates.values()).map((s) => {
+    const masteryPct = s.answered > 0 ? Math.round((s.correct / s.answered) * 100) : 0;
+    return {
+      ...s,
+      mastery: masteryPct,
+    };
+  });
+
+  // Sort by mastery descending
+  subjectList.sort((x, y) => y.mastery - x.mastery);
+
+  const performance: DashSubjectPerf[] = subjectList.map((s, i) => {
+    const poolSize = qCountBySubject.get(s.id) ?? s.answered;
+    return {
+      subject: s.name,
+      mastery: s.mastery,
+      change: 0,
+      color: SUBJECT_PALETTE[i % SUBJECT_PALETTE.length],
+      correct: s.correct,
+      incorrect: s.incorrect,
+      unattempted: Math.max(0, poolSize - s.answered),
+    };
+  });
 
   /* ── WEAK / STRONG TOPICS ─────────────────────────────────────────────────
-   * Rank subjects the user has actually practised by mastery_percent:
+   * Rank subjects the user has actually practised by mastery:
    *   weakTopics   = the 3 lowest, strongTopics = the 3 highest.
-   * accuracy = mastery_percent, attempts = total_answered. (Subject-level; a
-   * finer subtopic ranking would need per-subtopic mastery, which isn't
-   * maintained.) */
-  const practised = mastery.filter((m) => m.subjects && m.total_answered > 0);
-  const asTopic = (m: (typeof practised)[number]): DashTopic => ({
-    name: m.subjects!.name,
-    accuracy: Math.round(num(m.mastery_percent)),
-    attempts: m.total_answered,
+   * accuracy = mastery, attempts = answered. */
+  const practised = subjectList.filter((s) => s.answered > 0);
+  const ascending = [...practised].sort((x, y) => x.mastery - y.mastery);
+  const asTopic = (s: (typeof practised)[number]): DashTopic => ({
+    name: s.name,
+    accuracy: s.mastery,
+    attempts: s.answered,
   });
-  const ascending = [...practised].sort(
-    (x, y) => num(x.mastery_percent) - num(y.mastery_percent)
-  );
   const weakTopics = ascending.slice(0, 3).map(asTopic);
   const strongTopics = ascending.slice(-3).reverse().map(asTopic);
 

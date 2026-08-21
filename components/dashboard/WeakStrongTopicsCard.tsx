@@ -35,9 +35,9 @@ const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard({
             {weakTopics.length === 0 && (
               <li className="text-[13px] text-slate-400 dark:text-slate-500">No data yet.</li>
             )}
-            {weakTopics.map((t) => (
+            {weakTopics.map((t, i) => (
               <li
-                key={t.name}
+                key={`${t.name}-${i}`}
                 className="rounded-xl border border-dashed border-rose-300 dark:border-rose-800/60 bg-rose-50/50 dark:bg-rose-900/10 px-3 py-2.5"
               >
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>
@@ -59,9 +59,9 @@ const WeakStrongTopicsCard = memo(function WeakStrongTopicsCard({
             {strongTopics.length === 0 && (
               <li className="text-[13px] text-slate-400 dark:text-slate-500">No data yet.</li>
             )}
-            {strongTopics.map((t) => (
+            {strongTopics.map((t, i) => (
               <li
-                key={t.name}
+                key={`${t.name}-${i}`}
                 className="rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-900/10 px-3 py-2.5"
               >
                 <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100 leading-snug">{t.name}</p>

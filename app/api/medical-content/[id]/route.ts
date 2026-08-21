@@ -5,6 +5,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { getUserAccess } from "@/lib/access";
 import prisma from "@/lib/prisma";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
+import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
 
 
 export const maxDuration = 60;
@@ -211,8 +212,8 @@ export async function PATCH(
     const { name, category, type, status, author, isFree, is_free, fullHtml, sections, adminUser } = body;
 
     // Verify condition exists
-    const exists = await queryOne<{ id: string; author: string; status: string }>(
-      `SELECT id, author, status FROM medical_conditions WHERE id = $1`,
+    const exists = await queryOne<{ id: string; name: string; kind: string; author: string; status: string }>(
+      `SELECT id, name, kind, author, status FROM medical_conditions WHERE id = $1`,
       [id]
     );
     if (!exists) {
@@ -348,6 +349,42 @@ export async function PATCH(
         }
       }
     }
+
+    // Update tags if provided
+    if (body.tags && Array.isArray(body.tags)) {
+      await execute(`DELETE FROM condition_tags WHERE condition_id = $1`, [id]);
+      for (const tagLabel of body.tags) {
+        const tagSlug = tagLabel.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        let tag = await queryOne<{ id: string }>(
+          `SELECT id FROM tags WHERE slug = $1 LIMIT 1`,
+          [tagSlug]
+        );
+        if (!tag) {
+          tag = await queryOne<{ id: string }>(
+            `INSERT INTO tags (slug, label) VALUES ($1, $2)
+             ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
+             RETURNING id`,
+            [tagSlug, tagLabel]
+          );
+        }
+        await execute(
+          `INSERT INTO condition_tags (condition_id, tag_id) VALUES ($1, $2)
+           ON CONFLICT DO NOTHING`,
+          [id, tag!.id]
+        );
+      }
+    }
+
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+    const updatedName = name || exists.name;
+    const updatedSystem = body.system || category || "General";
+    await registerOrUpdateTopicWithCodeAction({
+      label: updatedName,
+      homeUnit: updatedSystem,
+      topicType: (type || exists.kind) === "Approach" ? "Approach to a Presentation" : "Clinical Condition",
+      tags: body.tags || [],
+      adminUser: userContext,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

@@ -26,10 +26,10 @@ export const themeOptionIdle =
   "border-teal-200/70 dark:border-teal-900/40 bg-teal-50/40 dark:bg-teal-950/15 text-teal-800 dark:text-teal-300 hover:border-teal-400 dark:hover:border-teal-700";
 
 export const themeSelectTrigger =
-  "w-full flex items-center justify-between px-4 py-2.5 text-sm rounded-xl transition-all text-left font-medium shadow-sm border-teal-200/70 dark:border-teal-900/40 bg-teal-50/30 dark:bg-teal-950/10 text-teal-800 dark:text-teal-200 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700/60 hover:border-teal-400 dark:hover:border-teal-700";
+  "w-full flex items-center justify-between px-3.5 py-2 text-xs rounded-xl transition-all text-left font-medium shadow-sm border border-teal-200/70 dark:border-teal-900/40 bg-teal-50/30 dark:bg-teal-950/10 text-teal-800 dark:text-teal-200 focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700/60 hover:border-teal-400 dark:hover:border-teal-700";
 
 export const themeSelectMenu =
-  "absolute left-0 right-0 z-50 overflow-hidden rounded-xl shadow-xl max-h-60 overflow-y-auto bg-white dark:bg-teal-950/95 border border-teal-200/70 dark:border-teal-900/40";
+  "absolute left-0 right-0 z-50 overflow-hidden rounded-xl shadow-xl max-h-60 overflow-y-auto bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-teal-200/70 dark:border-teal-900/40";
 
 export const themeSelectOption =
   "text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-900/40 hover:text-teal-900 dark:hover:text-teal-100";
