@@ -30,7 +30,6 @@ import {
   formatTopicCode,
 } from "@/lib/taxonomyData";
 import {
-  syncMasterTaxonomyAction,
   getTaxonomyTopicsAction,
   getTaxonomyUnitsAction,
   moveTopicHomeUnitAction,
@@ -68,8 +67,6 @@ export default function SearchPage() {
   const [unitsList, setUnitsList] = useState<{ code: string; name: string }[]>(
     MASTER_UNITS.map((u) => ({ code: u.code, name: u.name }))
   );
-  const [syncingTaxonomy, setSyncingTaxonomy] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   // Move Topic modal state
   const [moveTopicTarget, setMoveTopicTarget] = useState<TopicItem | null>(null);
@@ -115,31 +112,6 @@ export default function SearchPage() {
       isMounted = false;
     };
   }, []);
-
-  const handleSyncTaxonomy = async () => {
-    setSyncingTaxonomy(true);
-    setSyncMessage(null);
-    try {
-      const res = await syncMasterTaxonomyAction();
-      if (res.success) {
-        setSyncMessage(`Successfully synced ${res.topicsCount} topics & ${res.unitsCount} units (v${res.version}) to PostgreSQL!`);
-        const updated = await getAllDatabaseTopicsAction();
-        if (updated.success && updated.topics) {
-          setTaxonomyTopics(updated.topics);
-          setTopicTitlesList(updated.topicTitles);
-          if (updated.units && updated.units.length > 0) {
-            setUnitsList(updated.units);
-          }
-        }
-      } else {
-        setSyncMessage(`Sync Error: ${res.error}`);
-      }
-    } catch (e: any) {
-      setSyncMessage(`Sync Error: ${e.message}`);
-    } finally {
-      setSyncingTaxonomy(false);
-    }
-  };
 
   const handleOpenMoveModal = (topic: TopicItem) => {
     setMoveTopicTarget(topic);
@@ -360,37 +332,18 @@ export default function SearchPage() {
 
       {/* Global Search Bar */}
       <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 p-6 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-          <div className="relative flex-1">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-teal-600/70 dark:text-teal-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search across 1000+ Taxonomy topics (T0142), questions, content, users..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 text-sm bg-teal-50/20 dark:bg-slate-800/80 border border-teal-200/70 dark:border-teal-900/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
-            />
-          </div>
-
-          <button
-            onClick={handleSyncTaxonomy}
-            disabled={syncingTaxonomy}
-            className="px-4 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 shrink-0"
-          >
-            <svg className={`w-4 h-4 ${syncingTaxonomy ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            {syncingTaxonomy ? "Syncing DB..." : "Sync Master Taxonomy JSON"}
-          </button>
+        <div className="relative mb-4">
+          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-teal-600/70 dark:text-teal-400/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search across 1000+ Taxonomy topics (T0142), questions, content, users..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-12 pr-4 py-3.5 text-sm bg-teal-50/20 dark:bg-slate-800/80 border border-teal-200/70 dark:border-teal-900/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
+          />
         </div>
-
-        {syncMessage && (
-          <div className="p-3 mb-4 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-900/50">
-            {syncMessage}
-          </div>
-        )}
 
         {/* Global Search Results Navigation */}
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
