@@ -472,7 +472,7 @@ export default function ApproachesPage() {
             id: existing.id, // Preserve existing ID
             title: card.title || existing.title,
             lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
-            status: "published" as const,
+            status: "draft" as const,
           };
 
           newCards = newCards.map((c) => (c.id === existing.id ? updatedCard : c));
@@ -495,7 +495,7 @@ export default function ApproachesPage() {
             id: newId,
             title: finalTitle,
             lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
-            status: "published" as const,
+            status: "draft" as const,
           };
 
           newCards.unshift(targetCard);

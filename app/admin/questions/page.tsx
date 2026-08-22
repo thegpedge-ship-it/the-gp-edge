@@ -449,7 +449,7 @@ export default function QuestionsPage() {
       topic: newQuestionTopics.join(", "),
       difficulty: newDifficulty as "Easy" | "Medium" | "Hard",
       examType: newExamType,
-      status: "published" as const,
+      status: (editingQuestion ? (editingQuestion.status || "draft") : "draft") as any,
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
     };
@@ -710,7 +710,7 @@ export default function QuestionsPage() {
           kfpCorrectCount: correctCount,
           correctIndices: q.correctIndices || [q.correctIndex || 0],
           tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-          status: "published" as const
+          status: (q.status === "published" || q.status === "in_review") ? q.status : ("draft" as const)
         };
         return newQ;
       });
@@ -719,14 +719,14 @@ export default function QuestionsPage() {
 
       const totalCount = newQs.length;
       setUploadProgress(0);
-      setUploadedFileName(`Publishing ${totalCount} question${totalCount > 1 ? "s" : ""}...`);
+      setUploadedFileName(`Importing ${totalCount} question${totalCount > 1 ? "s" : ""} to Drafts...`);
       setUploadState("uploading");
 
       let processedCount = 0;
       const updatePublishProgress = (count: number) => {
         const pct = Math.min(99, Math.round((count / totalCount) * 100));
         setUploadProgress(pct);
-        setUploadedFileName(`Publishing question ${count} of ${totalCount} (${pct}%)...`);
+        setUploadedFileName(`Importing question ${count} of ${totalCount} (${pct}%)...`);
       };
 
       // 1. Process image uploads if present
