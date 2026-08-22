@@ -49,7 +49,7 @@ export default function CustomSelect({
   const selectedOption = options.find((opt) => opt.value === value);
 
   return (
-    <div ref={containerRef} className={`relative select-none ${isOpen ? "z-30" : "z-10"} ${className} ${disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}>
+    <div ref={containerRef} className={`relative select-none ${isOpen ? "z-[100]" : "z-10"} ${className} ${disabled ? "opacity-50 cursor-not-allowed pointer-events-none" : ""}`}>
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}

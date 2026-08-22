@@ -3,33 +3,48 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Archive, Trash2, RotateCcw, AlertTriangle } from "lucide-react";
+import {
+  Archive,
+  Trash2,
+  RotateCcw,
+  AlertTriangle,
+  FileText,
+  HelpCircle,
+  Layers,
+  Sparkles,
+  ExternalLink,
+  Tag,
+  BookOpen,
+  CheckCircle2,
+  Eye,
+  Edit3,
+} from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
-  getQuestions,
   fetchQuestions,
   Question,
   fetchAdminUsersFromDb,
   AdminUser,
-  getMedicalContent,
+  fetchMedicalContent,
   MedicalContent,
-  getAutofillTemplates,
+  ApproachCard,
   AutofillTemplate,
 } from "@/lib/quizData";
 import {
+  getApproachCardsFromDbAction,
+} from "@/actions/approach.actions";
+import {
+  fetchAutofillTemplatesFromDbAction,
+} from "@/actions/autofill.actions";
+import {
   TopicItem,
-  UnitItem,
   TAXONOMY_VERSION,
   getUnitName,
   getGroupName,
-  filterMasterTopics,
-  getTaxonomyAuditMetrics,
   formatTopicCode,
 } from "@/lib/taxonomyData";
 import {
-  getTaxonomyTopicsAction,
-  getTaxonomyUnitsAction,
   moveTopicHomeUnitAction,
   getAllDatabaseTopicsAction,
   archiveTaxonomyTopicAction,
@@ -37,19 +52,33 @@ import {
   restoreTaxonomyTopicAction,
   UnifiedTopicItem,
 } from "@/actions/taxonomy.actions";
+import {
+  themeBadge,
+  themeBadgePill,
+  themeBadgeSm,
+  themeBorder,
+  themePanel,
+  themeSurface,
+  themeText,
+  themeMuted,
+  themeIconBtn,
+} from "@/lib/adminTheme";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
 
+type TabType = "all" | "taxonomy" | "questions" | "content" | "approaches" | "autofill" | "users";
+
 export default function SearchPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "taxonomy" | "questions" | "users" | "content">("all");
+  const [activeTab, setActiveTab] = useState<TabType>("all");
 
   // Database / state collections
   const [questions, setQuestions] = useState<Question[]>([]);
   const [usersList, setUsersList] = useState<AdminUser[]>([]);
   const [contentList, setContentList] = useState<MedicalContent[]>([]);
+  const [approachesList, setApproachesList] = useState<ApproachCard[]>([]);
   const [autofillList, setAutofillList] = useState<AutofillTemplate[]>([]);
 
   // Taxonomy & unified database topics filters
@@ -75,23 +104,28 @@ export default function SearchPage() {
   // Pagination / Incremental "See More" (10 items each)
   const [visibleTopicsCount, setVisibleTopicsCount] = useState<number>(10);
   const [visibleQuestionsCount, setVisibleQuestionsCount] = useState<number>(10);
+  const [visibleContentCount, setVisibleContentCount] = useState<number>(10);
+  const [visibleApproachesCount, setVisibleApproachesCount] = useState<number>(10);
+  const [visibleAutofillCount, setVisibleAutofillCount] = useState<number>(10);
 
   // Reset pagination when filters or query change
   useEffect(() => {
     setVisibleTopicsCount(10);
     setVisibleQuestionsCount(10);
+    setVisibleContentCount(10);
+    setVisibleApproachesCount(10);
+    setVisibleAutofillCount(10);
   }, [selectedUnit, selectedTopicTitle, selectedDepth, selectedType, selectedTag, query, activeTab]);
 
   useEffect(() => {
     let isMounted = true;
-    fetchQuestions().then((qs) => { if (isMounted) setQuestions(qs); });
+    fetchQuestions(true).then((qs) => { if (isMounted) setQuestions(qs); });
     fetchAdminUsersFromDb().then((users) => { if (isMounted) setUsersList(users); });
-    if (isMounted) {
-      setContentList(getMedicalContent());
-      setAutofillList(getAutofillTemplates());
-    }
+    fetchMedicalContent(true).then((content) => { if (isMounted) setContentList(content); });
+    getApproachCardsFromDbAction(true).then((approaches) => { if (isMounted) setApproachesList(approaches); });
+    fetchAutofillTemplatesFromDbAction(true).then((templates) => { if (isMounted) setAutofillList(templates); });
 
-    // Fetch all unified topics and titles from PostgreSQL (questions, approaches, conditions, autofills, taxonomy)
+    // Fetch all unified topics and titles from PostgreSQL
     getAllDatabaseTopicsAction().then((res) => {
       if (isMounted && res.success && res.topics && res.topics.length > 0) {
         setTaxonomyTopics(res.topics);
@@ -119,7 +153,6 @@ export default function SearchPage() {
     try {
       const res = await moveTopicHomeUnitAction(moveTopicTarget.code, moveUnitCode, moveGroupCode || null);
       if (res.success) {
-        // Update local list preserving permanent topicCode
         setTaxonomyTopics((prev) =>
           prev.map((t) =>
             t.code === moveTopicTarget.code ? { ...t, homeUnit: moveUnitCode, group: moveGroupCode || null } : t
@@ -177,9 +210,7 @@ export default function SearchPage() {
     }
   };
 
-  const hasResults = query.length > 1;
-
-  // Filter taxonomy topics including database topics from questions, approaches, content
+  // Filter taxonomy topics
   const filteredTaxonomy = useMemo(() => {
     let list = taxonomyTopics.filter((t) => !t.label.includes("[Enter") && !t.code.toLowerCase().includes("enter-"));
 
@@ -227,6 +258,139 @@ export default function SearchPage() {
     return list;
   }, [taxonomyTopics, selectedUnit, selectedTopicTitle, selectedDepth, selectedType, selectedTag, query]);
 
+  // Filter Questions
+  const filteredQuestions = useMemo(() => {
+    let list = questions;
+
+    if (selectedUnit && selectedUnit !== "all") {
+      list = list.filter((q) => {
+        const t = (q.topic || "").toLowerCase();
+        const u = selectedUnit.toLowerCase();
+        return t.includes(u) || (q.subject && q.subject.toLowerCase().includes(u));
+      });
+    }
+
+    if (selectedType && selectedType !== "all") {
+      if (selectedType === "AKT" || selectedType === "KFP") {
+        list = list.filter((q) => (q.examType || "AKT").toUpperCase() === selectedType);
+      }
+    }
+
+    if (selectedDepth && selectedDepth !== "all") {
+      list = list.filter((q) => q.difficulty.toLowerCase() === selectedDepth.toLowerCase());
+    }
+
+    if (query && query.trim().length > 0) {
+      const qLower = query.trim().toLowerCase();
+      list = list.filter(
+        (q) =>
+          (q.text && q.text.toLowerCase().includes(qLower)) ||
+          q.id.toString().includes(qLower) ||
+          (q.dbId && q.dbId.toLowerCase().includes(qLower)) ||
+          (q.uqid && q.uqid.toLowerCase().includes(qLower)) ||
+          (q.stem && q.stem.toLowerCase().includes(qLower)) ||
+          (q.leadIn && q.leadIn.toLowerCase().includes(qLower)) ||
+          (q.topic && q.topic.toLowerCase().includes(qLower)) ||
+          (Array.isArray(q.tags) && q.tags.some((t) => t.toLowerCase().includes(qLower))) ||
+          (Array.isArray(q.options) && q.options.some((opt) => opt.toLowerCase().includes(qLower))) ||
+          (q.whyCorrect && q.whyCorrect.toLowerCase().includes(qLower)) ||
+          (q.pearl && q.pearl.toLowerCase().includes(qLower)) ||
+          (q.knowledgeBank && q.knowledgeBank.toLowerCase().includes(qLower))
+      );
+    }
+
+    return list;
+  }, [questions, selectedUnit, selectedType, selectedDepth, query]);
+
+  // Filter Medical Content
+  const filteredContent = useMemo(() => {
+    let list = contentList;
+
+    if (selectedUnit && selectedUnit !== "all") {
+      list = list.filter((c) => {
+        const sys = (c.system || "").toLowerCase();
+        return sys.includes(selectedUnit.toLowerCase());
+      });
+    }
+
+    if (selectedType && selectedType !== "all") {
+      list = list.filter((c) => c.type.toLowerCase().includes(selectedType.toLowerCase()));
+    }
+
+    if (query && query.trim().length > 0) {
+      const qLower = query.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          (c.name && c.name.toLowerCase().includes(qLower)) ||
+          (c.system && c.system.toLowerCase().includes(qLower)) ||
+          (c.category && c.category.toLowerCase().includes(qLower)) ||
+          (c.type && c.type.toLowerCase().includes(qLower)) ||
+          (c.tags && c.tags.some((t) => t.toLowerCase().includes(qLower)))
+      );
+    }
+
+    return list;
+  }, [contentList, selectedUnit, selectedType, query]);
+
+  // Filter Approaches
+  const filteredApproaches = useMemo(() => {
+    let list = approachesList;
+
+    if (selectedUnit && selectedUnit !== "all") {
+      list = list.filter((a) => (a.system || "").toLowerCase().includes(selectedUnit.toLowerCase()));
+    }
+
+    if (query && query.trim().length > 0) {
+      const qLower = query.trim().toLowerCase();
+      list = list.filter(
+        (a) =>
+          (a.title && a.title.toLowerCase().includes(qLower)) ||
+          (a.subtitle && a.subtitle.toLowerCase().includes(qLower)) ||
+          (a.system && a.system.toLowerCase().includes(qLower)) ||
+          (a.category && a.category.toLowerCase().includes(qLower)) ||
+          (a.overview && a.overview.toLowerCase().includes(qLower)) ||
+          (a.tags && a.tags.some((t) => t.toLowerCase().includes(qLower))) ||
+          (a.steps && a.steps.some((s) => s.title.toLowerCase().includes(qLower) || s.description.toLowerCase().includes(qLower)))
+      );
+    }
+
+    return list;
+  }, [approachesList, selectedUnit, query]);
+
+  // Filter Autofill Templates
+  const filteredAutofill = useMemo(() => {
+    let list = autofillList;
+
+    if (selectedUnit && selectedUnit !== "all") {
+      list = list.filter((t) => (t.system || "").toLowerCase().includes(selectedUnit.toLowerCase()));
+    }
+
+    if (query && query.trim().length > 0) {
+      const qLower = query.trim().toLowerCase();
+      list = list.filter(
+        (t) =>
+          (t.name && t.name.toLowerCase().includes(qLower)) ||
+          (t.system && t.system.toLowerCase().includes(qLower)) ||
+          (t.category && t.category.toLowerCase().includes(qLower))
+      );
+    }
+
+    return list;
+  }, [autofillList, selectedUnit, query]);
+
+  // Filter Users
+  const filteredUsers = useMemo(() => {
+    if (!query || query.trim().length === 0) return usersList;
+    const qLower = query.trim().toLowerCase();
+    return usersList.filter(
+      (u) =>
+        u.name.toLowerCase().includes(qLower) ||
+        u.email.toLowerCase().includes(qLower) ||
+        (u.plan && u.plan.toLowerCase().includes(qLower)) ||
+        (u.status && u.status.toLowerCase().includes(qLower))
+    );
+  }, [usersList, query]);
+
   // Dynamically collect all tags from database topics
   const availableTags = useMemo(() => {
     const set = new Set<string>(["atsi-relevant", "emergency", "approach", "question-bank", "autofill"]);
@@ -273,54 +437,14 @@ export default function SearchPage() {
     };
   }, [taxonomyTopics, unitsList]);
 
-  // Global search filters
-  const matchedQuestions = hasResults
-    ? questions.filter((q) => {
-        const qLower = query.trim().toLowerCase();
-        return (
-          (q.text && q.text.toLowerCase().includes(qLower)) ||
-          q.id.toString().includes(qLower) ||
-          (q.dbId && q.dbId.toLowerCase().includes(qLower)) ||
-          (q.uqid && q.uqid.toLowerCase().includes(qLower)) ||
-          (q.stem && q.stem.toLowerCase().includes(qLower)) ||
-          (q.leadIn && q.leadIn.toLowerCase().includes(qLower)) ||
-          (q.topic && q.topic.toLowerCase().includes(qLower)) ||
-          (Array.isArray(q.tags) && q.tags.some((t) => t.toLowerCase().includes(qLower))) ||
-          (Array.isArray(q.options) && q.options.some((opt) => opt.toLowerCase().includes(qLower))) ||
-          (q.whyCorrect && q.whyCorrect.toLowerCase().includes(qLower)) ||
-          (q.pearl && q.pearl.toLowerCase().includes(qLower)) ||
-          (q.knowledgeBank && q.knowledgeBank.toLowerCase().includes(qLower))
-        );
-      })
-    : [];
-
-  const matchedUsers = hasResults
-    ? usersList.filter(
-        (u) =>
-          u.name.toLowerCase().includes(query.toLowerCase()) ||
-          u.email.toLowerCase().includes(query.toLowerCase())
-      )
-    : [];
-
-  const matchedContent = hasResults
-    ? [
-        ...contentList.map((c) => ({ id: c.id, name: c.name, system: c.system, type: c.type, isTemplate: false })),
-        ...autofillList.map((t) => ({ id: t.id, name: t.name, system: t.system, type: "Autofill", isTemplate: true })),
-      ].filter(
-        (c) =>
-          c.name.toLowerCase().includes(query.toLowerCase()) ||
-          c.system.toLowerCase().includes(query.toLowerCase())
-      )
-    : [];
-
   const selectedUnitObj = unitsList.find((u) => u.code === moveUnitCode);
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <AdminPageHeader
         title="Search &"
-        highlightedText="Taxonomy v1.1"
-        subtitle="Global search, Master Taxonomy classification engine, and topic unit assignment"
+        highlightedText="Feature Explorer"
+        subtitle="Global search across Topics, Questions, Medical Content, Clinical Approaches, Autofill Templates, and Users"
         variants={itemVariants}
       />
 
@@ -332,7 +456,7 @@ export default function SearchPage() {
           </svg>
           <input
             type="text"
-            placeholder="Search across 1000+ Taxonomy topics (T0142), questions, content, users..."
+            placeholder="Search across Topics (T0142), Questions (UQID/Stem), Medical Content, Approaches, Autofills, Users..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3.5 text-sm bg-teal-50/20 dark:bg-slate-800/80 border border-teal-200/70 dark:border-teal-900/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 transition-all shadow-sm"
@@ -341,156 +465,187 @@ export default function SearchPage() {
 
         {/* Global Search Results Navigation */}
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-800">
-          {(["all", "taxonomy", "questions", "users", "content"] as const).map((tab) => (
+          {[
+            { id: "all", label: "All Overview", count: filteredTaxonomy.length + filteredQuestions.length + filteredContent.length + filteredApproaches.length + filteredAutofill.length + filteredUsers.length },
+            { id: "taxonomy", label: "Taxonomy Topics", count: filteredTaxonomy.length },
+            { id: "questions", label: "Questions", count: filteredQuestions.length },
+            { id: "content", label: "Medical Content", count: filteredContent.length },
+            { id: "approaches", label: "Clinical Approaches", count: filteredApproaches.length },
+            { id: "autofill", label: "Autofill Templates", count: filteredAutofill.length },
+            { id: "users", label: "Users", count: filteredUsers.length },
+          ].map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                activeTab === tab
-                  ? "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabType)}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-800 shadow-sm"
                   : "bg-white dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-slate-900 dark:hover:text-slate-200"
               }`}
             >
-              {tab === "taxonomy" ? "Taxonomy Topics" : tab.charAt(0).toUpperCase() + tab.slice(1)}
-              <span className="ml-1 text-[10px] opacity-70">
-                ({tab === "all"
-                  ? filteredTaxonomy.length + matchedQuestions.length + matchedUsers.length + matchedContent.length
-                  : tab === "taxonomy"
-                  ? filteredTaxonomy.length
-                  : tab === "questions"
-                  ? matchedQuestions.length
-                  : tab === "users"
-                  ? matchedUsers.length
-                  : matchedContent.length})
+              <span>{tab.label}</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono font-bold">
+                {tab.count}
               </span>
             </button>
           ))}
         </div>
       </motion.div>
 
-      {/* Quota & Classification Audit Banner (Matches Spec Image) */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="p-4 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Total Units</p>
-          <p className="text-xl font-bold text-teal-600 dark:text-teal-400 mt-1">{metrics.totalUnits} Units</p>
+      {/* Feature & Classification Audit Banner */}
+      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="p-3.5 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total Units</p>
+            <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          </div>
+          <p className="text-lg font-bold text-teal-600 dark:text-teal-400 mt-1">{metrics.totalUnits} Units</p>
           <p className="text-[10px] text-slate-400">U01 to U37</p>
         </div>
 
-        <div className="p-4 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Master Topics</p>
-          <p className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{metrics.totalTopics}</p>
-          <p className="text-[10px] text-slate-400">Permanent topicCode (T0001+)</p>
+        <div className="p-3.5 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Topics</p>
+            <Tag className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+          </div>
+          <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-1">{metrics.totalTopics}</p>
+          <p className="text-[10px] text-slate-400">T0001+ Codes</p>
         </div>
 
-        <div className="p-4 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/40 dark:border-teal-900/30">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">Core Depth</p>
-          <p className="text-xl font-bold text-teal-700 dark:text-teal-300 mt-1">{metrics.depthCounts.Core}</p>
-          <p className="text-[10px] text-teal-600 dark:text-teal-400">GP diagnoses & manages</p>
+        <div className="p-3.5 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/40 dark:border-teal-900/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">Questions</p>
+            <HelpCircle className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+          </div>
+          <p className="text-lg font-bold text-teal-700 dark:text-teal-300 mt-1">{questions.length}</p>
+          <p className="text-[10px] text-teal-600 dark:text-teal-400">AKT & KFP</p>
         </div>
 
-        <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/40 dark:border-amber-900/30">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">Working Depth</p>
-          <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1">{metrics.depthCounts.Working}</p>
-          <p className="text-[10px] text-amber-600 dark:text-amber-400">GP recognises & initiates</p>
+        <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200/40 dark:border-blue-900/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">Library Content</p>
+            <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <p className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-1">{contentList.length}</p>
+          <p className="text-[10px] text-blue-600 dark:text-blue-400">Conditions & Guidelines</p>
         </div>
 
-        <div className="p-4 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-200/40 dark:border-purple-900/30">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-300">Awareness Depth</p>
-          <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-1">{metrics.depthCounts.Awareness}</p>
-          <p className="text-[10px] text-purple-600 dark:text-purple-400">Quota: GP recognises & refers</p>
+        <div className="p-3.5 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-200/40 dark:border-purple-900/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-300">Approaches</p>
+            <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <p className="text-lg font-bold text-purple-700 dark:text-purple-300 mt-1">{approachesList.length}</p>
+          <p className="text-[10px] text-purple-600 dark:text-purple-400">Decision Trees</p>
+        </div>
+
+        <div className="p-3.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/40 dark:border-amber-900/30 shadow-sm">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">Autofill</p>
+            <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          </div>
+          <p className="text-lg font-bold text-amber-700 dark:text-amber-300 mt-1">{autofillList.length}</p>
+          <p className="text-[10px] text-amber-600 dark:text-amber-400">Note Templates</p>
         </div>
       </motion.div>
 
-      {/* MASTER TAXONOMY CLASSIFICATION EXPLORER */}
+      {/* FILTER BAR FOR TOPICS & CONTENT */}
+      <motion.div variants={itemVariants} className="relative z-30 bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-4">
+        <div className="flex flex-wrap gap-2.5 items-center">
+          {/* Unit Dropdown */}
+          <CustomSelect
+            value={selectedUnit}
+            onChange={setSelectedUnit}
+            options={[
+              { value: "all", label: `All Units (${unitsList.length})` },
+              ...unitsList.map((u) => ({
+                value: u.code,
+                label: `${u.code}: ${u.name}`,
+              })),
+            ]}
+            className="w-full sm:w-56"
+          />
+
+          {/* Topic Title Dropdown */}
+          <CustomSelect
+            value={selectedTopicTitle}
+            onChange={setSelectedTopicTitle}
+            options={[
+              { value: "all", label: `All Topic Titles (${topicTitlesList.length || taxonomyTopics.length})` },
+              ...topicTitlesList.map((title) => ({
+                value: title,
+                label: title,
+              })),
+            ]}
+            className="w-full sm:w-60"
+          />
+
+          {/* Depth Tier / Difficulty Dropdown */}
+          <CustomSelect
+            value={selectedDepth}
+            onChange={setSelectedDepth}
+            options={[
+              { value: "all", label: "All Depth / Difficulty" },
+              { value: "Core", label: "Core / Easy" },
+              { value: "Working", label: "Working / Medium" },
+              { value: "Awareness", label: "Awareness / Hard" },
+            ]}
+            className="w-full sm:w-44"
+          />
+
+          {/* Format / Type Dropdown */}
+          <CustomSelect
+            value={selectedType}
+            onChange={setSelectedType}
+            options={[
+              { value: "all", label: "All Formats / Types" },
+              { value: "AKT", label: "AKT Questions" },
+              { value: "KFP", label: "KFP Questions" },
+              { value: "Approach", label: "Clinical Approaches" },
+              { value: "Condition", label: "Clinical Conditions" },
+              { value: "Guideline", label: "Guidelines & Protocols" },
+              { value: "Autofill", label: "Autofill Templates" },
+            ]}
+            className="w-full sm:w-52"
+          />
+
+          {/* Tag Dropdown */}
+          <CustomSelect
+            value={selectedTag}
+            onChange={setSelectedTag}
+            options={[
+              { value: "all", label: "All Cross-Cutting Tags" },
+              ...availableTags.map((tag) => ({
+                value: tag,
+                label: tag,
+              })),
+            ]}
+            className="w-full sm:w-52"
+          />
+        </div>
+      </motion.div>
+
+      {/* 1. MASTER TAXONOMY TOPICS SECTION */}
       {(activeTab === "all" || activeTab === "taxonomy") && (
-        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/60 dark:border-slate-800 pb-4">
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
             <div>
-              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <span>Taxonomy & Classification Engine</span>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-teal-600" />
+                <span>Master Taxonomy & Topic Codes</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950 text-teal-700 dark:text-teal-400 font-mono font-bold">
                   v{TAXONOMY_VERSION}
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Topic codes are permanent. Moving a topic between units updates <code className="text-teal-600">homeUnit</code>, never code.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Permanent topic codes (T0001+). Links questions, clinical guidelines, and approaches to master RACGP units.
               </p>
             </div>
-
-            {/* Filter controls */}
-            <div className="flex flex-wrap gap-2.5 items-center">
-              {/* Unit Dropdown */}
-              <CustomSelect
-                value={selectedUnit}
-                onChange={setSelectedUnit}
-                options={[
-                  { value: "all", label: `All Units (${unitsList.length})` },
-                  ...unitsList.map((u) => ({
-                    value: u.code,
-                    label: `${u.code}: ${u.name}`,
-                  })),
-                ]}
-                className="w-full sm:w-60"
-              />
-
-              {/* Topic Title Dropdown */}
-              <CustomSelect
-                value={selectedTopicTitle}
-                onChange={setSelectedTopicTitle}
-                options={[
-                  { value: "all", label: `All Topic Titles (${topicTitlesList.length || taxonomyTopics.length})` },
-                  ...topicTitlesList.map((title) => ({
-                    value: title,
-                    label: title,
-                  })),
-                ]}
-                className="w-full sm:w-64"
-              />
-
-              {/* Depth Tier Dropdown */}
-              <CustomSelect
-                value={selectedDepth}
-                onChange={setSelectedDepth}
-                options={[
-                  { value: "all", label: "All Depth Tiers" },
-                  { value: "Core", label: "Core" },
-                  { value: "Working", label: "Working" },
-                  { value: "Awareness", label: "Awareness" },
-                ]}
-                className="w-full sm:w-40"
-              />
-
-              {/* Topic Type Dropdown */}
-              <CustomSelect
-                value={selectedType}
-                onChange={setSelectedType}
-                options={[
-                  { value: "all", label: "All Topic Types" },
-                  { value: "Approach", label: "Approach to a Presentation" },
-                  { value: "Condition", label: "Clinical Condition" },
-                  { value: "Question", label: "Question Bank Topics" },
-                  { value: "Autofill", label: "Autofill Templates" },
-                ]}
-                className="w-full sm:w-56"
-              />
-
-              {/* Cross Cutting Tag Dropdown */}
-              <CustomSelect
-                value={selectedTag}
-                onChange={setSelectedTag}
-                options={[
-                  { value: "all", label: "All Cross-Cutting Tags" },
-                  ...availableTags.map((tag) => ({
-                    value: tag,
-                    label: tag,
-                  })),
-                ]}
-                className="w-full sm:w-56"
-              />
-            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredTaxonomy.length} topics matching
+            </span>
           </div>
 
-          {/* Topics Table matching Spec Image Specification */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
@@ -511,14 +666,12 @@ export default function SearchPage() {
                   const displayUnitName = t.homeUnitName || getUnitName(t.homeUnit);
                   return (
                     <tr key={`${t.code}-${t.label}`} className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all">
-                      {/* topicCode */}
                       <td className="p-3">
                         <span className="font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
                           {formatTopicCode(t.code)}
                         </span>
                       </td>
 
-                      {/* Label */}
                       <td className="p-3 font-medium text-slate-800 dark:text-slate-200">
                         <div className="font-semibold text-slate-800 dark:text-slate-100">{t.label}</div>
                         {t.variants && t.variants.length > 0 && (
@@ -533,13 +686,11 @@ export default function SearchPage() {
                         )}
                       </td>
 
-                      {/* homeUnit.group */}
                       <td className="p-3 text-slate-600 dark:text-slate-300">
                         <div className="font-semibold">{t.homeUnit} ({displayUnitName})</div>
                         {t.group && <div className="text-[10px] text-slate-400 truncate">{t.group} {grpName ? `· ${grpName}` : ""}</div>}
                       </td>
 
-                      {/* crossRefUnits */}
                       <td className="p-3">
                         {t.crossRefs && t.crossRefs.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
@@ -554,7 +705,6 @@ export default function SearchPage() {
                         )}
                       </td>
 
-                      {/* depthTier */}
                       <td className="p-3">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -569,7 +719,6 @@ export default function SearchPage() {
                         </span>
                       </td>
 
-                      {/* topicType */}
                       <td className="p-3 text-slate-600 dark:text-slate-300 font-medium">
                         <div className="flex flex-col gap-1">
                           <span>{t.topicType}</span>
@@ -581,7 +730,6 @@ export default function SearchPage() {
                         </div>
                       </td>
 
-                      {/* crossCuttingTags */}
                       <td className="p-3">
                         {t.crossCuttingTags && t.crossCuttingTags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
@@ -605,12 +753,11 @@ export default function SearchPage() {
                         )}
                       </td>
 
-                      {/* Actions: Move, Archive, Delete */}
                       <td className="p-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleOpenMoveModal(t as TopicItem)}
-                            className="px-2 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900 rounded border border-teal-200 dark:border-teal-800 transition-all"
+                            className="px-2 py-1 text-[11px] font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900 rounded border border-teal-200 dark:border-teal-800 transition-all cursor-pointer"
                             title="Move topic to another home unit"
                           >
                             Move
@@ -619,7 +766,7 @@ export default function SearchPage() {
                           {t.status === "archived" ? (
                             <button
                               onClick={() => handleRestoreTopic(t)}
-                              className="p-1 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/25 transition-all"
+                              className="p-1 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/25 transition-all cursor-pointer"
                               title="Restore topic to active"
                             >
                               <RotateCcw className="w-3.5 h-3.5" />
@@ -627,7 +774,7 @@ export default function SearchPage() {
                           ) : (
                             <button
                               onClick={() => handleArchiveTopic(t)}
-                              className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/25 transition-all"
+                              className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/25 transition-all cursor-pointer"
                               title="Archive topic (Soft Delete)"
                             >
                               <Archive className="w-3.5 h-3.5" />
@@ -636,8 +783,8 @@ export default function SearchPage() {
 
                           <button
                             onClick={() => setDeleteTopicTarget(t)}
-                            className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all"
-                            title="Delete topic permanently (IRREVERSIBLE)"
+                            className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all cursor-pointer"
+                            title="Delete topic permanently"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -650,8 +797,8 @@ export default function SearchPage() {
             </table>
           </div>
 
-          {/* Pagination & "See More" Controls (10 items per increment) */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200/60 dark:border-slate-800">
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
             <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Showing <strong className="text-teal-600 dark:text-teal-400 font-bold">{Math.min(visibleTopicsCount, filteredTaxonomy.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredTaxonomy.length}</strong> Topics
             </span>
@@ -663,9 +810,6 @@ export default function SearchPage() {
                   className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-900/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <span>See More (+10 Topics)</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
                 </button>
                 {filteredTaxonomy.length > visibleTopicsCount + 10 && (
                   <button
@@ -681,45 +825,409 @@ export default function SearchPage() {
         </motion.div>
       )}
 
-      {/* OTHER SEARCH RESULTS (Questions, Users, Content) */}
-      {hasResults && (activeTab === "all" || activeTab === "questions") && matchedQuestions.length > 0 && (
-        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
-              Questions (Showing {Math.min(visibleQuestionsCount, matchedQuestions.length)} of {matchedQuestions.length})
-            </h3>
+      {/* 2. QUESTIONS FEATURE LIST SECTION */}
+      {(activeTab === "all" || activeTab === "questions") && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-teal-600" />
+                <span>Question Bank Features & Classification</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Stem vignettes, lead-in questions, answer keys, rationale, and exam format metadata.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredQuestions.length} questions matching
+            </span>
           </div>
-          {matchedQuestions.slice(0, visibleQuestionsCount).map((r) => (
-            <div
-              key={r.id}
-              onClick={() => router.push(`/admin/questions?id=${r.id}`)}
-              className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all cursor-pointer"
-            >
-              <span className="text-xs font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/35 px-2 py-1 rounded">Q</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-slate-700 dark:text-slate-300 font-semibold truncate">{r.text}</p>
-                <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
-                  <span>ID #{r.id}</span>
-                  <span>·</span>
-                  <span>{r.topic}</span>
+
+          <div className="grid grid-cols-1 gap-3">
+            {filteredQuestions.slice(0, visibleQuestionsCount).map((q) => {
+              const examType = (q.examType || "AKT").toUpperCase();
+              const isKfp = examType === "KFP";
+              return (
+                <div
+                  key={q.id}
+                  className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:border-teal-300 dark:hover:border-teal-700 transition-all space-y-2.5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
+                        {q.uqid || `${examType}-${String(q.id).padStart(6, "0")}`}
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isKfp ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/50" : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/50"}`}>
+                        {examType}
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${
+                        q.difficulty === "Easy"
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30"
+                          : q.difficulty === "Hard"
+                          ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30"
+                          : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30"
+                      }`}>
+                        {q.difficulty}
+                      </span>
+                      <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${
+                        q.status === "published"
+                          ? "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300"
+                          : q.status === "archived"
+                          ? "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                          : "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/30"
+                      }`}>
+                        ● {q.status ? q.status.charAt(0).toUpperCase() + q.status.slice(1) : "Published"}
+                      </span>
+                      {q.image && (
+                        <span className="text-[10px] font-bold text-teal-600 bg-teal-50 dark:bg-teal-950/30 px-1.5 py-0.5 rounded border border-teal-200">
+                          📷 Image
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => router.push(`/admin/questions?id=${q.id}`)}
+                      className="px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-white dark:bg-slate-800 hover:bg-teal-50 dark:hover:bg-teal-950/40 rounded-lg border border-teal-200 dark:border-teal-800 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>Edit Question</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">
+                      {q.stem || q.text}
+                    </p>
+                    {q.leadIn && (
+                      <p className="text-xs font-medium text-teal-800 dark:text-teal-300 mt-1 italic">
+                        ↳ {q.leadIn}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Topics:</span>
+                    {(q.topic || "General").split(",").map((t) => (
+                      <span key={t.trim()} className={themeBadgeSm}>
+                        {t.trim()}
+                      </span>
+                    ))}
+                    {Array.isArray(q.tags) && q.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-slate-200/70 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                        #{tag}
+                      </span>
+                    ))}
+                    {Array.isArray(q.options) && (
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 ml-auto">
+                        {q.options.length} options · Correct: {isKfp ? `${q.kfpCorrectCount || q.correctIndices?.length || 1} required` : String.fromCharCode(65 + (q.correctIndex ?? 0))}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Showing <strong className="text-teal-600 dark:text-teal-400 font-bold">{Math.min(visibleQuestionsCount, filteredQuestions.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredQuestions.length}</strong> Questions
+            </span>
+
+            {filteredQuestions.length > visibleQuestionsCount && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setVisibleQuestionsCount((prev) => prev + 10)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-900/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <span>See More Questions (+10)</span>
+                </button>
+                {filteredQuestions.length > visibleQuestionsCount + 10 && (
+                  <button
+                    onClick={() => setVisibleQuestionsCount(filteredQuestions.length)}
+                    className="px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-all cursor-pointer"
+                  >
+                    Show All ({filteredQuestions.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 3. MEDICAL CONTENT LIBRARY SECTION */}
+      {(activeTab === "all" || activeTab === "content") && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-blue-600" />
+                <span>Medical Content Library Features</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Clinical conditions, therapeutic guidelines, protocols, and diagnostic pathways.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredContent.length} items matching
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredContent.slice(0, visibleContentCount).map((c) => (
+              <div
+                key={c.id}
+                className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:border-blue-300 dark:hover:border-blue-700 transition-all space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                    c.type === "Condition"
+                      ? "bg-teal-50 text-teal-800 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300"
+                      : c.type === "Guideline"
+                      ? "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300"
+                      : "bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-300"
+                  }`}>
+                    {c.type}
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    {c.isFree ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Free</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">Premium</span>
+                    )}
+                    <button
+                      onClick={() => router.push(`/admin/content`)}
+                      className="p-1 text-slate-500 hover:text-blue-600 rounded transition-all cursor-pointer"
+                      title="Open Content Manager"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">{c.name}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{c.system} {c.category ? `· ${c.category}` : ""}</p>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 text-[11px] text-slate-400 border-t border-slate-200/50 dark:border-slate-700/50">
+                  <span>Author: {c.author || "GP Edge"}</span>
+                  <span>{c.references || 0} references</span>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
-          {matchedQuestions.length > visibleQuestionsCount && (
-            <div className="flex justify-center pt-2">
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Showing <strong className="text-blue-600 dark:text-blue-400 font-bold">{Math.min(visibleContentCount, filteredContent.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredContent.length}</strong> Content Items
+            </span>
+
+            {filteredContent.length > visibleContentCount && (
               <button
-                onClick={() => setVisibleQuestionsCount((prev) => prev + 10)}
-                className="px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border border-teal-200/70 dark:border-teal-900/50 hover:bg-teal-100 dark:hover:bg-teal-900/60 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                onClick={() => setVisibleContentCount((prev) => prev + 10)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/70 hover:bg-blue-100 transition-all cursor-pointer"
               >
-                <span>See More Questions (+10)</span>
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                See More Content (+10)
               </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 4. CLINICAL APPROACHES SECTION */}
+      {(activeTab === "all" || activeTab === "approaches") && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                <span>Clinical Approaches & Decision Pathways</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Structured clinical presentation algorithms, step-by-step actions, and red flag checklists.
+              </p>
             </div>
-          )}
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredApproaches.length} approaches matching
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredApproaches.slice(0, visibleApproachesCount).map((a) => (
+              <div
+                key={a.id}
+                className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:border-purple-300 dark:hover:border-purple-700 transition-all space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-800 dark:bg-purple-950/30 dark:text-purple-300 border border-purple-200">
+                    {a.system || "Clinical Approach"}
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    {a.isFree ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Free</span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200">Pro</span>
+                    )}
+                    <button
+                      onClick={() => router.push(`/admin/approaches/${a.id}`)}
+                      className="p-1 text-slate-500 hover:text-purple-600 rounded transition-all cursor-pointer"
+                      title="Open Approach Decision Tree"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">{a.title}</h4>
+                  {a.subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">{a.subtitle}</p>}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-purple-700 dark:text-purple-300">
+                    ⚡ {Array.isArray(a.steps) ? a.steps.length : 0} Clinical Steps
+                  </span>
+                  {Array.isArray(a.redFlags) && a.redFlags.length > 0 && (
+                    <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                      🚩 {a.redFlags.length} Red Flags
+                    </span>
+                  )}
+                  {Array.isArray(a.keyPoints) && a.keyPoints.length > 0 && (
+                    <span>• {a.keyPoints.length} Key Points</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Showing <strong className="text-purple-600 dark:text-purple-400 font-bold">{Math.min(visibleApproachesCount, filteredApproaches.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredApproaches.length}</strong> Approaches
+            </span>
+
+            {filteredApproaches.length > visibleApproachesCount && (
+              <button
+                onClick={() => setVisibleApproachesCount((prev) => prev + 10)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border border-purple-200/70 hover:bg-purple-100 transition-all cursor-pointer"
+              >
+                See More Approaches (+10)
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 5. AUTOFILL TEMPLATES SECTION */}
+      {(activeTab === "all" || activeTab === "autofill") && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-600" />
+                <span>Autofill Note & Consultation Templates</span>
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Clinical documentation templates, GPMP shortcuts, and structured consultation proformas.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {filteredAutofill.length} templates matching
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {filteredAutofill.slice(0, visibleAutofillCount).map((t) => (
+              <div
+                key={t.id}
+                className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:border-amber-300 dark:hover:border-amber-700 transition-all space-y-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200">
+                    {t.system || "Template"}
+                  </span>
+                  <button
+                    onClick={() => router.push(`/admin/autofill`)}
+                    className="p-1 text-slate-500 hover:text-amber-600 rounded transition-all cursor-pointer"
+                    title="Open Autofill Editor"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">{t.name}</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.category}</p>
+                </div>
+
+                {(t.description || t.subjective || t.content) && (
+                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 bg-white/60 dark:bg-slate-900/60 p-2 rounded-lg font-mono">
+                    {t.description || t.subjective || t.content}
+                  </p>
+                )}
+                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                  <span>{t.fields || 0} Dynamic Fields</span>
+                  <span>{t.version || "v1.0"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Showing <strong className="text-amber-600 dark:text-amber-400 font-bold">{Math.min(visibleAutofillCount, filteredAutofill.length)}</strong> of <strong className="text-slate-800 dark:text-slate-200 font-bold">{filteredAutofill.length}</strong> Templates
+            </span>
+
+            {filteredAutofill.length > visibleAutofillCount && (
+              <button
+                onClick={() => setVisibleAutofillCount((prev) => prev + 10)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200/70 hover:bg-amber-100 transition-all cursor-pointer"
+              >
+                See More Templates (+10)
+              </button>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 6. ADMIN USERS SECTION */}
+      {(activeTab === "all" || activeTab === "users") && filteredUsers.length > 0 && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-6 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-3">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+              Users & Administrators ({filteredUsers.length})
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {filteredUsers.map((u) => (
+              <div key={u.id} className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center font-bold text-xs text-teal-700 dark:text-teal-300">
+                  {u.name ? u.name.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{u.name}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{u.email}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded capitalize ${
+                    u.plan === "premium"
+                      ? "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200"
+                      : "bg-teal-50 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300 border border-teal-200"
+                  }`}>
+                    {u.plan || "Free"}
+                  </span>
+                  <span className="text-[9px] text-slate-400 capitalize">{u.status || "active"}</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </motion.div>
       )}
 
@@ -749,7 +1257,7 @@ export default function SearchPage() {
                 </div>
                 <button
                   onClick={() => setMoveTopicTarget(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -802,14 +1310,14 @@ export default function SearchPage() {
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                   onClick={() => setMoveTopicTarget(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveMoveTopic}
                   disabled={isMoving}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-teal-600 hover:bg-teal-700 rounded-xl disabled:opacity-50 cursor-pointer"
                 >
                   {isMoving ? "Saving..." : "Confirm Unit Move"}
                 </button>
@@ -818,6 +1326,7 @@ export default function SearchPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
       {/* PERMANENT DELETE TOPIC MODAL */}
       <AnimatePresence>
         {deleteTopicTarget && (
@@ -860,14 +1369,14 @@ export default function SearchPage() {
                 <button
                   onClick={() => setDeleteTopicTarget(null)}
                   disabled={isDeletingTopic}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-all"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleExecuteDeleteTopic}
                   disabled={isDeletingTopic}
-                  className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm disabled:opacity-50 transition-all flex items-center gap-1.5"
+                  className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm disabled:opacity-50 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {isDeletingTopic ? "Deleting..." : "Delete Permanently"}
                 </button>
@@ -879,3 +1388,4 @@ export default function SearchPage() {
     </motion.div>
   );
 }
+
