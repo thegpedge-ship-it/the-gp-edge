@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { RoleCode, AccountState } from "@/lib/relationalPermissions";
 
 export interface AdminProfile {
   id: string;
@@ -8,7 +9,7 @@ export interface AdminProfile {
   email: string;
   role: string;
   roles?: string[];
-  status?: string;
+  status?: AccountState | string;
   permissions: string[];
   initials?: string;
 }
@@ -68,10 +69,10 @@ export function useAdminRole() {
           const defaultCreds = [
             {
               id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-              name: "GPEDGE Admin",
+              name: "GPEDGE Founder (SA / CE / OM)",
               username: "siddhant_super",
               role: "Super Admin",
-              roles: ["SA"],
+              roles: ["SA", "CE", "OM"],
               email: "admin@gpedge.com",
               lastChanged: "12 days ago",
               status: "active",
@@ -140,7 +141,7 @@ export function useAdminRole() {
             email: foundUser.email,
             role: foundUser.role || userRoles[0] || "Super Admin",
             roles: userRoles,
-            status: foundUser.status || "active",
+            status: (foundUser.status as AccountState) || "active",
             permissions,
           });
         }
@@ -155,67 +156,98 @@ export function useAdminRole() {
     }
   }, []);
 
-  const isReadOnly = false;
-  const userRoles = currentAdmin.roles || [currentAdmin.role || "SA"];
+  const userRoles = (currentAdmin.roles || [currentAdmin.role || "SA"]).map((r) => r.toUpperCase());
+  const accountStatus = ((currentAdmin.status || "active") as AccountState).toLowerCase();
+
+  // Account State Checks
+  const isActive = accountStatus === "active";
+  const isDeactivated = accountStatus === "deactivated";
+  const isSuspended = accountStatus === "suspended";
+  const isTrial = accountStatus === "trial";
+  const isLapsed = accountStatus === "lapsed";
+  const isAccessAllowed = (isActive || isTrial) && !isDeactivated && !isSuspended;
+
+  // Role Checks
   const isSuperAdmin =
     userRoles.includes("SA") ||
-    userRoles.includes("Super Admin") ||
+    userRoles.includes("SUPER ADMIN") ||
     currentAdmin.role === "Super Admin" ||
-    currentAdmin.role === "SA (Super Admin)" ||
-    currentAdmin.role === "Admin" ||
     currentAdmin.email === "admin@gpedge.com" ||
     currentAdmin.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
 
   const isClinicalEditor =
-    !isSuperAdmin &&
-    (userRoles.includes("CE") ||
-      userRoles.includes("Clinical Editor") ||
-      currentAdmin.role === "Clinical Editor" ||
-      currentAdmin.role === "CE (Clinical Editor)");
+    userRoles.includes("CE") ||
+    userRoles.includes("CLINICAL EDITOR") ||
+    currentAdmin.role === "Clinical Editor";
 
   const isOperationsManager =
-    !isSuperAdmin &&
-    (userRoles.includes("OM") ||
-      userRoles.includes("Operations Manager") ||
-      currentAdmin.role === "Operations Manager" ||
-      currentAdmin.role === "OM (Operations Manager)");
+    userRoles.includes("OM") ||
+    userRoles.includes("OPERATIONS MANAGER") ||
+    currentAdmin.role === "Operations Manager";
 
   const isDrafter =
-    !isSuperAdmin &&
-    (userRoles.includes("DR") ||
-      userRoles.includes("Drafter") ||
-      currentAdmin.role === "Drafter" ||
-      currentAdmin.role === "DR (Drafter)");
+    userRoles.includes("DR") ||
+    userRoles.includes("DRAFTER") ||
+    currentAdmin.role === "Drafter";
 
   const isPeerReviewer =
-    !isSuperAdmin &&
-    (userRoles.includes("PR") ||
-      userRoles.includes("Peer Reviewer") ||
-      currentAdmin.role === "Peer Reviewer" ||
-      currentAdmin.role === "PR (Peer Reviewer)");
+    userRoles.includes("PR") ||
+    userRoles.includes("PEER REVIEWER") ||
+    currentAdmin.role === "Peer Reviewer";
 
   const isSubscriber =
-    !isSuperAdmin &&
-    (userRoles.includes("SUB") ||
-      userRoles.includes("Subscriber") ||
-      currentAdmin.role === "Subscriber" ||
-      currentAdmin.role === "SUB (Subscriber)");
+    userRoles.includes("SUB") ||
+    userRoles.includes("SUBSCRIBER") ||
+    currentAdmin.role === "Subscriber";
 
-  // 3A Content Permission Matrix derived capabilities
-  const canCreateItem = isSuperAdmin || isClinicalEditor;
-  const canBulkImport = isSuperAdmin || isClinicalEditor;
-  const canEditDraft = isSuperAdmin || isClinicalEditor || isDrafter;
-  const canEditPostReview = isSuperAdmin || isClinicalEditor;
-  const canAttachRefs = isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer;
-  const canViewUnpublished = !isSubscriber;
-  const canViewPipeline = !isSubscriber;
-  const canArchiveItem = isSuperAdmin || isClinicalEditor;
-  const canRestoreItem = isSuperAdmin;
-  const canToggleBilling = isSuperAdmin || isOperationsManager;
+  // ReadOnly state (e.g. Viewer or suspended/deactivated account)
+  const isReadOnly = !isAccessAllowed;
+
+  // Load-bearing & Governance Capabilities
+  // 1. Work acceptance creates financial liability (Rule R5): strictly SA & CE (OM is forbidden)
+  const canAcceptWork = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+
+  // 2. Rate card setting: SA alone determines rates (OM applies them, OM does not determine them)
+  const canAmendRateCard = isAccessAllowed && isSuperAdmin;
+
+  // 3. Statements: OM & SA can generate statements and mark them paid
+  const canGenerateStatements = isAccessAllowed && (isSuperAdmin || isOperationsManager);
+  const canMarkStatementsPaid = isAccessAllowed && (isSuperAdmin || isOperationsManager);
+
+  // 4. Clinical Creation & Editing
+  const canCreateItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter);
+  const canBulkImport = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  const canEditDraft = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter);
+  const canEditPostReview = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  const canAttachRefs = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
+  const canArchiveItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  const canRestoreItem = isAccessAllowed && isSuperAdmin;
+
+  // 5. Review & Audit
+  const canReviewItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isPeerReviewer);
+  const canAudit = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  const canEditAuditLog = false; // Strictly immutable for all roles including SA
+
+  // 6. User Administration
+  const canManageUsers = isAccessAllowed && isSuperAdmin;
+  const canInviteContributors = isAccessAllowed && (isSuperAdmin || isOperationsManager); // OM can invite DR & PR only
+
+  // 7. General Pipeline & Visibility
+  const canViewUnpublished = isAccessAllowed && !isSubscriber;
+  const canViewPipeline = isAccessAllowed && !isSubscriber;
+  const canToggleBilling = isAccessAllowed && (isSuperAdmin || isOperationsManager);
 
   return {
     currentAdmin,
+    accountStatus,
     isReadOnly,
+    isAccessAllowed,
+    isActive,
+    isDeactivated,
+    isSuspended,
+    isTrial,
+    isLapsed,
+    // Role flags
     isSuperAdmin,
     isClinicalEditor,
     isOperationsManager,
@@ -223,17 +255,25 @@ export function useAdminRole() {
     isPeerReviewer,
     isSubscriber,
     userRoles,
-    // 3A capability flags
+    // Load-bearing & Governance Capabilities
+    canAcceptWork,
+    canAmendRateCard,
+    canGenerateStatements,
+    canMarkStatementsPaid,
     canCreateItem,
     canBulkImport,
     canEditDraft,
     canEditPostReview,
     canAttachRefs,
-    canViewUnpublished,
-    canViewPipeline,
     canArchiveItem,
     canRestoreItem,
+    canReviewItem,
+    canAudit,
+    canEditAuditLog,
+    canManageUsers,
+    canInviteContributors,
+    canViewUnpublished,
+    canViewPipeline,
     canToggleBilling,
   };
-
 }

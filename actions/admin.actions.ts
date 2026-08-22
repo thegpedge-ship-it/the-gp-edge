@@ -627,7 +627,7 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
   }
 }
 
-export async function toggleUserStatusInDbAction(userId: string, newStatus: "active" | "suspended"): Promise<{ success: boolean; error?: string }> {
+export async function toggleUserStatusInDbAction(userId: string, newStatus: "active" | "suspended" | "deactivated" | "trial" | "lapsed" | string): Promise<{ success: boolean; error?: string }> {
   try {
     await execute(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,

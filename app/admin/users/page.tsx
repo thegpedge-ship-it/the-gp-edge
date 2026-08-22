@@ -18,16 +18,16 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } },
 };
 
-type FilterType = "all" | "active" | "suspended" | "premium" | "free";
+type FilterType = "all" | "active" | "suspended" | "deactivated" | "trial" | "lapsed" | "premium" | "free";
 
 export default function UsersPage() {
-  const { isReadOnly } = useAdminRole();
+  const { isReadOnly, isSuperAdmin, canManageUsers } = useAdminRole();
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(10);
-  const [confirmUser, setConfirmUser] = useState<AdminUser | null>(null);
+  const [confirmUser, setConfirmUser] = useState<{ user: AdminUser; action: "suspend" | "activate" | "deactivate" } | null>(null);
 
   useEffect(() => {
     // Load local cache immediately for instant UI
@@ -48,8 +48,11 @@ export default function UsersPage() {
       String(u.id).toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter =
       filter === "all" ||
-      (filter === "active" && u.status === "active") ||
+      (filter === "active" && (u.status === "active" || !u.status)) ||
       (filter === "suspended" && u.status === "suspended") ||
+      (filter === "deactivated" && u.status === "deactivated") ||
+      (filter === "trial" && (u.status === "trial" || u.plan === "free")) ||
+      (filter === "lapsed" && u.status === "lapsed") ||
       (filter === "premium" && u.plan === "premium") ||
       (filter === "free" && u.plan === "free");
     return matchesSearch && matchesFilter;
@@ -58,15 +61,16 @@ export default function UsersPage() {
   const visibleUsers = filteredUsers.slice(0, visibleCount);
   const hasMore = visibleCount < filteredUsers.length;
 
-  const promptToggleSuspend = (user: AdminUser) => {
+  const promptStatusChange = (user: AdminUser, action: "suspend" | "activate" | "deactivate") => {
     if (isReadOnly) return;
-    setConfirmUser(user);
+    setConfirmUser({ user, action });
   };
 
-  const executeToggleSuspend = async () => {
+  const executeStatusChange = async () => {
     if (!confirmUser) return;
-    const targetUser = confirmUser;
-    const newStatus = targetUser.status === "active" ? ("suspended" as const) : ("active" as const);
+    const { user: targetUser, action } = confirmUser;
+    const newStatus: AdminUser["status"] =
+      action === "activate" ? "active" : action === "deactivate" ? "deactivated" : "suspended";
 
     // Optimistic UI update
     const updated = users.map((u) =>
@@ -82,14 +86,16 @@ export default function UsersPage() {
 
   const premiumCount = users.filter((u) => u.plan === "premium").length;
   const freeCount = users.filter((u) => u.plan === "free").length;
-  const activeCount = users.filter((u) => u.status === "active").length;
+  const activeCount = users.filter((u) => u.status === "active" || !u.status).length;
   const suspendedCount = users.filter((u) => u.status === "suspended").length;
+  const deactivatedCount = users.filter((u) => u.status === "deactivated").length;
   const premiumRate = users.length > 0 ? Math.round((premiumCount / users.length) * 100) : 0;
 
   const filters: { label: string; value: FilterType; count: number }[] = [
     { label: "All", value: "all", count: users.length },
     { label: "Active", value: "active", count: activeCount },
     { label: "Suspended", value: "suspended", count: suspendedCount },
+    { label: "Deactivated", value: "deactivated", count: deactivatedCount },
     { label: "Premium", value: "premium", count: premiumCount },
     { label: "Free", value: "free", count: freeCount },
   ];
@@ -275,30 +281,55 @@ export default function UsersPage() {
                     <span className="text-sm text-slate-500 dark:text-slate-400">{user.joined}</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
-                      <button
-                        onClick={() => !isReadOnly && promptToggleSuspend(user)}
-                        disabled={isReadOnly}
-                        className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                          isReadOnly
-                            ? "opacity-30 cursor-not-allowed text-slate-300"
-                            : user.status === "active"
-                              ? "text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
+                      {user.status === "active" || !user.status ? (
+                        <>
+                          <button
+                            onClick={() => !isReadOnly && promptStatusChange(user, "suspend")}
+                            disabled={isReadOnly}
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                              isReadOnly
+                                ? "opacity-30 cursor-not-allowed text-slate-300"
+                                : "text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                            }`}
+                            title={isReadOnly ? "View-Only Mode" : "Suspend user account"}
+                          >
+                            <svg className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => !isReadOnly && promptStatusChange(user, "deactivate")}
+                            disabled={isReadOnly}
+                            className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                              isReadOnly
+                                ? "opacity-30 cursor-not-allowed text-slate-300"
+                                : "text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                            }`}
+                            title={isReadOnly ? "View-Only Mode" : "Deactivate contributor account (Rule R8 history preserved)"}
+                          >
+                            <svg className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => !isReadOnly && promptStatusChange(user, "activate")}
+                          disabled={isReadOnly}
+                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
+                            isReadOnly
+                              ? "opacity-30 cursor-not-allowed text-slate-300"
                               : "text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
-                        }`}
-                        title={isReadOnly ? "View-Only Mode" : user.status === "active" ? "Suspend user account" : "Reinstate user account"}
-                      >
-                        {user.status === "active" ? (
-                          <svg className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-                          </svg>
-                        ) : (
+                          }`}
+                          title={isReadOnly ? "View-Only Mode" : "Reactivate user account"}
+                        >
                           <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                        )}
-                      </button>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -331,7 +362,7 @@ export default function UsersPage() {
             Showing {visibleUsers.length} of {filteredUsers.length} accounts
           </p>
           <p className="text-xs text-slate-400">
-            {premiumCount} premium · {freeCount} free · {suspendedCount} suspended
+            {premiumCount} premium · {freeCount} free · {activeCount} active · {suspendedCount} suspended · {deactivatedCount} deactivated
           </p>
         </div>
       </motion.div>
@@ -349,13 +380,19 @@ export default function UsersPage() {
               <div className="flex items-center gap-3">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
-                    confirmUser.status === "active"
-                      ? "bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                    confirmUser.action === "deactivate"
+                      ? "bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-900/50"
+                      : confirmUser.action === "suspend"
+                      ? "bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900/50"
                       : "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50"
                   }`}
                 >
-                  {confirmUser.status === "active" ? (
-                    <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                  {confirmUser.action === "deactivate" ? (
+                    <svg className="w-6 h-6 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  ) : confirmUser.action === "suspend" ? (
+                    <svg className="w-6 h-6 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" />
                       <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
                     </svg>
@@ -366,20 +403,29 @@ export default function UsersPage() {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    {confirmUser.status === "active" ? "Confirm Account Suspension" : "Confirm Account Activation"}
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 capitalize">
+                    Confirm Account {confirmUser.action === "activate" ? "Activation" : confirmUser.action === "deactivate" ? "Deactivation" : "Suspension"}
                   </h3>
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Final Confirmation Required</p>
                 </div>
               </div>
 
-              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                {confirmUser.status === "active" ? (
-                  <>Are you sure you want to suspend <strong className="text-slate-900 dark:text-slate-100">{confirmUser.name}</strong> ({confirmUser.email})? This user will be restricted from accessing GP Edge resources until reinstated.</>
-                ) : (
-                  <>Are you sure you want to reactivate <strong className="text-slate-900 dark:text-slate-100">{confirmUser.name}</strong> ({confirmUser.email})?</>
+              <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed space-y-2">
+                <p>
+                  Are you sure you want to {confirmUser.action}{" "}
+                  <strong className="text-slate-900 dark:text-slate-100">{confirmUser.user.name}</strong> ({confirmUser.user.email})?
+                </p>
+                {confirmUser.action === "deactivate" && (
+                  <p className="text-xs bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-300 font-medium">
+                    <strong>Rule R8 Notice:</strong> Access will be revoked immediately. Attribution, version history, and sign-off records remain permanently intact in the system.
+                  </p>
                 )}
-              </p>
+                {confirmUser.action === "suspend" && (
+                  <p className="text-xs bg-amber-50 dark:bg-amber-950/30 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 font-medium">
+                    Access is frozen while records remain intact. The user can be reinstated later.
+                  </p>
+                )}
+              </div>
 
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
@@ -389,14 +435,16 @@ export default function UsersPage() {
                   Cancel
                 </button>
                 <button
-                  onClick={executeToggleSuspend}
-                  className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 cursor-pointer ${
-                    confirmUser.status === "active"
-                      ? "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                  onClick={executeStatusChange}
+                  className={`px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-md active:scale-95 cursor-pointer capitalize ${
+                    confirmUser.action === "deactivate"
+                      ? "bg-rose-600 hover:bg-rose-700 shadow-rose-500/20"
+                      : confirmUser.action === "suspend"
+                      ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/20"
                       : "bg-teal-600 hover:bg-teal-700 shadow-teal-500/20"
                   }`}
                 >
-                  {confirmUser.status === "active" ? "Yes, Suspend Account" : "Yes, Activate Account"}
+                  Yes, {confirmUser.action} Account
                 </button>
               </div>
             </motion.div>

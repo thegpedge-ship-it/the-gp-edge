@@ -429,7 +429,8 @@ export interface AdminUser {
   email: string;
   plan: "premium" | "free";
   lastActive?: string;
-  status: "active" | "suspended";
+  status: "active" | "suspended" | "deactivated" | "trial" | "lapsed";
+  roles?: string[];
   joined: string;
 }
 

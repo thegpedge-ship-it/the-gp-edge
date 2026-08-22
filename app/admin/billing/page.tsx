@@ -463,6 +463,86 @@ export default function BillingPage() {
         </div>
       </motion.div>
 
+      {/* Contributor Pipeline Finance & Rate Card Governance */}
+      <motion.div variants={itemVariants} className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-slate-100/80 dark:border-slate-800 shadow-md shadow-slate-200/30 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/85 via-transparent to-teal-50/5 dark:to-teal-950/10 pointer-events-none rounded-2xl" />
+        <div className="relative z-10 p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-teal-500" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Contributor Pipeline Finance & Rate Card Governance
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 font-medium">
+                Separation of duties: Work acceptance (SA/CE) creates liability; Statements (OM/SA) manages disbursement.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-900/50">
+                Rate Card v1.0 (Active)
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Control 1: Rate Card (SA Only) */}
+            <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Rate Card Schedule</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/50">
+                  SA Only
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Rates are determined by <strong>Super Admin (SA)</strong> alone. OM applies rates; OM cannot alter them.
+              </p>
+              <div className="pt-2 text-xs space-y-1 font-mono text-slate-600 dark:text-slate-300">
+                <div className="flex justify-between"><span>Drafting (DR):</span><strong className="text-teal-650 dark:text-teal-400">$120.00 / item</strong></div>
+                <div className="flex justify-between"><span>Peer Review (PR):</span><strong className="text-teal-650 dark:text-teal-400">$75.00 / rubric</strong></div>
+                <div className="flex justify-between"><span>Clinical Approach:</span><strong className="text-teal-650 dark:text-teal-400">$50.00 / tree</strong></div>
+              </div>
+            </div>
+
+            {/* Control 2: Work Acceptance (SA & CE) */}
+            <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Work Acceptance (Rule R5)</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200/50">
+                  SA & CE Only
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Acceptance creates payment liability. The role running operations (OM) <strong>cannot</strong> accept work.
+              </p>
+              <div className="pt-2 flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span>Liability locked upon acceptance</span>
+              </div>
+            </div>
+
+            {/* Control 3: Statement Generation & Payout (OM & SA) */}
+            <div className="p-4 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Statements & Payouts</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200/50">
+                  OM & SA
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                Operations Manager (OM) generates monthly statements and marks them paid after SA review.
+              </p>
+              <div className="pt-2 flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-400 font-semibold">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Automated statement reconciliation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+
       {/* Action modal for refund reason note */}
       <AnimatePresence>
         {activeRefund && (

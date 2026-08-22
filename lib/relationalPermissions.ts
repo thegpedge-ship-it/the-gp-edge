@@ -66,7 +66,7 @@ export type ItemType =
 
 export type RoleCode = "SA" | "CE" | "OM" | "DR" | "PR" | "SUB" | "Super Admin" | "Admin" | "Reviewer" | "Editor" | "Author" | "Moderator" | "Viewer";
 
-export type AccountState = "active" | "deactivated" | "suspended" | "trial" | "lapsed";
+export type AccountState = "active" | "deactivated" | "suspended" | "trial" | "lapsed" | "pending_invite";
 
 export interface PermissionUser {
   id: string; // admin_user_id or user UUID
@@ -167,16 +167,18 @@ function getUserRoles(user: PermissionUser): string[] {
  * Single place in the codebase where permission is decided.
  *
  * Enforces:
- * 1. Rule R8 & Account state check (Deactivated / Suspended access freeze).
- * 2. Absolute Audit Log Immutability (Append-only; SA cannot edit/delete).
+ * 1. Rule R8 & Account states check (Deactivated, Suspended, Lapsed, Trial).
+ * 2. Absolute Database Append-Only Audit Log Immutability (SA cannot edit/delete).
  * 3. Rule R13 Absolute Submitted Rubric Immutability.
- * 4. Rule R1 Assignment-Point Check.
+ * 4. Rule R1 Assignment-Point Check & Self-Review Prohibition.
  * 5. Rule R9 Auditor Independence (Self-auditing prohibition & different user closure).
  * 6. Multi-role assignment with Conflict Resolution ("Where roles conflict, the most restrictive rule governs").
- * 7. Section 3G Administration & Audit Matrix:
- *    - OM can invite/deactivate DR & PR ONLY.
- *    - SA-only: invite_any_account, assign_revoke_role, edit_role_bundle, deactivate_any_account, read_audit_log, export_audit_log, view_access_log.
- *    - Password reset self-service for all active roles.
+ * 7. Load-bearing Controls:
+ *    - OM cannot mark work accepted (R5 liability creation sits with SA and CE only).
+ *    - OM cannot amend the rate card (Rates set by SA alone).
+ *    - OM can generate statements and mark them paid.
+ *    - CE has no financial or user admin privilege.
+ *    - DR / PR scope restricted to own assigned items / reviews.
  */
 export async function evaluateRelationalPermission(params: {
   user: PermissionUser;
@@ -211,6 +213,20 @@ export async function evaluateRelationalPermission(params: {
       allowed: false,
       code: "ACCOUNT_STATE_DENIED",
       reason: "Account is Suspended. All access is frozen while records remain intact.",
+    };
+  }
+  if (status === "pending_invite") {
+    return {
+      allowed: false,
+      code: "ACCOUNT_STATE_DENIED",
+      reason: "Account invitation is pending activation. Access is not yet enabled.",
+    };
+  }
+  if (status === "lapsed" && capability !== "read" && capability !== "reset_own_password") {
+    return {
+      allowed: false,
+      code: "ACCOUNT_STATE_DENIED",
+      reason: "Subscriber account entitlement has Lapsed. Access is restricted under the subscription entitlement policy.",
     };
   }
 
