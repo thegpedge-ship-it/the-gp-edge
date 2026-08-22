@@ -239,7 +239,22 @@ export function useAdminRole() {
   const canManageUsers = isAccessAllowed && isSuperAdmin;
   const canInviteContributors = isAccessAllowed && (isSuperAdmin || isOperationsManager); // OM can invite DR & PR only
 
-  // 7. Visibility & Pipeline Status (Matrix 3A: Content)
+  // 7. Tasks & Pipeline (Matrix 3E: Tasks and pipeline)
+  const canAssignDraftingTask = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canAssignReviewTask = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canAssignBulkTasks = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canTakeUpOfferedTask = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
+  const canDeclineOfferedTask = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
+  const canReassignWithdrawTask = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canSetDueDates = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canSendChaseNotifications = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canMarkTaskAccepted = isAccessAllowed && (isSuperAdmin || isClinicalEditor); // Rule R5 load-bearing: SA & CE alone
+  const canMarkTaskRejected = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  const canViewOpenTaskCounts = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canViewOverdueReport = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canViewThroughputReporting = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+
+  // 8. Visibility & Pipeline Status (Matrix 3A: Content)
   // View unpublished item content: SA C(R12), CE C(R12), OM ✖, DR C(R12), PR C(R12), SUB ✖
   const canViewUnpublished = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
   // View pipeline status metadata: SA ✔, CE ✔, OM ✔, DR S, PR S, SUB ✖
@@ -281,6 +296,19 @@ export function useAdminRole() {
     canEditAuditLog,
     canManageUsers,
     canInviteContributors,
+    canAssignDraftingTask,
+    canAssignReviewTask,
+    canAssignBulkTasks,
+    canTakeUpOfferedTask,
+    canDeclineOfferedTask,
+    canReassignWithdrawTask,
+    canSetDueDates,
+    canSendChaseNotifications,
+    canMarkTaskAccepted,
+    canMarkTaskRejected,
+    canViewOpenTaskCounts,
+    canViewOverdueReport,
+    canViewThroughputReporting,
     canViewUnpublished,
     canViewPipeline,
     canToggleBilling,

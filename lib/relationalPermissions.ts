@@ -50,7 +50,19 @@ export type Capability =
   | "reset_own_password"
   | "view_access_log"
   | "read_audit_log"
-  | "export_audit_log";
+  | "export_audit_log"
+  | "assign_drafting_task"
+  | "assign_bulk_tasks"
+  | "take_up_offered_task"
+  | "decline_offered_task"
+  | "reassign_withdraw_task"
+  | "set_due_dates"
+  | "send_chase_notifications"
+  | "mark_task_accepted"
+  | "mark_task_rejected"
+  | "view_open_task_counts"
+  | "view_overdue_report"
+  | "view_throughput_reporting";
 
 export type ItemType =
   | "question"
@@ -662,13 +674,79 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // 12. BASE ROLE PERMISSION GRANT CHECK
-  if (capability === "accept_work" && !(isSuperAdmin || isClinicalEditor)) {
-    return {
-      allowed: false,
-      code: "ROLE_DENIED",
-      reason: "Rule R5 Violation: Acceptance of work is strictly restricted to Super Admin (SA) and Clinical Editor (CE).",
-    };
+  // 12. MATRIX 3E: TASKS AND PIPELINE CAPABILITY CHECKS
+  // 1. Mark task accepted (Rule R5 load-bearing: acceptance creates payment liability): SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "mark_task_accepted" || capability === "accept_work") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Rule R5 Violation: Marking a task accepted creates payment liability and sits strictly with Super Admin (SA) and Clinical Editor (CE). Operations Manager (OM) and contributors cannot mark tasks accepted.",
+      };
+    }
+  }
+
+  // 2. Mark task rejected: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "mark_task_rejected") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3E Violation: Marking a task rejected is strictly restricted to Super Admin (SA) and Clinical Editor (CE).",
+      };
+    }
+  }
+
+  // 3. Take up offered task & Decline offered task: SA ✔, CE ✔, OM ✖, DR S, PR S, SUB ✖
+  if (capability === "take_up_offered_task" || capability === "decline_offered_task") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3E Violation: Subscribers cannot take up or decline tasks.",
+      };
+    }
+    if (isOMRole && !(isSuperAdmin || isClinicalEditor)) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Matrix 3E Violation: Operations Manager (OM) assigns tasks; OM does not take up or decline contributor tasks.",
+      };
+    }
+    if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor)) {
+      if (item && item.id) {
+        const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
+        if (!isAssigned) {
+          return {
+            allowed: false,
+            code: "RESTRICTION_GOVERNS_DENIED",
+            reason: "Scope S Violation: Contributors can only take up or decline tasks specifically offered to them.",
+          };
+        }
+      }
+    }
+  }
+
+  // 4. Task Assignment & Coordination (SA ✔, CE ✔, OM ✔, DR ✖, PR ✖, SUB ✖)
+  const taskCoordinationCapabilities: Capability[] = [
+    "assign_drafting_task",
+    "assign_bulk_tasks",
+    "reassign_withdraw_task",
+    "set_due_dates",
+    "send_chase_notifications",
+    "view_open_task_counts",
+    "view_overdue_report",
+    "view_throughput_reporting",
+  ];
+
+  if (taskCoordinationCapabilities.includes(capability)) {
+    if (!isSuperAdmin && !isClinicalEditor && !isOMRole) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: `Matrix 3E Violation: '${capability}' is a task coordination capability restricted to SA, CE, and OM.`,
+      };
+    }
   }
 
   if (capability === "amend_rate_card" && !isSuperAdmin) {
