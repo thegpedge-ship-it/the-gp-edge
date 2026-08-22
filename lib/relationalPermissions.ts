@@ -525,16 +525,24 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  // Rule R12: View Unpublished Content & Historical Read Access
-  if (capability === "view_unpublished" || capability === "read") {
+  // Matrix 3A: View Unpublished Content & Rule R12 Historical Read Access
+  // SA: C(R12), CE: C(R12), OM: ✖, DR: C(R12), PR: C(R12), SUB: ✖
+  if (capability === "view_unpublished") {
     if (isSubscriber) {
       return {
         allowed: false,
         code: "ROLE_DENIED",
-        reason: "Subscribers cannot view unpublished item content.",
+        reason: "Matrix 3A Violation: Subscribers cannot view unpublished item content.",
       };
     }
-    if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor || isOMRole)) {
+    if (isOMRole && !(isSuperAdmin || isClinicalEditor)) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Matrix 3A Violation: Operations Manager (OM) cannot view unpublished clinical item content. OM has access to pipeline status metadata only.",
+      };
+    }
+    if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor)) {
       if (item && item.id) {
         const isAssigned = item.assigned_to === user.id || (item.author && item.author.includes(user.name || ""));
         const hasHistory = await checkUserInvolvementHistory({
@@ -556,15 +564,17 @@ export async function evaluateRelationalPermission(params: {
         }
       }
     }
+    return { allowed: true, code: "ALLOWED" };
   }
 
-  // Capability: View Pipeline Status Metadata (SA: ✓, CE: ✓, OM: ✓, DR: S, PR: S, SUB: ✗)
+  // Matrix 3A: View Pipeline Status Metadata
+  // SA: ✔, CE: ✔, OM: ✔, DR: S, PR: S, SUB: ✖
   if (capability === "view_pipeline_metadata") {
     if (isSubscriber) {
       return {
         allowed: false,
         code: "ROLE_DENIED",
-        reason: "Subscribers cannot view pipeline status metadata.",
+        reason: "Matrix 3A Violation: Subscribers cannot view pipeline status metadata.",
       };
     }
     if ((isDrafter || isPeerReviewer) && !(isSuperAdmin || isClinicalEditor || isOMRole)) {
@@ -574,11 +584,12 @@ export async function evaluateRelationalPermission(params: {
           return {
             allowed: false,
             code: "RESTRICTION_GOVERNS_DENIED",
-            reason: "Drafters and Peer Reviewers can only view pipeline status metadata for assigned items (Scope S).",
+            reason: "Matrix 3A Violation: Drafters and Peer Reviewers can only view pipeline status metadata for assigned items (Scope S).",
           };
         }
       }
     }
+    return { allowed: true, code: "ALLOWED" };
   }
 
   // Viewer role restriction

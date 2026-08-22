@@ -214,13 +214,20 @@ export function useAdminRole() {
   const canGenerateStatements = isAccessAllowed && (isSuperAdmin || isOperationsManager);
   const canMarkStatementsPaid = isAccessAllowed && (isSuperAdmin || isOperationsManager);
 
-  // 4. Clinical Creation & Editing
-  const canCreateItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter);
+  // 4. Clinical Creation & Editing (Matrix 3A: Content)
+  // Create item record: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
+  const canCreateItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  // Create item records in bulk (CSV import): SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
   const canBulkImport = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  // Write / edit draft content: SA ✔, CE ✔, OM ✖, DR S (own assigned items), PR ✖, SUB ✖
   const canEditDraft = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter);
+  // Edit content post-review: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
   const canEditPostReview = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  // Attach source references: SA ✔, CE ✔, OM ✖, DR S, PR S, SUB ✖
   const canAttachRefs = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
+  // Archive an item: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
   const canArchiveItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  // Restore an archived item: SA ✔, CE ✖, OM ✖, DR ✖, PR ✖, SUB ✖
   const canRestoreItem = isAccessAllowed && isSuperAdmin;
 
   // 5. Review & Audit
@@ -232,9 +239,11 @@ export function useAdminRole() {
   const canManageUsers = isAccessAllowed && isSuperAdmin;
   const canInviteContributors = isAccessAllowed && (isSuperAdmin || isOperationsManager); // OM can invite DR & PR only
 
-  // 7. General Pipeline & Visibility
-  const canViewUnpublished = isAccessAllowed && !isSubscriber;
-  const canViewPipeline = isAccessAllowed && !isSubscriber;
+  // 7. Visibility & Pipeline Status (Matrix 3A: Content)
+  // View unpublished item content: SA C(R12), CE C(R12), OM ✖, DR C(R12), PR C(R12), SUB ✖
+  const canViewUnpublished = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
+  // View pipeline status metadata: SA ✔, CE ✔, OM ✔, DR S, PR S, SUB ✖
+  const canViewPipeline = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager || isDrafter || isPeerReviewer);
   const canToggleBilling = isAccessAllowed && (isSuperAdmin || isOperationsManager);
 
   return {
