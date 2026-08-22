@@ -2,11 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import * as Lucide from "lucide-react";
 import StatusBadge from "@/components/admin/StatusBadge";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { getAdminUsers, saveAdminUsers, fetchAdminUsersFromDb, AdminUser } from "@/lib/quizData";
-import { toggleUserStatusInDbAction } from "@/actions/admin.actions";
+import {
+  toggleUserStatusInDbAction,
+  updateUserRoleInDbAction,
+  ROLE_DEFINITIONS,
+} from "@/actions/admin.actions";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = {
@@ -19,15 +24,18 @@ const itemVariants = {
 };
 
 type FilterType = "all" | "active" | "suspended" | "deactivated" | "trial" | "lapsed" | "premium" | "free";
+type RoleFilterType = "all" | "SA" | "CE" | "OM" | "DR" | "PR" | "SUB";
 
 export default function UsersPage() {
-  const { isReadOnly, isSuperAdmin, canManageUsers } = useAdminRole();
+  const { isReadOnly, isSuperAdmin, isOperationsManager, canManageUsers } = useAdminRole();
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
+  const [roleFilter, setRoleFilter] = useState<RoleFilterType>("all");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(10);
   const [confirmUser, setConfirmUser] = useState<{ user: AdminUser; action: "suspend" | "activate" | "deactivate" } | null>(null);
+  const [updatingRoleId, setUpdatingRoleId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load local cache immediately for instant UI
@@ -41,11 +49,34 @@ export default function UsersPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleRoleChange = async (userId: string, newRole: "SA" | "CE" | "OM" | "DR" | "PR" | "SUB") => {
+    if (isReadOnly || (!isSuperAdmin && !isOperationsManager)) return;
+    setUpdatingRoleId(userId);
+    try {
+      await updateUserRoleInDbAction(userId, newRole);
+      const roleInfo = ROLE_DEFINITIONS[newRole] || ROLE_DEFINITIONS.SUB;
+      const updated = users.map((u) =>
+        String(u.id) === userId ? { ...u, role: newRole, roleTitle: roleInfo.title, roles: [newRole] } : u
+      );
+      setUsers(updated);
+      saveAdminUsers(updated);
+    } catch (err) {
+      console.error("Failed to update role:", err);
+    } finally {
+      setUpdatingRoleId(null);
+    }
+  };
+
   const filteredUsers = users.filter((u) => {
+    const userRole = (u.role || "SUB").toUpperCase();
+    const matchesRole = roleFilter === "all" || userRole === roleFilter;
+
     const matchesSearch =
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(u.id).toLowerCase().includes(searchQuery.toLowerCase());
+      String(u.id).toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (u.roleTitle && u.roleTitle.toLowerCase().includes(searchQuery.toLowerCase()));
+
     const matchesFilter =
       filter === "all" ||
       (filter === "active" && (u.status === "active" || !u.status)) ||
@@ -55,7 +86,8 @@ export default function UsersPage() {
       (filter === "lapsed" && u.status === "lapsed") ||
       (filter === "premium" && u.plan === "premium") ||
       (filter === "free" && u.plan === "free");
-    return matchesSearch && matchesFilter;
+
+    return matchesRole && matchesSearch && matchesFilter;
   });
 
   const visibleUsers = filteredUsers.slice(0, visibleCount);
@@ -91,8 +123,26 @@ export default function UsersPage() {
   const deactivatedCount = users.filter((u) => u.status === "deactivated").length;
   const premiumRate = users.length > 0 ? Math.round((premiumCount / users.length) * 100) : 0;
 
+  // Role counts
+  const saCount = users.filter((u) => (u.role || "").toUpperCase() === "SA").length;
+  const ceCount = users.filter((u) => (u.role || "").toUpperCase() === "CE").length;
+  const omCount = users.filter((u) => (u.role || "").toUpperCase() === "OM").length;
+  const drCount = users.filter((u) => (u.role || "").toUpperCase() === "DR").length;
+  const prCount = users.filter((u) => (u.role || "").toUpperCase() === "PR").length;
+  const subCount = users.filter((u) => (u.role || "SUB").toUpperCase() === "SUB").length;
+
+  const roleFilters: { label: string; code: RoleFilterType; count: number }[] = [
+    { label: "All Roles", code: "all", count: users.length },
+    { label: "SA (Super Admin)", code: "SA", count: saCount },
+    { label: "CE (Clinical Editor)", code: "CE", count: ceCount },
+    { label: "OM (Operations Manager)", code: "OM", count: omCount },
+    { label: "DR (Drafter)", code: "DR", count: drCount },
+    { label: "PR (Peer Reviewer)", code: "PR", count: prCount },
+    { label: "SUB (Subscriber)", code: "SUB", count: subCount },
+  ];
+
   const filters: { label: string; value: FilterType; count: number }[] = [
-    { label: "All", value: "all", count: users.length },
+    { label: "All Status", value: "all", count: users.length },
     { label: "Active", value: "active", count: activeCount },
     { label: "Suspended", value: "suspended", count: suspendedCount },
     { label: "Deactivated", value: "deactivated", count: deactivatedCount },
@@ -103,9 +153,9 @@ export default function UsersPage() {
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
       <AdminPageHeader
-        title="Subscriber"
-        highlightedText="Management"
-        subtitle="Account status, plan distribution, and subscription operations"
+        title="User & Contributor"
+        highlightedText="Governance"
+        subtitle="Role matrices (SA, CE, OM, DR, PR, SUB), permissions, and account lifecycle management"
         variants={itemVariants}
       />
 
@@ -195,40 +245,75 @@ export default function UsersPage() {
         </div>
       </motion.div>
 
-      {/* Filters + search */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1 max-w-md">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by account ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 dark:text-slate-100 transition-all"
-          />
+      {/* Role Filters + Status Filters + Search */}
+      <motion.div variants={itemVariants} className="space-y-3">
+        {/* Role Matrix Tabs */}
+        <div className="flex items-center gap-1.5 flex-wrap bg-slate-50/80 dark:bg-slate-900/60 p-1.5 rounded-2xl border border-slate-200/70 dark:border-slate-800">
+          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1 flex items-center gap-1">
+            <Lucide.Shield className="w-3.5 h-3.5" /> Role:
+          </span>
+          {roleFilters.map((rf) => {
+            const isSelected = roleFilter === rf.code;
+            const def = rf.code !== "all" ? ROLE_DEFINITIONS[rf.code] : null;
+            return (
+              <button
+                key={rf.code}
+                onClick={() => setRoleFilter(rf.code)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer flex items-center gap-1.5 ${
+                  isSelected
+                    ? def
+                      ? `${def.bg} ${def.color} ${def.border} shadow-sm font-bold`
+                      : "bg-teal-700 text-white border-teal-700 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                }`}
+              >
+                {rf.code !== "all" && (
+                  <span className="font-mono text-[10px] font-extrabold px-1 py-0.5 rounded bg-black/5 dark:bg-white/10">
+                    {rf.code}
+                  </span>
+                )}
+                {rf.label}
+                <span className="text-[10px] opacity-75 font-mono">({rf.count})</span>
+              </button>
+            );
+          })}
         </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {filters.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => setFilter(f.value)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                filter === f.value
-                  ? "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/50"
-                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
-              }`}
+
+        {/* Search and Status Filters */}
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 max-w-md">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              {f.label}
-              <span className="ml-1.5 text-[10px] opacity-60">{f.count}</span>
-            </button>
-          ))}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name, email, account ID, or role..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-400 dark:text-slate-100 transition-all"
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
+                  filter === f.value
+                    ? "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-900/50"
+                    : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700"
+                }`}
+              >
+                {f.label}
+                <span className="ml-1.5 text-[10px] opacity-60 font-mono">({f.count})</span>
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
 
@@ -245,6 +330,9 @@ export default function UsersPage() {
                   Account
                 </th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
+                  Role (Matrix 3G)
+                </th>
+                <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
                   Plan
                 </th>
                 <th className="text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-4 py-3">
@@ -256,31 +344,67 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {visibleUsers.map((user) => (
-                <tr
-                  key={user.id}
-                  className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 border border-teal-200/50 dark:border-teal-900/40 flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
+              {visibleUsers.map((user) => {
+                const userRole = (user.role || "SUB").toUpperCase();
+                const roleMeta = ROLE_DEFINITIONS[userRole] || ROLE_DEFINITIONS.SUB;
+
+                return (
+                  <tr
+                    key={user.id}
+                    className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-200 group"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-teal-50 dark:bg-teal-950/40 border border-teal-200/50 dark:border-teal-900/40 flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-teal-600 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 font-mono">ID #{user.id}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 font-mono">ID #{user.id}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-4">
-                    <StatusBadge variant={user.plan} showDot={false} />
-                  </td>
-                  <td className="px-4 py-4">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">{user.joined}</span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
+                    </td>
+                    <td className="px-4 py-4">
+                      {isSuperAdmin ? (
+                        <select
+                          value={userRole}
+                          disabled={updatingRoleId === String(user.id)}
+                          onChange={(e) => handleRoleChange(String(user.id), e.target.value as any)}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border} focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer font-sans`}
+                        >
+                          <option value="SA">SA — Super Admin</option>
+                          <option value="CE">CE — Clinical Editor</option>
+                          <option value="OM">OM — Operations Manager</option>
+                          <option value="DR">DR — Drafter</option>
+                          <option value="PR">PR — Peer Reviewer</option>
+                          <option value="SUB">SUB — Subscriber</option>
+                        </select>
+                      ) : isOperationsManager && (userRole === "DR" || userRole === "PR") ? (
+                        <select
+                          value={userRole}
+                          disabled={updatingRoleId === String(user.id)}
+                          onChange={(e) => handleRoleChange(String(user.id), e.target.value as any)}
+                          className={`text-xs font-semibold px-2.5 py-1 rounded-lg border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border} focus:outline-none focus:ring-1 focus:ring-teal-600 cursor-pointer font-sans`}
+                        >
+                          <option value="DR">DR — Drafter</option>
+                          <option value="PR">PR — Peer Reviewer</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-md border ${roleMeta.bg} ${roleMeta.color} ${roleMeta.border}`}>
+                          <span className="font-mono font-bold">{userRole}</span>
+                          <span className="opacity-80">· {roleMeta.title}</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      <StatusBadge variant={user.plan} showDot={false} />
+                    </td>
+                    <td className="px-4 py-4">
+                      <span className="text-sm text-slate-500 dark:text-slate-400">{user.joined}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity duration-200">
                       {user.status === "active" || !user.status ? (
                         <>
@@ -333,7 +457,7 @@ export default function UsersPage() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>

@@ -427,10 +427,12 @@ export interface AdminUser {
   id: string | number;
   name: string;
   email: string;
+  role?: "SA" | "CE" | "OM" | "DR" | "PR" | "SUB" | string;
+  roles?: string[];
+  roleTitle?: string;
   plan: "premium" | "free";
   lastActive?: string;
   status: "active" | "suspended" | "deactivated" | "trial" | "lapsed";
-  roles?: string[];
   joined: string;
 }
 
