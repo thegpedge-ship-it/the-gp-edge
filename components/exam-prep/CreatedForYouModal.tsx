@@ -84,7 +84,7 @@ export default function CreatedForYouModal({
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="relative flex items-center justify-between px-6 py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/70 to-transparent" />
               <h3 className="font-serif text-xl md:text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
                 Mock Drill
               </h3>
@@ -124,7 +124,7 @@ export default function CreatedForYouModal({
                         onClick={() => setCount(n)}
                         className={`relative flex-1 py-2.5 rounded-lg text-[13px] font-semibold transition-all duration-200 z-10 ${
                           active
-                            ? "text-amber-700 dark:text-amber-300"
+                            ? "text-teal-700 dark:text-teal-300 font-bold"
                             : clamped
                               ? "text-slate-400 dark:text-slate-600"
                               : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -133,7 +133,7 @@ export default function CreatedForYouModal({
                         {active && (
                           <motion.div
                             layoutId="mock-drill-tab"
-                            className="absolute inset-0 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-amber-200/60 dark:border-amber-500/20"
+                            className="absolute inset-0 rounded-lg bg-white dark:bg-slate-700 shadow-sm border border-teal-200/80 dark:border-teal-500/30"
                             transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
                           />
                         )}
@@ -156,7 +156,7 @@ export default function CreatedForYouModal({
                   <Clock className="w-3 h-3" />
                   <span>~{durationMinutes} min</span>
                 </div>
-                <div className="px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[12px] font-semibold text-amber-600 dark:text-amber-400">
+                <div className="px-3 py-1.5 rounded-lg bg-teal-50 dark:bg-teal-900/20 text-[12px] font-semibold text-teal-700 dark:text-teal-300 border border-teal-200/50 dark:border-teal-800/40">
                   Untimed
                 </div>
               </div>
@@ -164,7 +164,7 @@ export default function CreatedForYouModal({
               <button
                 onClick={start}
                 disabled={starting || poolSize === 0}
-                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-amber-500 disabled:opacity-60 disabled:cursor-wait text-white text-[14px] font-bold shadow-lg shadow-amber-500/25 hover:bg-amber-400 hover:-translate-y-0.5 transition-all duration-300"
+                className="w-full flex items-center justify-center gap-1.5 py-3 rounded-xl bg-[#1B895C] hover:bg-[#156e49] disabled:opacity-60 disabled:cursor-wait text-white text-[14px] font-bold shadow-lg shadow-[#1B895C]/20 hover:-translate-y-0.5 transition-all duration-300"
               >
                 {poolSize === 0
                   ? "No questions available"
