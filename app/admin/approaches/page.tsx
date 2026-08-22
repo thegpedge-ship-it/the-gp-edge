@@ -475,7 +475,7 @@ export default function ApproachesPage() {
             status: "draft" as const,
           };
 
-          newCards = newCards.map((c) => (c.id === existing.id ? updatedCard : c));
+          newCards = [updatedCard, ...newCards.filter((c) => c.id !== existing.id)];
           await saveApproachCardToDbAction(updatedCard);
 
           addUserNotification(

@@ -125,7 +125,7 @@ export default function ContentPage() {
       if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
         return timeB - timeA;
       }
-      return b.id.localeCompare(a.id);
+      return 0;
     });
   }, [filtered]);
 
@@ -520,20 +520,20 @@ export default function ContentPage() {
             localStorage.setItem(`gpedge_content_body_${existing.id}`, contentHtml.trim());
           }
 
-          updatedExistingItems = updatedExistingItems.map((c) =>
-            c.id === existing.id
-              ? {
-                  ...c,
-                  name: ext.title || c.name,
-                  system: ext.system || c.system,
-                  category: ext.category || c.category,
-                  lastUpdated: new Date().toISOString().split("T")[0],
-                  references: refArray.length,
-                  pdfUrl: r2Url || c.pdfUrl,
-                  pdfSize: size,
-                }
-              : c
-          );
+          const replacedItem: MedicalContent = {
+            ...existing,
+            name: ext.title || existing.name,
+            system: ext.system || existing.system,
+            category: ext.category || existing.category,
+            lastUpdated: new Date().toISOString(),
+            references: refArray.length,
+            pdfUrl: r2Url || existing.pdfUrl,
+            pdfSize: size,
+            status: "draft",
+          };
+
+          updatedExistingItems = updatedExistingItems.filter((c) => c.id !== existing.id);
+          newContentItems.unshift(replacedItem);
         } else {
           // Keep both (Save as New)
           const isDuplicateTitle = !!existing;
