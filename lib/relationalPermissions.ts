@@ -250,9 +250,26 @@ export async function evaluateRelationalPermission(params: {
     };
   }
 
-  // 4. RULE R1: ASSIGNMENT-POINT ENFORCEMENT CHECK
+  // 4. MATRIX 3B & RULE R1: ASSIGNMENT-POINT ENFORCEMENT CHECK
   if (capability === "assign_review_task" || capability === "assign_review_task_check") {
     const assignee = targetAssignee || user;
+    const assigneeRoles = getUserRoles(assignee);
+    const isAssigneeEligible =
+      assigneeRoles.includes("SA") ||
+      assigneeRoles.includes("CE") ||
+      assigneeRoles.includes("PR") ||
+      assigneeRoles.includes("Super Admin") ||
+      assigneeRoles.includes("Clinical Editor") ||
+      assigneeRoles.includes("Peer Reviewer");
+
+    if (!isAssigneeEligible) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3B Violation: Only Super Admin (SA), Clinical Editor (CE), and Peer Reviewer (PR) roles can be assigned review tasks. Drafter (DR), Operations Manager (OM), and Subscriber (SUB) cannot be assigned review tasks.",
+      };
+    }
+
     if (item && item.id) {
       const isAssigneeInvolved = await checkUserInvolvementHistory({
         userId: assignee.id,

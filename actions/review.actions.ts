@@ -46,18 +46,53 @@ export interface ReviewRecord {
   updatedAt: string;
 }
 
+export const REVIEW_OUTCOME_DEFINITIONS: Record<
+  ReviewOutcome,
+  { label: string; meaning: string; badgeColor: string }
+> = {
+  no_changes_required: {
+    label: "No changes required",
+    meaning: "Content verified as correct against current sources",
+    badgeColor: "emerald",
+  },
+  minor_revisions: {
+    label: "Minor revisions",
+    meaning: "Wording, clarity or emphasis; no clinical error",
+    badgeColor: "amber",
+  },
+  major_revisions: {
+    label: "Major revisions",
+    meaning: "Clinical error, omission or outdated content",
+    badgeColor: "rose",
+  },
+  unable_to_verify: {
+    label: "Unable to verify / clinically contested",
+    meaning: "Guidelines are silent, conflict, or the position is genuinely disputed",
+    badgeColor: "purple",
+  },
+};
+
 /**
- * Validates that all required rubric fields are completed before submission.
+ * Validates that all required rubric structured fields are completed before submission.
+ * Submission is strictly blocked where required fields are incomplete — not merely discouraged.
  */
-function validateRubricSubmission(rubric: ReviewRubric): { valid: boolean; error?: string } {
+export function validateRubricSubmission(rubric: ReviewRubric): { valid: boolean; error?: string } {
   if (!rubric) {
-    return { valid: false, error: "Rubric data is required." };
+    return { valid: false, error: "Review rubric structured data is required." };
   }
-  if (!rubric.guidelineConsulted || !rubric.guidelineConsulted.name?.trim() || !rubric.guidelineConsulted.version?.trim()) {
-    return { valid: false, error: "Guideline consulted (name, version, and date) is required." };
+  if (
+    !rubric.guidelineConsulted ||
+    !rubric.guidelineConsulted.name?.trim() ||
+    !rubric.guidelineConsulted.version?.trim() ||
+    !rubric.guidelineConsulted.date?.trim()
+  ) {
+    return {
+      valid: false,
+      error: "Guideline consulted with name, version, and date is required.",
+    };
   }
   if (!rubric.reviewOutcome) {
-    return { valid: false, error: "Review outcome choice is required." };
+    return { valid: false, error: "Review outcome is required." };
   }
   const validOutcomes: ReviewOutcome[] = [
     "no_changes_required",
@@ -69,13 +104,13 @@ function validateRubricSubmission(rubric: ReviewRubric): { valid: boolean; error
     return { valid: false, error: "Invalid review outcome selected." };
   }
   if (rubric.redFlagCheck !== true) {
-    return { valid: false, error: "Red-flag check confirmation is required." };
+    return { valid: false, error: "Red-flag check verification is required." };
   }
   if (rubric.signOffDeclaration !== true) {
     return { valid: false, error: "Clinical sign-off declaration is required." };
   }
   if (!rubric.comments || rubric.comments.trim().length < 5) {
-    return { valid: false, error: "Clinical review comments are required (minimum 5 characters)." };
+    return { valid: false, error: "Review comments are required (minimum 5 characters)." };
   }
   return { valid: true };
 }
