@@ -408,14 +408,25 @@ export default function ContentPage() {
       return;
     }
 
-    // Scan for duplicate conflicts by Title or PDF URL
+    // Scan for duplicate conflicts by Title or Filename
     const conflicts: DuplicateConflictItem[] = [];
     for (const item of successItems) {
       const ext = item.extractedData!;
-      const incomingTitle = (ext.title || "").trim().toLowerCase();
-      const existing = content.find(
-        (c) => c.name.trim().toLowerCase() === incomingTitle
-      );
+      const incomingTitle = (ext.title || item.name || "").trim().toLowerCase();
+      const cleanIncomingTitle = incomingTitle.replace(/\.(docx?|pdf|png|jpe?g)$/i, "").trim();
+
+      const existing = content.find((c) => {
+        const existingName = (c.name || "").trim().toLowerCase();
+        const cleanExistingName = existingName.replace(/\.(docx?|pdf|png|jpe?g)$/i, "").trim();
+        return (
+          existingName === incomingTitle ||
+          cleanExistingName === cleanIncomingTitle ||
+          (cleanIncomingTitle.length > 5 && cleanExistingName.startsWith(cleanIncomingTitle)) ||
+          (cleanExistingName.length > 5 && cleanIncomingTitle.startsWith(cleanExistingName)) ||
+          (cleanIncomingTitle.length > 6 && cleanExistingName.includes(cleanIncomingTitle))
+        );
+      });
+
       if (existing) {
         conflicts.push({
           queueItemId: item.id,

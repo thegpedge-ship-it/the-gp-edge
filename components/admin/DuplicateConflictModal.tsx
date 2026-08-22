@@ -42,12 +42,13 @@ export default function DuplicateConflictModal({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md">
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          initial={{ opacity: 0, scale: 0.95, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="relative w-full max-w-lg overflow-hidden bg-white border shadow-2xl rounded-2xl border-slate-200 dark:bg-slate-900 dark:border-slate-800"
+          exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          transition={{ type: "spring", stiffness: 350, damping: 28 }}
+          className="relative w-full max-w-lg overflow-hidden bg-white border shadow-2xl rounded-3xl border-slate-200 dark:bg-slate-900 dark:border-slate-800"
         >
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-amber-50/60 dark:bg-amber-950/20">

@@ -401,14 +401,25 @@ export default function ApproachesPage() {
       return;
     }
 
-    // Scan for duplicate conflicts by Title
+    // Scan for duplicate conflicts by Title or Filename
     const conflicts: DuplicateConflictItem[] = [];
     for (const item of successItems) {
       const card = item.extractedCard!;
-      const incomingTitle = (card.title || "").trim().toLowerCase();
-      const existing = cards.find(
-        (c) => c.title.trim().toLowerCase() === incomingTitle
-      );
+      const incomingTitle = (card.title || item.name || "").trim().toLowerCase();
+      const cleanIncomingTitle = incomingTitle.replace(/\.(docx?|pdf|png|jpe?g)$/i, "").trim();
+
+      const existing = cards.find((c) => {
+        const existingTitle = (c.title || "").trim().toLowerCase();
+        const cleanExistingTitle = existingTitle.replace(/\.(docx?|pdf|png|jpe?g)$/i, "").trim();
+        return (
+          existingTitle === incomingTitle ||
+          cleanExistingTitle === cleanIncomingTitle ||
+          (cleanIncomingTitle.length > 5 && cleanExistingTitle.startsWith(cleanIncomingTitle)) ||
+          (cleanExistingTitle.length > 5 && cleanIncomingTitle.startsWith(cleanExistingTitle)) ||
+          (cleanIncomingTitle.length > 6 && cleanExistingTitle.includes(cleanIncomingTitle))
+        );
+      });
+
       if (existing) {
         conflicts.push({
           queueItemId: item.id,
