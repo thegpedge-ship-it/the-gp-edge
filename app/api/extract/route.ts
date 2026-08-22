@@ -1319,40 +1319,45 @@ function highlightWarningText(html: string): string {
 }
 
 function convertTextCallouts(html: string): string {
+  // ── STEP 0: Protect all <table>...</table> blocks from being touched by text callout parsing ──
+  const tableStore: Record<string, string> = {};
+  let tableCounter = 0;
+  let protectedHtml = html.replace(/<table[\s\S]*?<\/table>/gi, (match) => {
+    const placeholder = `\x00TABLE_BLOCK_${tableCounter++}\x00`;
+    tableStore[placeholder] = match;
+    return placeholder;
+  });
+
   type CalloutInfo = { variant: string; bg: string; border: string; color: string; titleColor: string; label: string; };
   const calloutMap: Record<number, CalloutInfo> = {};
   let idx = 0;
 
+  // Exact callout title matcher regexes (strictly targeting callout headers, NOT random body sentences)
+  const WARNING_TITLE_REGEX = /^(?:[⚠⚠️🚨]\s*)?(?:contraindications?|triptan contraindications?|immediate referral(?:\s*\(emergency department\))?|urgent referral|red flags?(?:\s*requiring investigation)?|refer urgently(?:\s*\/\s*send to emergency)?|emergency referral|avoid opioids(?:\s*in status migrainosus)?|imaging required(?:\s*for all new presentations)?|referral|verapamil ecg monitoring(?:\s*—\s*mandatory)?|gca\s*[-—]\s*start treatment before results|drugs harmful in hfpef|beta blocker cautions in hfref|admit\s*\/\s*escalate immediately|admit immediately|escalate immediately|important drug combination warnings?|high-risk situations?)(?::|\s*[-—]|$)/i;
+
+  const IMPORTANT_TITLE_REGEX = /^(?:[⚡💡📌]\s*)?(?:important|moh thresholds(?:\s*—\s*counsel all patients)?|when to start prophylaxis|before withdrawing(?:\s*—\s*important steps)?|note|key diagnostic rule|sglt2 inhibitor|sequencing|mra\s*[-—]\s*hyperkalaemia warning)(?::|\s*[-—]|$)/i;
+
+  const PEARL_TITLE_REGEX = /^(?:[✅☑⭐]\s*)?(?:key points?|clinical pearls?|pearls?|practice pearls?)(?::|\s*[-—]|$)/i;
+
   // ── PASS 1: Detect callout header tags → replace with a unique null-byte marker ──
-  let processed = html.replace(/<(p|h[1-6])([^>]*)>([\s\S]*?)<\/\1>/gi,
+  let processed = protectedHtml.replace(/<(p|h[1-6])([^>]*)>([\s\S]*?)<\/\1>/gi,
     (match: string, _tag: string, _attrs: string, content: string) => {
-      const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
+      const plainText = content.replace(/<[^>]+>/g, "").trim();
+      const plainLower = plainText.toLowerCase();
+
+      // Headings/labels for callouts are short header lines, not long narrative paragraphs
+      if (plainText.length > 85) return match;
 
       // Symbol-based detection
-      const hasWarningSymbol = /[⚠⚠️🚨]/.test(content);
-      const hasImportantSymbol = /[⚡💡📌]/.test(content);
-      const hasPearlSymbol = /[✅☑⭐]/.test(content);
+      const hasWarningSymbol = /^[⚠⚠️🚨]/.test(plainText);
+      const hasImportantSymbol = /^[⚡💡📌]/.test(plainText);
+      const hasPearlSymbol = /^[✅☑⭐]/.test(plainText);
 
-      // Keyword & title matching
-      const isPearl =
-        hasPearlSymbol ||
-        /(?:key\s*points?|clinical\s*pearls?|pearls?)/i.test(plainText);
-
-      const isWarning =
-        !isPearl &&
-        (hasWarningSymbol ||
-          /(?:contraindications?|immediate\s*referral|urgent\s*referral|red\s*flags?|emergency\s*referral|send\s*to\s*emergency|refer\s*urgently|avoid\s*opioids|imaging\s*required|verapamil|gca\s*[-—]|drugs\s*harmful|harmful\s*in|beta\s*blocker\s*cautions|cautions?\s*in|admit|escalate\s*immediately|drug\s*combination\s*warnings?|high-risk\s*situations?|hyperkalaemia\s*warning|warning|caution|danger|critical|alert|mandatory)/i.test(
-            plainText
-          ));
-
-      const isImportant =
-        !isPearl &&
-        !isWarning &&
-        (hasImportantSymbol ||
-          /(?:important|moh\s*thresholds?|counsel\s*all\s*patients|when\s*to\s*start\s*prophylaxis|prophylaxis|before\s*withdrawing|key\s*diagnostic\s*rule|diagnostic\s*rule|sglt2|sequencing|mra\s*[-—]|note\s*:|attention|remember)/i.test(
-            plainText
-          ));
-      const isMbs = /(?:billing|mbs)/i.test(plainText);
+      // Strict keyword & title matching on the header line only
+      const isPearl = hasPearlSymbol || PEARL_TITLE_REGEX.test(plainText);
+      const isWarning = !isPearl && (hasWarningSymbol || WARNING_TITLE_REGEX.test(plainText));
+      const isImportant = !isPearl && !isWarning && (hasImportantSymbol || IMPORTANT_TITLE_REGEX.test(plainText));
+      const isMbs = /^mbs\s*(?:billing|info|item)?(?::|\s*[-—]|$)/i.test(plainLower);
 
       if (!isPearl && !isWarning && !isImportant && !isMbs) return match;
 
@@ -1364,7 +1369,7 @@ function convertTextCallouts(html: string): string {
 
       if (isWarning) {
         variant = "warning"; bg = "#fef2f2"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
-        label = rawLabel || (plainText.includes("red flag") ? "Red Flags" : "Warning");
+        label = rawLabel || (plainLower.includes("red flag") ? "Red Flags" : "Warning");
       } else if (isImportant) {
         variant = "important"; bg = "#fefce8"; border = "#eab308"; titleColor = "#854d0e"; color = "#713f12";
         label = rawLabel || "Important";
@@ -1413,6 +1418,11 @@ function convertTextCallouts(html: string): string {
 
   // Clean up any orphaned markers
   processed = processed.replace(/\x00CALLOUT\d+\x00/g, "");
+
+  // ── STEP 3: Restore all protected <table>...</table> blocks intact ──
+  for (const [placeholder, tableHtml] of Object.entries(tableStore)) {
+    processed = processed.replace(placeholder, () => tableHtml);
+  }
 
   return processed;
 }
@@ -1466,44 +1476,33 @@ function styleHtmlCallouts(html: string): string {
       }
       
       if (cellContents.length > 0) {
-        const combinedText = cellContents.join(" ").toLowerCase();
-        const plainText = combinedText.replace(/<[^>]+>/g, "").trim();
-        
-        // Detect background color assigned in the document
-        const docBgColor = extractBgColorFromHtml(tableMatch) || (cellMatches[0] ? extractBgColorFromHtml(cellMatches[0]) : null);
-        
         // Raw label: first cell text, stripped of emoji/symbols
         const firstCellRaw = cellContents[0].replace(/<[^>]+>/g, "").trim();
         const rawLabelFromDoc = firstCellRaw
           .replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "")
           .replace(/[-—:\s]+$/, "")
           .trim();
+
+        // Exact callout title matcher regexes on the header text only
+        const WARNING_TITLE_REGEX = /^(?:[⚠⚠️🚨]\s*)?(?:contraindications?|triptan contraindications?|immediate referral(?:\s*\(emergency department\))?|urgent referral|red flags?(?:\s*requiring investigation)?|refer urgently(?:\s*\/\s*send to emergency)?|emergency referral|avoid opioids(?:\s*in status migrainosus)?|imaging required(?:\s*for all new presentations)?|referral|verapamil ecg monitoring(?:\s*—\s*mandatory)?|gca\s*[-—]\s*start treatment before results|drugs harmful in hfpef|beta blocker cautions in hfref|admit\s*\/\s*escalate immediately|admit immediately|escalate immediately|important drug combination warnings?|high-risk situations?)(?::|\s*[-—]|$)/i;
+
+        const IMPORTANT_TITLE_REGEX = /^(?:[⚡💡📌]\s*)?(?:important|moh thresholds(?:\s*—\s*counsel all patients)?|when to start prophylaxis|before withdrawing(?:\s*—\s*important steps)?|note|key diagnostic rule|sglt2 inhibitor|sequencing|mra\s*[-—]\s*hyperkalaemia warning)(?::|\s*[-—]|$)/i;
+
+        const PEARL_TITLE_REGEX = /^(?:[✅☑⭐]\s*)?(?:key points?|clinical pearls?|pearls?|practice pearls?)(?::|\s*[-—]|$)/i;
+        
+        // Detect background color assigned in the document
+        const docBgColor = extractBgColorFromHtml(tableMatch) || (cellMatches[0] ? extractBgColorFromHtml(cellMatches[0]) : null);
         
         // Symbol-based detection
-        const hasWarningSymbol = /[⚠⚠️🚨]/.test(tableMatch);
-        const hasImportantSymbol = /[⚡💡📌]/.test(tableMatch);
-        const hasPearlSymbol = /[✅☑⭐]/.test(tableMatch);
+        const hasWarningSymbol = /^[⚠⚠️🚨]/.test(firstCellRaw);
+        const hasImportantSymbol = /^[⚡💡📌]/.test(firstCellRaw);
+        const hasPearlSymbol = /^[✅☑⭐]/.test(firstCellRaw);
 
-        // Keyword & title matching
-        const isPearl =
-          hasPearlSymbol ||
-          /(?:key\s*points?|clinical\s*pearls?|pearls?)/i.test(plainText);
-
-        const isWarning =
-          !isPearl &&
-          (hasWarningSymbol ||
-            /(?:contraindications?|immediate\s*referral|urgent\s*referral|red\s*flags?|emergency\s*referral|send\s*to\s*emergency|refer\s*urgently|avoid\s*opioids|imaging\s*required|verapamil|gca\s*[-—]|drugs\s*harmful|harmful\s*in|beta\s*blocker\s*cautions|cautions?\s*in|admit|escalate\s*immediately|drug\s*combination\s*warnings?|high-risk\s*situations?|hyperkalaemia\s*warning|warning|caution|danger|critical|alert|mandatory)/i.test(
-              plainText
-            ));
-
-        const isImportant =
-          !isPearl &&
-          !isWarning &&
-          (hasImportantSymbol ||
-            /(?:important|moh\s*thresholds?|counsel\s*all\s*patients|when\s*to\s*start\s*prophylaxis|prophylaxis|before\s*withdrawing|key\s*diagnostic\s*rule|diagnostic\s*rule|sglt2|sequencing|mra\s*[-—]|note\s*:|attention|remember)/i.test(
-              plainText
-            ));
-        const isBilling = /(?:billing|mbs)/i.test(plainText);
+        // Strict keyword & title matching on the first cell header
+        const isPearl = hasPearlSymbol || PEARL_TITLE_REGEX.test(firstCellRaw);
+        const isWarning = !isPearl && (hasWarningSymbol || WARNING_TITLE_REGEX.test(firstCellRaw));
+        const isImportant = !isPearl && !isWarning && (hasImportantSymbol || IMPORTANT_TITLE_REGEX.test(firstCellRaw));
+        const isBilling = /^mbs\s*(?:billing|info|item)?(?::|\s*[-—]|$)/i.test(firstCellRaw.toLowerCase());
         
         if (!isPearl && !isWarning && !isImportant && !isBilling && !docBgColor) {
           return tableMatch;
@@ -1522,7 +1521,7 @@ function styleHtmlCallouts(html: string): string {
           border = "#ef4444";
           titleColor = "#b91c1c";
           color = "#7f1d1d";
-          label = rawLabelFromDoc || (plainText.includes("red flag") ? "Red Flags" : "Warning");
+          label = rawLabelFromDoc || (firstCellRaw.toLowerCase().includes("red flag") ? "Red Flags" : "Warning");
         } else if (isImportant) {
           variant = "important";
           bg = docBgColor || "#fefce8";
