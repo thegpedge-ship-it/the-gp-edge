@@ -346,11 +346,11 @@ export default function QuizzesPage() {
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border shrink-0 ${
-                        (quiz.examType === 'KFP')
+                        ((quiz.examType as string)?.toUpperCase() === 'KFP' || (quiz.examType as string)?.toUpperCase() === 'KFT')
                           ? 'bg-purple-500/25 text-purple-200 border-purple-400/40'
                           : 'bg-teal-400/20 text-teal-100 border-teal-300/40'
                       }`}>
-                        {(quiz.examType === 'KFP') ? 'KFP' : (quiz.examType || 'AKT')}
+                        {((quiz.examType as string)?.toUpperCase() === 'KFP' || (quiz.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (quiz.examType || 'AKT')}
                       </span>
                       <button
                         type="button"
@@ -605,11 +605,11 @@ export default function QuizzesPage() {
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                        (q.examType === 'KFP')
+                        ((q.examType as string)?.toUpperCase() === 'KFP' || (q.examType as string)?.toUpperCase() === 'KFT')
                           ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/40'
                           : 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/40'
                       }`}>
-                        {(q.examType === 'KFP') ? 'KFP' : (q.examType || 'AKT')}
+                        {((q.examType as string)?.toUpperCase() === 'KFP' || (q.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (q.examType || 'AKT')}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-teal-800/80 dark:text-teal-300/80">{q.questionCount}</td>
@@ -842,11 +842,11 @@ export default function QuizzesPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-serif text-lg font-bold">Quiz Preview</h3>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
-                      (previewQuiz.examType === 'KFP')
+                      ((previewQuiz.examType as string)?.toUpperCase() === 'KFP' || (previewQuiz.examType as string)?.toUpperCase() === 'KFT')
                         ? 'bg-purple-500/30 text-purple-200 border-purple-400/40'
                         : 'bg-teal-500/30 text-teal-200 border-teal-400/40'
                     }`}>
-                      {(previewQuiz.examType === 'KFP') ? 'KFP' : (previewQuiz.examType || 'AKT')}
+                      {((previewQuiz.examType as string)?.toUpperCase() === 'KFP' || (previewQuiz.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (previewQuiz.examType || 'AKT')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">Reviewing: {previewQuiz.name}</p>

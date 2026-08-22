@@ -256,6 +256,11 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
   }[]
 > {
   try {
+    // Auto-migrate any legacy KFT codes to KFP
+    await execute(`UPDATE quizzes SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
+    await execute(`UPDATE mock_tests SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
+    await execute(`UPDATE questions SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
+
     const [dbQuizzes, attemptStats, mockTests] = await Promise.all([
       prisma.quizzes.findMany({
         where: includeArchived
@@ -333,7 +338,7 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
           attempts: matchedAttempts.length,
           avgScore,
           status: status as any,
-          examType: (q.exam_type_code ?? "AKT") as any,
+          examType: ((q.exam_type_code as string)?.toUpperCase() === "KFT" || (q.exam_type_code as string)?.toUpperCase() === "KFP" ? "KFP" : (q.exam_type_code ?? "AKT")) as any,
           randomize: q.randomize,
           isFree: q.is_free,
           questionLimit: q.question_limit ?? 50,
@@ -495,7 +500,7 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
       randomize: quiz.randomize,
       isFree: quiz.is_free ?? false,
       status: quiz.status,
-      examType: quiz.exam_type_code ?? "AKT",
+      examType: ((quiz.exam_type_code as string)?.toUpperCase() === "KFT" || (quiz.exam_type_code as string)?.toUpperCase() === "KFP" ? "KFP" : (quiz.exam_type_code ?? "AKT")),
       questionLimit: 50,
       questionDbIds: qqs.map((q) => q.question_id),
       attempts: attemptsCount,
