@@ -104,6 +104,13 @@ export interface PermissionUser {
   email?: string;
   username?: string;
   permissions?: string[];
+  // Contributor Commercial Fields
+  entityType?: "individual" | "company" | "trust";
+  abn?: string;
+  isAbnQuoted?: boolean;
+  isGstRegistered?: boolean;
+  isCreditOnly?: boolean;
+  hasActiveEntitlement?: boolean;
 }
 
 export interface PermissionTargetItem {
