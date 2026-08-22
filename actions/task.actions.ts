@@ -253,41 +253,153 @@ export async function checkAutoReturnTasksAction(): Promise<{
   }
 }
 
-/**
- * Rule R5: Work Acceptance & Payment Liability Creation.
- * LIABILITY IS CREATED STRICTLY ON TASK TRANSITION TO 'ACCEPTED' (Never by submission).
- * Snapshot-locks rate card version in force on acceptance date.
- * Handles rework classification (contributor_error = non-payable vs change_of_direction = payable).
- */
-export async function acceptTaskAction(params: {
-  taskId: string;
-  isRework?: boolean;
-  reworkType?: ReworkType;
-  adminUser: PermissionUser;
-}): Promise<{ success: boolean; paymentLiabilityAmount?: number; error?: string }> {
-  try {
-    const { taskId, isRework = false, reworkType, adminUser } = params;
+import { resolveRate, TaskType, ContentType } from "@/lib/finance/rateCard";
 
-    // Rule R5 Load-bearing Control: Only SA and CE can mark work accepted (OM CANNOT)
+/**
+ * Task Rejection Safeguards:
+ * 1. Rejection requires a stated reason recorded and visible to contributor.
+ * 2. Two rejections maximum: on 2nd rejection, task returns to pool for reassignment.
+ * 3. Rejected work creates NO payment liability ($0).
+ */
+export async function rejectTaskAction(params: {
+  taskId: string;
+  rejectionReason: string;
+  adminUser: PermissionUser;
+}): Promise<{ success: boolean; returnedToPool?: boolean; rejectionCount?: number; error?: string }> {
+  try {
+    const { taskId, rejectionReason, adminUser } = params;
+
     const check = await evaluateRelationalPermission({
       user: adminUser,
-      capability: "accept_work",
+      capability: "mark_task_rejected",
     });
 
     if (!check.allowed) {
       return { success: false, error: check.reason };
     }
 
+    if (!rejectionReason || rejectionReason.trim().length < 5) {
+      return {
+        success: false,
+        error: "Rejection Safeguard: Rejection requires a stated reason recorded and visible to the contributor (minimum 5 characters).",
+      };
+    }
+
     const task = await queryOne<any>(`SELECT * FROM pipeline_tasks WHERE id = $1`, [taskId]);
     if (!task) return { success: false, error: "Task not found." };
 
-    // Rework payment rule: contributor_error is non-payable; change_of_direction is payable
-    const isPayable = !(isRework && reworkType === "contributor_error");
+    const currentRejectionCount = (task.rejection_count || 0) + 1;
+    const shouldReturnToPool = currentRejectionCount >= 2;
 
-    // Snapshot current active rate card version and rate amount
-    const rateCardVersion = 1; // Current rate card version
-    const baseRate = task.task_type === "review" ? 75.00 : task.task_type === "draft" ? 120.00 : 50.00;
-    const finalPaymentLiability = isPayable ? baseRate : 0.00;
+    if (shouldReturnToPool) {
+      // 2nd Rejection: Return to unassigned pool for fresh contributor assignment
+      await execute(
+        `UPDATE pipeline_tasks
+            SET status = 'auto_returned',
+                rejection_count = $1,
+                last_rejection_reason = $2,
+                payment_liability_amount = 0.00,
+                is_payable = FALSE,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [currentRejectionCount, rejectionReason.trim(), taskId]
+      );
+    } else {
+      // 1st Rejection: Mark rework required for the same contributor
+      await execute(
+        `UPDATE pipeline_tasks
+            SET status = 'rework_required',
+                rejection_count = $1,
+                last_rejection_reason = $2,
+                payment_liability_amount = 0.00,
+                updated_at = NOW()
+          WHERE id = $3`,
+        [currentRejectionCount, rejectionReason.trim(), taskId]
+      );
+    }
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "reject_task",
+      category: "task",
+      entityType: task.item_type,
+      entityId: task.item_id,
+      metadata: {
+        taskId,
+        rejectionReason,
+        rejectionCount: currentRejectionCount,
+        returnedToPool: shouldReturnToPool,
+        rejectedBy: adminUser.name || adminUser.email,
+      },
+    });
+
+    return {
+      success: true,
+      returnedToPool: shouldReturnToPool,
+      rejectionCount: currentRejectionCount,
+    };
+  } catch (err: any) {
+    console.error("Error rejecting task:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Rule R5: Work Acceptance & Payment Liability Creation.
+ * 1. LIABILITY IS CREATED STRICTLY ON TASK TRANSITION TO 'ACCEPTED' (Never by submission).
+ * 2. Calls centralized resolveRate(taskType, contentType, acceptanceDate, contributor).
+ * 3. Rework defaults to payable ('fail fair'). Non-payable requires an explicit reason.
+ * 4. Clinical Editor (CE) is cost-blind: CE performs quality acceptance without seeing dollar figures.
+ */
+export async function acceptTaskAction(params: {
+  taskId: string;
+  isRework?: boolean;
+  reworkType?: ReworkType;
+  isPayableOverride?: boolean; // Defaults to true
+  nonPayableReason?: string;
+  adminUser: PermissionUser;
+}): Promise<{ success: boolean; isPayable: boolean; paymentLiabilityAmount?: number; error?: string }> {
+  try {
+    const { taskId, isRework = false, reworkType, isPayableOverride, nonPayableReason, adminUser } = params;
+
+    // Rule R5 Load-bearing Control: Only SA and CE can mark work accepted (OM CANNOT)
+    const check = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "mark_task_accepted",
+    });
+
+    if (!check.allowed) {
+      return { success: false, isPayable: false, error: check.reason };
+    }
+
+    const task = await queryOne<any>(`SELECT * FROM pipeline_tasks WHERE id = $1`, [taskId]);
+    if (!task) return { success: false, isPayable: false, error: "Task not found." };
+
+    // Rework flag defaults to payable (Fails fair for contributors)
+    // Non-payable is an explicit election with a recorded reason
+    let isPayable = true;
+    if (isPayableOverride === false || (isRework && reworkType === "contributor_error")) {
+      if (!nonPayableReason || nonPayableReason.trim().length < 5) {
+        return {
+          success: false,
+          isPayable: false,
+          error: "Non-payable election requires an explicit recorded reason (minimum 5 characters).",
+        };
+      }
+      isPayable = false;
+    }
+
+    const acceptanceDate = new Date();
+
+    // Centralized single rate resolution function
+    const rateInfo = await resolveRate(
+      task.task_type as TaskType,
+      task.item_type as ContentType,
+      acceptanceDate,
+      task.assigned_to
+    );
+
+    const finalPaymentLiability = isPayable ? rateInfo.rate : 0.00;
 
     await execute(
       `UPDATE pipeline_tasks
@@ -298,7 +410,7 @@ export async function acceptTaskAction(params: {
               rework_type = $4,
               updated_at = NOW()
         WHERE id = $5`,
-      [rateCardVersion, finalPaymentLiability, isPayable, reworkType || null, taskId]
+      [rateInfo.version, finalPaymentLiability, isPayable, reworkType || null, taskId]
     );
 
     await recordAuditLog({
@@ -309,18 +421,27 @@ export async function acceptTaskAction(params: {
       entityId: task.item_id,
       metadata: {
         taskId,
-        rateCardVersion,
+        rateCardVersion: rateInfo.version,
         paymentLiabilityAmount: finalPaymentLiability,
         isPayable,
         reworkType,
+        nonPayableReason: !isPayable ? nonPayableReason : undefined,
         acceptedBy: adminUser.name || adminUser.email,
-        acceptanceDate: new Date().toISOString(),
+        acceptanceDate: acceptanceDate.toISOString(),
       },
     });
 
-    return { success: true, paymentLiabilityAmount: finalPaymentLiability };
+    const userRoles = adminUser.roles || [adminUser.role || ""];
+    const isCEBlind = userRoles.includes("CE") && !userRoles.includes("SA");
+
+    return {
+      success: true,
+      isPayable,
+      // CE is cost-blind: omit paymentLiabilityAmount for CE
+      paymentLiabilityAmount: isCEBlind ? undefined : finalPaymentLiability,
+    };
   } catch (err: any) {
     console.error("Error accepting task work:", err);
-    return { success: false, error: err.message };
+    return { success: false, isPayable: false, error: err.message };
   }
 }
