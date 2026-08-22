@@ -182,8 +182,6 @@ export default function EditQuizPage() {
       setTimeLimit(dbQuiz.timeLimit);
       setPassingScore(dbQuiz.passingScore);
       setStatus("active");
-      setExamType(dbQuiz.examType as any);
-      setUploadExamType(dbQuiz.examType === "KFP" ? "KFP" : "AKT");
       setRandomize(dbQuiz.randomize);
       setAttempts(dbQuiz.attempts || 0);
       setAvgScore(dbQuiz.avgScore || 0);
@@ -199,6 +197,25 @@ export default function EditQuizPage() {
         .map((dbId) => dbIdToNumeric.get(dbId))
         .filter((id): id is number => id !== undefined);
       setQuestionIds(Array.from(new Set(numericIds)));
+
+      // Detect if quiz or assigned questions are KFP
+      const assignedQuestions = allQs.filter((q) => numericIds.includes(q.id) || dbQuiz.questionDbIds.includes(q.dbId || ""));
+      const isAnyAssignedKfp = assignedQuestions.some(
+        (q) =>
+          (q.examType as string)?.toUpperCase() === "KFP" ||
+          (q.examType as string)?.toUpperCase() === "KFT" ||
+          q.uqid?.toUpperCase().startsWith("KFP") ||
+          q.uqid?.toUpperCase().startsWith("KFT")
+      );
+
+      const isQuizKfp =
+        (dbQuiz.examType as string)?.toUpperCase() === "KFP" ||
+        (dbQuiz.examType as string)?.toUpperCase() === "KFT" ||
+        isAnyAssignedKfp;
+
+      const normalizedExamType: "KFP" | "AKT" = isQuizKfp ? "KFP" : "AKT";
+      setExamType(normalizedExamType);
+      setUploadExamType(normalizedExamType);
 
       setLoaded(true);
     });
@@ -676,15 +693,24 @@ export default function EditQuizPage() {
   );
 
   const availableQuestions = useMemo(() => {
-    // Normalise KFP / KFP for matching purposes
-    const quizExamCategory = (examType === 'KFP') ? 'KFP' : 'AKT';
+    // Normalise KFP / KFT for matching purposes
+    const isQuizKfp =
+      (examType as string)?.toUpperCase() === "KFP" ||
+      (examType as string)?.toUpperCase() === "KFT";
+    const quizExamCategory = isQuizKfp ? "KFP" : "AKT";
 
     return allQuestions.filter((q) => {
       if (q.status !== "published") return false;
       if (questionIds.includes(q.id)) return false;
 
       // ── Filter by exam type ──────────────────────────────────────────────
-      const qExamCategory = (q.examType === 'KFP') ? 'KFP' : 'AKT';
+      const isQKfp =
+        (q.examType as string)?.toUpperCase() === "KFP" ||
+        (q.examType as string)?.toUpperCase() === "KFT" ||
+        q.uqid?.toUpperCase().startsWith("KFP") ||
+        q.uqid?.toUpperCase().startsWith("KFT");
+      const qExamCategory = isQKfp ? "KFP" : "AKT";
+
       if (qExamCategory !== quizExamCategory) return false;
 
       // Hide static mock question if its database version exists
@@ -698,12 +724,19 @@ export default function EditQuizPage() {
         q.text.toLowerCase().includes(questionSearch.toLowerCase()) ||
         (q.uqid && q.uqid.toLowerCase().includes(questionSearch.toLowerCase())) ||
         q.id.toString().includes(questionSearch);
-      const matchTopic = topicFilter === "all" || q.topic.split(",").map(t => t.trim().toLowerCase()).includes(topicFilter.toLowerCase());
-      const matchDifficulty = difficultyFilter === "all" || (
-        difficultyFilter === "3/4"
-          ? (String(q.difficulty) === "3" || String(q.difficulty) === "4" || String(q.difficulty) === "3/4")
-          : String(q.difficulty).toLowerCase() === difficultyFilter.toLowerCase()
-      );
+      const matchTopic =
+        topicFilter === "all" ||
+        q.topic
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .includes(topicFilter.toLowerCase());
+      const matchDifficulty =
+        difficultyFilter === "all" ||
+        (difficultyFilter === "3/4"
+          ? String(q.difficulty) === "3" ||
+            String(q.difficulty) === "4" ||
+            String(q.difficulty) === "3/4"
+          : String(q.difficulty).toLowerCase() === difficultyFilter.toLowerCase());
       return matchSearch && matchTopic && matchDifficulty;
     });
   }, [allQuestions, questionIds, questionSearch, topicFilter, difficultyFilter, examType]);
@@ -1175,11 +1208,11 @@ export default function EditQuizPage() {
                 <div className="flex items-center gap-2">
                   <h3 className={`text-sm font-bold ${themeText}`}>Question Bank</h3>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    (examType === 'KFP')
+                    ((examType as string)?.toUpperCase() === 'KFP' || (examType as string)?.toUpperCase() === 'KFT')
                       ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
                       : 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300'
                   }`}>
-                    {(examType === 'KFP') ? 'KFP' : 'AKT'} only
+                    {((examType as string)?.toUpperCase() === 'KFP' || (examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : 'AKT'} only
                   </span>
                   <span className={`text-xs ${themeMuted}`}>{availableQuestions.length} available</span>
                 </div>
@@ -1215,15 +1248,15 @@ export default function EditQuizPage() {
             <div className="divide-y divide-teal-50 dark:divide-teal-900/20 max-h-[400px] overflow-y-auto">
               {availableQuestions.length === 0 ? (
                 <div className="p-6 text-center space-y-1">
-                  <p className={`text-sm ${themeMuted}`}>No {(examType === 'KFP') ? 'KFP' : 'AKT'} questions available.</p>
-                  <p className={`text-xs ${themeMuted} opacity-70`}>Upload questions via the Upload button above to add {(examType === 'KFP') ? 'KFP' : 'AKT'} questions to the bank.</p>
+                  <p className={`text-sm ${themeMuted}`}>No {((examType as string)?.toUpperCase() === 'KFP' || (examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : 'AKT'} questions available.</p>
+                  <p className={`text-xs ${themeMuted} opacity-70`}>Upload questions via the Upload button above to add {((examType as string)?.toUpperCase() === 'KFP' || (examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : 'AKT'} questions to the bank.</p>
                 </div>
               ) : (
                 availableQuestions.map((q) => (
                   <div key={q.id} className="px-5 py-3 flex items-start gap-3 hover:bg-teal-50/30 dark:hover:bg-teal-950/10">
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-teal-700 dark:text-teal-400 mb-1">
-                        {q.uqid || `${(q.examType || (examType === 'KFP' ? 'KFP' : 'AKT')).toUpperCase()}-${String(q.id).padStart(6, '0')}`}
+                        {q.uqid || `${(((q.examType as string)?.toUpperCase() === 'KFP' || (q.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : 'AKT')}-${String(q.id).padStart(6, '0')}`}
                       </p>
                       <p className={`text-sm leading-snug ${themeText}`}>{q.text}</p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
