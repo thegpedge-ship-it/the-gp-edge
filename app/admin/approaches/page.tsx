@@ -24,6 +24,7 @@ import {
   toggleLibraryItemFreeStatus,
 } from "@/actions/approach.actions";
 import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
+import DuplicateConflictModal, { DuplicateConflictItem } from "@/components/admin/DuplicateConflictModal";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.04 } } };
 const itemVariants = { hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] } } };
@@ -360,6 +361,38 @@ export default function ApproachesPage() {
     setApproachUploadQueue((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Duplicate Conflict States
+  const [duplicateConflicts, setDuplicateConflicts] = useState<DuplicateConflictItem[]>([]);
+  const [currentConflictIdx, setCurrentConflictIdx] = useState(0);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [resolvedChoices, setResolvedChoices] = useState<Record<string, "replace" | "keep_both" | "skip">>({});
+
+  const handleConflictResolve = (
+    action: "replace" | "keep_both" | "skip",
+    conflict: DuplicateConflictItem
+  ) => {
+    const updatedChoices = { ...resolvedChoices, [conflict.queueItemId]: action };
+    setResolvedChoices(updatedChoices);
+
+    if (currentConflictIdx + 1 < duplicateConflicts.length) {
+      setCurrentConflictIdx((prev) => prev + 1);
+    } else {
+      setShowConflictModal(false);
+      executeSaveDocuments(updatedChoices);
+    }
+  };
+
+  const handleConflictResolveAll = (action: "replace_all" | "keep_both_all") => {
+    const act = action === "replace_all" ? "replace" : "keep_both";
+    const updatedChoices = { ...resolvedChoices };
+    for (const c of duplicateConflicts) {
+      updatedChoices[c.queueItemId] = act;
+    }
+    setResolvedChoices(updatedChoices);
+    setShowConflictModal(false);
+    executeSaveDocuments(updatedChoices);
+  };
+
   const handleSaveAllDocuments = async () => {
     if (!canCreateItem) return;
     const successItems = approachUploadQueue.filter((item) => item.status === "success" && item.extractedCard);
@@ -368,29 +401,102 @@ export default function ApproachesPage() {
       return;
     }
 
+    // Scan for duplicate conflicts by Title
+    const conflicts: DuplicateConflictItem[] = [];
+    for (const item of successItems) {
+      const card = item.extractedCard!;
+      const incomingTitle = (card.title || "").trim().toLowerCase();
+      const existing = cards.find(
+        (c) => c.title.trim().toLowerCase() === incomingTitle
+      );
+      if (existing) {
+        conflicts.push({
+          queueItemId: item.id,
+          incomingTitle: card.title || item.name,
+          incomingSystem: card.system,
+          incomingCategory: card.category,
+          existingId: existing.id,
+          existingTitle: existing.title,
+          existingSystem: existing.system,
+          existingCategory: existing.category,
+          existingLastUpdated: existing.lastUpdated,
+        });
+      }
+    }
+
+    if (conflicts.length > 0) {
+      setDuplicateConflicts(conflicts);
+      setCurrentConflictIdx(0);
+      setShowConflictModal(true);
+      return;
+    }
+
+    // No conflicts, proceed directly
+    executeSaveDocuments({});
+  };
+
+  const executeSaveDocuments = async (choices: Record<string, "replace" | "keep_both" | "skip">) => {
+    const successItems = approachUploadQueue.filter((item) => item.status === "success" && item.extractedCard);
+    if (successItems.length === 0) return;
+
     setIsSaving(true);
-    const newCards = [...cards];
+    let newCards = [...cards];
 
     try {
       for (const item of successItems) {
+        const choice = choices[item.id] || "keep_both";
+        if (choice === "skip") continue;
+
         const card = item.extractedCard!;
-        const newId = crypto.randomUUID();
-        const targetCard = {
-          ...card,
-          id: newId,
-          lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
-          status: "published" as const,
-        };
-
-        newCards.unshift(targetCard);
-        await saveApproachCardToDbAction(targetCard);
-
-        addUserNotification(
-          "Approach Imported",
-          `Successfully imported "${targetCard.title}" from document template.`,
-          1,
-          "custom"
+        const incomingTitle = (card.title || "").trim();
+        const existing = newCards.find(
+          (c) => c.title.trim().toLowerCase() === incomingTitle.toLowerCase()
         );
+
+        if (choice === "replace" && existing) {
+          // Replace existing in place
+          const updatedCard = {
+            ...existing,
+            ...card,
+            id: existing.id, // Preserve existing ID
+            title: card.title || existing.title,
+            lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+            status: "published" as const,
+          };
+
+          newCards = newCards.map((c) => (c.id === existing.id ? updatedCard : c));
+          await saveApproachCardToDbAction(updatedCard);
+
+          addUserNotification(
+            "Approach Updated",
+            `Successfully updated and replaced "${updatedCard.title}" from template.`,
+            1,
+            "custom"
+          );
+        } else {
+          // Keep both (Save as New)
+          const isDuplicateTitle = !!existing;
+          const finalTitle = isDuplicateTitle ? `${card.title || "Clinical Approach"} (Copy)` : (card.title || "Clinical Approach");
+          const newId = crypto.randomUUID();
+
+          const targetCard = {
+            ...card,
+            id: newId,
+            title: finalTitle,
+            lastUpdated: new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
+            status: "published" as const,
+          };
+
+          newCards.unshift(targetCard);
+          await saveApproachCardToDbAction(targetCard);
+
+          addUserNotification(
+            "Approach Imported",
+            `Successfully imported "${targetCard.title}" from document template.`,
+            1,
+            "custom"
+          );
+        }
       }
 
       setCards(newCards);
@@ -398,6 +504,8 @@ export default function ApproachesPage() {
       setShowUploadModal(false);
       setApproachUploadQueue([]);
       setUploadState("idle");
+      setResolvedChoices({});
+      setDuplicateConflicts([]);
     } catch (err: any) {
       alert(`Error importing clinical approaches: ${err.message}`);
     } finally {
@@ -971,6 +1079,20 @@ export default function ApproachesPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Duplicate Document Conflict Resolution Modal */}
+      <DuplicateConflictModal
+        isOpen={showConflictModal}
+        conflicts={duplicateConflicts}
+        currentIndex={currentConflictIdx}
+        totalConflicts={duplicateConflicts.length}
+        onResolve={handleConflictResolve}
+        onResolveAll={handleConflictResolveAll}
+        onCancel={() => {
+          setShowConflictModal(false);
+          setDuplicateConflicts([]);
+        }}
+      />
     </div>
   );
 }

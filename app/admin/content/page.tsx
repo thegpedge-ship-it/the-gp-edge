@@ -15,6 +15,7 @@ import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
 import { toggleLibraryItemFreeStatus } from "@/actions/approach.actions";
 import { addUserNotification } from "@/utils/notifications";
+import DuplicateConflictModal, { DuplicateConflictItem } from "@/components/admin/DuplicateConflictModal";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -366,6 +367,39 @@ export default function ContentPage() {
     setContentUploadQueue((prev) => prev.filter((item) => item.id !== id));
   };
 
+  // Duplicate Conflict States
+  const [duplicateConflicts, setDuplicateConflicts] = useState<DuplicateConflictItem[]>([]);
+  const [currentConflictIdx, setCurrentConflictIdx] = useState(0);
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [resolvedChoices, setResolvedChoices] = useState<Record<string, "replace" | "keep_both" | "skip">>({});
+
+  const handleConflictResolve = (
+    action: "replace" | "keep_both" | "skip",
+    conflict: DuplicateConflictItem
+  ) => {
+    const updatedChoices = { ...resolvedChoices, [conflict.queueItemId]: action };
+    setResolvedChoices(updatedChoices);
+
+    if (currentConflictIdx + 1 < duplicateConflicts.length) {
+      setCurrentConflictIdx((prev) => prev + 1);
+    } else {
+      // All conflicts resolved, close modal and execute save
+      setShowConflictModal(false);
+      executeSaveDocuments(updatedChoices);
+    }
+  };
+
+  const handleConflictResolveAll = (action: "replace_all" | "keep_both_all") => {
+    const act = action === "replace_all" ? "replace" : "keep_both";
+    const updatedChoices = { ...resolvedChoices };
+    for (const c of duplicateConflicts) {
+      updatedChoices[c.queueItemId] = act;
+    }
+    setResolvedChoices(updatedChoices);
+    setShowConflictModal(false);
+    executeSaveDocuments(updatedChoices);
+  };
+
   const handleSaveAllDocuments = async () => {
     if (!canCreateItem) return;
     const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
@@ -374,48 +408,129 @@ export default function ContentPage() {
       return;
     }
 
+    // Scan for duplicate conflicts by Title or PDF URL
+    const conflicts: DuplicateConflictItem[] = [];
+    for (const item of successItems) {
+      const ext = item.extractedData!;
+      const incomingTitle = (ext.title || "").trim().toLowerCase();
+      const existing = content.find(
+        (c) => c.name.trim().toLowerCase() === incomingTitle
+      );
+      if (existing) {
+        conflicts.push({
+          queueItemId: item.id,
+          incomingTitle: ext.title || item.name,
+          incomingSystem: ext.system,
+          incomingCategory: ext.category,
+          existingId: existing.id,
+          existingTitle: existing.name,
+          existingSystem: existing.system,
+          existingCategory: existing.category,
+          existingLastUpdated: existing.lastUpdated,
+        });
+      }
+    }
+
+    if (conflicts.length > 0) {
+      setDuplicateConflicts(conflicts);
+      setCurrentConflictIdx(0);
+      setShowConflictModal(true);
+      return;
+    }
+
+    // No conflicts, proceed with standard save
+    executeSaveDocuments({});
+  };
+
+  const executeSaveDocuments = async (choices: Record<string, "replace" | "keep_both" | "skip">) => {
+    const successItems = contentUploadQueue.filter((item) => item.status === "success" && item.extractedData);
+    if (successItems.length === 0) return;
+
     setIsSaving(true);
-    const newContentItems: MedicalContent[] = [];
+    let newContentItems: MedicalContent[] = [];
+    let updatedExistingItems = [...content];
 
     try {
-      await Promise.all(
-        successItems.map(async (item) => {
-          const ext = item.extractedData!;
-          const r2Url = item.pdfUrl || "";
-          const size = item.size || "1.2 MB";
+      for (const item of successItems) {
+        const choice = choices[item.id] || "keep_both";
+        if (choice === "skip") continue;
 
-          let contentHtml = "";
-          if (ext.fullHtml) {
-            contentHtml = ext.fullHtml;
-          } else {
-            contentHtml = `
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
-              <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
-                ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map((s: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
-              </ul>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
-              <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
-              <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
-            `;
+        const ext = item.extractedData!;
+        const r2Url = item.pdfUrl || "";
+        const size = item.size || "1.2 MB";
+
+        let contentHtml = "";
+        if (ext.fullHtml) {
+          contentHtml = ext.fullHtml;
+        } else {
+          contentHtml = `
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">1. Overview</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">${ext.notes || "[Enter Overview Here]"}</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">2. Pathophysiology</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Pathophysiology Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">3. Clinical Features</h2>
+            <ul style="list-style-type: disc; padding-left: 1.25rem; font-family: 'DM Sans', sans-serif; margin-bottom: 1rem;">
+              ${(ext.symptoms || "[Enter Clinical Features Here]").split("\n").filter(Boolean).map((s: string) => `<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">${s}</li>`).join("")}
+            </ul>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">4. Diagnosis & Investigations</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Diagnosis Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">5. Management</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Management Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">6. Complications</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Complications Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">7. When to Refer</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Referral Criteria Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">8. Prognosis</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Prognosis Here]</p>
+            <h2 style="font-family: Georgia, serif; font-size: 1.35rem; font-weight: bold; color: #0f766e; border-left: 4px solid #0f766e; padding-left: 0.75rem; margin-top: 1.75rem; margin-bottom: 0.75rem; line-height: 1.25;">9. Resources</h2>
+            <p style="font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">[Enter Resources Here]</p>
+          `;
+        }
+
+        const incomingTitle = (ext.title || "").trim();
+        const existing = updatedExistingItems.find(
+          (c) => c.name.trim().toLowerCase() === incomingTitle.toLowerCase()
+        );
+
+        if (choice === "replace" && existing) {
+          // Replace in place
+          const refArray = ext.references && ext.references.length > 0 ? ext.references : [];
+          await updateMedicalContentItem(existing.id, {
+            name: ext.title || existing.name,
+            system: ext.system || existing.system,
+            category: ext.category || existing.category,
+            fullHtml: contentHtml.trim(),
+            references: refArray.length,
+            pdfUrl: r2Url || existing.pdfUrl,
+            pdfSize: size,
+          });
+
+          if (typeof window !== "undefined" && contentHtml) {
+            localStorage.setItem(`gpedge_content_body_${existing.id}`, contentHtml.trim());
           }
 
-          // Save to Neon via API
+          updatedExistingItems = updatedExistingItems.map((c) =>
+            c.id === existing.id
+              ? {
+                  ...c,
+                  name: ext.title || c.name,
+                  system: ext.system || c.system,
+                  category: ext.category || c.category,
+                  lastUpdated: new Date().toISOString().split("T")[0],
+                  references: refArray.length,
+                  pdfUrl: r2Url || c.pdfUrl,
+                  pdfSize: size,
+                }
+              : c
+          );
+        } else {
+          // Keep both (Save as New)
+          const isDuplicateTitle = !!existing;
+          const finalTitle = isDuplicateTitle ? `${ext.title || "Extracted Document"} (Copy)` : (ext.title || "Extracted Document");
+
           const refArray = ext.references && ext.references.length > 0 ? ext.references : [];
           const savedId = await saveMedicalContentItem({
-            name: ext.title || "Extracted Document",
+            name: finalTitle,
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
             type: "Document",
@@ -439,7 +554,7 @@ export default function ContentPage() {
 
           const newItem: MedicalContent = {
             id: localId,
-            name: ext.title || "Extracted Document",
+            name: finalTitle,
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
             type: "Document",
@@ -452,19 +567,22 @@ export default function ContentPage() {
             pdfSize: size,
           };
           newContentItems.push(newItem);
-        })
-      );
+        }
+      }
 
-      const updated = [...newContentItems, ...content];
-      setContent(updated);
-      saveMedicalContent(updated);
+      const finalContent = [...newContentItems, ...updatedExistingItems];
+      setContent(finalContent);
+      saveMedicalContent(finalContent);
       setShowAddModal(false);
       resetForm();
+      setResolvedChoices({});
+      setDuplicateConflicts([]);
 
-      if (newContentItems.length === 1) {
+      const totalSaved = newContentItems.length + Object.values(choices).filter((c) => c === "replace").length;
+      if (newContentItems.length === 1 && Object.values(choices).filter((c) => c === "replace").length === 0) {
         router.push(`/admin/content/editor?id=${newContentItems[0].id}`);
       } else {
-        setSuccessModalMessage(`Successfully imported and published ${newContentItems.length} clinical documents!`);
+        setSuccessModalMessage(`Successfully processed and saved ${totalSaved} clinical document(s)!`);
         setShowSuccessModal(true);
       }
     } catch (err) {
@@ -1256,6 +1374,20 @@ export default function ContentPage() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Duplicate Document Conflict Resolution Modal */}
+      <DuplicateConflictModal
+        isOpen={showConflictModal}
+        conflicts={duplicateConflicts}
+        currentIndex={currentConflictIdx}
+        totalConflicts={duplicateConflicts.length}
+        onResolve={handleConflictResolve}
+        onResolveAll={handleConflictResolveAll}
+        onCancel={() => {
+          setShowConflictModal(false);
+          setDuplicateConflicts([]);
+        }}
+      />
     </>
   );
 }
