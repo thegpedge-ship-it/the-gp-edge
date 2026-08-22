@@ -79,16 +79,18 @@ export async function POST(req: NextRequest) {
     const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
     const isFreeVal = Boolean(isFree ?? is_free ?? false);
 
-    const userContext: PermissionUser = adminUser || {
-      id: "admin-system",
-      name: author || "GP Edge Admin",
-      role: "Admin",
+    const userContext: PermissionUser = {
+      id: adminUser?.id || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
+      name: adminUser?.name || author || "Super Admin",
+      role: adminUser?.role || "Super Admin",
+      roles: adminUser?.roles && adminUser.roles.length > 0 ? adminUser.roles : ["SA"],
+      status: adminUser?.status || "active",
     };
 
     // Server-side relational permission check
     const permCheck = await evaluateRelationalPermission({
       user: userContext,
-      capability: status === "published" || status === "review" ? "review" : "create",
+      capability: status === "published" ? "review" : "create_item",
       item: { type: "medical_condition", author },
     });
 

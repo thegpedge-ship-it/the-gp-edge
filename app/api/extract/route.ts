@@ -1328,7 +1328,7 @@ function convertTextCallouts(html: string): string {
     return placeholder;
   });
 
-  type CalloutInfo = { variant: string; bg: string; border: string; color: string; titleColor: string; label: string; };
+  type CalloutInfo = { variant: string; bg: string; border: string; borderLight?: string; color: string; titleColor: string; label: string; };
   const calloutMap: Record<number, CalloutInfo> = {};
   let idx = 0;
 
@@ -1364,20 +1364,20 @@ function convertTextCallouts(html: string): string {
       // Use the document's own header text as the label (strip HTML tags + leading symbols only)
       const rawLabel = content.replace(/<[^>]+>/g, "").replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "").replace(/[-—:\s]+$/, "").trim();
 
-      let variant = "info", bg = "#e6f7f4", border = "#2bb09c", color = "#1a5c51", titleColor = "#2bb09c";
+      let variant = "info", bg = "#ccfbf1", border = "#0d9488", borderLight = "#99f6e4", color = "#115e59", titleColor = "#0f766e";
       let label = rawLabel;
 
       if (isWarning) {
-        variant = "warning"; bg = "#fef2f2"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
+        variant = "warning"; bg = "#fee2e2"; border = "#dc2626"; borderLight = "#fca5a5"; titleColor = "#991b1b"; color = "#7f1d1d";
         label = rawLabel || (plainLower.includes("red flag") ? "Red Flags" : "Warning");
       } else if (isImportant) {
-        variant = "important"; bg = "#fefce8"; border = "#eab308"; titleColor = "#854d0e"; color = "#713f12";
+        variant = "important"; bg = "#fef3c7"; border = "#d97706"; borderLight = "#fde68a"; titleColor = "#92400e"; color = "#78350f";
         label = rawLabel || "Important";
       } else if (isPearl) {
-        variant = "pearl"; bg = "#f0fdf4"; border = "#16a34a"; titleColor = "#15803d"; color = "#14532d";
+        variant = "pearl"; bg = "#dcfce7"; border = "#16a34a"; borderLight = "#86efac"; titleColor = "#166534"; color = "#14532d";
         label = rawLabel || "Key Points";
       } else if (isMbs) {
-        variant = "billing"; bg = "#f8fafc"; border = "#64748b"; titleColor = "#475569"; color = "#334155";
+        variant = "billing"; bg = "#f1f5f9"; border = "#475569"; borderLight = "#cbd5e1"; titleColor = "#334155"; color = "#1e293b";
         label = "MBS Billing Info";
       }
       if (!label) label = isWarning ? "Warning" : isImportant ? "Important" : isPearl ? "Key Points" : "Info";
@@ -1386,32 +1386,32 @@ function convertTextCallouts(html: string): string {
       label = stripAllEmojis(label).trim();
 
       const id = idx++;
-      calloutMap[id] = { variant, bg, border, color, titleColor, label };
+      calloutMap[id] = { variant, bg, border, borderLight, color, titleColor, label };
       return `\x00CALLOUT${id}\x00`;
     }
   );
 
-  // ── PASS 2: For each marker, greedily consume following lists → build callout div ──
+  // ── PASS 2: For each marker, consume following paragraphs, lists, blockquotes → build complete callout div ──
   processed = processed.replace(
-    /\x00CALLOUT(\d+)\x00((?:\s*(?:<ul[^>]*>[\s\S]*?<\/ul>|<ol[^>]*>[\s\S]*?<\/ol>|<p[^>]*>\s*[•\-\*\u2022][\s\S]*?<\/p>))*)/g,
+    /\x00CALLOUT(\d+)\x00([\s\S]*?)(?=(?:<h[1-6]|\x00CALLOUT|\x00TABLE_BLOCK_|<hr|$))/gi,
     (_m: string, idStr: string, followRaw: string) => {
       const info = calloutMap[parseInt(idStr, 10)];
       if (!info) return "";
-      const { variant, bg, border, color, titleColor, label } = info;
+      const { variant, bg, border, borderLight, color, titleColor, label } = info;
 
       let bodyHtml = "";
-      if (followRaw.trim()) {
-        let body = followRaw;
-        body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
-        body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+      if (followRaw && followRaw.trim()) {
+        let body = followRaw.trim();
+        body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.35rem 0 0.6rem;">`);
+        body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.35rem 0 0.6rem;">`);
         body = body.replace(/<li[^>]*>/gi,  `<li style="margin-bottom:0.4rem;font-size:0.875rem;color:inherit;line-height:1.65;">`);
-        body = body.replace(/<p[^>]*>/gi,   `<p style="margin:0.3rem 0;font-size:0.875rem;color:inherit;line-height:1.65;">`);
+        body = body.replace(/<p[^>]*>/gi,   `<p style="margin:0.45rem 0;font-size:0.875rem;color:inherit;line-height:1.65;">`);
         bodyHtml = body;
       }
 
-      return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg};border-left:4px solid ${border};border-radius:0.5rem;padding:0.85rem 1rem;margin-bottom:1.25rem;color:${color};">
-<div style="font-weight:700;font-size:0.85rem;margin-bottom:${bodyHtml.trim() ? "0.5rem" : "0"};color:${titleColor};">${label}</div>${bodyHtml.trim() ? `
-<div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;">${bodyHtml}</div>` : ""}
+      return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg} !important;background:${bg} !important;border:1px solid ${borderLight || border} !important;border-left:5px solid ${border} !important;border-radius:0.75rem;padding:1rem 1.25rem;margin:1.25rem 0;color:${color};">
+<div style="font-weight:700;font-size:0.9rem;margin-bottom:${bodyHtml.trim() ? "0.6rem" : "0"};color:${titleColor};">${label}</div>${bodyHtml.trim() ? `
+<div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;color:${color};">${bodyHtml}</div>` : ""}
 </div>`;
     }
   );
