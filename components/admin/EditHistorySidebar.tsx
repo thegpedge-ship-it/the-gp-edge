@@ -233,8 +233,14 @@ function avatarColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function getCommitSha(id: string): string {
+  if (!id) return "0000000";
+  const clean = id.replace(/[^a-fA-F0-9]/g, "");
+  return (clean.slice(0, 7) || id.slice(0, 7)).toLowerCase();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
-// History Entry Row
+// History Entry Row (Git Commit Style)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function HistoryRow({
@@ -246,6 +252,7 @@ function HistoryRow({
 }) {
   const config = CHANGE_TYPE_CONFIG[entry.changeType] ?? CHANGE_TYPE_CONFIG.modified;
   const Icon = config.icon;
+  const commitSha = getCommitSha(entry.id);
 
   const hasContent = entry.oldContent !== null || entry.newContent !== null;
   const isContentChange = entry.fieldName === "full_html";
@@ -256,18 +263,20 @@ function HistoryRow({
 
   return (
     <div className="relative group">
-      {/* Timeline dot */}
-      <div className={`absolute left-[7px] top-[16px] w-2 h-2 rounded-full ${config.dotClass} ring-2 ring-white dark:ring-slate-900`} />
+      {/* Git commit branch node */}
+      <div className="absolute left-[5px] top-[14px] flex items-center justify-center">
+        <div className={`w-2.5 h-2.5 rounded-full ${config.dotClass} ring-2 ring-white dark:ring-slate-900 shadow-xs flex items-center justify-center`} />
+      </div>
 
       <div
         onClick={() => hasContent && onInspect(entry)}
-        className="ml-6 rounded-xl border border-slate-100 dark:border-slate-800/80 hover:border-teal-200 dark:hover:border-teal-800 bg-white dark:bg-slate-900/60 p-2.5 transition-all cursor-pointer shadow-2xs hover:shadow-xs group/card"
+        className="ml-6 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-500/60 dark:hover:border-teal-500/60 bg-white dark:bg-slate-900/80 p-2.5 transition-all cursor-pointer shadow-2xs hover:shadow-md group/card"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {/* User avatar */}
             <div
-              className={`flex items-center justify-center w-5 h-5 rounded-full ${avatarColor(entry.adminUserName)} text-white text-[8px] font-bold shrink-0`}
+              className={`flex items-center justify-center w-5 h-5 rounded-full ${avatarColor(entry.adminUserName)} text-white text-[8px] font-bold shrink-0 shadow-xs`}
               title={entry.adminUserName}
             >
               {getUserInitials(entry.adminUserName)}
@@ -275,30 +284,33 @@ function HistoryRow({
 
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[90px]">
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px]">
                   {entry.adminUserName}
+                </span>
+                <span className="font-mono text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.2 rounded border border-slate-200/60 dark:border-slate-700">
+                  {commitSha}
                 </span>
                 <span className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold px-1.5 py-0.2 rounded-full border ${config.badgeClass}`}>
                   <Icon className="w-2.5 h-2.5" />
                   {config.label}
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 {fieldLabel(entry.fieldName)}
               </span>
             </div>
           </div>
 
           <div className="text-right shrink-0">
-            <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block" title={formatFullDateTime(entry.createdAt)}>
+            <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 block font-mono" title={formatFullDateTime(entry.createdAt)}>
               {formatExactTime(entry.createdAt)}
             </span>
           </div>
         </div>
 
-        {/* Change summary stats badge */}
-        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 text-[10px]">
-          <div className="flex items-center gap-1.5">
+        {/* Change summary stats & Commit Diff Trigger */}
+        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px]">
+          <div className="flex items-center gap-1.5 font-mono">
             {stats ? (
               <>
                 {stats.added > 0 && (
@@ -307,21 +319,21 @@ function HistoryRow({
                   </span>
                 )}
                 {stats.removed > 0 && (
-                  <span className="font-bold text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-1.5 py-0.5 rounded text-[9px]">
+                  <span className="font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded text-[9px]">
                     −{stats.removed}
                   </span>
                 )}
               </>
             ) : (
-              <span className="text-slate-400 text-[9.5px] truncate max-w-[120px]">
+              <span className="text-slate-400 text-[9.5px] truncate max-w-[120px] font-sans">
                 {entry.newContent ? `Updated ${fieldLabel(entry.fieldName)}` : "Modified"}
               </span>
             )}
           </div>
 
           {hasContent && (
-            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-teal-600 dark:text-teal-400 group-hover/card:underline">
-              Inspect <Lucide.ExternalLink className="w-2.5 h-2.5" />
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-teal-600 dark:text-teal-400 group-hover/card:text-teal-700 dark:group-hover/card:text-teal-300">
+              <Lucide.GitCommit className="w-2.5 h-2.5" /> View Diff
             </span>
           )}
         </div>
@@ -331,7 +343,7 @@ function HistoryRow({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Version Row
+// Version Snapshot Row (Git Tag / Release Style)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function VersionRow({
@@ -342,40 +354,47 @@ function VersionRow({
   onPreview: (v: VersionInfo) => void;
 }) {
   const formattedDate = formatFullDateTime(version.createdAt);
-
   const isRestored = version.label?.toLowerCase().includes("restored");
+  const commitSha = getCommitSha(version.id);
 
   return (
     <div className="relative group">
-      <div className="absolute left-[7px] top-[18px] w-2 h-2 rounded-full bg-teal-400 ring-2 ring-white dark:ring-slate-900" />
+      <div className="absolute left-[5px] top-[14px] flex items-center justify-center">
+        <div className="w-2.5 h-2.5 rounded-full bg-teal-500 ring-2 ring-white dark:ring-slate-900 shadow-xs" />
+      </div>
 
-      <div className="ml-6 p-2.5 rounded-xl hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group/v"
-           onClick={() => onPreview(version)}>
+      <div
+        className="ml-6 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-500/60 dark:hover:border-teal-500/60 bg-white dark:bg-slate-900/80 transition-all cursor-pointer group/v shadow-2xs hover:shadow-md"
+        onClick={() => onPreview(version)}
+      >
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 px-1.5 py-0.5 rounded-full shrink-0">
+          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+            <span className="text-[10px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800 px-1.5 py-0.5 rounded-md shrink-0 font-mono">
               v{version.versionNumber}
             </span>
-            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">
+            <span className="font-mono text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.2 rounded border border-slate-200/60 dark:border-slate-700">
+              {commitSha}
+            </span>
+            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
               {version.label}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
             {isRestored && (
-              <span className="text-[9px] font-bold text-purple-500 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full">
+              <span className="text-[9px] font-bold text-purple-600 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 px-1.5 py-0.5 rounded-full">
                 Restored
               </span>
             )}
-            <Lucide.Eye className="w-3 h-3 text-slate-400 opacity-0 group-hover/v:opacity-100 transition-opacity" />
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-teal-600 dark:text-teal-400 group-hover/v:text-teal-700">
+              <Lucide.GitPullRequest className="w-3 h-3" /> Checkout
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-0.5 ml-[calc(10px+0.5rem)]">
-          {version.createdByName && (
-            <span className="text-[10px] text-slate-400">by {version.createdByName}</span>
-          )}
-          <span className="text-[10px] text-slate-400">{formattedDate}</span>
+        <div className="flex items-center justify-between gap-2 mt-1 pt-1 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400">
+          <span>{version.createdByName ? `Author: ${version.createdByName}` : "GP Edge Admin"}</span>
+          <span className="font-mono">{formattedDate}</span>
         </div>
       </div>
     </div>

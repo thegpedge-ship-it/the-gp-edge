@@ -10,6 +10,8 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { splitHtmlIntoPages } from "@/utils/pdfPagination";
 import { themeBorder } from "@/lib/adminTheme";
+import EditHistorySidebar from "@/components/admin/EditHistorySidebar";
+import { VersionInfo } from "@/components/admin/VersionPreviewModal";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -125,7 +127,8 @@ export default function ApproachDetailPage() {
   const [bodyHtml, setBodyHtml] = useState("");
   const [pdfPage, setPdfPage] = useState(1);
   const [pdfZoom, setPdfZoom] = useState(100);
-  const [viewTab, setViewTab] = useState<"document" | "steps">("document");
+  const [viewTab, setViewTab] = useState<"document" | "steps" | "history">("document");
+  const [isSavingVersion, setIsSavingVersion] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -134,6 +137,59 @@ export default function ApproachDetailPage() {
   const [historyLog, setHistoryLog] = useState<any[]>([]);
   const [versionList, setVersionList] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const handleRestoreVersion = async (version: VersionInfo) => {
+    if (!version.fullHtml) return;
+    setBodyHtml(version.fullHtml);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`gpedge_content_body_${approachId}`, version.fullHtml);
+    }
+    try {
+      await fetch(`/api/approach/${approachId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...card, fullHtml: version.fullHtml }),
+      });
+      // Refresh
+      fetch(`/api/content-history/${approachId}?resource=history&type=approach`)
+        .then((r) => (r.ok ? r.json() : { success: false }))
+        .then((hRes) => { if (hRes.success && hRes.history) setHistoryLog(hRes.history); });
+      fetch(`/api/content-history/${approachId}?resource=versions&type=approach`)
+        .then((r) => (r.ok ? r.json() : { success: false }))
+        .then((vRes) => { if (vRes.success && vRes.versions) setVersionList(vRes.versions); });
+    } catch (e) {
+      console.error("Failed to restore version:", e);
+    }
+  };
+
+  const handleSaveVersion = async () => {
+    if (!approachId) return;
+    setIsSavingVersion(true);
+    try {
+      await fetch(`/api/content-history/${approachId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resource: "version",
+          entityType: "approach",
+          fullHtml: bodyHtml,
+          label: `Snapshot: ${card?.title || "Approach"}`,
+          metadata: {
+            name: card?.title || "Approach",
+            status: card?.status || "published",
+            author: card?.author || "GP Edge Admin",
+          },
+        }),
+      });
+
+      const vRes = await fetch(`/api/content-history/${approachId}?resource=versions&type=approach`).then((r) => (r.ok ? r.json() : { success: false }));
+      if (vRes.success && vRes.versions) setVersionList(vRes.versions);
+    } catch (e) {
+      console.error("Failed to save version:", e);
+    } finally {
+      setIsSavingVersion(false);
+    }
+  };
 
   // Responsive scale to fit the A4 canvas inside its container
   useEffect(() => {
@@ -316,12 +372,12 @@ export default function ApproachDetailPage() {
               </div>
             )}
 
-            <Link
-              href={`/admin/content/editor?id=${card.id}`}
-              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline block text-center pt-1"
+            <button
+              onClick={() => setViewTab("history")}
+              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline block text-center pt-1 w-full bg-transparent border-none cursor-pointer"
             >
-              View Full History in Content Editor →
-            </Link>
+              Open Interactive Commit Timeline →
+            </button>
           </motion.div>
         </div>
 
@@ -329,17 +385,27 @@ export default function ApproachDetailPage() {
         <motion.div variants={itemVariants} className="md:col-span-2 space-y-4">
           {/* Tab switcher */}
           <div className="flex gap-2 p-1 bg-slate-100 dark:bg-slate-800/60 rounded-xl w-fit">
-            {(["document", "steps"] as const).map((tab) => (
+            {[
+              { id: "document", label: "Document View", icon: Lucide.FileText },
+              { id: "steps", label: "Steps & Details", icon: Lucide.ListTree },
+              { id: "history", label: "Commit History", icon: Lucide.GitCommit, count: historyLog.length },
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setViewTab(tab)}
-                className={`px-4 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  viewTab === tab
+                key={tab.id}
+                onClick={() => setViewTab(tab.id as any)}
+                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  viewTab === tab.id
                     ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm"
                     : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 }`}
               >
-                {tab === "document" ? "Document View" : "Steps & Details"}
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className="ml-0.5 text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400">
+                    {tab.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -500,6 +566,24 @@ export default function ApproachDetailPage() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* COMMIT HISTORY VIEW — Git commit tree, diffs, & releases */}
+          {viewTab === "history" && (
+            <div className="space-y-4">
+              <EditHistorySidebar
+                entityId={approachId}
+                entityType="approach"
+                history={historyLog}
+                versions={versionList}
+                loading={loadingHistory}
+                currentHtml={bodyHtml}
+                adminUserName={card.author || "GP Edge Admin"}
+                onRestore={handleRestoreVersion}
+                onSaveVersion={handleSaveVersion}
+                isSavingVersion={isSavingVersion}
+              />
             </div>
           )}
         </motion.div>

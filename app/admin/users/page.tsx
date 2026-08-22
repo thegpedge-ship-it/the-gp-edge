@@ -10,8 +10,8 @@ import { getAdminUsers, saveAdminUsers, fetchAdminUsersFromDb, AdminUser } from 
 import {
   toggleUserStatusInDbAction,
   updateUserRoleInDbAction,
-  ROLE_DEFINITIONS,
 } from "@/actions/admin.actions";
+import { ROLE_DEFINITIONS } from "@/lib/roles";
 import { useAdminRole } from "@/hooks/useAdminRole";
 
 const containerVariants = {
