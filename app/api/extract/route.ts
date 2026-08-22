@@ -1042,12 +1042,22 @@ function polishDocxHtml(rawHtml: string): string {
   // ── 6. Warning text highlight ─────────────────────────────────────────────
   html = highlightWarningText(html);
 
-  // ── 7. Strip any residual emojis after processing ─────────────────────────
-  html = html.replace(/\p{Extended_Pictographic}/gu, "");
+  // ── 7. Strip all residual emojis after processing ─────────────────────────
+  html = stripAllEmojis(html);
 
   return html.trim();
 }
 
+function stripAllEmojis(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(
+      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2B55}\u{2934}\u{2935}\u{25AA}\u{25AB}\u{25FE}\u{25FD}\u{25FB}\u{25FC}\u{25B6}\u{25C0}\u{1F200}-\u{1F251}\u{1F004}\u{1F0CF}\u{1F18E}\u{1F191}-\u{1F19A}\u{FE0E}\u{FE0F}\u{200D}]/gu,
+      ""
+    )
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    .replace(/\p{Emoji_Presentation}/gu, "");
+}
 
 function convertPlainTextToHtml(text: string): string {
   const lines = text.split("\n").map(l => l.trim());
@@ -1347,7 +1357,7 @@ function convertTextCallouts(html: string): string {
       if (!label) label = isWarning ? "Warning" : isImportant ? "Important" : isPearl ? "Key Points" : "Info";
 
       // Strip all emojis from the label itself
-      label = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
+      label = stripAllEmojis(label).trim();
 
       const id = idx++;
       calloutMap[id] = { variant, bg, border, color, titleColor, label };
@@ -1512,11 +1522,11 @@ function styleHtmlCallouts(html: string): string {
         }
         
         // Build body: if first cell is a short header and there are more cells, use rest as body
-        let headerText = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
+        let headerText = stripAllEmojis(label).trim();
         let bodyHtml = "";
         
         if (cellContents.length > 1 && firstCellRaw.length < 120) {
-          headerText = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
+          headerText = stripAllEmojis(label).trim();
           bodyHtml = cellContents.slice(1).join("\n");
         } else {
           bodyHtml = cellContents.join("\n");
@@ -1662,7 +1672,7 @@ function formatSectionHtml(html: string): string {
 
   // ── STEP 4: Warning text highlight & emoji cleanup ────────────────────────
   formatted = highlightWarningText(formatted);
-  formatted = formatted.replace(/\p{Extended_Pictographic}/gu, "");
+  formatted = stripAllEmojis(formatted);
   
   return formatted.trim();
 }
@@ -1749,7 +1759,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   }
   
   catalog.sections.overview = formatSectionHtml(overviewContent);
-  catalog.sections.pathophysiology = formatSectionHtml(sectionsMap.PATHOPHYSIOLOGY);
+  catalog.sections.pathophysiology = formatSectionHtml(sectionsMap.PATHOPHYLOGY || sectionsMap.PATHOPHYSIOLOGY);
   catalog.sections.clinicalFeatures = formatSectionHtml(sectionsMap.CLINICALFEATURES);
   catalog.sections.diagnosis = formatSectionHtml(sectionsMap.DIAGNOSIS);
   catalog.sections.management = formatSectionHtml(sectionsMap.MANAGEMENT);
@@ -1825,17 +1835,11 @@ function generateCatalogHtml(catalog: ExtractedCatalog, system: string, category
   });
 
   // ── Final callout pass ────────────────────────────────────────────────────
-  // formatSectionHtml() runs convertTextCallouts per-section, but for PDF/DOC
-  // content the plain-text-to-HTML conversion may have produced <h3> callout
-  // headers whose following bullet lists land in a different section chunk.
-  // Running a final pass over the fully assembled HTML catches those cases and
-  // ensures every callout keyword becomes a styled callout block regardless of
-  // where it appeared in the source document.
   html = styleHtmlCallouts(html);
   html = convertTextCallouts(html);
   html = highlightWarningText(html);
-  // Strip any remaining pictographic emojis (except those already consumed above)
-  html = html.replace(/\p{Extended_Pictographic}/gu, "");
+  // Strip all emojis from final rendered HTML
+  html = stripAllEmojis(html);
 
   return html;
 }
