@@ -56,14 +56,14 @@ const CALLOUT_STYLES = `
   .print-area .callout-block p:last-child { margin-bottom: 0 !important; }
   .print-area .callout-block ul, .print-area .callout-block ol { margin-bottom: 0.75rem !important; }
   .print-area .callout-block li { color: inherit !important; font-size: inherit !important; }
-  .print-area .callout-block[data-variant="info"], .print-area .callout-block:not([data-variant]) { background-color: #e6f7f4 !important; border: 1px solid #e6f7f4 !important; border-left: 5px solid #2bb09c !important; color: #1a5c51 !important; }
-  .print-area .callout-block[data-variant="pearl"] { background-color: #f0fdf4 !important; border: 1px solid #d1fae5 !important; border-left: 5px solid #16a34a !important; color: #14532d !important; }
-  .print-area .callout-block[data-variant="pearl"] > div:first-child { color: #15803d !important; }
-  .print-area .callout-block[data-variant="important"] { background-color: #fefce8 !important; border: 1px solid #fef08a !important; border-left: 5px solid #eab308 !important; color: #713f12 !important; }
-  .print-area .callout-block[data-variant="important"] > div:first-child { color: #854d0e !important; }
-  .print-area .callout-block[data-variant="warning"], .print-area .callout-block[data-variant="danger"] { background-color: #fef2f2 !important; border: 1px solid #fee2e2 !important; border-left: 5px solid #ef4444 !important; color: #7f1d1d !important; }
-  .print-area .callout-block[data-variant="warning"] > div:first-child, .print-area .callout-block[data-variant="danger"] > div:first-child { color: #b91c1c !important; }
-  .print-area .callout-block[data-variant="billing"] { background-color: #f8fafc !important; border: 1px solid #f8fafc !important; border-left: 5px solid #64748b !important; color: #334155 !important; }
+  .print-area .callout-block[data-variant="info"], .print-area .callout-block:not([data-variant]) { background-color: #e6f7f4; border: 1px solid #e6f7f4; border-left: 5px solid #2bb09c; color: #1a5c51; }
+  .print-area .callout-block[data-variant="pearl"] { background-color: #f0fdf4; border: 1px solid #d1fae5; border-left: 5px solid #16a34a; color: #14532d; }
+  .print-area .callout-block[data-variant="pearl"] > div:first-child { color: #15803d; }
+  .print-area .callout-block[data-variant="important"] { background-color: #fefce8; border: 1px solid #fef08a; border-left: 5px solid #eab308; color: #713f12; }
+  .print-area .callout-block[data-variant="important"] > div:first-child { color: #854d0e; }
+  .print-area .callout-block[data-variant="warning"], .print-area .callout-block[data-variant="danger"] { background-color: #fef2f2; border: 1px solid #fee2e2; border-left: 5px solid #ef4444; color: #7f1d1d; }
+  .print-area .callout-block[data-variant="warning"] > div:first-child, .print-area .callout-block[data-variant="danger"] > div:first-child { color: #b91c1c; }
+  .print-area .callout-block[data-variant="billing"] { background-color: #f8fafc; border: 1px solid #f8fafc; border-left: 5px solid #64748b; color: #334155; }
   .dark .print-area { background-color: #0f172a !important; color: #f1f5f9 !important; }
   .dark .print-area h1, .dark .print-area h2, .dark .print-area h3, .dark .print-area h4 { color: #2dd4bf !important; border-color: #2dd4bf !important; }
   .dark .print-area p, .dark .print-area li, .dark .print-area span { color: #cbd5e1 !important; }

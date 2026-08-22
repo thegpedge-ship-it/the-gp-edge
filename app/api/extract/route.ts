@@ -1030,28 +1030,19 @@ function polishDocxHtml(rawHtml: string): string {
     `<li${attrs} style="font-size: 0.875rem; color: #334155; margin-bottom: 0.35rem; line-height: 1.65;">${inner}</li>`
   );
 
-  // ── 4. Style tables ───────────────────────────────────────────────────────
-  html = styleHtmlTables(html);
-
-  // ── 5. Style images ───────────────────────────────────────────────────────
-  html = styleHtmlImages(html);
-
-  // ── 6. Strip emojis BEFORE callout detection (keep ⚠ for warning triggers)
-  html = html.replace(/(?![⚠️⚠])\p{Extended_Pictographic}/gu, "");
-
-  // ── 7. Callout detection — TWO passes to cover both DOCX and plain-text formats
-  // styleHtmlCallouts: converts single-column tables with callout keywords (e.g. a
-  //   one-column table whose cell reads "Key Points:") into coloured callout divs.
-  // convertTextCallouts: converts <p>/<h3>/<h4> elements whose text matches callout
-  //   keywords (e.g. <h3>Key Points:</h3> followed by a <ul>) into callout divs.
-  // Both must run so that callouts created with either document convention are caught.
+  // ── 4. Callout detection — converts single-column shaded tables & callout keywords
+  // MUST run BEFORE styleHtmlTables so original table cell shading/background-color is preserved
   html = styleHtmlCallouts(html);
   html = convertTextCallouts(html);
 
-  // ── 8. Warning text highlight ─────────────────────────────────────────────
+  // ── 5. Style tables & images ───────────────────────────────────────────────
+  html = styleHtmlTables(html);
+  html = styleHtmlImages(html);
+
+  // ── 6. Warning text highlight ─────────────────────────────────────────────
   html = highlightWarningText(html);
 
-  // ── 9. Strip any residual emojis after processing ─────────────────────────
+  // ── 7. Strip any residual emojis after processing ─────────────────────────
   html = html.replace(/\p{Extended_Pictographic}/gu, "");
 
   return html.trim();
@@ -1397,6 +1388,24 @@ function convertTextCallouts(html: string): string {
 }
 
 
+function extractBgColorFromHtml(html: string): string | null {
+  const bgMatch = html.match(/(?:background-color|background):\s*([#a-zA-Z0-9(),.\s%]+?)(?:;|\"|\'|$)/i);
+  if (bgMatch && bgMatch[1]) {
+    const val = bgMatch[1].trim();
+    if (val !== "none" && val !== "transparent" && val !== "inherit") {
+      return val;
+    }
+  }
+  const bgcolorMatch = html.match(/\bbgcolor=["']([^"']+)["']/i);
+  if (bgcolorMatch && bgcolorMatch[1]) {
+    const val = bgcolorMatch[1].trim();
+    if (val !== "none" && val !== "transparent") {
+      return val.startsWith("#") ? val : `#${val}`;
+    }
+  }
+  return null;
+}
+
 function styleHtmlCallouts(html: string): string {
   return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (tableMatch: string, tableBody: string) => {
     const rows = tableBody.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
@@ -1431,12 +1440,8 @@ function styleHtmlCallouts(html: string): string {
         const combinedText = cellContents.join(" ").toLowerCase();
         const plainText = combinedText.replace(/<[^>]+>/g, "").trim();
         
-        let variant = "info";
-        let bg = "#e6f7f4";
-        let border = "#2bb09c";
-        let color = "#1a5c51";
-        let titleColor = "#2bb09c";
-        let label = "Guideline";
+        // Detect background color assigned in the document
+        const docBgColor = extractBgColorFromHtml(tableMatch) || (cellMatches[0] ? extractBgColorFromHtml(cellMatches[0]) : null);
         
         // Raw label: first cell text, stripped of emoji/symbols
         const firstCellRaw = cellContents[0].replace(/<[^>]+>/g, "").trim();
@@ -1446,47 +1451,64 @@ function styleHtmlCallouts(html: string): string {
           .trim();
         
         // Detect type — same priority as convertTextCallouts
-        // 1. Key Points (GREEN)
         const isPearl = /(?:key\s*point|pearl|clinical\s*pearl|☑|✅)/i.test(plainText);
-        // 2. Warning / Urgent / Immediate (RED) 
         const isWarning = /(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert|⚠)/i.test(plainText) && !isPearl;
-        // 3. Important (YELLOW)
         const isImportant = /(?:important|attention|note)/i.test(plainText) && !isPearl && !isWarning;
-        // 4. Billing (SLATE)
         const isBilling = /(?:billing|mbs)/i.test(plainText);
         
-        if (!isPearl && !isWarning && !isImportant && !isBilling) {
+        if (!isPearl && !isWarning && !isImportant && !isBilling && !docBgColor) {
           return tableMatch;
         }
         
+        let variant = "info";
+        let bg = docBgColor || "#e6f7f4";
+        let border = "#2bb09c";
+        let color = "#1a5c51";
+        let titleColor = "#2bb09c";
+        let label = rawLabelFromDoc || "Guideline";
+        
         if (isWarning) {
           variant = "warning";
-          bg = "#fef2f2";
+          bg = docBgColor || "#fef2f2";
           border = "#ef4444";
           titleColor = "#b91c1c";
           color = "#7f1d1d";
           label = rawLabelFromDoc || (plainText.includes("red flag") ? "Red Flags" : "Warning");
         } else if (isImportant) {
           variant = "important";
-          bg = "#fefce8";
+          bg = docBgColor || "#fefce8";
           border = "#eab308";
           titleColor = "#854d0e";
           color = "#713f12";
           label = rawLabelFromDoc || "Important";
         } else if (isPearl) {
           variant = "pearl";
-          bg = "#f0fdf4";
+          bg = docBgColor || "#f0fdf4";
           border = "#16a34a";
           titleColor = "#15803d";
           color = "#14532d";
           label = rawLabelFromDoc || "Key Points";
         } else if (isBilling) {
           variant = "billing";
-          bg = "#f8fafc";
+          bg = docBgColor || "#f8fafc";
           border = "#64748b";
           titleColor = "#475569";
           color = "#334155";
           label = "MBS Billing Info";
+        } else if (docBgColor) {
+          // Document had an explicit background color assigned!
+          const bgLow = docBgColor.toLowerCase();
+          if (/(?:#f[ca-f0-9]{4,6}|red|pink|rgb\(25[0-5],\s*1[0-9]{2})/i.test(bgLow)) {
+            variant = "warning"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
+          } else if (/(?:#f[e-f][a-f0-9]{3,5}|yellow|amber|orange|rgb\(25[0-5],\s*2[0-9]{2})/i.test(bgLow)) {
+            variant = "important"; border = "#eab308"; titleColor = "#854d0e"; color = "#713f12";
+          } else if (/(?:#f0|#d1|green|emerald|rgb\(240|rgb\(209)/i.test(bgLow)) {
+            variant = "pearl"; border = "#16a34a"; titleColor = "#15803d"; color = "#14532d";
+          } else if (/(?:#e[0-9a-f]|#cc|teal|cyan|blue|rgb\(224|rgb\(204)/i.test(bgLow)) {
+            variant = "info"; border = "#0d9488"; titleColor = "#0f766e"; color = "#115e59";
+          } else {
+            variant = "info"; border = "#64748b"; titleColor = "#334155"; color = "#1e293b";
+          }
         }
         
         // Build body: if first cell is a short header and there are more cells, use rest as body
@@ -1494,11 +1516,9 @@ function styleHtmlCallouts(html: string): string {
         let bodyHtml = "";
         
         if (cellContents.length > 1 && firstCellRaw.length < 120) {
-          // First cell = header, rest = body content
           headerText = label.replace(/\p{Extended_Pictographic}/gu, "").trim();
           bodyHtml = cellContents.slice(1).join("\n");
         } else {
-          // Single cell — header IS the label, body is everything after the header line in the cell
           bodyHtml = cellContents.join("\n");
         }
         
@@ -1623,13 +1643,15 @@ function formatSectionHtml(html: string): string {
   // Also remove bold paragraph variants: <p><strong>1. OVERVIEW</strong></p>
   formatted = formatted.replace(/^\s*<p[^>]*>\s*<strong>\s*(?:\d+\.?\s*)?(?:overview|pathophysiology|clinical\s+features|diagnosis|management|complications|when\s+to\s+refer|prognosis|resources|references)\s*<\/strong>\s*<\/p>/i, "");
 
-  // ── STEP 1: Table and image styling (no interaction with callouts) ──────────
+  // ── STEP 1: Callout detection & styling (preserves doc-assigned table shading) ────
+  formatted = styleHtmlCallouts(formatted);
+  formatted = convertTextCallouts(formatted);
+
+  // ── STEP 2: Table and image styling for multi-column data tables ──────────
   formatted = styleHtmlTables(formatted);
   formatted = styleHtmlImages(formatted);
 
-  // ── STEP 2: Apply global p/ul/li base styles BEFORE callout detection ───────
-  // This way convertTextCallouts sees clean <p> tags and can override styles
-  // for content inside callout blocks without the global styles clobbering them.
+  // ── STEP 3: Apply global p/ul/li base styles ──────────────────────────────
   formatted = formatted.replace(/<p([^>]*)>/gi, (_m: string, attrs: string) => {
     if (attrs.includes('data:image') || attrs.includes('src=')) return `<p${attrs}>`;
     return '<p style="font-family: \'DM Sans\', sans-serif; font-size: 0.875rem; color: #334155; line-height: 1.7; margin-bottom: 1rem;">';
@@ -1638,19 +1660,8 @@ function formatSectionHtml(html: string): string {
   formatted = formatted.replace(/<ol[^>]*>/gi, '<ol style="list-style-type: decimal; padding-left: 1.25rem; font-family: \'DM Sans\', sans-serif; margin-bottom: 1rem;">');
   formatted = formatted.replace(/<li[^>]*>/gi, '<li style="margin-bottom: 0.375rem; font-size: 0.875rem; color: #334155;">');
 
-  // ── STEP 3: Strip emojis from text content BEFORE callout detection ─────────
-  // Strip all emojis/symbols (except warning markers ⚠️ and ⚠ so they can trigger warnings)
-  formatted = formatted.replace(/(?![⚠️⚠])\p{Extended_Pictographic}/gu, "");
-
-  // ── STEP 4: Callout detection & styling (runs on clean, pre-styled HTML) ────
-  // convertTextCallouts wraps matching sections in colored divs with their own
-  // styles — these must run AFTER base styles so the div overrides take effect.
-  formatted = styleHtmlCallouts(formatted);
-  formatted = convertTextCallouts(formatted);
+  // ── STEP 4: Warning text highlight & emoji cleanup ────────────────────────
   formatted = highlightWarningText(formatted);
-
-  // ── STEP 5: Strip remaining emojis (⚠ may remain in text content) ──────────
-  // Strip all remaining emojis/pictographs from the output completely
   formatted = formatted.replace(/\p{Extended_Pictographic}/gu, "");
   
   return formatted.trim();

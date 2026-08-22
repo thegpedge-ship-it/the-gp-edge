@@ -341,45 +341,45 @@ export default function ContentDetailPage() {
             }
             .print-area .callout-block[data-variant="info"], 
             .print-area .callout-block:not([data-variant]) {
-              background-color: #e6f7f4 !important;
-              border: 1px solid #e6f7f4 !important;
-              border-left: 5px solid #2bb09c !important;
-              color: #1a5c51 !important;
+              background-color: #e6f7f4;
+              border: 1px solid #e6f7f4;
+              border-left: 5px solid #2bb09c;
+              color: #1a5c51;
             }
             .print-area .callout-block[data-variant="pearl"] {
-              background-color: #f0fdf4 !important;
-              border: 1px solid #d1fae5 !important;
-              border-left: 5px solid #16a34a !important;
-              color: #14532d !important;
+              background-color: #f0fdf4;
+              border: 1px solid #d1fae5;
+              border-left: 5px solid #16a34a;
+              color: #14532d;
             }
             .print-area .callout-block[data-variant="pearl"] > div:first-child {
-              color: #15803d !important;
+              color: #15803d;
             }
             .print-area .callout-block[data-variant="important"] {
-              background-color: #fefce8 !important;
-              border: 1px solid #fef08a !important;
-              border-left: 5px solid #eab308 !important;
-              color: #713f12 !important;
+              background-color: #fefce8;
+              border: 1px solid #fef08a;
+              border-left: 5px solid #eab308;
+              color: #713f12;
             }
             .print-area .callout-block[data-variant="important"] > div:first-child {
-              color: #854d0e !important;
+              color: #854d0e;
             }
             .print-area .callout-block[data-variant="warning"],
             .print-area .callout-block[data-variant="danger"] {
-              background-color: #fef2f2 !important;
-              border: 1px solid #fee2e2 !important;
-              border-left: 5px solid #ef4444 !important;
-              color: #7f1d1d !important;
+              background-color: #fef2f2;
+              border: 1px solid #fee2e2;
+              border-left: 5px solid #ef4444;
+              color: #7f1d1d;
             }
             .print-area .callout-block[data-variant="warning"] > div:first-child,
             .print-area .callout-block[data-variant="danger"] > div:first-child {
-              color: #b91c1c !important;
+              color: #b91c1c;
             }
             .print-area .callout-block[data-variant="billing"] {
-              background-color: #f8fafc !important;
-              border: 1px solid #f8fafc !important;
-              border-left: 5px solid #64748b !important;
-              color: #334155 !important;
+              background-color: #f8fafc;
+              border: 1px solid #f8fafc;
+              border-left: 5px solid #64748b;
+              color: #334155;
             }
 
             /* Dark mode overrides for print-area content */
