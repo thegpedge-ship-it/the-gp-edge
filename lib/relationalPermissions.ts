@@ -62,7 +62,22 @@ export type Capability =
   | "mark_task_rejected"
   | "view_open_task_counts"
   | "view_overdue_report"
-  | "view_throughput_reporting";
+  | "view_throughput_reporting"
+  | "view_rate_card"
+  | "create_amend_rate_card"
+  | "view_own_earnings"
+  | "view_other_earnings"
+  | "view_programme_cost"
+  | "generate_payment_statement"
+  | "flag_rework_payable"
+  | "view_contributor_abn"
+  | "access_published_content"
+  | "view_own_progress_data"
+  | "submit_error_report"
+  | "triage_error_report"
+  | "view_item_performance_analytics"
+  | "configure_analytics_thresholds"
+  | "view_item_provenance";
 
 export type ItemType =
   | "question"
@@ -749,12 +764,130 @@ export async function evaluateRelationalPermission(params: {
     }
   }
 
-  if (capability === "amend_rate_card" && !isSuperAdmin) {
-    return {
-      allowed: false,
-      code: "ROLE_DENIED",
-      reason: "Rate card amendments are strictly restricted to Super Admin (SA).",
-    };
+  // 13. MATRIX 3F: FINANCE AND SUBSCRIBERS CAPABILITY CHECKS
+  // View rate card: SA ✔, CE ✖, OM ✔, DR S, PR S, SUB ✖
+  if (capability === "view_rate_card") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Subscribers cannot view rate cards.",
+      };
+    }
+    if (isClinicalEditor && !isSuperAdmin && !isOMRole) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Matrix 3F Violation: Clinical Editor (CE) does not manage financial rate cards.",
+      };
+    }
+  }
+
+  // Create / amend rate card: SA ✔, CE ✖, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "create_amend_rate_card" || capability === "amend_rate_card") {
+    if (!isSuperAdmin) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Rate cards are determined and amended by Super Admin (SA) alone.",
+      };
+    }
+  }
+
+  // View own accepted-item count and earnings: SA ✔, CE ✔, OM S, DR S, PR S, SUB ✖
+  if (capability === "view_own_earnings") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Subscribers cannot view contributor earnings data.",
+      };
+    }
+  }
+
+  // View another contributor's earnings, total programme cost, generate payment statement, mark statement paid: SA ✔, CE ✖, OM ✔, DR ✖, PR ✖, SUB ✖
+  const financeOpsCapabilities: Capability[] = [
+    "view_other_earnings",
+    "view_programme_cost",
+    "generate_payment_statement",
+    "generate_statement",
+    "mark_statement_paid",
+  ];
+  if (financeOpsCapabilities.includes(capability)) {
+    if (!isSuperAdmin && !isOMRole) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: `Matrix 3F Violation: '${capability}' is financial administration restricted to SA and OM. Clinical Editors and contributors have no access.`,
+      };
+    }
+  }
+
+  // Flag rework as payable / non-payable: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "flag_rework_payable") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Judging whether rework is payable or non-payable is a clinical assessment resting strictly with SA and CE. Operations Manager (OM) and contributors cannot flag rework payable.",
+      };
+    }
+  }
+
+  // View contributor ABN / entity type: SA ✔, CE ✖, OM ✔, DR S, PR S, SUB ✖
+  if (capability === "view_contributor_abn") {
+    if (isSubscriber) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Subscribers cannot view contributor financial metadata.",
+      };
+    }
+    if (isClinicalEditor && !isSuperAdmin && !isOMRole) {
+      return {
+        allowed: false,
+        code: "RESTRICTION_GOVERNS_DENIED",
+        reason: "Matrix 3F Violation: Clinical Editors cannot view contributor ABN/entity types.",
+      };
+    }
+  }
+
+  // View item performance analytics: SA ✔, CE ✔, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "view_item_performance_analytics") {
+    if (!isSuperAdmin && !isClinicalEditor) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Item performance analytics are clinical metrics restricted to SA and CE.",
+      };
+    }
+  }
+
+  // Configure analytics thresholds: SA ✔, CE ✖, OM ✖, DR ✖, PR ✖, SUB ✖
+  if (capability === "configure_analytics_thresholds") {
+    if (!isSuperAdmin) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Configuring analytics thresholds is restricted to Super Admin (SA) alone.",
+      };
+    }
+  }
+
+  // Triage an error report: SA ✔, CE ✔, OM ✔, DR ✖, PR ✖, SUB ✖
+  if (capability === "triage_error_report") {
+    if (!isSuperAdmin && !isClinicalEditor && !isOMRole) {
+      return {
+        allowed: false,
+        code: "ROLE_DENIED",
+        reason: "Matrix 3F Violation: Error report triage is restricted to SA, CE, and OM.",
+      };
+    }
+  }
+
+  // Submit error report & View item provenance: Permitted for ALL active roles
+  if (capability === "submit_error_report" || capability === "view_item_provenance") {
+    return { allowed: true, code: "ALLOWED" };
   }
 
   return { allowed: true, code: "ALLOWED" };

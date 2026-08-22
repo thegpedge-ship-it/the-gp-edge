@@ -254,7 +254,19 @@ export function useAdminRole() {
   const canViewOverdueReport = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
   const canViewThroughputReporting = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
 
-  // 8. Visibility & Pipeline Status (Matrix 3A: Content)
+  // 8. Finance & Subscribers (Matrix 3F: Finance and subscribers)
+  const canViewRateCard = isAccessAllowed && (isSuperAdmin || isOperationsManager || isDrafter || isPeerReviewer); // CE is ✖
+  const canViewOwnEarnings = isAccessAllowed && !isSubscriber;
+  const canViewOtherEarnings = isAccessAllowed && (isSuperAdmin || isOperationsManager);
+  const canViewProgrammeCost = isAccessAllowed && (isSuperAdmin || isOperationsManager);
+  const canFlagReworkPayable = isAccessAllowed && (isSuperAdmin || isClinicalEditor); // OM is ✖
+  const canViewContributorAbn = isAccessAllowed && (isSuperAdmin || isOperationsManager || isDrafter || isPeerReviewer); // CE is ✖
+  const canTriageErrorReport = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager);
+  const canViewItemPerformanceAnalytics = isAccessAllowed && (isSuperAdmin || isClinicalEditor); // OM is ✖
+  const canConfigureAnalyticsThresholds = isAccessAllowed && isSuperAdmin;
+  const canViewItemProvenance = isAccessAllowed;
+
+  // 9. Visibility & Pipeline Status (Matrix 3A: Content)
   // View unpublished item content: SA C(R12), CE C(R12), OM ✖, DR C(R12), PR C(R12), SUB ✖
   const canViewUnpublished = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isDrafter || isPeerReviewer);
   // View pipeline status metadata: SA ✔, CE ✔, OM ✔, DR S, PR S, SUB ✖
@@ -309,6 +321,16 @@ export function useAdminRole() {
     canViewOpenTaskCounts,
     canViewOverdueReport,
     canViewThroughputReporting,
+    canViewRateCard,
+    canViewOwnEarnings,
+    canViewOtherEarnings,
+    canViewProgrammeCost,
+    canFlagReworkPayable,
+    canViewContributorAbn,
+    canTriageErrorReport,
+    canViewItemPerformanceAnalytics,
+    canConfigureAnalyticsThresholds,
+    canViewItemProvenance,
     canViewUnpublished,
     canViewPipeline,
     canToggleBilling,
