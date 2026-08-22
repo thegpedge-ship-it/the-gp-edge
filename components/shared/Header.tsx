@@ -89,148 +89,93 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
       : "fixed top-6 inset-x-0 w-full z-50 bg-transparent border-none shadow-none";
   const innerClass =
     variant === "static"
-      ? "w-[90%] max-w-[690px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 py-2.5 flex items-center justify-between transition-all duration-300"
-      : "w-[90%] max-w-[690px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-6 py-2.5 flex items-center justify-between transition-all duration-500 ease-in-out";
+      ? "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-2 flex items-center justify-between transition-all duration-300"
+      : "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-2 flex items-center justify-between transition-all duration-500 ease-in-out";
 
   return (
     <header className={outerClass}>
       <div className={innerClass}>
 
-         {/* Mobile logo — far left of the navbar for every user (signed in or
-             out). Hidden at lg+, where the floating GlobalLogo is used instead. */}
-         <Link href="/" aria-label="Home" className="lg:hidden flex-shrink-0 flex items-center">
-           <Image
-             src="/assets/logo.png"
-             alt="The GP Edge"
-             width={240}
-             height={160}
-             className="w-auto h-10 object-contain"
-             priority
-           />
-         </Link>
+        {/* Mobile logo — far left of the navbar for every user (signed in or
+            out). Hidden at lg+, where the floating GlobalLogo is used instead. */}
+        <Link href="/" aria-label="Home" className="lg:hidden flex-shrink-0 flex items-center">
+          <Image
+            src="/assets/logo.png"
+            alt="The GP Edge"
+            width={240}
+            height={160}
+            className="w-auto h-10 object-contain"
+            priority
+          />
+        </Link>
 
-         {/* Navigation */}
-         <nav className="hidden md:flex items-center gap-5 lg:gap-7 transition-all duration-500 flex-wrap lg:flex-nowrap">
-           <Link
-             href="/"
-             title="Home"
-             aria-label="Home Landing Page"
-             className="text-slate-500 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-200 flex items-center justify-center hover:scale-110 transition-transform p-1 rounded-lg"
-           >
-             <House className="w-4 h-4 xl:w-[18px] xl:h-[18px]" />
-           </Link>
+        {/* 1. Extreme Left: Home Icon Button */}
+        <div className="hidden md:flex items-center shrink-0">
+          <Link
+            href="/"
+            title="Home"
+            aria-label="Home Landing Page"
+            className="text-slate-500 dark:text-[#A8B1BD] hover:text-teal-600 dark:hover:text-teal-400 transition-colors duration-200 flex items-center justify-center hover:scale-110 transition-transform p-1 rounded-lg"
+          >
+            <House className="w-4 h-4 xl:w-[18px] xl:h-[18px]" />
+          </Link>
+        </div>
 
-           <Link
-             href="/exam-prep"
-             className="text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
-           >
-             Exam Prep
-           </Link>
+        {/* 2. Center: 3 Navbar Links (Exam Prep, Pricing, About Us) */}
+        <nav className="hidden md:flex items-center justify-center gap-4 xl:gap-5 shrink-0 mx-auto">
+          <Link
+            href="/exam-prep"
+            className="text-[13px] xl:text-[14px] whitespace-nowrap font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-teal-600 via-teal-300 to-teal-600 bg-[length:200%_auto] animate-gradient-x hover:scale-105 transition-transform duration-300"
+          >
+            Exam Prep
+          </Link>
 
-           <Link
-             href="/dashboard/pricing"
-             className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
-               pathname === "/dashboard/pricing"
-                 ? "text-teal-600 dark:text-teal-400 font-semibold"
-                 : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
-             }`}
-           >
-             Pricing
-           </Link>
+          <Link
+            href="/dashboard/pricing"
+            className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
+              pathname === "/dashboard/pricing"
+                ? "text-teal-600 dark:text-teal-400 font-semibold"
+                : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
+            }`}
+          >
+            Pricing
+          </Link>
 
-           <Link
-             href="/#about"
-             className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
-               pathname === "/#about"
-                 ? "text-teal-600 dark:text-teal-400 font-semibold"
-                 : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
-             }`}
-           >
-             About Us
-           </Link>
-         </nav>
- 
-         {/* CTA Buttons */}
-         <div className="flex items-center gap-4 flex-shrink-0">
-           <SignedOut>
-             <Link href="/sign-in" className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
-               Log in
-             </Link>
-             <Link href="/sign-up" className="hidden md:inline-block bg-teal-600 hover:bg-teal-700 whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors">
-               Sign up
-             </Link>
-           </SignedOut>
- 
-           <SignedIn>
-             <Link
-               href="/dashboard"
-               className={`btn-dashboard-new ${pathname === '/' ? 'interactive' : ''}`}
-             >
-               <span className="btn-dashboard-span whitespace-nowrap">Dashboard</span>
-             </Link>
-           </SignedIn>
- 
-           <style>{`
-             .btn-dashboard-new {
-               background: #0d9488;
-               color: #ffffff;
-               position: relative;
-               border: 2px solid rgba(255, 255, 255, 0.3);
-               padding: 6px 18px;
-               display: inline-flex;
-               align-items: center;
-               font-size: 13px;
-               font-weight: 600;
-               border-radius: 12px;
-               cursor: pointer;
-               transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-               box-shadow: 0px 8px 16px rgba(20, 184, 166, 0.2);
-             }
-            .dark .btn-dashboard-new {
-              border-color: rgba(90,200,176,0.3);
-            }
-            .btn-dashboard-span {
-              display: inline-block;
-              transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-            }
-            .btn-dashboard-new.interactive:hover {
-              font-size: 14px;
-              transform: skew(-2deg);
-              padding-right: 32px;
-            }
-            .btn-dashboard-new::before {
-              content: "";
-              box-sizing: border-box;
-              position: absolute;
-              top: 50%;
-              left: 70%;
-              width: 14px;
-              height: 14px;
-              margin-top: -7px;
-              margin-left: -5px;
-              border-radius: 50%;
-              border: 2px solid rgba(255,255,255,0.4);
-              border-top-color: #ffffff;
-              opacity: 0;
-              animation: spinner 0.6s linear infinite;
-              transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-            }
-            .btn-dashboard-new.interactive:hover::before {
-              opacity: 1;
-              left: calc(100% - 24px);
-            }
-            @keyframes spinner {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
+          <Link
+            href="/#about"
+            className={`text-[13px] xl:text-[14px] whitespace-nowrap font-medium transition-colors duration-200 ${
+              pathname === "/#about"
+                ? "text-teal-600 dark:text-teal-400 font-semibold"
+                : "text-slate-500 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA]"
+            }`}
+          >
+            About Us
+          </Link>
+        </nav>
 
-          {/* Theme toggle — shown alongside the inline nav (md+). Below md it
-              lives inside the hamburger menu / dashboard drawer instead. */}
-          <div className="hidden md:flex items-center">
-            <ThemeToggle />
-          </div>
+        {/* 3. Extreme Right: CTA Buttons & Theme Toggle */}
+        <div className="flex items-center justify-end gap-2.5 shrink-0">
+          <SignedOut>
+            <Link href="/sign-in" className="text-xs xl:text-sm whitespace-nowrap font-medium text-slate-600 dark:text-[#A8B1BD] hover:text-slate-900 dark:hover:text-[#F5F7FA] transition-colors">
+              Log in
+            </Link>
+            <Link href="/sign-up" className="hidden md:inline-block bg-teal-600 hover:bg-teal-700 whitespace-nowrap text-white px-3 py-1.5 xl:px-4 xl:py-2 rounded-xl text-xs xl:text-sm font-medium transition-colors">
+              Sign up
+            </Link>
+          </SignedOut>
 
-          {/* Dashboard pages: hamburger opens the sidebar drawer (full dashboard nav). */}
+          <SignedIn>
+            <Link
+              href="/dashboard"
+              className={`btn-dashboard-new ${pathname === '/' ? 'interactive' : ''}`}
+            >
+              <span className="btn-dashboard-span whitespace-nowrap">Dashboard</span>
+            </Link>
+          </SignedIn>
+
+          <ThemeToggle />
+
+          {/* Dashboard pages: hamburger opens the sidebar drawer */}
           {sidebar?.hasDrawer && (
             <button
               type="button"
@@ -243,9 +188,7 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
             </button>
           )}
 
-          {/* Every other page (incl. signed-out landing/auth): hamburger opens
-              the complete navbar menu below. Shown only below md, where the
-              inline nav links are hidden. */}
+          {/* Public pages: hamburger opens mobile menu */}
           {!sidebar?.hasDrawer && (
             <button
               type="button"
@@ -260,10 +203,62 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
         </div>
       </div>
 
+      <style>{`
+        .btn-dashboard-new {
+          background: #0d9488;
+          color: #ffffff;
+          position: relative;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          padding: 6px 18px;
+          display: inline-flex;
+          align-items: center;
+          font-size: 13px;
+          font-weight: 600;
+          border-radius: 12px;
+          cursor: pointer;
+          transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+          box-shadow: 0px 8px 16px rgba(20, 184, 166, 0.2);
+        }
+        .dark .btn-dashboard-new {
+          border-color: rgba(90,200,176,0.3);
+        }
+        .btn-dashboard-span {
+          display: inline-block;
+          transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .btn-dashboard-new.interactive:hover {
+          font-size: 14px;
+          transform: skew(-2deg);
+          padding-right: 32px;
+        }
+        .btn-dashboard-new::before {
+          content: "";
+          box-sizing: border-box;
+          position: absolute;
+          top: 50%;
+          left: 70%;
+          width: 14px;
+          height: 14px;
+          margin-top: -7px;
+          margin-left: -5px;
+          border-radius: 50%;
+          border: 2px solid rgba(255,255,255,0.4);
+          border-top-color: #ffffff;
+          opacity: 0;
+          animation: spinner 0.6s linear infinite;
+          transition: 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .btn-dashboard-new.interactive:hover::before {
+          opacity: 1;
+          left: calc(100% - 24px);
+        }
+        @keyframes spinner {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
+
       {/* Mobile navbar menu — the complete navbar for pages without the
-          dashboard sidebar (signed-out landing, auth pages, etc.).
-          Collapses/expands via the hamburger; hidden at md+ where the inline
-          nav is shown. */}
+          dashboard sidebar (signed-out landing, auth pages, etc.). */}
       {!sidebar?.hasDrawer && (
         <div
           className={`md:hidden mx-auto w-[94%] max-w-[920px] grid transition-all duration-300 ease-out ${

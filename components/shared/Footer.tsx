@@ -137,7 +137,7 @@ export default function Footer() {
 
           {/* Column 4: Legal Links */}
           <div className="lg:col-span-2 lg:px-6 lg:border-r lg:border-slate-200/70 dark:lg:border-slate-800 flex flex-col gap-3 py-1">
-            <Link href="/privacy" className="footer-animated-link">
+            <Link href="/privacy-policy" className="footer-animated-link">
               Privacy Policy
             </Link>
             <Link href="/terms" className="footer-animated-link">
