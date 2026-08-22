@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { CreditCard, FileText, ExternalLink, Loader2, CheckCircle2, AlertCircle, Shield } from "lucide-react";
+import { useState } from "react";
+import { CreditCard, FileText, ExternalLink, Loader2, AlertCircle } from "lucide-react";
 import { createBillingPortalSessionAction, getLatestInvoicePdfAction } from "@/actions/stripe.actions";
 import CancellationSurveyModal from "./CancellationSurveyModal";
 
@@ -75,39 +75,30 @@ export default function ProfileBillingCard({
     : null;
 
   return (
-    <div className="p-4 sm:p-5 flex flex-col gap-3.5">
+    <div className="p-6 h-full flex flex-col justify-between gap-4">
       {/* Card Header */}
       <div>
-        <h3 className="font-sans text-base sm:text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">
-          Billing & Subscription
+        <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1.5">
+          Billing &amp; Subscription
         </h3>
-        <p className="font-sans text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Plan status & invoice downloads
+        <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400">
+          Plan status &amp; invoice downloads
         </p>
       </div>
 
-      {/* Plan details and action buttons container */}
-      <div className="p-3.5 sm:px-4 sm:py-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-5">
-        {/* Left: Plan title, badge, and renewal/expiry info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap mb-1.5">
-            <div className="flex items-center gap-2">
-              {hasPaidAccess ? (
-                <Shield className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
-              )}
-              <h4 className="font-sans text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 truncate">
-                {planTitle}
-              </h4>
-            </div>
-
+      {/* Content directly on card baseline */}
+      <div className="flex-1 flex flex-col justify-around py-1 gap-3">
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <p className="font-sans text-[11px] font-semibold tracking-wider uppercase text-slate-500">
+              Current Plan
+            </p>
             <span
-              className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+              className={`px-3 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
                 cancelAtPeriodEnd
-                  ? "bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60"
+                  ? "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60"
                   : hasPaidAccess
-                  ? "bg-teal-50 dark:bg-teal-950/50 text-teal-700 dark:text-teal-400 border border-teal-200/80 dark:border-teal-800/60"
+                  ? "bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-400 border border-teal-200/80 dark:border-teal-800/60"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
               }`}
             >
@@ -115,34 +106,38 @@ export default function ProfileBillingCard({
             </span>
           </div>
 
-          {cancelAtPeriodEnd && formattedExpiry ? (
-            <div className="mt-2 p-3 rounded-lg bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40">
-              <p className="font-sans text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
-                <strong className="font-semibold block mb-0.5">Subscription Canceled</strong>
-                Your plan is scheduled to end on <strong className="font-semibold">{formattedExpiry}</strong>. You will maintain full access until then, after which your account will revert to the Free tier.
-              </p>
-            </div>
-          ) : formattedExpiry ? (
-            <p className="font-sans text-xs text-slate-500 dark:text-slate-400 pl-6">
-              {isRecurring && !cancelAtPeriodEnd ? "Renews on" : "Expires on"}:{" "}
-              <strong className="text-slate-700 dark:text-slate-300 font-semibold">{formattedExpiry}</strong>
-            </p>
-          ) : (
-            <p className="font-sans text-xs text-slate-500 dark:text-slate-400 pl-6">
-              {hasPaidAccess ? "Active subscription" : "15 questions & 5 note templates included."}
-            </p>
-          )}
+          <h4 className="font-sans text-base sm:text-lg font-bold text-slate-900 dark:text-slate-100 leading-snug break-words">
+            {planTitle}
+          </h4>
         </div>
 
-        {/* Right: Action Buttons */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/85">
+          <p className="font-sans text-[11px] font-semibold tracking-wider uppercase text-slate-500 mb-1">
+            {isRecurring && !cancelAtPeriodEnd ? "Renewal Date" : "Expiration Date"}
+          </p>
+          <p className="font-sans text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {formattedExpiry ? formattedExpiry : (hasPaidAccess ? "Active subscription" : "15 questions & 5 note templates included")}
+          </p>
+        </div>
+
+        {cancelAtPeriodEnd && formattedExpiry && (
+          <div className="p-3 rounded-lg bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40">
+            <p className="font-sans text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              <strong className="font-semibold block mb-0.5">Subscription Canceled</strong>
+              Your plan is scheduled to end on <strong className="font-semibold">{formattedExpiry}</strong>. You will maintain full access until then.
+            </p>
+          </div>
+        )}
+
+        {/* Action Buttons if available */}
         {(showDownloadInvoice || (showCancelSubscription && isRecurring)) && (
-          <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto shrink-0">
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/85 flex flex-col sm:flex-row items-center justify-end gap-2.5 w-full">
             {showDownloadInvoice && (
               <button
                 type="button"
                 onClick={() => handlePortalRedirect("invoice")}
                 disabled={pendingAction !== null}
-                className="px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-400 text-slate-800 dark:text-slate-200 font-sans text-xs font-semibold shadow-2xs hover:shadow-xs transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-400 text-slate-800 dark:text-slate-200 font-sans text-xs font-semibold shadow-2xs hover:shadow-xs transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 {pendingAction === "invoice" ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" />
@@ -165,7 +160,7 @@ export default function ProfileBillingCard({
                   }
                 }}
                 disabled={pendingAction !== null}
-                className="px-3.5 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-sans text-xs font-semibold shadow-2xs transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+                className="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-sans text-xs font-semibold shadow-2xs transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 {pendingAction === "cancel" ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
