@@ -131,8 +131,8 @@ export async function GET(req: NextRequest) {
         .map((o: any, i: number) => (o.is_correct ? i : -1))
         .filter((i: number) => i >= 0);
       const correctIndex = correctIndices[0] ?? 0;
-      const examType = (q.examType ?? "AKT") as "AKT" | "KFT" | "KFP";
-      const isKft = examType === "KFT" || examType === "KFP";
+      const examType = (q.examType ?? "AKT") as "AKT" | "KFP" | "KFP";
+      const isKft = examType === "KFP";
       const kfpCorrectCount: number | undefined =
         isKft
           ? (q.kfpCorrectCount != null ? Number(q.kfpCorrectCount) : correctIndices.length || 1)

@@ -2055,7 +2055,7 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
   }
 }
 
-function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AKT"): any[] {
+function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AKT"): any[] {
   const questions: any[] = [];
   
   // Normalize line endings, BOM, zero-width characters, and non-breaking spaces (\u00A0)
@@ -2146,7 +2146,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       .filter(l => {
         if (!l || /^[_\-=\s]{3,}$/.test(l) || looksLikeBase64OrBinary(l)) return false;
         // Filter document titles, batch metadata, and global source header lines that appear before the question
-        if (/^(?:AKT|KFT|KFP)\s*Question\s*Bank\b/i.test(l)) return false;
+        if (/^(?:AKT|KFP|KFP)\s*Question\s*Bank\b/i.test(l)) return false;
         if (/^Batch\s*\d+\s*[·•|-]/i.test(l)) return false;
         if (/^Sources?\s*[:\-\=\–\—]/i.test(l)) return false;
         if (/^(?:Health\s*Australia|RACGP|ACRRM|Therapeutic\s*Guidelines|CKD\s*Management\s*Handbook)\b.*(?:Handbook|edn|supplied|version)/i.test(l)) return false;
@@ -2167,7 +2167,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
     let correctIndex = 0;
     let correctIndices: number[] = [0];
     let kfpCorrectCount = 1;
-    let examType: "AKT" | "KFT" = defaultExamType;
+    let examType: "AKT" | "KFP" = defaultExamType;
     let rationale = "";
     let topic = "General";
     let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
@@ -2182,12 +2182,12 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
       if (!line) continue;
       const cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·\-\u2013\u2014–—]+/u, "").trim();
 
-      // ── Exam Type (e.g. "Exam Type: KFT" or "Exam Type: AKT") ─────────
+      // ── Exam Type (e.g. "Exam Type: KFP" or "Exam Type: AKT") ─────────
       const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
       if (examTypeMatch) {
         const val = examTypeMatch[1].trim().toUpperCase();
-        if (val.includes("KFT") || val.includes("KFP")) {
-          examType = "KFT";
+        if (val.includes("KFP") || val.includes("KFP")) {
+          examType = "KFP";
         } else if (val.includes("AKT") || val.includes("MCQ")) {
           examType = "AKT";
         }
@@ -2203,11 +2203,11 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
         else difficulty = "Medium";
       }
 
-      // ── Limit / Allowed Selections (KFT) ──────────────────────────────
+      // ── Limit / Allowed Selections (KFP) ──────────────────────────────
       const limitMatch = cleanLine.match(/^(?:limit|max\s*selections?|allowed\s*selections?|selection\s*limit|correct\s*count)\s*[:\-\=\–\—]\s*(\d+)/i);
       if (limitMatch) {
         kfpCorrectCount = parseInt(limitMatch[1], 10) || 3;
-        examType = "KFT";
+        examType = "KFP";
         continue;
       }
 
@@ -2227,9 +2227,9 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFT" = "AK
         if (letterMatches && letterMatches.length > 0) {
           correctIndices = letterMatches.map((l) => l.charCodeAt(0) - 65).filter((idx) => idx >= 0 && idx < 10);
           correctIndex = correctIndices[0] ?? 0;
-          // If explicit multiple letters are found AND format is KFT, enable multi-select
-          if (letterMatches.length > 1 && defaultExamType === "KFT") {
-            examType = "KFT";
+          // If explicit multiple letters are found AND format is KFP, enable multi-select
+          if (letterMatches.length > 1 && defaultExamType === "KFP") {
+            examType = "KFP";
             if (kfpCorrectCount <= 1) {
               kfpCorrectCount = letterMatches.length;
             }
@@ -2834,7 +2834,7 @@ export async function POST(req: NextRequest) {
 
     if (isQuestionType) {
       const examFormatParam = (formData.get("examType") as string | null) || (formData.get("examFormat") as string | null) || "AKT";
-      const targetExamFormat: "AKT" | "KFT" = examFormatParam.toUpperCase().includes("KFT") ? "KFT" : "AKT";
+      const targetExamFormat: "AKT" | "KFP" = examFormatParam.toUpperCase().includes("KFP") ? "KFP" : "AKT";
 
       let rawText = "";
       if (ext === "pdf") {

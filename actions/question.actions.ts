@@ -138,7 +138,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       // Ensure exam type exists
       const examTypeKey = examTypeCode.toUpperCase();
       if (!examTypeSet.has(examTypeKey)) {
-        const isKft = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const isKft = examTypeCode === "KFP";
         const examName =
           examTypeCode === "AKT"
             ? "Applied Knowledge Test"
@@ -292,7 +292,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
             throw new Error(permCheck.reason || "Permission denied for updating question.");
           }
         }
-        const isKftOrKfp = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const isKftOrKfp = examTypeCode === "KFP";
         const correctCount = isKftOrKfp ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null;
 
         // Fetch current question's exam_type_code and uqid to see if exam type changed
@@ -303,12 +303,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
 
         const rawCurrentType = (currentQ?.exam_type_code || "AKT").toUpperCase();
         const rawTargetType = examTypeCode.toUpperCase();
-        const currentExamType = rawCurrentType === "KFP" ? "KFT" : rawCurrentType;
-        const targetExamType = rawTargetType === "KFP" ? "KFT" : rawTargetType;
+        const currentExamType = rawCurrentType === "KFP" ? "KFP" : rawCurrentType;
+        const targetExamType = rawTargetType === "KFP" ? "KFP" : rawTargetType;
 
         if (currentQ && (currentExamType !== targetExamType || (currentQ.uqid && !currentQ.uqid.startsWith(targetExamType)))) {
-          // Exam type changed (e.g. AKT -> KFT or KFT -> AKT): allocate a new sequential UQID with target prefix
-          const targetSeq = targetExamType === "KFT" ? "kft_seq" : "akt_seq";
+          // Exam type changed (e.g. AKT -> KFP or KFP -> AKT): allocate a new sequential UQID with target prefix
+          const targetSeq = targetExamType === "KFP" ? "kft_seq" : "akt_seq";
           const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${targetSeq}') AS n`);
           const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
           finalUqid = `${targetExamType}-${seqNum}`;
@@ -344,7 +344,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         });
       } else {
         // Auto-generate UQID using DB sequence
-        const isKftOrKfpNew = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const isKftOrKfpNew = examTypeCode === "KFP";
         const seqName = isKftOrKfpNew ? "kft_seq" : "akt_seq";
         const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${seqName}') AS n`);
         const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
@@ -379,14 +379,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         });
       }
 
-      // Replace options — support multiple correct for KFT / KFP + distractor rationales
+      // Replace options — support multiple correct for KFP / KFP + distractor rationales
       if (q.options && q.options.length > 0) {
         await execute(
           `DELETE FROM question_options 
             WHERE question_id = $1 AND position > $2`,
           [questionId, q.options.length]
         );
-        const isMultiCorrect = examTypeCode === "KFT" || examTypeCode === "KFP";
+        const isMultiCorrect = examTypeCode === "KFP";
         // Build set of correct indices
         const correctSet = new Set<number>(
           isMultiCorrect && Array.isArray(q.correctIndices) && q.correctIndices.length > 0

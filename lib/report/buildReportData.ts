@@ -30,7 +30,7 @@ export function buildReportData(params: {
     const selectedIndices = answers[i] ?? [];
     const selectedIndex = selectedIndices[0] ?? null;
     const isAttempted = selectedIndices.length > 0;
-    const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
 
     if (isAttempted) attemptedCount++;
 

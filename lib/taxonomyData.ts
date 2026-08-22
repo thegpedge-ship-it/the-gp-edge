@@ -1,4 +1,6 @@
-import jsonTaxonomy from "../GP-Edge-Master-Taxonomy-v1.1.json";
+// lib/taxonomyData.ts
+// NOTE: The JSON file import has been removed. Taxonomy data is now fetched
+// from the database at runtime via getTaxonomyUnitsAction / getTaxonomyTopicsAction.
 
 export interface UnitGroup {
   code: string;
@@ -28,22 +30,14 @@ export interface TopicItem {
   taxonomyVersion?: string;
 }
 
-// Master Taxonomy units and topics loaded from GP-Edge-Master-Taxonomy-v1.1.json
-export const MASTER_UNITS: UnitItem[] = (jsonTaxonomy.units || []) as UnitItem[];
-export const MASTER_TOPICS: TopicItem[] = (jsonTaxonomy.topics || []) as TopicItem[];
-export const TAXONOMY_VERSION: string = jsonTaxonomy.schemaVersion || "1.1";
+// Empty defaults — data is now served from DB via useTaxonomy hook / server actions
+export const MASTER_UNITS: UnitItem[] = [];
+export const MASTER_TOPICS: TopicItem[] = [];
+export const TAXONOMY_VERSION: string = "1.1";
 
-// Maps unit code -> UnitItem for O(1) lookup
-export const UNIT_MAP: Record<string, UnitItem> = MASTER_UNITS.reduce((acc, u) => {
-  acc[u.code] = u;
-  return acc;
-}, {} as Record<string, UnitItem>);
-
-// Maps topic code -> TopicItem for O(1) lookup
-export const TOPIC_MAP: Record<string, TopicItem> = MASTER_TOPICS.reduce((acc, t) => {
-  acc[t.code] = t;
-  return acc;
-}, {} as Record<string, TopicItem>);
+// Maps populated at runtime via useTaxonomy hook when needed
+export const UNIT_MAP: Record<string, UnitItem> = {};
+export const TOPIC_MAP: Record<string, TopicItem> = {};
 
 /**
  * Gets unit name by unit code (e.g., U01 -> "Abuse and Violence")
@@ -84,17 +78,21 @@ export function getGroupName(unitCode: string, groupCode?: string | null): strin
 }
 
 /**
- * Helper to search topics by query string, unit, depth, and tag
+ * Helper to search topics by query string, unit, depth, and tag.
+ * Pass in a live topics array fetched from the DB.
  */
-export function filterMasterTopics(params: {
-  query?: string;
-  unitCode?: string;
-  depthTier?: string;
-  topicType?: string;
-  crossCuttingTag?: string;
-  status?: string;
-}): TopicItem[] {
-  let list = MASTER_TOPICS;
+export function filterMasterTopics(
+  params: {
+    query?: string;
+    unitCode?: string;
+    depthTier?: string;
+    topicType?: string;
+    crossCuttingTag?: string;
+    status?: string;
+  },
+  sourceTopics: TopicItem[] = MASTER_TOPICS
+): TopicItem[] {
+  let list = sourceTopics;
 
   if (params.unitCode && params.unitCode !== "all") {
     list = list.filter(
@@ -136,15 +134,16 @@ export function filterMasterTopics(params: {
 }
 
 /**
- * Audit metrics helper: returns breakdown by depth tier & quota adherence
+ * Audit metrics helper: returns breakdown by depth tier & quota adherence.
+ * Pass in a live topics array fetched from the DB.
  */
-export function getTaxonomyAuditMetrics() {
+export function getTaxonomyAuditMetrics(sourceTopics: TopicItem[] = MASTER_TOPICS) {
   const depthCounts = { Core: 0, Working: 0, Awareness: 0 };
   const typeCounts: Record<string, number> = {};
   const statusCounts = { active: 0, merged: 0 };
   const tagCounts: Record<string, number> = {};
 
-  MASTER_TOPICS.forEach((t) => {
+  sourceTopics.forEach((t) => {
     if (t.depth in depthCounts) depthCounts[t.depth]++;
     if (t.status in statusCounts) statusCounts[t.status]++;
 
@@ -159,8 +158,8 @@ export function getTaxonomyAuditMetrics() {
   });
 
   return {
-    totalTopics: MASTER_TOPICS.length,
-    totalUnits: MASTER_UNITS.length,
+    totalTopics: sourceTopics.length,
+    totalUnits: Object.keys(UNIT_MAP).length,
     depthCounts,
     typeCounts,
     statusCounts,

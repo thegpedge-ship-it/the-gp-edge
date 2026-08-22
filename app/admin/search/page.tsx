@@ -18,8 +18,6 @@ import {
   AutofillTemplate,
 } from "@/lib/quizData";
 import {
-  MASTER_UNITS,
-  MASTER_TOPICS,
   TopicItem,
   UnitItem,
   TAXONOMY_VERSION,
@@ -60,13 +58,9 @@ export default function SearchPage() {
   const [selectedDepth, setSelectedDepth] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedTag, setSelectedTag] = useState<string>("all");
-  const [taxonomyTopics, setTaxonomyTopics] = useState<UnifiedTopicItem[]>(
-    MASTER_TOPICS.map((t) => ({ ...t, crossCuttingTags: t.crossCuttingTags || [], source: "taxonomy" as const }))
-  );
+  const [taxonomyTopics, setTaxonomyTopics] = useState<UnifiedTopicItem[]>([]);
   const [topicTitlesList, setTopicTitlesList] = useState<string[]>([]);
-  const [unitsList, setUnitsList] = useState<{ code: string; name: string }[]>(
-    MASTER_UNITS.map((u) => ({ code: u.code, name: u.name }))
-  );
+  const [unitsList, setUnitsList] = useState<{ code: string; name: string; groups?: { code: string; name: string }[] }[]>([]);
 
   // Move Topic modal state
   const [moveTopicTarget, setMoveTopicTarget] = useState<TopicItem | null>(null);
@@ -270,7 +264,7 @@ export default function SearchPage() {
 
     return {
       totalTopics: taxonomyTopics.length,
-      totalUnits: unitsList.length || MASTER_UNITS.length,
+      totalUnits: unitsList.length,
       depthCounts,
       typeCounts,
       statusCounts,
@@ -319,7 +313,7 @@ export default function SearchPage() {
       )
     : [];
 
-  const selectedUnitObj = MASTER_UNITS.find((u) => u.code === moveUnitCode);
+  const selectedUnitObj = unitsList.find((u) => u.code === moveUnitCode);
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">

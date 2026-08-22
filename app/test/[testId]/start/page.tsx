@@ -634,7 +634,7 @@ export default function TestPage() {
   const selectOption = (optionIndex: number) => {
     const q = questions[current];
     if (!q) return;
-    const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
     const maxSelectable = isKft
       ? (q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3)
       : 1;
@@ -688,7 +688,7 @@ export default function TestPage() {
     if (config?.examMode === "KFP") return "KFP";
     const q = questions[feedbackQuestionIdx];
     const et = (q?.examType || "").toUpperCase();
-    return (et === "KFP" || et === "KFT") ? "KFP" : "AKT";
+    return (et === "KFP") ? "KFP" : "AKT";
   })();
 
   const fbQuestion = questions[feedbackQuestionIdx];
@@ -789,7 +789,7 @@ export default function TestPage() {
 
     questions.forEach((q, i) => {
       const ans = answers[i];
-      const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+      const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
       if (isKft) {
         const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
         const maxMarks = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1;
@@ -1169,7 +1169,7 @@ export default function TestPage() {
 
               {/* Options List */}
               {(() => {
-                const isKft = (question.examType || "").toUpperCase() === "KFT" || (question.examType || "").toUpperCase() === "KFP";
+                const isKft = (question.examType || "").toUpperCase() === "KFP" || (question.examType || "").toUpperCase() === "KFP";
                 const kfpLimit = isKft
                   ? (question.kftCorrectCount || question.kfpCorrectCount || question.correctIndices?.length || 3)
                   : 1;

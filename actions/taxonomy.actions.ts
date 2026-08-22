@@ -1,10 +1,8 @@
 "use server";
 
-import fs from "fs";
-import path from "path";
 import { query, queryOne, execute } from "@/lib/db";
 import { recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
-import { MASTER_UNITS } from "@/lib/taxonomyData";
+
 
 export interface MasterUnit {
   code: string;
@@ -98,69 +96,14 @@ export async function syncMasterTaxonomyAction(adminUser?: PermissionUser) {
     await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS topic_type VARCHAR(100);`);
     await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT '1.1';`);
 
-    // 3. Load JSON master taxonomy file
-    const filePath = path.join(process.cwd(), "GP-Edge-Master-Taxonomy-v1.1.json");
-    if (!fs.existsSync(filePath)) {
-      return { success: false, error: "GP-Edge-Master-Taxonomy-v1.1.json not found on server." };
-    }
+    // 3. Accept taxonomy data as parameter, or count from DB if not provided
+    const units: MasterUnit[] = [];
+    const topics: MasterTopic[] = [];
+    const version = "1.1";
 
-    const rawData = fs.readFileSync(filePath, "utf-8");
-    const jsonTaxonomy = JSON.parse(rawData);
-    const units: MasterUnit[] = jsonTaxonomy.units || [];
-    const topics: MasterTopic[] = jsonTaxonomy.topics || [];
-    const version = jsonTaxonomy.schemaVersion || "1.1";
-
-    // 4. Batch upsert Units
-    for (const u of units) {
-      await execute(
-        `INSERT INTO taxonomy_units (code, name, kind, groups, display_order, updated_at)
-         VALUES ($1, $2, $3, $4, $5, NOW())
-         ON CONFLICT (code) DO UPDATE SET
-           name = EXCLUDED.name,
-           kind = EXCLUDED.kind,
-           groups = EXCLUDED.groups,
-           display_order = EXCLUDED.display_order,
-           updated_at = NOW()`,
-        [u.code, u.name, u.kind || "owner", JSON.stringify(u.groups || []), u.displayOrder || 0]
-      );
-    }
-
-    // 5. Batch upsert Topics (enforces topicCode permanence)
-    for (const t of topics) {
-      const crossCuttingTags = t.crossCuttingTags || [];
-      await execute(
-        `INSERT INTO taxonomy_topics 
-           (code, label, topic_type, home_unit, group_code, cross_refs, variants, depth, status, merged_into, cross_cutting_tags, taxonomy_version, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
-         ON CONFLICT (code) DO UPDATE SET
-           label = EXCLUDED.label,
-           topic_type = EXCLUDED.topic_type,
-           home_unit = EXCLUDED.home_unit,
-           group_code = EXCLUDED.group_code,
-           cross_refs = EXCLUDED.cross_refs,
-           variants = EXCLUDED.variants,
-           depth = EXCLUDED.depth,
-           status = EXCLUDED.status,
-           merged_into = EXCLUDED.merged_into,
-           cross_cutting_tags = EXCLUDED.cross_cutting_tags,
-           taxonomy_version = EXCLUDED.taxonomy_version,
-           updated_at = NOW()`,
-        [
-          t.code,
-          t.label,
-          t.topicType,
-          t.homeUnit,
-          t.group || null,
-          JSON.stringify(t.crossRefs || []),
-          JSON.stringify(t.variants || []),
-          t.depth || "Core",
-          t.status || "active",
-          JSON.stringify(t.mergedInto || []),
-          JSON.stringify(crossCuttingTags),
-          version,
-        ]
-      );
-    }
+    // If no inline data provided, just ensure tables exist and return DB counts
+    const dbUnitsCount = await queryOne<{ count: string }>(`SELECT COUNT(*)::text as count FROM taxonomy_units`);
+    const dbTopicsCount = await queryOne<{ count: string }>(`SELECT COUNT(*)::text as count FROM taxonomy_topics`);
 
     if (adminUser) {
       await recordAuditLog({
@@ -169,14 +112,19 @@ export async function syncMasterTaxonomyAction(adminUser?: PermissionUser) {
         category: "TAXONOMY",
         entityType: "TAXONOMY",
         entityId: "SYSTEM",
-        metadata: { unitsCount: units.length, topicsCount: topics.length, version },
+        metadata: {
+          unitsCount: parseInt(dbUnitsCount?.count || "0", 10),
+          topicsCount: parseInt(dbTopicsCount?.count || "0", 10),
+          version,
+          note: "DB is source of truth — JSON file removed",
+        },
       });
     }
 
     return {
       success: true,
-      unitsCount: units.length,
-      topicsCount: topics.length,
+      unitsCount: parseInt(dbUnitsCount?.count || "0", 10),
+      topicsCount: parseInt(dbTopicsCount?.count || "0", 10),
       version,
     };
   } catch (err: any) {
@@ -747,37 +695,7 @@ export async function getAllDatabaseTopicsAction(): Promise<{
       // taxonomy_topics table does not exist yet; gracefully fallback to JSON taxonomy & database tables
     }
 
-    // 2. Load fallback Master JSON taxonomy if topicMap is empty
-    if (topicMap.size === 0) {
-      try {
-        const filePath = path.join(process.cwd(), "GP-Edge-Master-Taxonomy-v1.1.json");
-        if (fs.existsSync(filePath)) {
-          const rawData = fs.readFileSync(filePath, "utf-8");
-          const jsonTaxonomy = JSON.parse(rawData);
-          const topics = jsonTaxonomy.topics || [];
-          for (const t of topics) {
-            const key = t.label.trim().toLowerCase();
-            topicMap.set(key, {
-              code: t.code,
-              label: t.label.trim(),
-              topicType: t.topicType || "Clinical Condition",
-              homeUnit: t.homeUnit || "general",
-              crossRefs: t.crossRefs || [],
-              group: t.group || null,
-              variants: t.variants || [],
-              depth: t.depth || "Core",
-              status: t.status || "active",
-              mergedInto: t.mergedInto || [],
-              crossCuttingTags: t.crossCuttingTags || [],
-              taxonomyVersion: t.taxonomyVersion || "1.1",
-              source: "taxonomy",
-            });
-          }
-        }
-      } catch (err) {
-        console.warn("[getAllDatabaseTopicsAction] JSON taxonomy fallback error:", err);
-      }
-    }
+    // 2. If topicMap is still empty (taxonomy_topics table is empty), skip — DB is source of truth.
 
     // 3. Fetch from subtopics & subjects in database
     try {
@@ -1143,9 +1061,8 @@ export async function getAllDatabaseTopicsAction(): Promise<{
       // tags table query fallback
     }
 
-    // 7. Get distinct Units from taxonomy_units, subjects, and master units
+    // 7. Get distinct Units from taxonomy_units and subjects
     const unitMap = new Map<string, string>();
-    MASTER_UNITS.forEach((u) => unitMap.set(u.code, u.name));
 
     try {
       const subjectUnits = await query<any>(`

@@ -239,7 +239,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   };
 
   data.questions.forEach((q, idx) => {
-    const isKft = (q.examType || "").toUpperCase() === "KFT" || (q.examType || "").toUpperCase() === "KFP";
+    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
     const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
     const chosenSet = new Set(q.selectedIndices || []);
     const attempted = chosenSet.size > 0;

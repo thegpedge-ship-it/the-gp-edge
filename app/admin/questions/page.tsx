@@ -26,7 +26,7 @@ import {
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
 import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
-import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
+import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
 
@@ -71,6 +71,7 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 
 export default function QuestionsPage() {
   const { isReadOnly, isSuperAdmin, canRestoreItem, canArchiveItem, currentAdmin } = useAdminRole();
+  const { units: taxonomyUnits, topics: taxonomyTopics } = useTaxonomy();
   const [questions, setQuestions] = useState<Question[]>([]);
 
   const handleRestoreQuestion = async (q: Question) => {
@@ -105,8 +106,8 @@ export default function QuestionsPage() {
   }, [canRestoreItem]);
   const [searchQuery, setSearchQuery] = useState("");
   const [newCorrectAnswer, setNewCorrectAnswer] = useState("A");
-  const [newCorrectIndices, setNewCorrectIndices] = useState<number[]>([0]); // KFT multi-select
-  const [newExamType, setNewExamType] = useState<"AKT" | "KFT">("AKT");
+  const [newCorrectIndices, setNewCorrectIndices] = useState<number[]>([0]); // KFP multi-select
+  const [newExamType, setNewExamType] = useState<"AKT" | "KFP">("AKT");
   const [newKfpCorrectCount, setNewKfpCorrectCount] = useState(3); // how many marks / allowed selections
   const [newQuestionTopics, setNewQuestionTopics] = useState<string[]>(["Cardiology"]);
   const [newDifficulty, setNewDifficulty] = useState("Medium");
@@ -161,7 +162,7 @@ export default function QuestionsPage() {
 
   // Document Upload States
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadExamType, setUploadExamType] = useState<"AKT" | "KFT">("AKT");
+  const [uploadExamType, setUploadExamType] = useState<"AKT" | "KFP">("AKT");
   const [uploadState, setUploadState] = useState<"idle" | "uploading" | "success">("idle");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState("");
@@ -251,8 +252,8 @@ export default function QuestionsPage() {
   };
 
   const topics = (() => {
-    const unitNames = MASTER_UNITS.map((u) => `${u.code}: ${u.name}`);
-    const masterTopicLabels = MASTER_TOPICS.map((t) => `${t.code}: ${t.label}`);
+    const unitNames = taxonomyUnits.map((u) => `${u.code}: ${u.name}`);
+    const masterTopicLabels = taxonomyTopics.map((t) => `${t.code}: ${t.label}`);
     const stored = typeof window !== "undefined" ? getTopics().map(t => t.name) : [];
     const derived = questions.flatMap((q) => q.topic.split(",").map((t) => t.trim()));
     return Array.from(new Set([...unitNames, ...masterTopicLabels, ...stored, ...derived])).filter(Boolean);
@@ -261,7 +262,7 @@ export default function QuestionsPage() {
   const filtered = questions.filter((q) => {
     const searchLower = searchQuery.trim().toLowerCase();
     const matchStatus = statusFilter === "all" ? q.status !== "archived" : q.status === statusFilter;
-    const qType = (q.examType === "KFP" ? "KFT" : (q.examType || "AKT")).toUpperCase();
+    const qType = (q.examType === "KFP" ? "KFP" : (q.examType || "AKT")).toUpperCase();
     const matchExamType = examTypeFilter === "all" || qType === examTypeFilter;
     const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
     const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
@@ -398,15 +399,15 @@ export default function QuestionsPage() {
       setActiveZone(1);
       return;
     }
-    // KFT validation
-    if (newExamType === "KFT") {
+    // KFP validation
+    if (newExamType === "KFP") {
       if (newCorrectIndices.length === 0) {
-        showAlert("Please mark at least one correct answer for KFT.", "Validation Error", "error");
+        showAlert("Please mark at least one correct answer for KFP.", "Validation Error", "error");
         setActiveZone(2);
         return;
       }
       if (newCorrectIndices.length !== newKfpCorrectCount) {
-        showAlert(`Please mark exactly ${newKfpCorrectCount} correct answer(s) for KFT (currently ${newCorrectIndices.length} selected).`, "Validation Error", "error");
+        showAlert(`Please mark exactly ${newKfpCorrectCount} correct answer(s) for KFP (currently ${newCorrectIndices.length} selected).`, "Validation Error", "error");
         setActiveZone(2);
         return;
       }
@@ -437,9 +438,9 @@ export default function QuestionsPage() {
       leadIn: newLeadIn.trim() || undefined,
       options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
       correctIndex,
-      correctIndices: newExamType === "KFT" ? newCorrectIndices : undefined,
-      kftCorrectCount: newExamType === "KFT" ? newKfpCorrectCount : undefined,
-      kfpCorrectCount: newExamType === "KFT" ? newKfpCorrectCount : undefined,
+      correctIndices: newExamType === "KFP" ? newCorrectIndices : undefined,
+      kftCorrectCount: newExamType === "KFP" ? newKfpCorrectCount : undefined,
+      kfpCorrectCount: newExamType === "KFP" ? newKfpCorrectCount : undefined,
       rationale: newWhyCorrect || newRationale || "No explanation provided.",
       whyCorrect: newWhyCorrect || undefined,
       distractorRationales: newDistractorRationales.some(d => d.trim()) ? newDistractorRationales : undefined,
@@ -697,7 +698,7 @@ export default function QuestionsPage() {
         const cleanedTags = q.tags
           ? q.tags.map((t: string) => t.trim()).filter(Boolean)
           : ["General"];
-        const resolvedExamType = q.examType || (q.correctIndices && q.correctIndices.length > 1 ? "KFT" : "AKT");
+        const resolvedExamType = q.examType || (q.correctIndices && q.correctIndices.length > 1 ? "KFP" : "AKT");
         const correctCount = q.kftCorrectCount || q.kfpCorrectCount || (q.correctIndices && q.correctIndices.length > 1 ? q.correctIndices.length : 1);
         const newQ = {
           ...q,
@@ -881,7 +882,7 @@ export default function QuestionsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">KFT Template</p>
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100">KFP Template</p>
                           <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-amber-100/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300">100 Qs</span>
                         </div>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">Key Feature Multi-Select format</p>
@@ -963,9 +964,9 @@ export default function QuestionsPage() {
           value={examTypeFilter}
           onChange={setExamTypeFilter}
           options={[
-            { value: "all", label: "All Formats (AKT & KFT)" },
+            { value: "all", label: "All Formats (AKT & KFP)" },
             { value: "AKT", label: "AKT Questions" },
-            { value: "KFT", label: "KFT Questions" },
+            { value: "KFP", label: "KFP Questions" },
           ]}
           className="w-48"
         />
@@ -1084,11 +1085,11 @@ export default function QuestionsPage() {
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1 items-start">
                       <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
-                        {q.uqid || `${q.examType === "KFP" ? "KFT" : (q.examType || "AKT")}-${String(q.id).padStart(6, "0")}`}
+                        {q.uqid || `${q.examType === "KFP" ? "KFP" : (q.examType || "AKT")}-${String(q.id).padStart(6, "0")}`}
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${q.examType === "KFT" || q.examType === "KFP" ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"}`}>
-                          {q.examType === "KFP" ? "KFT" : (q.examType || "AKT")}
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${q.examType === "KFP" ? "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300" : "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300"}`}>
+                          {q.examType === "KFP" ? "KFP" : (q.examType || "AKT")}
                         </span>
                         {q.version && q.version > 1 && (
                           <span className="text-[9px] font-semibold text-slate-400">
@@ -1150,7 +1151,7 @@ export default function QuestionsPage() {
                           setNewRationale(q.rationale || "");
                           setNewQuestionTags([...q.tags]);
                           setNewImage(q.image || "");
-                          setNewExamType(q.examType === "KFP" ? "KFT" : (q.examType as any) || "AKT");
+                          setNewExamType(q.examType === "KFP" ? "KFP" : (q.examType as any) || "AKT");
                           setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
                           setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
                           setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
@@ -1198,15 +1199,6 @@ export default function QuestionsPage() {
                               title="Archive Question (Soft Delete)"
                             >
                               <Archive className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canRestoreItem && (
-                            <button
-                              onClick={() => handlePermanentlyDeleteQuestion(q)}
-                              className="p-1.5 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all"
-                              title="Delete Question Permanently (IRREVERSIBLE)"
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                         </div>
@@ -1279,7 +1271,7 @@ export default function QuestionsPage() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="font-mono text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-0.5 rounded-lg border border-teal-200/60 dark:border-teal-900/40">
-                      {previewQuestion.uqid || `${previewQuestion.examType === "KFP" ? "KFT" : (previewQuestion.examType || "AKT")}-${String(previewQuestion.id).padStart(6, "0")}`}
+                      {previewQuestion.uqid || `${previewQuestion.examType === "KFP" ? "KFP" : (previewQuestion.examType || "AKT")}-${String(previewQuestion.id).padStart(6, "0")}`}
                     </span>
                     {previewQuestion.version && (
                       <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
@@ -1301,7 +1293,7 @@ export default function QuestionsPage() {
                         setNewRationale(q.rationale || "");
                         setNewQuestionTags([...q.tags]);
                         setNewImage(q.image || "");
-                        setNewExamType(q.examType === "KFP" ? "KFT" : (q.examType as any) || "AKT");
+                        setNewExamType(q.examType === "KFP" ? "KFP" : (q.examType as any) || "AKT");
                         setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
                         setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
                         setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
@@ -1363,17 +1355,17 @@ export default function QuestionsPage() {
                 )}
 
                 {/* Options list */}
-                {(previewQuestion.examType === "KFT" || previewQuestion.examType === "KFP") && (previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount) && (
+                {(previewQuestion.examType === "KFP") && (previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount) && (
                   <div className="mb-4 flex items-center gap-2 p-2.5 bg-teal-50 dark:bg-teal-950/30 rounded-xl border border-teal-200/50 dark:border-teal-900/40">
                     <svg className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
                     <span className="text-xs font-semibold text-teal-800 dark:text-teal-300">
-                      KFT — Select <strong>{previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount}</strong> correct answer{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} · {previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount} mark{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} available
+                      KFP — Select <strong>{previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount}</strong> correct answer{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} · {previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount} mark{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} available
                     </span>
                   </div>
                 )}
                 <div className="space-y-3 mb-6">
                   {previewQuestion.options.map((opt, i) => {
-                    const isKftMode = previewQuestion.examType === "KFT" || previewQuestion.examType === "KFP";
+                    const isKftMode = previewQuestion.examType === "KFP";
                     const correctSet = isKftMode && previewQuestion.correctIndices?.length
                       ? new Set(previewQuestion.correctIndices)
                       : new Set([previewQuestion.correctIndex]);
@@ -1556,7 +1548,7 @@ export default function QuestionsPage() {
                       <div>
                         <label className={`block text-xs font-semibold mb-2 ${themeLabel}`}>Exam Pattern / Format</label>
                         <div className="flex rounded-xl overflow-hidden border divide-x divide-slate-200 dark:divide-slate-700 border-slate-200 dark:border-slate-700">
-                          {(["AKT", "KFT"] as const).map((type) => (
+                          {(["AKT", "KFP"] as const).map((type) => (
                             <button
                               key={type}
                               type="button"
@@ -1571,20 +1563,20 @@ export default function QuestionsPage() {
                                   : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                               }`}
                             >
-                              {type === "AKT" ? "AKT — Single Best Answer" : "KFT — Key Feature Test (Multi-Correct)"}
+                              {type === "AKT" ? "AKT — Single Best Answer" : "KFP — Key Feature Test (Multi-Correct)"}
                             </button>
                           ))}
                         </div>
                       </div>
 
-                      {/* KFT Settings Banner */}
-                      {newExamType === "KFT" && (
+                      {/* KFP Settings Banner */}
+                      {newExamType === "KFP" && (
                         <div className="flex items-center gap-3 p-3.5 bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-900/40 rounded-xl">
                           <svg className="w-5 h-5 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                           </svg>
                           <div className="flex-1">
-                            <span className={`text-xs font-bold ${themeLabel}`}>KFT Correct Option Limit & Marks</span>
+                            <span className={`text-xs font-bold ${themeLabel}`}>KFP Correct Option Limit & Marks</span>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                               How many options the registrar must select. Question total marks = this limit (1 mark per correct answer).
                             </p>
@@ -1616,14 +1608,14 @@ export default function QuestionsPage() {
                           <span className="text-[11px] text-slate-400">Large case narrative</span>
                         </div>
                         <textarea
-                          rows={newExamType === "KFT" ? 8 : 6}
+                          rows={newExamType === "KFP" ? 8 : 6}
                           value={newStem}
                           onChange={(e) => {
                             setNewStem(e.target.value);
                             setNewQuestionText(newLeadIn ? `${e.target.value}\n\n${newLeadIn}` : e.target.value);
                           }}
                           className={`w-full px-4 py-3 text-sm rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[140px]`}
-                          placeholder={newExamType === "KFT" ? "Enter the detailed patient scenario, background, history, lab findings..." : "Enter the clinical vignette or patient presentation..."}
+                          placeholder={newExamType === "KFP" ? "Enter the detailed patient scenario, background, history, lab findings..." : "Enter the clinical vignette or patient presentation..."}
                         />
                       </div>
 
@@ -1793,10 +1785,10 @@ export default function QuestionsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <label className={`block text-xs font-semibold ${themeLabel}`}>
-                            Options {newExamType === "KFT" ? `— Select ${newKfpCorrectCount} correct options (${newCorrectIndices.length}/${newKfpCorrectCount} marked)` : "& Single Correct Answer"}
+                            Options {newExamType === "KFP" ? `— Select ${newKfpCorrectCount} correct options (${newCorrectIndices.length}/${newKfpCorrectCount} marked)` : "& Single Correct Answer"}
                           </label>
                           <p className="text-[11px] text-slate-400 mt-0.5">
-                            {newExamType === "KFT"
+                            {newExamType === "KFP"
                               ? "Tick the checkbox next to each correct option. Each is worth 1 mark."
                               : "Click the radio button to select the single best answer."}
                           </p>
@@ -2119,20 +2111,20 @@ export default function QuestionsPage() {
 
                         <button
                           type="button"
-                          onClick={() => setUploadExamType("KFT")}
+                          onClick={() => setUploadExamType("KFP")}
                           className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            uploadExamType === "KFT"
+                            uploadExamType === "KFP"
                               ? "bg-purple-50/80 dark:bg-purple-950/40 border-purple-500 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm"
                               : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
                           }`}
                         >
                           <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                            uploadExamType === "KFT" ? "bg-purple-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                            uploadExamType === "KFP" ? "bg-purple-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                           }`}>
-                            KFT
+                            KFP
                           </div>
                           <div>
-                            <p className="text-xs font-bold">KFT (Multi-Select)</p>
+                            <p className="text-xs font-bold">KFP (Multi-Select)</p>
                             <p className="text-[10px] opacity-75">Key Feature Test multi-select clinical cases</p>
                           </div>
                         </button>
@@ -2141,17 +2133,17 @@ export default function QuestionsPage() {
 
                     {/* Instructions Card */}
                     <div className={`border rounded-2xl p-4 space-y-3 ${
-                      uploadExamType === "KFT" ? "bg-purple-50/40 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/30" : "bg-teal-50/40 dark:bg-teal-950/10 border-teal-100/50 dark:border-teal-900/30"
+                      uploadExamType === "KFP" ? "bg-purple-50/40 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/30" : "bg-teal-50/40 dark:bg-teal-950/10 border-teal-100/50 dark:border-teal-900/30"
                     }`}>
-                      <div className={`flex items-center gap-2 ${uploadExamType === "KFT" ? "text-purple-800 dark:text-purple-300" : "text-teal-800 dark:text-teal-400"}`}>
+                      <div className={`flex items-center gap-2 ${uploadExamType === "KFP" ? "text-purple-800 dark:text-purple-300" : "text-teal-800 dark:text-teal-400"}`}>
                         <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-xs font-bold uppercase tracking-wider">{uploadExamType} Template & Upload Guidelines</span>
                       </div>
-                      <p className={`text-xs leading-relaxed ${uploadExamType === "KFT" ? "text-purple-950/70 dark:text-purple-300/80" : "text-teal-950/70 dark:text-teal-300/80"}`}>
-                        {uploadExamType === "KFT"
-                          ? "Uploading KFT Questions: Please use the specialized KFT DOCX template. Extracted questions will feature multi-select answer keys, subtopic tags, and 3-zone clinical explanation fields."
+                      <p className={`text-xs leading-relaxed ${uploadExamType === "KFP" ? "text-purple-950/70 dark:text-purple-300/80" : "text-teal-950/70 dark:text-teal-300/80"}`}>
+                        {uploadExamType === "KFP"
+                          ? "Uploading KFP Questions: Please use the specialized KFP DOCX template. Extracted questions will feature multi-select answer keys, subtopic tags, and 3-zone clinical explanation fields."
                           : "Uploading AKT Questions: Please use the standardized AKT DOCX template. Extracted questions will feature single-answer MCQs, clinical stem/lead-in, and core rationale."}
                       </p>
                       <div className="flex items-center gap-2 pt-1">
@@ -2171,7 +2163,7 @@ export default function QuestionsPage() {
                             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-colors inline-flex items-center gap-1.5"
                           >
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12m0 0l-3-3m3 3l3-3" /></svg>
-                            Download KFT Template (.docx)
+                            Download KFP Template (.docx)
                           </a>
                         )}
                       </div>
@@ -2181,7 +2173,7 @@ export default function QuestionsPage() {
                     <div
                       onClick={() => uploadFileInputRef.current?.click()}
                       className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center min-h-[160px] ${
-                        uploadExamType === "KFT"
+                        uploadExamType === "KFP"
                           ? "border-purple-200 dark:border-purple-800 hover:border-purple-500 bg-purple-50/20 dark:bg-purple-950/10"
                           : "border-slate-200 dark:border-slate-700 hover:border-teal-500 bg-slate-50/50 dark:bg-slate-800/30"
                       }`}
@@ -2194,7 +2186,7 @@ export default function QuestionsPage() {
                         multiple
                         className="hidden"
                       />
-                      <svg className={`w-10 h-10 mb-2 ${uploadExamType === "KFT" ? "text-purple-400" : "text-teal-600 dark:text-teal-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className={`w-10 h-10 mb-2 ${uploadExamType === "KFP" ? "text-purple-400" : "text-teal-600 dark:text-teal-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                       </svg>
                       <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -2378,11 +2370,11 @@ export default function QuestionsPage() {
                                     <div className="flex items-center gap-2">
                                       <label className="block text-[11px] font-semibold text-slate-500">Options & Correct Answer</label>
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                        q.examType === "KFT"
+                                        q.examType === "KFP"
                                           ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
                                           : "bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300"
                                       }`}>
-                                        {q.examType === "KFT" ? "Multi-Select (KFT)" : "Single-Choice (AKT)"}
+                                        {q.examType === "KFP" ? "Multi-Select (KFP)" : "Single-Choice (AKT)"}
                                       </span>
                                     </div>
                                     <button
@@ -2407,7 +2399,7 @@ export default function QuestionsPage() {
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              if (q.examType === "KFT") {
+                                              if (q.examType === "KFP") {
                                                 let currentIndices: number[] = q.correctIndices ? [...q.correctIndices] : [q.correctIndex || 0];
                                                 if (currentIndices.includes(oidx)) {
                                                   currentIndices = currentIndices.filter((idx) => idx !== oidx);
@@ -2423,15 +2415,15 @@ export default function QuestionsPage() {
                                               }
                                             }}
                                             className="flex items-center justify-center shrink-0 focus:outline-none"
-                                            title={q.examType === "KFT" ? "Toggle Correct Answer" : "Mark as Correct Answer"}
+                                            title={q.examType === "KFP" ? "Toggle Correct Answer" : "Mark as Correct Answer"}
                                           >
-                                            <div className={`w-5 h-5 ${q.examType === "KFT" ? "rounded-md" : "rounded-full"} border flex items-center justify-center transition-all ${
+                                            <div className={`w-5 h-5 ${q.examType === "KFP" ? "rounded-md" : "rounded-full"} border flex items-center justify-center transition-all ${
                                               isCorrectSelected
                                                 ? "border-teal-600 dark:border-teal-400 bg-teal-600 dark:bg-teal-400 shadow-sm shadow-teal-900/30 text-white"
                                                 : "border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:border-teal-500"
                                             }`}>
                                               {isCorrectSelected && (
-                                                q.examType === "KFT" ? (
+                                                q.examType === "KFP" ? (
                                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                                   </svg>
@@ -2490,7 +2482,7 @@ export default function QuestionsPage() {
                                       onChange={(val) => handleUpdateExtractedQuestion(qidx, "examType", val)}
                                       options={[
                                         { value: "AKT", label: "AKT (Single MCQ)" },
-                                        { value: "KFT", label: "KFT (Multi-Select)" },
+                                        { value: "KFP", label: "KFP (Multi-Select)" },
                                       ]}
                                       className="w-full text-xs"
                                     />

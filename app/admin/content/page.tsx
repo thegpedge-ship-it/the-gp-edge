@@ -10,7 +10,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { AnalyticsCard } from "@/components/admin/AnalyticsCard";
 import { fetchMedicalContent, saveMedicalContent, saveMedicalContentItem, updateMedicalContentItem, MedicalContent } from "@/lib/quizData";
-import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
+import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { uploadToR2 } from "@/lib/r2Client";
 import { toggleLibraryItemFreeStatus } from "@/actions/approach.actions";
@@ -44,6 +44,7 @@ export default function ContentPage() {
     isSubscriber,
     currentAdmin,
   } = useAdminRole();
+  const { units: taxonomyUnits } = useTaxonomy();
   const router = useRouter();
   const [content, setContent] = useState<MedicalContent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,7 +106,7 @@ export default function ContentPage() {
   }, [canRestoreItem]);
 
   const systems = Array.from(
-    new Set([...MASTER_UNITS.map((u) => `${u.code}: ${u.name}`), ...content.map((c) => c.system)])
+    new Set([...taxonomyUnits.map((u) => `${u.code}: ${u.name}`), ...content.map((c) => c.system)])
   );
 
   const filtered = content.filter((c) => {

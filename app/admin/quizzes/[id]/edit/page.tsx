@@ -17,7 +17,7 @@ import {
   getTopics,
   getCustomTags,
 } from "@/lib/quizData";
-import { MASTER_UNITS, MASTER_TOPICS } from "@/lib/taxonomyData";
+import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction } from "@/actions/question.actions";
 import { syncQuizToDbAction, deleteQuizFromDbAction, fetchQuizByDbIdAction } from "@/actions/quiz.actions";
@@ -80,6 +80,7 @@ function compressBase64Image(base64Str: string, maxWidth = 800, quality = 0.7): 
 
 export default function EditQuizPage() {
   const { currentAdmin, isReadOnly } = useAdminRole();
+  const { units: taxonomyUnits, topics: taxonomyTopics } = useTaxonomy();
   const params = useParams();
   const router = useRouter();
   const quizId = params.id as string; // DB UUID
@@ -142,12 +143,12 @@ export default function EditQuizPage() {
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   const topicsList = useMemo(() => {
-    const unitNames = MASTER_UNITS.map((u) => `${u.code}: ${u.name}`);
-    const masterTopicLabels = MASTER_TOPICS.map((t) => `${t.code}: ${t.label}`);
+    const unitNames = taxonomyUnits.map((u) => `${u.code}: ${u.name}`);
+    const masterTopicLabels = taxonomyTopics.map((t) => `${t.code}: ${t.label}`);
     const stored = typeof window !== "undefined" ? getTopics().map(t => t.name) : [];
     const derived = allQuestions.flatMap((q) => q.topic.split(",").map((t) => t.trim()));
     return Array.from(new Set([...unitNames, ...masterTopicLabels, ...stored, ...derived])).filter(Boolean);
-  }, [allQuestions]);
+  }, [allQuestions, taxonomyUnits, taxonomyTopics]);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -182,7 +183,7 @@ export default function EditQuizPage() {
       setPassingScore(dbQuiz.passingScore);
       setStatus("active");
       setExamType(dbQuiz.examType as any);
-      setUploadExamType(dbQuiz.examType === "KFP" || dbQuiz.examType === "KFT" ? "KFP" : "AKT");
+      setUploadExamType(dbQuiz.examType === "KFP" ? "KFP" : "AKT");
       setRandomize(dbQuiz.randomize);
       setAttempts(dbQuiz.attempts || 0);
       setAvgScore(dbQuiz.avgScore || 0);
@@ -675,15 +676,15 @@ export default function EditQuizPage() {
   );
 
   const availableQuestions = useMemo(() => {
-    // Normalise KFP / KFT for matching purposes
-    const quizExamCategory = (examType === 'KFP' || examType === 'KFT') ? 'KFP' : 'AKT';
+    // Normalise KFP / KFP for matching purposes
+    const quizExamCategory = (examType === 'KFP') ? 'KFP' : 'AKT';
 
     return allQuestions.filter((q) => {
       if (q.status !== "published") return false;
       if (questionIds.includes(q.id)) return false;
 
       // ── Filter by exam type ──────────────────────────────────────────────
-      const qExamCategory = (q.examType === 'KFP' || q.examType === 'KFT') ? 'KFP' : 'AKT';
+      const qExamCategory = (q.examType === 'KFP') ? 'KFP' : 'AKT';
       if (qExamCategory !== quizExamCategory) return false;
 
       // Hide static mock question if its database version exists
@@ -1174,11 +1175,11 @@ export default function EditQuizPage() {
                 <div className="flex items-center gap-2">
                   <h3 className={`text-sm font-bold ${themeText}`}>Question Bank</h3>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    (examType === 'KFT' || examType === 'KFP')
+                    (examType === 'KFP')
                       ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300'
                       : 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300'
                   }`}>
-                    {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} only
+                    {(examType === 'KFP') ? 'KFP' : 'AKT'} only
                   </span>
                   <span className={`text-xs ${themeMuted}`}>{availableQuestions.length} available</span>
                 </div>
@@ -1214,8 +1215,8 @@ export default function EditQuizPage() {
             <div className="divide-y divide-teal-50 dark:divide-teal-900/20 max-h-[400px] overflow-y-auto">
               {availableQuestions.length === 0 ? (
                 <div className="p-6 text-center space-y-1">
-                  <p className={`text-sm ${themeMuted}`}>No {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} questions available.</p>
-                  <p className={`text-xs ${themeMuted} opacity-70`}>Upload questions via the Upload button above to add {(examType === 'KFT' || examType === 'KFP') ? 'KFP' : 'AKT'} questions to the bank.</p>
+                  <p className={`text-sm ${themeMuted}`}>No {(examType === 'KFP') ? 'KFP' : 'AKT'} questions available.</p>
+                  <p className={`text-xs ${themeMuted} opacity-70`}>Upload questions via the Upload button above to add {(examType === 'KFP') ? 'KFP' : 'AKT'} questions to the bank.</p>
                 </div>
               ) : (
                 availableQuestions.map((q) => (

@@ -12,7 +12,7 @@ export interface Quiz {
   attempts: number;
   avgScore: number;
   status: QuizStatus;
-  examType: "AKT" | "KFT" | "KFP" | "Mixed";
+  examType: "AKT" | "KFP" | "KFP" | "Mixed";
   randomize: boolean;
   isFree?: boolean;
   questionLimit: number;
@@ -26,11 +26,11 @@ export interface Question {
   id: number;
   dbId?: string;
 
-  /** Permanent unique ID — never changes across versions. e.g. "AKT-000142" or "KFT-000087" */
+  /** Permanent unique ID — never changes across versions. e.g. "AKT-000142" or "KFP-000087" */
   uqid?: string;
 
   // ── Zone 1: Stem ──────────────────────────────────────────────────────────
-  /** Case / scenario context (the vignette). For KFT this is typically long. */
+  /** Case / scenario context (the vignette). For KFP this is typically long. */
   stem?: string;
   /** The actual question sentence (the "leadIn"). */
   leadIn?: string;
@@ -44,9 +44,9 @@ export interface Question {
   options: string[];
   /** AKT: single correct index (backward compat) */
   correctIndex: number;
-  /** KFT / multi-select: all correct option indices */
+  /** KFP / multi-select: all correct option indices */
   correctIndices?: number[];
-  /** KFT: how many options the user may select (= max marks for this question) */
+  /** KFP: how many options the user may select (= max marks for this question) */
   kftCorrectCount?: number;
   /** Backward-compat alias for kftCorrectCount */
   kfpCorrectCount?: number;
@@ -75,7 +75,7 @@ export interface Question {
   subject?: string;
   topicCode?: string;
   difficulty: "Easy" | "Medium" | "Hard";
-  examType: "AKT" | "KFT" | "KFP";
+  examType: "AKT" | "KFP" | "KFP";
   status: "draft" | "review" | "published" | "archived";
   tags: string[];
 }

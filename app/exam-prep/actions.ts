@@ -150,7 +150,7 @@ const DIFFICULTY_LABEL: Record<difficulty_level, UiDifficulty> = {
 function examCodeFromTarget(target: string | null | undefined): string {
   if (!target) return "AKT";
   const t = target.toUpperCase();
-  if (t.includes("KFT")) return "KFT";
+  if (t.includes("KFP")) return "KFP";
   if (t.includes("KFP")) return "KFP";
   return "AKT";
 }
@@ -174,8 +174,8 @@ function majorityDifficulty(diffs: difficulty_level[]): UiDifficulty {
 export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -228,8 +228,8 @@ export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSu
 export async function getSubtopics(subjectId: string, overrideExamCode?: string): Promise<ExamSubtopic[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -268,8 +268,8 @@ export async function getSubtopics(subjectId: string, overrideExamCode?: string)
  * ========================================================================== */
 export async function getQuizzesForSubtopic(subtopicId: string, overrideExamCode?: string): Promise<ExamQuiz[]> {
   const examCode = overrideExamCode;
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -422,7 +422,7 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         .map((o: any, i: number) => (o.is_correct ? i : -1))
         .filter((i: number) => i >= 0);
       const correctIndex = correctIndices[0] >= 0 ? correctIndices[0] : 0;
-      const isKft = (q.exam_type_code || "").toUpperCase() === "KFT" || (q.exam_type_code || "").toUpperCase() === "KFP";
+      const isKft = (q.exam_type_code || "").toUpperCase() === "KFP" || (q.exam_type_code || "").toUpperCase() === "KFP";
       const kfpCorrectCount = isKft
         ? (q.kfp_correct_count != null ? Number(q.kfp_correct_count) : correctIndices.length || 1)
         : undefined;
@@ -534,7 +534,7 @@ export async function saveQuizAttempt(input: SaveAttemptInput): Promise<SaveAtte
     const flags = correctByRank.get(qid) ?? [];
     const correctSet = new Set(flags.map((isC, i) => (isC ? i : -1)).filter((i) => i >= 0));
     const qExamType = examTypeByQ.get(qid) || "AKT";
-    const isKfp = qExamType === "KFP" || qExamType === "KFT";
+    const isKfp = qExamType === "KFP";
 
     if (isKfp) {
       const maxMarks = correctSet.size || 1;
@@ -754,8 +754,8 @@ export interface ExamTreeSubject extends ExamSubject {
 export async function getExamTree(overrideExamCode?: string): Promise<ExamTreeSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
   const examFilter = examCodes ? { exam_type_code: { in: examCodes } } : {};
@@ -833,8 +833,8 @@ export async function buildCustomQuestionSet(params: {
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
   const examCode = params.examCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -879,8 +879,8 @@ export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<n
   const dbUser = await ensureDbUser();
   if (!dbUser) return 0;
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -909,8 +909,8 @@ export async function buildMockDrillQuestionSet(params: {
   const dbUser = await ensureDbUser();
   if (!dbUser) return { name: "Mock Drill", questionIds: [] };
   const examCode = params.examCode ?? examCodeFromTarget(dbUser.exam_target);
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 
@@ -966,10 +966,10 @@ export async function getMockTests(overrideExamCode?: string): Promise<UiMockTes
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
 
-  // KFT and KFP are the same exam family — match both in the DB so that
-  // quizzes tagged with either code appear under the user's KFP/KFT toggle.
-  const kftFamily = ["KFP", "KFT"];
-  const examCodes = examCode && (examCode === "KFP" || examCode === "KFT")
+  // KFP and KFP are the same exam family — match both in the DB so that
+  // quizzes tagged with either code appear under the user's KFP/KFP toggle.
+  const kftFamily = ["KFP"];
+  const examCodes = examCode && (examCode === "KFP")
     ? kftFamily
     : examCode ? [examCode] : null;
 

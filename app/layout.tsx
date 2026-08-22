@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   keywords: [
     "GP registrar",
     "AKT exam",
-    "KFT exam",
+    "KFP exam",
     "medical exam prep",
     "MBS billing",
     "clinical templates",
