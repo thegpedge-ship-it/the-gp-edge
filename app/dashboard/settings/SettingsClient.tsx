@@ -517,6 +517,7 @@ export default function SettingsClient({
       <FadeIn delay={0.12}>
         <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
           <ProfileBillingCard
+            compact={true}
             accessLevel={accessInfo?.accessLevel ?? "FREE"}
             hasPaidAccess={accessInfo?.hasPaidAccess ?? false}
             isRegistrarActive={accessInfo?.isRegistrarActive ?? false}

@@ -15,6 +15,7 @@ interface Props {
   isRecurring?: boolean;
   showDownloadInvoice?: boolean;
   showCancelSubscription?: boolean;
+  compact?: boolean;
 }
 
 export default function ProfileBillingCard({
@@ -27,6 +28,7 @@ export default function ProfileBillingCard({
   isRecurring,
   showDownloadInvoice = true,
   showCancelSubscription = true,
+  compact = false,
 }: Props) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,10 +77,10 @@ export default function ProfileBillingCard({
     : null;
 
   return (
-    <div className="p-6 h-full flex flex-col justify-between gap-4">
+    <div className={`p-5 sm:p-6 flex flex-col justify-between ${compact ? "gap-3.5" : "h-full gap-4"}`}>
       {/* Card Header */}
       <div>
-        <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1.5">
+        <h3 className="font-sans text-lg md:text-[22px] font-semibold leading-snug text-slate-900 dark:text-slate-100 mb-1">
           Billing &amp; Subscription
         </h3>
         <p className="font-sans text-[13px] text-slate-500 dark:text-slate-400">
@@ -87,7 +89,7 @@ export default function ProfileBillingCard({
       </div>
 
       {/* Content directly on card baseline */}
-      <div className="flex-1 flex flex-col justify-around py-1 gap-3">
+      <div className={`flex flex-col ${compact ? "gap-3" : "flex-1 justify-around py-1 gap-3"}`}>
         <div>
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <p className="font-sans text-[11px] font-semibold tracking-wider uppercase text-slate-500">
@@ -111,7 +113,7 @@ export default function ProfileBillingCard({
           </h4>
         </div>
 
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800/85">
+        <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/85">
           <p className="font-sans text-[11px] font-semibold tracking-wider uppercase text-slate-500 mb-1">
             {isRecurring && !cancelAtPeriodEnd ? "Renewal Date" : "Expiration Date"}
           </p>
@@ -131,7 +133,7 @@ export default function ProfileBillingCard({
 
         {/* Action Buttons if available */}
         {(showDownloadInvoice || (showCancelSubscription && isRecurring)) && (
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800/85 flex flex-col sm:flex-row items-center justify-end gap-2.5 w-full">
+          <div className="pt-2.5 border-t border-slate-100 dark:border-slate-800/85 flex flex-col sm:flex-row items-center justify-end gap-2.5 w-full">
             {showDownloadInvoice && (
               <button
                 type="button"
