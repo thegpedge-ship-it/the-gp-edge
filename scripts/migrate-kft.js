@@ -6,21 +6,21 @@ async function run() {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('CREATE SEQUENCE IF NOT EXISTS kft_seq START 1');
+    await client.query('CREATE SEQUENCE IF NOT EXISTS kfp_seq START 1');
     await client.query(`
       INSERT INTO exam_types (code, name) 
-      VALUES ('KFT', 'Key Feature Test') 
+      VALUES ('KFP', 'Key Feature Problem') 
       ON CONFLICT (code) DO NOTHING
     `);
-    // Update any questions with KFP prefix or exam_type_code to KFT
     const res = await client.query(`
       UPDATE questions 
-      SET uqid = REPLACE(uqid, 'KFP-', 'KFT-'),
-          exam_type_code = 'KFT'
-      WHERE exam_type_code = 'KFP' OR uqid LIKE 'KFP-%'
+      SET uqid = REPLACE(uqid, 'KFT-', 'KFP-'),
+          exam_type_code = 'KFP'
+      WHERE exam_type_code = 'KFT' OR uqid LIKE 'KFT-%'
     `);
+    await client.query(`DELETE FROM exam_types WHERE code = 'KFT'`);
     await client.query('COMMIT');
-    console.log(`✅ KFT sequence created and ${res.rowCount} rows updated from KFP to KFT.`);
+    console.log(`✅ KFP sequence verified and ${res.rowCount} rows updated from KFT to KFP.`);
   } catch(e) {
     await client.query('ROLLBACK');
     console.error('Error:', e.message);

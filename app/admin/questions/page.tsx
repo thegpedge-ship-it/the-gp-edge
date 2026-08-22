@@ -439,7 +439,6 @@ export default function QuestionsPage() {
       options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
       correctIndex,
       correctIndices: newExamType === "KFP" ? newCorrectIndices : undefined,
-      kftCorrectCount: newExamType === "KFP" ? newKfpCorrectCount : undefined,
       kfpCorrectCount: newExamType === "KFP" ? newKfpCorrectCount : undefined,
       rationale: newWhyCorrect || newRationale || "No explanation provided.",
       whyCorrect: newWhyCorrect || undefined,
@@ -699,14 +698,13 @@ export default function QuestionsPage() {
           ? q.tags.map((t: string) => t.trim()).filter(Boolean)
           : ["General"];
         const resolvedExamType = q.examType || (q.correctIndices && q.correctIndices.length > 1 ? "KFP" : "AKT");
-        const correctCount = q.kftCorrectCount || q.kfpCorrectCount || (q.correctIndices && q.correctIndices.length > 1 ? q.correctIndices.length : 1);
+        const correctCount = q.kfpCorrectCount || q.kftCorrectCount || (q.correctIndices && q.correctIndices.length > 1 ? q.correctIndices.length : 1);
         const newQ = {
           ...q,
           id: nextId++,
           topic: q.topic ? q.topic.trim() : "General",
           difficulty: q.difficulty || "Medium",
           examType: resolvedExamType,
-          kftCorrectCount: correctCount,
           kfpCorrectCount: correctCount,
           correctIndices: q.correctIndices || [q.correctIndex || 0],
           tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
@@ -872,7 +870,7 @@ export default function QuestionsPage() {
                     </a>
 
                     <a
-                      href="/templates/kft_template.docx?v=1"
+                      href="/templates/kfp_template.docx?v=1"
                       download
                       onClick={() => setShowDownloadDropdown(false)}
                       className="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-amber-50 dark:hover:bg-amber-950/40 text-slate-800 dark:text-slate-200 transition-colors group"
@@ -1152,7 +1150,7 @@ export default function QuestionsPage() {
                           setNewQuestionTags([...q.tags]);
                           setNewImage(q.image || "");
                           setNewExamType(q.examType === "KFP" ? "KFP" : (q.examType as any) || "AKT");
-                          setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
+                          setNewKfpCorrectCount(q.kfpCorrectCount || q.kftCorrectCount || q.correctIndices?.length || 3);
                           setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
                           setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                           setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
@@ -1294,7 +1292,7 @@ export default function QuestionsPage() {
                         setNewQuestionTags([...q.tags]);
                         setNewImage(q.image || "");
                         setNewExamType(q.examType === "KFP" ? "KFP" : (q.examType as any) || "AKT");
-                        setNewKfpCorrectCount(q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3);
+                        setNewKfpCorrectCount(q.kfpCorrectCount || q.kftCorrectCount || q.correctIndices?.length || 3);
                         setNewCorrectIndices(q.correctIndices && q.correctIndices.length > 0 ? [...q.correctIndices] : [q.correctIndex ?? 0]);
                         setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                         setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
@@ -1355,18 +1353,18 @@ export default function QuestionsPage() {
                 )}
 
                 {/* Options list */}
-                {(previewQuestion.examType === "KFP") && (previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount) && (
+                {(previewQuestion.examType === "KFP") && (previewQuestion.kfpCorrectCount || previewQuestion.kftCorrectCount) && (
                   <div className="mb-4 flex items-center gap-2 p-2.5 bg-teal-50 dark:bg-teal-950/30 rounded-xl border border-teal-200/50 dark:border-teal-900/40">
                     <svg className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
                     <span className="text-xs font-semibold text-teal-800 dark:text-teal-300">
-                      KFP — Select <strong>{previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount}</strong> correct answer{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} · {previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount} mark{(previewQuestion.kftCorrectCount || previewQuestion.kfpCorrectCount || 1) > 1 ? "s" : ""} available
+                      KFP — Select <strong>{previewQuestion.kfpCorrectCount || previewQuestion.kftCorrectCount}</strong> correct answer{(previewQuestion.kfpCorrectCount || previewQuestion.kftCorrectCount || 1) > 1 ? "s" : ""} · {previewQuestion.kfpCorrectCount || previewQuestion.kftCorrectCount} mark{(previewQuestion.kfpCorrectCount || previewQuestion.kftCorrectCount || 1) > 1 ? "s" : ""} available
                     </span>
                   </div>
                 )}
                 <div className="space-y-3 mb-6">
                   {previewQuestion.options.map((opt, i) => {
-                    const isKftMode = previewQuestion.examType === "KFP";
-                    const correctSet = isKftMode && previewQuestion.correctIndices?.length
+                    const isKfpMode = previewQuestion.examType === "KFP";
+                    const correctSet = isKfpMode && previewQuestion.correctIndices?.length
                       ? new Set(previewQuestion.correctIndices)
                       : new Set([previewQuestion.correctIndex]);
                     const isCorrect = correctSet.has(i);
@@ -1383,7 +1381,7 @@ export default function QuestionsPage() {
                       >
                         <div className="flex items-center gap-4">
                           <div
-                            className={`w-7 h-7 ${isKftMode ? "rounded" : "rounded-full"} border flex items-center justify-center font-bold text-xs shrink-0 transition-all duration-300 ${
+                            className={`w-7 h-7 ${isKfpMode ? "rounded" : "rounded-full"} border flex items-center justify-center font-bold text-xs shrink-0 transition-all duration-300 ${
                               isCorrect
                                 ? "bg-teal-800 border-teal-700 text-white shadow-sm shadow-teal-900/25"
                                 : `${themeSurface} border-teal-200/70 dark:border-teal-900/40 text-teal-800 dark:text-teal-400`
@@ -1394,7 +1392,7 @@ export default function QuestionsPage() {
                           <span className="text-sm font-semibold flex-1">{opt}</span>
                           {isCorrect && (
                             <div className="flex items-center gap-1.5 ml-auto shrink-0">
-                              {isKftMode && (
+                              {isKfpMode && (
                                 <span className="text-[10px] font-bold text-teal-700 dark:text-teal-400 bg-teal-100 dark:bg-teal-900/40 px-1.5 py-0.5 rounded">+1</span>
                               )}
                               <svg className="w-5 h-5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2158,7 +2156,7 @@ export default function QuestionsPage() {
                           </a>
                         ) : (
                           <a
-                            href="/templates/kft_template.docx?v=1"
+                            href="/templates/kfp_template.docx?v=1"
                             download
                             className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-300 hover:bg-purple-200 transition-colors inline-flex items-center gap-1.5"
                           >

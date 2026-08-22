@@ -87,7 +87,6 @@ export interface QuizQuestion {
   options: string[];
   correctIndex: number;
   correctIndices: number[];
-  kftCorrectCount?: number;
   kfpCorrectCount?: number;
   rationale: string;
   whyCorrect?: string;
@@ -174,10 +173,7 @@ function majorityDifficulty(diffs: difficulty_level[]): UiDifficulty {
 export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   // Published-question counts per subject (optionally for this exam type).
   const questionWhere = {
@@ -228,10 +224,7 @@ export async function getExamSubjects(overrideExamCode?: string): Promise<ExamSu
 export async function getSubtopics(subjectId: string, overrideExamCode?: string): Promise<ExamSubtopic[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   const [subtopics, qCounts] = await Promise.all([
     prisma.subtopics.findMany({
@@ -268,10 +261,7 @@ export async function getSubtopics(subjectId: string, overrideExamCode?: string)
  * ========================================================================== */
 export async function getQuizzesForSubtopic(subtopicId: string, overrideExamCode?: string): Promise<ExamQuiz[]> {
   const examCode = overrideExamCode;
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   const quizzes = await prisma.quizzes.findMany({
     where: {
@@ -422,8 +412,8 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         .map((o: any, i: number) => (o.is_correct ? i : -1))
         .filter((i: number) => i >= 0);
       const correctIndex = correctIndices[0] >= 0 ? correctIndices[0] : 0;
-      const isKft = (q.exam_type_code || "").toUpperCase() === "KFP" || (q.exam_type_code || "").toUpperCase() === "KFP";
-      const kfpCorrectCount = isKft
+      const isKfp = (q.exam_type_code || "").toUpperCase() === "KFP";
+      const kfpCorrectCount = isKfp
         ? (q.kfp_correct_count != null ? Number(q.kfp_correct_count) : correctIndices.length || 1)
         : undefined;
 
@@ -440,7 +430,6 @@ export async function getQuestionsByIds(ids: string[]): Promise<QuizQuestion[]> 
         options,
         correctIndex,
         correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
-        kftCorrectCount: kfpCorrectCount,
         kfpCorrectCount,
         rationale: q.why_correct || q.rationale || "",
         whyCorrect: q.why_correct ?? undefined,
@@ -754,10 +743,7 @@ export interface ExamTreeSubject extends ExamSubject {
 export async function getExamTree(overrideExamCode?: string): Promise<ExamTreeSubject[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
   const examFilter = examCodes ? { exam_type_code: { in: examCodes } } : {};
 
   const [subjects, subtopics, qBySubject, qBySubtopic] = await Promise.all([
@@ -833,10 +819,7 @@ export async function buildCustomQuestionSet(params: {
 }): Promise<CustomQuestionSet> {
   const dbUser = await ensureDbUser();
   const examCode = params.examCode ?? examCodeFromTarget(dbUser?.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   const rows = await prisma.questions.findMany({
     where: {
@@ -879,10 +862,7 @@ export async function getMockDrillPoolSize(overrideExamCode?: string): Promise<n
   const dbUser = await ensureDbUser();
   if (!dbUser) return 0;
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: {
@@ -909,10 +889,7 @@ export async function buildMockDrillQuestionSet(params: {
   const dbUser = await ensureDbUser();
   if (!dbUser) return { name: "Mock Drill", questionIds: [] };
   const examCode = params.examCode ?? examCodeFromTarget(dbUser.exam_target);
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   const weakSubjects = await prisma.user_subject_mastery.findMany({
     where: {
@@ -965,13 +942,7 @@ export interface UiMockTest {
 export async function getMockTests(overrideExamCode?: string): Promise<UiMockTest[]> {
   const dbUser = await ensureDbUser();
   const examCode = overrideExamCode ?? examCodeFromTarget(dbUser?.exam_target);
-
-  // KFP and KFP are the same exam family — match both in the DB so that
-  // quizzes tagged with either code appear under the user's KFP/KFP toggle.
-  const kftFamily = ["KFP"];
-  const examCodes = examCode && (examCode === "KFP")
-    ? kftFamily
-    : examCode ? [examCode] : null;
+  const examCodes = examCode ? [examCode] : null;
 
   let tests: any[] = [];
   try {

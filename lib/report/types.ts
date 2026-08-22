@@ -14,7 +14,6 @@ export interface ReportQuestion {
   /** Selected option indices for KFP. */
   selectedIndices: number[];
   examType?: string | null;
-  kftCorrectCount?: number;
   kfpCorrectCount?: number;
   earnedMarks?: number;
   maxMarks?: number;

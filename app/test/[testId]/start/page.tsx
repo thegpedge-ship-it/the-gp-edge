@@ -634,9 +634,9 @@ export default function TestPage() {
   const selectOption = (optionIndex: number) => {
     const q = questions[current];
     if (!q) return;
-    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
-    const maxSelectable = isKft
-      ? (q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 3)
+    const isKfp = (q.examType || "").toUpperCase() === "KFP";
+    const maxSelectable = isKfp
+      ? (q.kfpCorrectCount || q.correctIndices?.length || 3)
       : 1;
 
     if (maxSelectable <= 1) {
@@ -789,10 +789,10 @@ export default function TestPage() {
 
     questions.forEach((q, i) => {
       const ans = answers[i];
-      const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
-      if (isKft) {
+      const isKfp = (q.examType || "").toUpperCase() === "KFP";
+      if (isKfp) {
         const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
-        const maxMarks = q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1;
+        const maxMarks = q.kfpCorrectCount || q.correctIndices?.length || 1;
         totalPossibleMarks += maxMarks;
         const sel = ans ?? [];
         const earned = sel.filter((idx) => correctSet.has(idx)).length;
@@ -1169,9 +1169,9 @@ export default function TestPage() {
 
               {/* Options List */}
               {(() => {
-                const isKft = (question.examType || "").toUpperCase() === "KFP" || (question.examType || "").toUpperCase() === "KFP";
-                const kfpLimit = isKft
-                  ? (question.kftCorrectCount || question.kfpCorrectCount || question.correctIndices?.length || 3)
+                const isKfp = (question.examType || "").toUpperCase() === "KFP";
+                const kfpLimit = isKfp
+                  ? (question.kfpCorrectCount || question.correctIndices?.length || 3)
                   : 1;
                 const sel = answers[current] ?? [];
                 const selCount = sel.length;
@@ -1179,7 +1179,7 @@ export default function TestPage() {
 
                 return (
                   <div className="space-y-3 max-w-4xl">
-                    {isKft && (
+                    {isKfp && (
                       <div className="flex items-center gap-2 p-3 bg-teal-50/80 dark:bg-teal-950/40 rounded-xl border border-teal-200/70 dark:border-teal-900/50 text-xs font-bold text-teal-900 dark:text-teal-200">
                         <svg className="w-4 h-4 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -1212,7 +1212,7 @@ export default function TestPage() {
                                 : "border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 group-hover:border-teal-300 dark:group-hover:border-teal-700 group-hover:text-teal-700 dark:group-hover:text-teal-300"
                             }`}
                           >
-                            {isKft && isSelected ? (
+                            {isKfp && isSelected ? (
                               <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                               </svg>

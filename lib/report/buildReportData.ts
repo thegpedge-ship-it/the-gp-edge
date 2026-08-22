@@ -30,17 +30,17 @@ export function buildReportData(params: {
     const selectedIndices = answers[i] ?? [];
     const selectedIndex = selectedIndices[0] ?? null;
     const isAttempted = selectedIndices.length > 0;
-    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
+    const isKfp = (q.examType || "").toUpperCase() === "KFP";
 
     if (isAttempted) attemptedCount++;
 
     let earnedMarks = 0;
-    const maxMarks = isKft ? (q.kftCorrectCount || q.kfpCorrectCount || q.correctIndices?.length || 1) : 1;
+    const maxMarks = isKfp ? (q.kfpCorrectCount || q.correctIndices?.length || 1) : 1;
     totalPossible += maxMarks;
 
     const correctIndices = q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex];
 
-    if (isKft) {
+    if (isKfp) {
       earnedMarks = selectedIndices.filter((idx) => correctIndices.includes(idx)).length;
     } else {
       if (selectedIndex === q.correctIndex) {
@@ -58,8 +58,7 @@ export function buildReportData(params: {
       selectedIndex,
       selectedIndices,
       examType: q.examType,
-      kftCorrectCount: q.kftCorrectCount || q.kfpCorrectCount,
-      kfpCorrectCount: q.kftCorrectCount || q.kfpCorrectCount,
+      kfpCorrectCount: q.kfpCorrectCount,
       earnedMarks,
       maxMarks,
       rationale: q.rationale,

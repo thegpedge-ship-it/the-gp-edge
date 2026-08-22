@@ -47,9 +47,9 @@ export interface Question {
   /** KFP / multi-select: all correct option indices */
   correctIndices?: number[];
   /** KFP: how many options the user may select (= max marks for this question) */
-  kftCorrectCount?: number;
-  /** Backward-compat alias for kftCorrectCount */
   kfpCorrectCount?: number;
+  /** Legacy alias for kfpCorrectCount */
+  kftCorrectCount?: number;
   /** Explanation for why the keyed answer is correct */
   whyCorrect?: string;
   /** Backward-compat alias for whyCorrect */

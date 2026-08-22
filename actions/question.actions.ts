@@ -138,12 +138,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       // Ensure exam type exists
       const examTypeKey = examTypeCode.toUpperCase();
       if (!examTypeSet.has(examTypeKey)) {
-        const isKft = examTypeCode === "KFP";
+        const isKfp = examTypeCode === "KFP";
         const examName =
           examTypeCode === "AKT"
             ? "Applied Knowledge Test"
-            : isKft
-            ? "Key Feature Test"
+            : isKfp
+            ? "Key Feature Problem"
             : examTypeCode;
         await execute(
           `INSERT INTO exam_types (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
@@ -292,8 +292,8 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
             throw new Error(permCheck.reason || "Permission denied for updating question.");
           }
         }
-        const isKftOrKfp = examTypeCode === "KFP";
-        const correctCount = isKftOrKfp ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null;
+        const isKfp = examTypeCode === "KFP";
+        const correctCount = isKfp ? (q.kfpCorrectCount ?? q.kftCorrectCount ?? null) : null;
 
         // Fetch current question's exam_type_code and uqid to see if exam type changed
         const currentQ = await queryOne<{ exam_type_code: string; uqid: string }>(
@@ -308,7 +308,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
 
         if (currentQ && (currentExamType !== targetExamType || (currentQ.uqid && !currentQ.uqid.startsWith(targetExamType)))) {
           // Exam type changed (e.g. AKT -> KFP or KFP -> AKT): allocate a new sequential UQID with target prefix
-          const targetSeq = targetExamType === "KFP" ? "kft_seq" : "akt_seq";
+          const targetSeq = targetExamType === "KFP" ? "kfp_seq" : "akt_seq";
           const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${targetSeq}') AS n`);
           const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
           finalUqid = `${targetExamType}-${seqNum}`;
@@ -344,8 +344,8 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         });
       } else {
         // Auto-generate UQID using DB sequence
-        const isKftOrKfpNew = examTypeCode === "KFP";
-        const seqName = isKftOrKfpNew ? "kft_seq" : "akt_seq";
+        const isKfpNew = examTypeCode === "KFP";
+        const seqName = isKfpNew ? "kfp_seq" : "akt_seq";
         const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${seqName}') AS n`);
         const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
         finalUqid = `${examTypeCode.toUpperCase()}-${seqNum}`;
@@ -362,7 +362,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
            RETURNING id`,
           [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status, examTypeCode,
            subjectId, subtopicId, imageFileId,
-           isKftOrKfpNew ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null,
+           isKfpNew ? (q.kfpCorrectCount ?? q.kftCorrectCount ?? null) : null,
            finalUqid,
            q.leadIn || null, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,

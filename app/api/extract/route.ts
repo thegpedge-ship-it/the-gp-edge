@@ -2612,7 +2612,6 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       correctIndex,
       correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
       kfpCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
-      kftCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
       whyCorrect: cleanedWhyCorrect,
       distractorRationales: finalDistractorRationales,
       knowledgeBank,
