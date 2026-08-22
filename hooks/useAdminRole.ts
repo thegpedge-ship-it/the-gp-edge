@@ -17,10 +17,10 @@ export interface AdminProfile {
 export function useAdminRole() {
   const [currentAdmin, setCurrentAdmin] = useState<AdminProfile>({
     id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-    name: "GPEDGE Admin",
+    name: "Super Admin",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    initials: "SU",
+    initials: "SA",
     roles: ["SA"],
     status: "active",
     permissions: [
@@ -65,11 +65,26 @@ export function useAdminRole() {
           credsList = [];
         }
 
+        // Migrate any previous "GPEDGE Founder" or "GPEDGE Admin" names to "Super Admin"
+        let credsUpdated = false;
+        credsList = credsList.map((u) => {
+          if (u.username === "siddhant_super" || u.id === "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00" || (u.name && u.name.includes("GPEDGE"))) {
+            if (u.name !== "Super Admin") {
+              credsUpdated = true;
+              return { ...u, name: "Super Admin" };
+            }
+          }
+          return u;
+        });
+        if (credsUpdated) {
+          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(credsList));
+        }
+
         if (!credsList || credsList.length === 0 || !credsList.find((u) => u.username === "siddhant_super")) {
           const defaultCreds = [
             {
               id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-              name: "GPEDGE Founder (SA / CE / OM)",
+              name: "Super Admin",
               username: "siddhant_super",
               role: "Super Admin",
               roles: ["SA", "CE", "OM"],
@@ -135,9 +150,11 @@ export function useAdminRole() {
             ];
           }
 
+          const resolvedName = (foundUser.name && !foundUser.name.includes("GPEDGE")) ? foundUser.name : "Super Admin";
+
           setCurrentAdmin({
             id: foundUser.id,
-            name: foundUser.name,
+            name: resolvedName,
             email: foundUser.email,
             role: foundUser.role || userRoles[0] || "Super Admin",
             roles: userRoles,

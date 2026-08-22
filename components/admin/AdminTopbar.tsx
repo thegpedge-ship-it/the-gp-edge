@@ -46,11 +46,15 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
   const profileRef = useRef<HTMLDivElement>(null);
 
   const { currentAdmin } = useAdminRole();
-  const initials = currentAdmin.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
+  const initials =
+    currentAdmin.name
+      .replace(/[^a-zA-Z\s]/g, "")
+      .trim()
+      .split(/\s+/)
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "SA";
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
