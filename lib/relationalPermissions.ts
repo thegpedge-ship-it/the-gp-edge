@@ -77,7 +77,9 @@ export type Capability =
   | "triage_error_report"
   | "view_item_performance_analytics"
   | "configure_analytics_thresholds"
-  | "view_item_provenance";
+  | "view_item_provenance"
+  | "delete_audit_log"
+  | "write_audit_log";
 
 export type ItemType =
   | "question"
@@ -265,7 +267,11 @@ export async function evaluateRelationalPermission(params: {
   }
 
   // 2. ABSOLUTE DATABASE APPEND-ONLY AUDIT LOG IMMUTABILITY CHECK
-  if ((item && item.type === "audit_log") || capability === "edit_audit_log") {
+  if (
+    (item && item.type === "audit_log") ||
+    capability === "edit_audit_log" ||
+    capability === "delete_audit_log"
+  ) {
     if (capability !== "read") {
       return {
         allowed: false,
@@ -273,6 +279,14 @@ export async function evaluateRelationalPermission(params: {
         reason: "Section 3G Rule Violation: Audit logs are strictly append-only. No role, including Super Admin, can edit or delete an audit log entry.",
       };
     }
+  }
+
+  if (capability === "write_audit_log") {
+    return {
+      allowed: false,
+      code: "ROLE_DENIED",
+      reason: "Section 3G Rule Violation: Audit logs are system-written only. No user role writes directly.",
+    };
   }
 
   // 3. RULE R13: SUBMITTED RUBRIC IMMUTABILITY CHECK
