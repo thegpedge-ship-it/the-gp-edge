@@ -5,7 +5,6 @@ import CountdownCard from "@/components/dashboard/CountdownCard";
 import MasteryScoresSection from "@/components/dashboard/MasteryScoresSection";
 import WeakStrongTopicsCard from "@/components/dashboard/WeakStrongTopicsCard";
 import ActivityHeatmapCard from "@/components/dashboard/ActivityHeatmapCard";
-import QuickAccessCard from "@/components/dashboard/QuickAccessCard";
 import { getDashboardData } from "./actions";
 
 // Always compute per-request — the dashboard is a live, per-user view.
@@ -92,10 +91,6 @@ export default async function DashboardPage() {
 
       <section className="mb-6">
         <WeakStrongTopicsCard weakTopics={weakTopics} strongTopics={strongTopics} />
-      </section>
-
-      <section className="mb-6">
-        <QuickAccessCard quickAccess={quickAccess} />
       </section>
     </>
   );
