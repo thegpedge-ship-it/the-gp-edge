@@ -1328,10 +1328,31 @@ function convertTextCallouts(html: string): string {
     (match: string, _tag: string, _attrs: string, content: string) => {
       const plainText = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
 
-      const isPearl   = /(?:key\s*point|pearl|clinical\s*pearl)/i.test(plainText);
-      const isWarning = /(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert)/i.test(plainText) && !isPearl;
-      const isImportant = /(?:important|key\s*diagnostic\s*rule|key\s*rule|diagnostic\s*rule|attention|note\s*:)/i.test(plainText) && !isPearl && !isWarning;
-      const isMbs     = /(?:billing|mbs)/i.test(plainText);
+      // Symbol-based detection
+      const hasWarningSymbol = /[⚠⚠️🚨]/.test(content);
+      const hasImportantSymbol = /[⚡💡📌]/.test(content);
+      const hasPearlSymbol = /[✅☑⭐]/.test(content);
+
+      // Keyword & title matching
+      const isPearl =
+        hasPearlSymbol ||
+        /(?:key\s*points?|clinical\s*pearls?|pearls?)/i.test(plainText);
+
+      const isWarning =
+        !isPearl &&
+        (hasWarningSymbol ||
+          /(?:contraindications?|immediate\s*referral|urgent\s*referral|red\s*flags?|emergency\s*referral|send\s*to\s*emergency|refer\s*urgently|avoid\s*opioids|imaging\s*required|verapamil|gca\s*[-—]|drugs\s*harmful|harmful\s*in|beta\s*blocker\s*cautions|cautions?\s*in|admit|escalate\s*immediately|drug\s*combination\s*warnings?|high-risk\s*situations?|hyperkalaemia\s*warning|warning|caution|danger|critical|alert|mandatory)/i.test(
+            plainText
+          ));
+
+      const isImportant =
+        !isPearl &&
+        !isWarning &&
+        (hasImportantSymbol ||
+          /(?:important|moh\s*thresholds?|counsel\s*all\s*patients|when\s*to\s*start\s*prophylaxis|prophylaxis|before\s*withdrawing|key\s*diagnostic\s*rule|diagnostic\s*rule|sglt2|sequencing|mra\s*[-—]|note\s*:|attention|remember)/i.test(
+            plainText
+          ));
+      const isMbs = /(?:billing|mbs)/i.test(plainText);
 
       if (!isPearl && !isWarning && !isImportant && !isMbs) return match;
 
@@ -1375,7 +1396,6 @@ function convertTextCallouts(html: string): string {
 
       let bodyHtml = "";
       if (followRaw.trim()) {
-        // Strip ALL existing attributes (including pre-applied inline styles) and apply callout-specific styles
         let body = followRaw;
         body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
         body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
@@ -1391,12 +1411,11 @@ function convertTextCallouts(html: string): string {
     }
   );
 
-  // Clean up any orphaned markers (callout header with no following list)
+  // Clean up any orphaned markers
   processed = processed.replace(/\x00CALLOUT\d+\x00/g, "");
 
   return processed;
 }
-
 
 function extractBgColorFromHtml(html: string): string | null {
   const bgMatch = html.match(/(?:background-color|background):\s*([#a-zA-Z0-9(),.\s%]+?)(?:;|\"|\'|$)/i);
@@ -1460,10 +1479,30 @@ function styleHtmlCallouts(html: string): string {
           .replace(/[-—:\s]+$/, "")
           .trim();
         
-        // Detect type — same priority as convertTextCallouts
-        const isPearl = /(?:key\s*point|pearl|clinical\s*pearl|☑|✅)/i.test(plainText);
-        const isWarning = /(?:warning|caution|red\s*flag|contraindication|urgent|immediate|referral|danger|critical|alert|⚠)/i.test(plainText) && !isPearl;
-        const isImportant = /(?:important|attention|note)/i.test(plainText) && !isPearl && !isWarning;
+        // Symbol-based detection
+        const hasWarningSymbol = /[⚠⚠️🚨]/.test(tableMatch);
+        const hasImportantSymbol = /[⚡💡📌]/.test(tableMatch);
+        const hasPearlSymbol = /[✅☑⭐]/.test(tableMatch);
+
+        // Keyword & title matching
+        const isPearl =
+          hasPearlSymbol ||
+          /(?:key\s*points?|clinical\s*pearls?|pearls?)/i.test(plainText);
+
+        const isWarning =
+          !isPearl &&
+          (hasWarningSymbol ||
+            /(?:contraindications?|immediate\s*referral|urgent\s*referral|red\s*flags?|emergency\s*referral|send\s*to\s*emergency|refer\s*urgently|avoid\s*opioids|imaging\s*required|verapamil|gca\s*[-—]|drugs\s*harmful|harmful\s*in|beta\s*blocker\s*cautions|cautions?\s*in|admit|escalate\s*immediately|drug\s*combination\s*warnings?|high-risk\s*situations?|hyperkalaemia\s*warning|warning|caution|danger|critical|alert|mandatory)/i.test(
+              plainText
+            ));
+
+        const isImportant =
+          !isPearl &&
+          !isWarning &&
+          (hasImportantSymbol ||
+            /(?:important|moh\s*thresholds?|counsel\s*all\s*patients|when\s*to\s*start\s*prophylaxis|prophylaxis|before\s*withdrawing|key\s*diagnostic\s*rule|diagnostic\s*rule|sglt2|sequencing|mra\s*[-—]|note\s*:|attention|remember)/i.test(
+              plainText
+            ));
         const isBilling = /(?:billing|mbs)/i.test(plainText);
         
         if (!isPearl && !isWarning && !isImportant && !isBilling && !docBgColor) {
@@ -1506,7 +1545,7 @@ function styleHtmlCallouts(html: string): string {
           color = "#334155";
           label = "MBS Billing Info";
         } else if (docBgColor) {
-          // Document had an explicit background color assigned!
+          // Document had an explicit background color assigned
           const bgLow = docBgColor.toLowerCase();
           if (/(?:#f[ca-f0-9]{4,6}|red|pink|rgb\(25[0-5],\s*1[0-9]{2})/i.test(bgLow)) {
             variant = "warning"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
