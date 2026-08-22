@@ -492,66 +492,108 @@ export default function SearchPage() {
         </div>
       </motion.div>
 
-      {/* Feature & Classification Audit Banner */}
+      {/* Feature & Classification Audit Banner (Clickable to switch tab) */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-        <div className="p-3.5 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+        <button
+          onClick={() => setActiveTab("taxonomy")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "taxonomy"
+              ? "bg-teal-50/80 dark:bg-teal-950/40 border-teal-400 dark:border-teal-700 ring-2 ring-teal-500/20"
+              : "bg-white/80 dark:bg-slate-900/80 border-slate-200/60 dark:border-slate-800 hover:border-teal-300"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Total Units</p>
             <Layers className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           </div>
           <p className="text-lg font-bold text-teal-600 dark:text-teal-400 mt-1">{metrics.totalUnits} Units</p>
           <p className="text-[10px] text-slate-400">U01 to U37</p>
-        </div>
+        </button>
 
-        <div className="p-3.5 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-200/60 dark:border-slate-800 shadow-sm">
+        <button
+          onClick={() => setActiveTab("taxonomy")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "taxonomy"
+              ? "bg-teal-50/80 dark:bg-teal-950/40 border-teal-400 dark:border-teal-700 ring-2 ring-teal-500/20"
+              : "bg-white/80 dark:bg-slate-900/80 border-slate-200/60 dark:border-slate-800 hover:border-slate-400"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Topics</p>
             <Tag className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
           </div>
           <p className="text-lg font-bold text-slate-800 dark:text-slate-100 mt-1">{metrics.totalTopics}</p>
           <p className="text-[10px] text-slate-400">T0001+ Codes</p>
-        </div>
+        </button>
 
-        <div className="p-3.5 bg-teal-50/50 dark:bg-teal-950/20 rounded-xl border border-teal-200/40 dark:border-teal-900/30 shadow-sm">
+        <button
+          onClick={() => setActiveTab("questions")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "questions"
+              ? "bg-teal-100/70 dark:bg-teal-950/60 border-teal-500 dark:border-teal-600 ring-2 ring-teal-500/20"
+              : "bg-teal-50/50 dark:bg-teal-950/20 border-teal-200/40 dark:border-teal-900/30 hover:border-teal-400"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-teal-700 dark:text-teal-300">Questions</p>
             <HelpCircle className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           </div>
           <p className="text-lg font-bold text-teal-700 dark:text-teal-300 mt-1">{questions.length}</p>
           <p className="text-[10px] text-teal-600 dark:text-teal-400">AKT & KFP</p>
-        </div>
+        </button>
 
-        <div className="p-3.5 bg-blue-50/50 dark:bg-blue-950/20 rounded-xl border border-blue-200/40 dark:border-blue-900/30 shadow-sm">
+        <button
+          onClick={() => setActiveTab("content")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "content"
+              ? "bg-blue-100/70 dark:bg-blue-950/60 border-blue-500 dark:border-blue-600 ring-2 ring-blue-500/20"
+              : "bg-blue-50/50 dark:bg-blue-950/20 border-blue-200/40 dark:border-blue-900/30 hover:border-blue-400"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-700 dark:text-blue-300">Library Content</p>
             <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
           </div>
           <p className="text-lg font-bold text-blue-700 dark:text-blue-300 mt-1">{contentList.length}</p>
           <p className="text-[10px] text-blue-600 dark:text-blue-400">Conditions & Guidelines</p>
-        </div>
+        </button>
 
-        <div className="p-3.5 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-200/40 dark:border-purple-900/30 shadow-sm">
+        <button
+          onClick={() => setActiveTab("approaches")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "approaches"
+              ? "bg-purple-100/70 dark:bg-purple-950/60 border-purple-500 dark:border-purple-600 ring-2 ring-purple-500/20"
+              : "bg-purple-50/50 dark:bg-purple-950/20 border-purple-200/40 dark:border-purple-900/30 hover:border-purple-400"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-700 dark:text-purple-300">Approaches</p>
             <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
           </div>
           <p className="text-lg font-bold text-purple-700 dark:text-purple-300 mt-1">{approachesList.length}</p>
           <p className="text-[10px] text-purple-600 dark:text-purple-400">Decision Trees</p>
-        </div>
+        </button>
 
-        <div className="p-3.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/40 dark:border-amber-900/30 shadow-sm">
+        <button
+          onClick={() => setActiveTab("autofill")}
+          className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${
+            activeTab === "autofill"
+              ? "bg-amber-100/70 dark:bg-amber-950/60 border-amber-500 dark:border-amber-600 ring-2 ring-amber-500/20"
+              : "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200/40 dark:border-amber-900/30 hover:border-amber-400"
+          }`}
+        >
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300">Autofill</p>
             <FileText className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
           </div>
           <p className="text-lg font-bold text-amber-700 dark:text-amber-300 mt-1">{autofillList.length}</p>
           <p className="text-[10px] text-amber-600 dark:text-amber-400">Note Templates</p>
-        </div>
+        </button>
       </motion.div>
 
       {/* FILTER BAR FOR TOPICS & CONTENT */}
-      <motion.div variants={itemVariants} className="relative z-30 bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-4">
-        <div className="flex flex-wrap gap-2.5 items-center">
+      <motion.div variants={itemVariants} className="relative z-40 bg-white/90 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-slate-200/60 dark:border-slate-800 p-4 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-center">
           {/* Unit Dropdown */}
           <CustomSelect
             value={selectedUnit}
@@ -563,7 +605,7 @@ export default function SearchPage() {
                 label: `${u.code}: ${u.name}`,
               })),
             ]}
-            className="w-full sm:w-56"
+            className="w-full"
           />
 
           {/* Topic Title Dropdown */}
@@ -577,7 +619,7 @@ export default function SearchPage() {
                 label: title,
               })),
             ]}
-            className="w-full sm:w-60"
+            className="w-full"
           />
 
           {/* Depth Tier / Difficulty Dropdown */}
@@ -590,7 +632,7 @@ export default function SearchPage() {
               { value: "Working", label: "Working / Medium" },
               { value: "Awareness", label: "Awareness / Hard" },
             ]}
-            className="w-full sm:w-44"
+            className="w-full"
           />
 
           {/* Format / Type Dropdown */}
@@ -606,7 +648,7 @@ export default function SearchPage() {
               { value: "Guideline", label: "Guidelines & Protocols" },
               { value: "Autofill", label: "Autofill Templates" },
             ]}
-            className="w-full sm:w-52"
+            className="w-full"
           />
 
           {/* Tag Dropdown */}
@@ -620,9 +662,30 @@ export default function SearchPage() {
                 label: tag,
               })),
             ]}
-            className="w-full sm:w-52"
+            className="w-full"
           />
         </div>
+
+        {(selectedUnit !== "all" || selectedTopicTitle !== "all" || selectedDepth !== "all" || selectedType !== "all" || selectedTag !== "all" || query) && (
+          <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-200/50 dark:border-slate-800 text-xs">
+            <span className="text-slate-500 dark:text-slate-400">
+              Active filters applied across taxonomy and features
+            </span>
+            <button
+              onClick={() => {
+                setSelectedUnit("all");
+                setSelectedTopicTitle("all");
+                setSelectedDepth("all");
+                setSelectedType("all");
+                setSelectedTag("all");
+                setQuery("");
+              }}
+              className="px-2.5 py-1 text-xs font-semibold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 rounded-lg border border-teal-200/60 dark:border-teal-900/50 transition-all cursor-pointer"
+            >
+              Clear All Filters
+            </button>
+          </div>
+        )}
       </motion.div>
 
       {/* 1. MASTER TAXONOMY TOPICS SECTION */}
