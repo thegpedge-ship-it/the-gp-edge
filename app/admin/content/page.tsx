@@ -767,8 +767,12 @@ export default function ContentPage() {
                     </div>
                   )}
                   {canArchiveItem && item.status !== "archived" && (
-                    <button onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }} className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" title="Archive Content">
-                      <Lucide.Trash2 className="w-4 h-4" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteContent(item.id, item.name); }}
+                      className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer"
+                      title="Archive Content"
+                    >
+                      <Lucide.Archive className="w-4 h-4" />
                     </button>
                   )}
                 </div>

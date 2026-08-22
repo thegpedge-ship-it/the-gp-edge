@@ -644,9 +644,9 @@ export default function ApproachesPage() {
                       <button
                         onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
                         title="Archive Card"
-                        className="p-1 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-955/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
+                        className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
                       >
-                        <Lucide.Trash2 className="w-4 h-4" />
+                        <Lucide.Archive className="w-4 h-4" />
                       </button>
                     )}
                   </div>

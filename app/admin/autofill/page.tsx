@@ -596,10 +596,10 @@ export default function AutofillPage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleDeleteTemplate(template); }}
                           disabled={isReadOnly}
-                          className={`p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                          className={`p-1.5 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
                           title={isReadOnly ? "Viewers cannot archive templates" : "Archive Template"}
                         >
-                          <Lucide.Trash2 className="w-3.5 h-3.5" />
+                          <Lucide.Archive className="w-3.5 h-3.5" />
                         </button>
                       )
                     )}

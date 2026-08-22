@@ -833,7 +833,7 @@ export default function EditQuizPage() {
 
   const handleDelete = async () => {
     if (isReadOnly) return;
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    if (!confirm(`Archive "${name}"? It will be moved to the Archived tab and can be restored anytime.`)) return;
     await deleteQuizFromDbAction(name);
     router.push("/admin/quizzes");
   };
@@ -1056,8 +1056,8 @@ export default function EditQuizPage() {
           </div>
 
           <div className="flex justify-between items-center pt-4 border-t border-teal-100/80 dark:border-teal-900/30">
-            <button type="button" onClick={handleDelete} className="text-sm font-semibold text-teal-800/70 hover:text-teal-900 dark:text-teal-400">
-              Delete Quiz
+            <button type="button" onClick={handleDelete} className="text-sm font-semibold text-amber-700 hover:text-amber-800 dark:text-amber-400">
+              Archive Quiz
             </button>
             <div className="flex gap-3">
 

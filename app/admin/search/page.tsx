@@ -764,13 +764,22 @@ export default function SearchPage() {
                           </button>
 
                           {t.status === "archived" ? (
-                            <button
-                              onClick={() => handleRestoreTopic(t)}
-                              className="p-1 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/25 transition-all cursor-pointer"
-                              title="Restore topic to active"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleRestoreTopic(t)}
+                                className="p-1 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/25 transition-all cursor-pointer"
+                                title="Restore topic to active"
+                              >
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteTopicTarget(t)}
+                                className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all cursor-pointer"
+                                title="Delete topic permanently (Archived items only)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={() => handleArchiveTopic(t)}
@@ -780,14 +789,6 @@ export default function SearchPage() {
                               <Archive className="w-3.5 h-3.5" />
                             </button>
                           )}
-
-                          <button
-                            onClick={() => setDeleteTopicTarget(t)}
-                            className="p-1 rounded-lg text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 transition-all cursor-pointer"
-                            title="Delete topic permanently"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
                         </div>
                       </td>
                     </tr>
