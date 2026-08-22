@@ -640,3 +640,211 @@ export async function toggleUserStatusInDbAction(userId: string, newStatus: "act
   }
 }
 
+export interface SystemNotificationItem {
+  id: string;
+  title: string;
+  message?: string;
+  type: string;
+  target: string;
+  scheduled: string;
+  status: "active" | "pending" | "sent" | "failed";
+  sent: number;
+  opened: number;
+  clicked: number;
+  date: string;
+  createdAt: string;
+}
+
+export interface AudienceMetrics {
+  allSubscribers: number;
+  expiringSoon: number;
+  monthlyPlan: number;
+  allUsers: number;
+}
+
+export async function getNotificationAudienceMetricsAction(): Promise<AudienceMetrics> {
+  try {
+    const totalUsersRow = await queryOne<{ count: string }>(`SELECT COUNT(*)::text as count FROM users`);
+    const totalUsers = parseInt(totalUsersRow?.count || "0", 10);
+
+    let activeSubscribers = 0;
+    try {
+      const subRow = await queryOne<{ count: string }>(`SELECT COUNT(DISTINCT user_id)::text as count FROM subscriptions WHERE status = 'active'`);
+      activeSubscribers = parseInt(subRow?.count || "0", 10);
+    } catch {
+      activeSubscribers = 0;
+    }
+
+    let expiring = 0;
+    try {
+      const expRow = await queryOne<{ count: string }>(`SELECT COUNT(DISTINCT user_id)::text as count FROM subscriptions WHERE status = 'active' AND current_period_end <= NOW() + INTERVAL '7 days'`);
+      expiring = parseInt(expRow?.count || "0", 10);
+    } catch {
+      expiring = 0;
+    }
+
+    let monthly = 0;
+    try {
+      const monthRow = await queryOne<{ count: string }>(`SELECT COUNT(DISTINCT s.user_id)::text as count FROM subscriptions s JOIN plans p ON s.plan_id = p.id WHERE p.interval = 'month' AND s.status = 'active'`);
+      monthly = parseInt(monthRow?.count || "0", 10);
+    } catch {
+      monthly = 0;
+    }
+
+    return {
+      allUsers: totalUsers,
+      allSubscribers: activeSubscribers,
+      expiringSoon: expiring,
+      monthlyPlan: monthly,
+    };
+  } catch (error) {
+    console.error("Error fetching notification audience metrics:", error);
+    return {
+      allUsers: 0,
+      allSubscribers: 0,
+      expiringSoon: 0,
+      monthlyPlan: 0,
+    };
+  }
+}
+
+export async function getNotificationsFromDbAction(): Promise<SystemNotificationItem[]> {
+  try {
+    // Ensure table exists
+    await execute(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT,
+        payload JSONB,
+        created_by UUID,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+
+    const rows = await query<any>(`
+      SELECT 
+        n.id,
+        n.type,
+        n.title,
+        n.message,
+        n.payload,
+        n.created_at,
+        COUNT(un.id)::int as total_delivered,
+        COUNT(CASE WHEN un.is_read = true THEN 1 END)::int as total_read
+      FROM notifications n
+      LEFT JOIN user_notifications un ON un.notification_id = n.id
+      GROUP BY n.id
+      ORDER BY n.created_at DESC
+    `);
+
+    return rows.map((r) => {
+      const payload = (typeof r.payload === "object" && r.payload) ? r.payload : {};
+      const target = payload.target || "All Users";
+      const scheduled = payload.scheduled || (payload.schedule === "Send Now" ? "Immediate" : "Scheduled");
+      const status: "active" | "pending" | "sent" | "failed" = payload.status || (payload.schedule === "Send Now" ? "sent" : "active");
+      
+      const sentCount = r.total_delivered > 0 ? r.total_delivered : (payload.sent_count || (status === "sent" ? 1 : 0));
+      const openedCount = r.total_read > 0 ? r.total_read : (payload.opened_count || 0);
+      const clickedCount = payload.clicked_count || 0;
+
+      const dateStr = r.created_at
+        ? new Date(r.created_at).toLocaleDateString("en-GB", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "Recent";
+
+      return {
+        id: r.id,
+        title: r.title,
+        message: r.message || "",
+        type: r.type || "In-app",
+        target,
+        scheduled,
+        status,
+        sent: sentCount,
+        opened: openedCount,
+        clicked: clickedCount,
+        date: dateStr,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching notifications from DB:", error);
+    return [];
+  }
+}
+
+export async function createNotificationInDbAction(data: {
+  title: string;
+  message: string;
+  type: string;
+  target: string;
+  schedule: string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const isImmediate = data.schedule === "Send Now";
+    const status = isImmediate ? "sent" : "active";
+
+    const payload = {
+      target: data.target,
+      schedule: data.schedule,
+      scheduled: isImmediate ? "Immediate" : data.schedule,
+      status,
+      sent_count: 0,
+      opened_count: 0,
+      clicked_count: 0,
+    };
+
+    const insertResult = await queryOne<{ id: string }>(
+      `INSERT INTO notifications (type, title, message, payload, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id`,
+      [data.type, data.title, data.message, JSON.stringify(payload)]
+    );
+
+    const notifId = insertResult?.id;
+
+    if (notifId && isImmediate) {
+      try {
+        // Broadcast to relevant users in user_notifications
+        let userQuery = `SELECT id FROM users LIMIT 500`;
+        if (data.target === "All Subscribers") {
+          userQuery = `SELECT DISTINCT user_id as id FROM subscriptions WHERE status = 'active' LIMIT 500`;
+        }
+
+        const targetUsers = await query<{ id: string }>(userQuery);
+        for (const u of targetUsers) {
+          await execute(
+            `INSERT INTO user_notifications (user_id, notification_id, is_read, delivered_at)
+             VALUES ($1, $2, false, NOW())
+             ON CONFLICT (user_id, notification_id) DO NOTHING`,
+            [u.id, notifId]
+          );
+        }
+      } catch (e) {
+        console.warn("Could not insert user_notifications delivery rows:", e);
+      }
+    }
+
+    return { success: true, id: notifId };
+  } catch (error: any) {
+    console.error("Error creating notification in DB:", error);
+    return { success: false, error: error.message || "Failed to create notification." };
+  }
+}
+
+export async function deleteNotificationFromDbAction(id: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await execute(`DELETE FROM user_notifications WHERE notification_id = $1`, [id]);
+    await execute(`DELETE FROM notifications WHERE id = $1`, [id]);
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error deleting notification from DB:", error);
+    return { success: false, error: error.message || "Failed to delete notification." };
+  }
+}
+
