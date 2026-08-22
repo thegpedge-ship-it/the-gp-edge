@@ -283,8 +283,9 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
 
   const distinctQuizzesGlobalCount = distinctUserQuizzesCompleted.length;
 
+  const allowedExamCodes = new Set(["AKT", "KFP"]);
   const examPaths: ProfileExamPath[] = examTypes
-    .filter((et) => (regCode ? et.code === regCode : true))
+    .filter((et) => allowedExamCodes.has(et.code))
     .map((et, i) => {
       const mocksTotal = availMocksByType.get(et.code) ?? 0;
       const mockAgg = doneMocksByType.get(et.code);

@@ -89,8 +89,8 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
       : "fixed top-6 inset-x-0 w-full z-50 bg-transparent border-none shadow-none";
   const innerClass =
     variant === "static"
-      ? "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-2 flex items-center justify-between transition-all duration-300"
-      : "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-2 flex items-center justify-between transition-all duration-500 ease-in-out";
+      ? "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-3.5 flex items-center justify-between transition-all duration-300"
+      : "w-[92%] max-w-[610px] mx-auto bg-white/85 dark:bg-[rgba(21,25,34,0.85)] backdrop-blur-[20px] border border-white/50 dark:border-[rgba(255,255,255,0.08)] shadow-[0_4px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.30)] rounded-2xl px-4 sm:px-5 py-3.5 flex items-center justify-between transition-all duration-500 ease-in-out";
 
   return (
     <header className={outerClass}>
