@@ -187,7 +187,11 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         }
 
         const key = searchTopic.toLowerCase();
-        if (subtopicMap.has(key)) {
+        // Only let the Topic text resolve a subtopic when the admin didn't explicitly give one —
+        // otherwise a brand-new subtopic name (e.g. "medical") that doesn't exist yet gets
+        // silently overwritten here whenever the Topic text happens to match a DIFFERENT,
+        // unrelated subtopic already in the database.
+        if (!rawSubtopic && subtopicMap.has(key)) {
           subtopicId = subtopicMap.get(key)!.id;
           subjectId = subtopicMap.get(key)!.subjectId;
         } else if (subjectMap.has(key)) {

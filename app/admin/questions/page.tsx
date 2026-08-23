@@ -559,13 +559,17 @@ export default function QuestionsPage() {
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Simulate incremental progress smoothly up to 99% until complete
+        // Ease toward the 98% cap — larger steps early, decelerating as it approaches the cap —
+        // instead of random jitter, so the bar reads as smooth, deliberate progress rather than
+        // noisy jumps. Tick rate matches the bar's CSS transition duration (300ms) so each step
+        // has time to fully animate before the next one fires.
         let currentProgress = 10;
         const progressTimer = setInterval(() => {
-          currentProgress += Math.random() * 5 + 2;
+          const remaining = 98 - currentProgress;
+          currentProgress += Math.max(remaining * 0.12, 0.4);
           if (currentProgress > 98) currentProgress = 98;
           updateBatchFile(idx, { progress: Math.round(currentProgress) });
-        }, 200);
+        }, 300);
 
         try {
           const formData = new FormData();
@@ -1108,7 +1112,15 @@ export default function QuestionsPage() {
                           Clinical Image
                         </span>
                       )}
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${themeMuted}`}>Subtopics:</span>
+                      {q.subtopic && q.subtopic.trim() && (
+                        <>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider ${themeMuted}`}>Subtopic:</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/60 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-900/40">
+                            {q.subtopic.trim()}
+                          </span>
+                        </>
+                      )}
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${themeMuted}`}>Tags:</span>
                       {q.tags.map((tag) => (
                         <span key={tag} className={themeBadgeSm}>{tag}</span>
                       ))}
@@ -1116,6 +1128,7 @@ export default function QuestionsPage() {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap gap-1">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 w-full">Topic</span>
                       {q.topic.split(",").map((t) => (
                         <span key={t.trim()} className={themeBadgePill}>{t.trim()}</span>
                       ))}
@@ -1567,36 +1580,6 @@ export default function QuestionsPage() {
                         </div>
                       </div>
 
-                      {/* KFP Settings Banner */}
-                      {newExamType === "KFP" && (
-                        <div className="flex items-center gap-3 p-3.5 bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-900/40 rounded-xl">
-                          <svg className="w-5 h-5 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                          <div className="flex-1">
-                            <span className={`text-xs font-bold ${themeLabel}`}>KFP Correct Option Limit & Marks</span>
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                              How many options the registrar must select. Question total marks = this limit (1 mark per correct answer).
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="number"
-                              min={1}
-                              max={10}
-                              value={newKfpCorrectCount}
-                              onChange={(e) => {
-                                const v = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
-                                setNewKfpCorrectCount(v);
-                                setNewCorrectIndices(prev => prev.slice(0, v));
-                              }}
-                              className={`w-16 text-center text-sm font-bold px-2 py-1.5 rounded-lg border ${themeInput}`}
-                            />
-                            <span className="text-xs font-bold text-slate-400">marks</span>
-                          </div>
-                        </div>
-                      )}
-
                       {/* Stem (Case Vignette) */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
@@ -1780,6 +1763,36 @@ export default function QuestionsPage() {
                   {/* ZONE 2: OPTIONS & ANSWER */}
                   {activeZone === 2 && (
                     <div className="space-y-4">
+                      {/* KFP Settings Banner */}
+                      {newExamType === "KFP" && (
+                        <div className="flex items-center gap-3 p-3.5 bg-teal-50/70 dark:bg-teal-950/30 border border-teal-200/60 dark:border-teal-900/40 rounded-xl">
+                          <svg className="w-5 h-5 text-teal-700 dark:text-teal-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                          </svg>
+                          <div className="flex-1">
+                            <span className={`text-xs font-bold ${themeLabel}`}>KFP Correct Option Limit & Marks</span>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                              How many options the registrar must select. Question total marks = this limit (1 mark per correct answer).
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={newKfpCorrectCount}
+                              onChange={(e) => {
+                                const v = Math.max(1, Math.min(10, parseInt(e.target.value) || 1));
+                                setNewKfpCorrectCount(v);
+                                setNewCorrectIndices(prev => prev.slice(0, v));
+                              }}
+                              className={`w-16 text-center text-sm font-bold px-2 py-1.5 rounded-lg border ${themeInput}`}
+                            />
+                            <span className="text-xs font-bold text-slate-400">marks</span>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="flex items-center justify-between">
                         <div>
                           <label className={`block text-xs font-semibold ${themeLabel}`}>

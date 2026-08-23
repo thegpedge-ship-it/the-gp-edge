@@ -170,7 +170,7 @@ export async function GET(req: NextRequest) {
         knowledgeBank: q.knowledgeBank ?? undefined,
         pearl: q.pearl ?? undefined,
         // Classification
-        topic: q.subtopic || q.subject || "General",
+        topic: q.subject || "General",
         subtopic: q.subtopic ?? undefined,
         subject: q.subject ?? undefined,
         topicCode: q.topicCode ?? undefined,

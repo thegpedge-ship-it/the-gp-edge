@@ -491,7 +491,20 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
 
   if (entries.length === 0) return result;
 
-  let mappedByLetterCount = 0;
+  // If every raw line merged into a single entry, none of them matched a header pattern —
+  // most likely the source document listed one rationale per line/bullet with no "Option X:"
+  // prefix at all. Re-split on newlines so each line maps to its own option instead of the
+  // whole block collapsing into a single slot.
+  if (entries.length === 1) {
+    const splitBack = entries[0].split("\n").map(l => l.trim()).filter(Boolean);
+    if (splitBack.length > 1) {
+      entries.length = 0;
+      entries.push(...splitBack);
+    }
+  }
+
+  const unmatchedEntries: string[] = [];
+  const filledSlots = new Set<number>();
   for (const entry of entries) {
     const cleanEntry = entry.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
     const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-]|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
@@ -504,13 +517,11 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
         if (!content) content = cleanEntry;
         content = content.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
         result[idx] = content;
-        mappedByLetterCount++;
+        filledSlots.add(idx);
+        continue;
       }
     }
-  }
-
-  if (mappedByLetterCount > 0) {
-    return result;
+    unmatchedEntries.push(cleanEntry);
   }
 
   const correctSet = new Set(correctIndices);
@@ -521,14 +532,16 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
     }
   }
 
-  const targetSlots = (entries.length === distractorSlots.length && distractorSlots.length > 0)
-    ? distractorSlots
-    : Array.from({ length: Math.min(entries.length, options.length) }, (_, i) => i);
+  // Entries with no explicit letter (e.g. a document that only labels *some* options) fill the
+  // remaining empty distractor slots in document order, instead of being silently dropped just
+  // because a different entry elsewhere matched by letter.
+  const remainingSlots = distractorSlots.filter((i) => !filledSlots.has(i));
+  const targetSlots = remainingSlots.length > 0
+    ? remainingSlots
+    : options.map((_, i) => i).filter((i) => !filledSlots.has(i));
 
-  for (let k = 0; k < Math.min(entries.length, targetSlots.length); k++) {
-    const slotIdx = targetSlots[k];
-    const cleanContent = entries[k].replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
-    result[slotIdx] = cleanContent;
+  for (let k = 0; k < Math.min(unmatchedEntries.length, targetSlots.length); k++) {
+    result[targetSlots[k]] = unmatchedEntries[k];
   }
 
   return result;
