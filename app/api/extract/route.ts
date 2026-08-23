@@ -2071,16 +2071,27 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
       }
     }
 
+    // Preserve bold runs as ... markers (instead of stripping them like the other
+    // inline tags) so downstream parsing can tell which sentence was bold in the source document —
+    // e.g. the lead-in question sentence is conventionally bolded after a plain-text stem paragraph.
     htmlText = html
-      .replace(/<\/?(strong|b|em|i|u|span|a)\b[^>]*>/gi, "")
+      .replace(/<(strong|b)\b[^>]*>/gi, "")
+      .replace(/<\/(strong|b)>/gi, "")
+      .replace(/<\/?(em|i|u|span|a)\b[^>]*>/gi, "")
       .replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n")
       .replace(/<[^>]+>/g, "\n");
   } catch (e) {
     console.warn("Mammoth image extraction warning:", e);
   }
 
-  // Pick the text with higher content length to guarantee complete extraction
-  let finalText = (rawText.trim().length >= htmlText.trim().length ? rawText : htmlText) || rawText || htmlText;
+  // Pick the text with higher content length to guarantee complete extraction, but prefer the
+  // HTML-derived text (which carries bold markers) when it's not meaningfully shorter than the
+  // plain-text version, so bold-sentence detection (e.g. the lead-in) isn't lost for no reason.
+  const htmlHasBoldMarkers = htmlText.includes("");
+  let finalText =
+    htmlHasBoldMarkers && htmlText.trim().length >= rawText.trim().length * 0.9
+      ? htmlText
+      : (rawText.trim().length >= htmlText.trim().length ? rawText : htmlText) || rawText || htmlText;
 
   if (finalText && finalText.trim().length > 10) {
     let cleanText = finalText
@@ -2259,9 +2270,9 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     let parsingRationale = false;
 
     for (let j = 0; j < filteredLines.length; j++) {
-      const line = filteredLines[j];
+      let line = filteredLines[j];
       if (!line) continue;
-      const cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·\-\u2013\u2014–—]+/u, "").trim();
+      let cleanLine = line.trim().replace(/^[\s*#|•●○■▪▫·\-\u2013\u2014–—]+/u, "").replace(/[\s|]+$/u, "").trim();
 
       // ── Exam Type (e.g. "Exam Type: KFP" or "Exam Type: AKT") ─────────
       const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
@@ -2275,13 +2286,29 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         continue;
       }
 
-      // Check for inline difficulty marker anywhere in rationale or explanation lines
-      const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)/i);
-      if (inlineDiffMatch) {
+      // Check for an inline difficulty marker (e.g. "Grade: Medium", "| Difficulty: Hard") anywhere
+      // in the line. Unlike the full-line "Difficulty:" header match below, this also catches the
+      // marker when it's embedded in a table-row / bulleted line (e.g. a leading "|" from a markdown
+      // table cell) that wouldn't match a strict ^-anchored header regex — and strips just the marker
+      // back out of the line so it doesn't leak into the stem/rationale text as leftover "Grade: X".
+      const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)\b/i);
+      if (inlineDiffMatch && inlineDiffMatch.index !== undefined) {
         const d = inlineDiffMatch[1].toLowerCase();
         if (/easy|basic/i.test(d)) difficulty = "Easy";
         else if (/hard|advanced/i.test(d)) difficulty = "Hard";
         else difficulty = "Medium";
+
+        const before = line.slice(0, inlineDiffMatch.index);
+        const after = line.slice(inlineDiffMatch.index + inlineDiffMatch[0].length);
+        const strippedLine = (before + after)
+          .replace(/^[\s|*#•●○■▪▫·\-\u2013\u2014]+/u, "")
+          .replace(/[\s|*#•●○■▪▫·\-\u2013\u2014]+$/u, "")
+          .trim();
+        if (!strippedLine) {
+          continue;
+        }
+        line = strippedLine;
+        cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·|\-\u2013\u2014]+/u, "").replace(/[\s|]+$/u, "").trim();
       }
 
       // ── Limit / Allowed Selections (KFP) ──────────────────────────────
@@ -2562,11 +2589,20 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       }
     }
 
-    let stem = stemLines.join("\n\n").trim();
-    let leadIn = leadInLines.join("\n\n").trim();
-    let whyCorrect = whyCorrectLines.join("\n\n").trim();
-    const knowledgeBank = knowledgeBankLines.join("\n\n").trim();
-    const pearl = pearlLines.join("\n\n").trim();
+    // Collapse any leftover mid-sentence line breaks (from the original document's wrapped
+    // lines, which don't correspond to real paragraph breaks — that signal is lost during block
+    // splitting above) into a single flowing paragraph, so text wraps naturally instead of
+    // breaking onto a new visual line for every source line. Also strips the bold-run marker
+    // control chars used below to detect the lead-in sentence.
+    const stripBoldMarkers = (text: string) => text.replace(/[\u0001\u0002]/g, "");
+    const flattenParagraph = (text: string) =>
+      stripBoldMarkers(text).replace(/\s*\n\s*/g, " ").replace(/[ \t]{2,}/g, " ").trim();
+
+    let stem = flattenParagraph(stemLines.join("\n"));
+    let leadIn = flattenParagraph(leadInLines.join("\n"));
+    let whyCorrect = flattenParagraph(whyCorrectLines.join("\n"));
+    const knowledgeBank = stripBoldMarkers(knowledgeBankLines.join("\n\n")).trim();
+    const pearl = stripBoldMarkers(pearlLines.join("\n\n")).trim();
 
     // If whyCorrect or rationale accidentally captured a distractor block, separate them
     const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
@@ -2579,40 +2615,50 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         distractorLines.push(...lines);
       }
     }
+    cleanedWhyCorrect = flattenParagraph(cleanedWhyCorrect);
 
-    // If no explicit Lead-in header was provided, separate the clinical scenario from the question sentence (?)
+    // If no explicit Lead-in header was provided, separate the clinical scenario from the
+    // question sentence. Prefer a real signal — a sentence the source document had in BOLD (the
+    // conventional way exam banks format the lead-in directive after a plain-text stem) — and
+    // only fall back to guessing from the last "?" when no bold run was captured.
     if (!leadIn && questionTextLines.length > 0) {
       const fullText = questionTextLines.join("\n").trim();
-      // Look for the last line or question sentence ending with a ?
-      const qIndex = fullText.lastIndexOf("?");
-      if (qIndex !== -1) {
-        // Find the start of the question sentence before ?
-        const beforeQ = fullText.substring(0, qIndex);
-        const lastNewline = beforeQ.lastIndexOf("\n");
-        const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf("! "));
-        
-        const splitIdx = lastNewline !== -1 ? lastNewline + 1 : (lastPeriod !== -1 ? lastPeriod + 2 : 0);
-        if (splitIdx > 0 && splitIdx < fullText.length) {
-          stem = fullText.substring(0, splitIdx).trim();
-          leadIn = fullText.substring(splitIdx).trim();
-        } else {
-          leadIn = fullText;
-          stem = "";
-        }
+      const boldMatch = fullText.match(/\u0001([\s\S]*?)\u0002/);
+      if (boldMatch && boldMatch.index !== undefined && boldMatch[1].trim()) {
+        leadIn = flattenParagraph(boldMatch[1]);
+        stem = flattenParagraph(fullText.slice(0, boldMatch.index) + fullText.slice(boldMatch.index + boldMatch[0].length));
       } else {
-        // Fallback if no ? mark is found
-        if (questionTextLines.length > 1) {
-          leadIn = questionTextLines[questionTextLines.length - 1];
-          stem = questionTextLines.slice(0, -1).join("\n").trim();
+        // Look for the last line or question sentence ending with a ?
+        const qIndex = fullText.lastIndexOf("?");
+        if (qIndex !== -1) {
+          // Find the start of the question sentence before ?
+          const beforeQ = fullText.substring(0, qIndex);
+          const lastNewline = beforeQ.lastIndexOf("\n");
+          const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf("! "));
+
+          const splitIdx = lastNewline !== -1 ? lastNewline + 1 : (lastPeriod !== -1 ? lastPeriod + 2 : 0);
+          if (splitIdx > 0 && splitIdx < fullText.length) {
+            stem = flattenParagraph(fullText.substring(0, splitIdx));
+            leadIn = flattenParagraph(fullText.substring(splitIdx));
+          } else {
+            leadIn = flattenParagraph(fullText);
+            stem = "";
+          }
         } else {
-          stem = fullText;
+          // Fallback if no ? mark is found
+          if (questionTextLines.length > 1) {
+            leadIn = flattenParagraph(questionTextLines[questionTextLines.length - 1]);
+            stem = flattenParagraph(questionTextLines.slice(0, -1).join("\n"));
+          } else {
+            stem = flattenParagraph(fullText);
+          }
         }
       }
     }
 
     const finalQuestionText = stem
       ? (leadIn ? `${stem}\n\n${leadIn}` : stem)
-      : (leadIn || questionTextLines.join("\n").trim());
+      : (leadIn || flattenParagraph(questionTextLines.join("\n")));
 
     // Skip empty text blocks
     if (!finalQuestionText) continue;
@@ -2624,15 +2670,20 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     const numOptions = Math.max(4, optionSource.length);
     for (let k = 0; k < numOptions; k++) {
       const optVal = optionSource[k] || `Option ${String.fromCharCode(65 + k)}`;
-      finalOptions.push(optVal.replace(/\[Enter Option [A-Z] text here(?:\s*\(optional\))?\]/gi, `Option ${String.fromCharCode(65 + k)}`));
+      finalOptions.push(
+        stripBoldMarkers(optVal).replace(/\[Enter Option [A-Z] text here(?:\s*\(optional\))?\]/gi, `Option ${String.fromCharCode(65 + k)}`)
+      );
     }
 
     // Auto-derive primary Topic from first tag if topic is still "General"
     if (topic === "General" && tags.length > 0) {
       topic = tags[0];
     }
+    topic = stripBoldMarkers(topic).trim();
+    subtopic = stripBoldMarkers(subtopic).trim();
+    const finalTags = tags.map((t) => stripBoldMarkers(t).trim()).filter(Boolean);
 
-    let finalDistractorRationales = formatDistractorRationales(distractorLines, finalOptions, correctIndices);
+    let finalDistractorRationales = formatDistractorRationales(distractorLines.map(stripBoldMarkers), finalOptions, correctIndices);
     if (finalDistractorRationales.every(d => !d) && cleanedWhyCorrect) {
       const optionExpMatches = cleanedWhyCorrect.match(/(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))\s*[:\-\=\–\—]?\s*[\s\S]*?(?=(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))|$)/gim);
       if (optionExpMatches && optionExpMatches.length > 0) {
@@ -2657,7 +2708,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       topic,
       subtopic,
       difficulty,
-      tags: tags.length > 0 ? tags : ["General"],
+      tags: finalTags.length > 0 ? finalTags : ["General"],
       image,
     });
   }
