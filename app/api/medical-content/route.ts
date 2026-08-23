@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
+    const { name, system, category, type, status, author, isFree, is_free, tags, topic, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
     const isFreeVal = Boolean(isFree ?? is_free ?? false);
 
     const userContext: PermissionUser = {
@@ -208,9 +208,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section.
+    // Prefer an explicit topic (e.g. extracted from the document's "Topic:" line) over the
+    // condition's own title — the title is unique per document, so using it as the label meant
+    // every import minted its own topic instead of matching an existing shared one.
     await registerOrUpdateTopicWithCodeAction({
-      label: name,
+      label: (topic || "").trim() || name,
       homeUnit: system || "General",
       topicType: type === "Approach" ? "Approach to a Presentation" : "Clinical Condition",
       tags: tags || [],

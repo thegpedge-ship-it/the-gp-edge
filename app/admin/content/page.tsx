@@ -90,6 +90,8 @@ export default function ContentPage() {
       title?: string;
       system?: string;
       category?: string;
+      topic?: string;
+      tags?: string[];
       symptoms?: string;
       treatment?: string;
       notes?: string;
@@ -396,6 +398,8 @@ export default function ContentPage() {
                     title: result.title || file.name.replace(/\.[^/.]+$/, ""),
                     system: result.system || "Endocrine",
                     category: result.category || "Clinical Reference",
+                    topic: result.topic || "",
+                    tags: result.tags || [],
                     symptoms: result.symptoms || "",
                     treatment: result.treatment || "",
                     notes: result.notes || "",
@@ -600,6 +604,8 @@ export default function ContentPage() {
             name: ext.title || existing.name,
             system: ext.system || existing.system,
             category: ext.category || existing.category,
+            topic: ext.topic || undefined,
+            tags: ext.tags && ext.tags.length > 0 ? ext.tags : undefined,
             fullHtml: contentHtml.trim(),
             references: refArray.length,
             pdfUrl: r2Url || existing.pdfUrl,
@@ -615,6 +621,8 @@ export default function ContentPage() {
             name: ext.title || existing.name,
             system: ext.system || existing.system,
             category: ext.category || existing.category,
+            topic: ext.topic || existing.topic,
+            tags: ext.tags && ext.tags.length > 0 ? ext.tags : existing.tags,
             lastUpdated: new Date().toISOString(),
             references: refArray.length,
             pdfUrl: r2Url || existing.pdfUrl,
@@ -634,6 +642,8 @@ export default function ContentPage() {
             name: finalTitle,
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
+            topic: ext.topic || undefined,
+            tags: ext.tags || [],
             type: "Document",
             status: "draft",
             author: "GP Edge Admin",
@@ -658,6 +668,8 @@ export default function ContentPage() {
             name: finalTitle,
             system: ext.system || "Endocrine",
             category: ext.category || "Clinical Reference",
+            topic: ext.topic || undefined,
+            tags: ext.tags || [],
             type: "Document",
             status: "draft",
             lastUpdated: new Date().toISOString().split("T")[0],

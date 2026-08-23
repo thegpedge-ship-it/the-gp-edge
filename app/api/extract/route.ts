@@ -928,6 +928,7 @@ async function extractTextFromDocxBuffer(buffer: Buffer): Promise<string> {
 interface ExtractedCatalog {
   title: string;
   tags: string[];
+  topic: string;
   definition: string;
   sections: {
     overview: string;
@@ -993,9 +994,51 @@ async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
  * Preserves all original content — tables, images, lists, headings — and applies
  * the GP Edge design system styles without discarding anything.
  */
+/**
+ * Strips metadata lines (Title:/System:/Category:/Tags: and template branding) that live in the
+ * document header, before the first real heading. Scoped to that header zone only — using
+ * `.includes()` further into the body risks deleting genuine content that happens to mention
+ * "tags:"/"category:" etc.
+ */
+function stripMetadataHeaderLines(html: string): string {
+  const firstHeading = html.match(/<h[1-4][^>]*>/i);
+  if (!firstHeading || firstHeading.index === undefined) return html;
+
+  const splitIndex = firstHeading.index;
+  let header = html.slice(0, splitIndex);
+  const rest = html.slice(splitIndex);
+
+  header = header.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, content) => {
+    const plain = content.replace(/<[^>]+>/g, "").toLowerCase();
+    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("topic:") || plain.includes("tags:")) {
+      return "";
+    }
+    return match;
+  });
+
+  header = header.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (match, content) => {
+    const plain = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
+    if (
+      plain.startsWith("title:") ||
+      plain.startsWith("system:") ||
+      plain.startsWith("category:") ||
+      plain.startsWith("topic:") ||
+      plain.startsWith("tags:") ||
+      plain.includes("clinical catalogue template") ||
+      plain.includes("gp edge") ||
+      plain === ""
+    ) {
+      return "";
+    }
+    return match;
+  });
+
+  return header + rest;
+}
+
 function polishDocxHtml(rawHtml: string): string {
   if (!rawHtml) return "";
-  let html = rawHtml;
+  let html = stripMetadataHeaderLines(rawHtml);
 
   // ── 1. Style headings ──────────────────────────────────────────────────────
   html = html.replace(/<h1([^>]*)>([\s\S]*?)<\/h1>/gi, (_m, attrs, inner) =>
@@ -1223,39 +1266,49 @@ function markHtmlHeaders(html: string): string {
   return marked;
 }
 
-function parseHeaderMetadata(headerHtml: string, fileName: string): { title: string, system: string, category: string, tags: string[] } {
+function parseHeaderMetadata(headerHtml: string, fileName: string): { title: string, system: string, category: string, topic: string, tags: string[] } {
   const text = headerHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  
+
   let title = "";
   let system = "Respiratory";
   let category = "Acute";
+  let topic = "";
   const tags: string[] = [];
-  
-  const titleMatch = text.match(/title[:\s]+(.*?)(?=\s*system:|\s*category:|\s*tags:|$)/i);
+
+  // Any of these header field labels can terminate a preceding field's free-text capture,
+  // regardless of which order they appear in the document.
+  const fieldBoundary = "(?=\\s*title:|\\s*system:|\\s*category:|\\s*topic:|\\s*tags:|$)";
+
+  const titleMatch = text.match(new RegExp(`title[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (titleMatch && titleMatch[1].trim()) {
     title = titleMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
-  const systemMatch = text.match(/system[:\s]+(.*?)(?=\s*category:|\s*tags:|$)/i);
+
+  const systemMatch = text.match(new RegExp(`system[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (systemMatch && systemMatch[1].trim()) {
     system = systemMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
-  const categoryMatch = text.match(/category[:\s]+(.*?)(?=\s*tags:|$)/i);
+
+  const categoryMatch = text.match(new RegExp(`category[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (categoryMatch && categoryMatch[1].trim()) {
     category = categoryMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
+
+  const topicMatch = text.match(new RegExp(`topic[:\\s]+(.*?)${fieldBoundary}`, "i"));
+  if (topicMatch && topicMatch[1].trim()) {
+    topic = topicMatch[1].replace(/\[|\]/g, "").trim();
+  }
+
   const hashtags = text.match(/#\w+/g) || [];
   tags.push(...hashtags.map(t => t.substring(1)));
-  
+
   if (!title) {
     const lines = headerHtml.replace(/<[^>]+>/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
     const firstLine = lines.find((l: string) => !l.toLowerCase().includes("clinical catalogue") && !l.toLowerCase().includes("gp edge"));
     title = firstLine || fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
   }
-  
-  return { title, system, category, tags };
+
+  return { title, system, category, topic, tags };
 }
 
 function mergeStyles(originalAttrStr: string, defaultStyles: Record<string, string>): string {
@@ -1725,6 +1778,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   const catalog: ExtractedCatalog = {
     title: meta.title,
     tags: meta.tags,
+    topic: meta.topic,
     definition: "",
     sections: {
       overview: "",
@@ -1764,17 +1818,28 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   // Let's remove any table that contains metadata fields
   cleanHeaderHtml = cleanHeaderHtml.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, content) => {
     const plain = content.replace(/<[^>]+>/g, "").toLowerCase();
-    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("tags:")) {
+    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("topic:") || plain.includes("tags:")) {
       return ""; // remove metadata table
     }
     return match; // keep other tables
   });
-  
-  // Also remove simple paragraph headers like "Synapse Clinical Catalogue Template" or similar branding
+
+  // Also remove metadata paragraph lines (Title:/System:/Category:/Topic:/Tags:) and simple
+  // branding headers like "Synapse Clinical Catalogue Template", so they never leak into the
+  // saved overview/body content.
   cleanHeaderHtml = cleanHeaderHtml.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (match, content) => {
     const plain = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
-    if (plain.includes("clinical catalogue template") || plain.includes("gp edge") || plain.trim() === "") {
-      return ""; // remove branding line
+    if (
+      plain.startsWith("title:") ||
+      plain.startsWith("system:") ||
+      plain.startsWith("category:") ||
+      plain.startsWith("topic:") ||
+      plain.startsWith("tags:") ||
+      plain.includes("clinical catalogue template") ||
+      plain.includes("gp edge") ||
+      plain.trim() === ""
+    ) {
+      return ""; // remove metadata/branding line
     }
     return match;
   });
@@ -1812,7 +1877,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   }
   if (!catalog.definition) {
     const plainHeader = headerHtml.replace(/<[^>]+>/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
-    const defLine = plainHeader.find(l => !l.toLowerCase().includes("title:") && !l.toLowerCase().includes("system:") && !l.toLowerCase().includes("category:") && !l.toLowerCase().includes("tags:"));
+    const defLine = plainHeader.find(l => !l.toLowerCase().includes("title:") && !l.toLowerCase().includes("system:") && !l.toLowerCase().includes("category:") && !l.toLowerCase().includes("topic:") && !l.toLowerCase().includes("tags:"));
     catalog.definition = defLine || `Clinical catalogue entry for ${catalog.title}.`;
   }
   
@@ -1897,6 +1962,9 @@ const SOAP_PATTERNS: Record<string, RegExp[]> = {
   category: [
     /category[:\s]+(acute|chronic|screening|mental health|billing|obstetrics)/i,
     /(acute|chronic|screening|mental health|billing)/i,
+  ],
+  topic: [
+    /topic[:\s]+([^\n]+)/i,
   ],
   subjective: [
     /subjective[:\s]*\n?([^\n]+(?:\n(?!objective|assessment|plan|doctor|patient)[^\n]+)*)/i,
@@ -3038,7 +3106,9 @@ export async function POST(req: NextRequest) {
       const title = inferTitle(fileName, rawText);
       const system = matchField(rawText, SOAP_PATTERNS.system) || "Cardiology";
       const category = matchField(rawText, SOAP_PATTERNS.category) || "Clinical Approach";
-      
+      const topic = matchField(rawText, SOAP_PATTERNS.topic);
+      const tags = Array.from(new Set((rawText.match(/#\w+/g) || []).map(t => t.substring(1))));
+
       const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
       
       let overview = "";
@@ -3071,7 +3141,7 @@ export async function POST(req: NextRequest) {
         }
         
         if (currentSection === "overview") {
-          if (line !== title && !line.startsWith("System:") && !line.startsWith("Category:")) {
+          if (line !== title && !lower.startsWith("system:") && !lower.startsWith("category:") && !lower.startsWith("topic:") && !lower.startsWith("tags:") && !/^#\w+(\s+#\w+)*$/.test(line)) {
             overview += (overview ? " " : "") + line;
           }
         } else if (currentSection === "steps") {
@@ -3164,6 +3234,8 @@ export async function POST(req: NextRequest) {
           subtitle: overview.substring(0, 120) + (overview.length > 120 ? "..." : ""),
           system,
           category,
+          topic,
+          tags,
           status: "draft",
           overview,
           steps,
@@ -3269,6 +3341,8 @@ export async function POST(req: NextRequest) {
       title: catalog.title || title || inferTitle(fileName, rawText),
       system,
       category,
+      topic: catalog.topic || matchField(rawText, SOAP_PATTERNS.topic),
+      tags: catalog.tags,
       subjective: finalSymptoms,
       objective: matchField(rawText, SOAP_PATTERNS.objective) || catalog.sections.diagnosis.replace(/<[^>]+>/g, " ").trim(),
       assessment: finalNotes,

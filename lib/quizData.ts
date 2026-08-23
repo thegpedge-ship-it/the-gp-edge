@@ -477,6 +477,7 @@ export interface MedicalContent {
   author: string;
   references: number;
   tags?: string[];
+  topic?: string;
   usedInQuestions?: number;
   pdfUrl?: string;
   pdfSize?: string;
@@ -641,6 +642,7 @@ export interface ApproachCard {
   isPremium: boolean;
   isFree?: boolean;
   tags: string[];
+  topic?: string;
   overview: string;
   steps: ApproachStep[];
   keyPoints: string[];

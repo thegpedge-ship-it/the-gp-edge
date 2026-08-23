@@ -34,6 +34,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
     isPremium: row.is_premium || false,
     isFree: row.is_free || false,
     tags: extra.tags || [],
+    topic: extra.topic || "",
     overview: extra.overview || "",
     steps: extra.steps || [],
     keyPoints: extra.keyPoints || [],
@@ -88,6 +89,7 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       subtitle: card.subtitle,
       system: card.system,
       tags: card.tags,
+      topic: card.topic,
       overview: card.overview,
       steps: card.steps,
       keyPoints: card.keyPoints,
@@ -167,9 +169,12 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       metadata: { title: card.title, author: card.author || adminUser?.name || adminUser?.email },
     });
 
-    // Auto-register Topic Code (T####), Home Unit, and Tags in database
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database.
+    // Prefer an explicit topic (e.g. extracted from the document's "Topic:" line) over the
+    // card's own title — the title is unique per document, so using it as the label meant
+    // every import minted its own topic instead of matching an existing shared one.
     await registerOrUpdateTopicWithCodeAction({
-      label: card.title,
+      label: (card.topic || "").trim() || card.title,
       homeUnit: card.system || card.category || "General",
       topicType: "Approach to a Presentation",
       tags: card.tags,
