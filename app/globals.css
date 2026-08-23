@@ -5,6 +5,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide the browser's built-in password reveal/clear icon (Edge/IE inject one by default),
+   since password fields already have their own custom show/hide toggle button. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 /* ─── Platform Animation Tokens ──────────────────────────────────────────────
  * All animations use the same cubic-bezier easing for a coherent, premium feel.
  * --transition-page  : Route-level content fade-in

@@ -1032,3 +1032,66 @@ export async function updateAdminProfileAction(params: {
   }
 }
 
+export interface AuditLogEntry {
+  id: string;
+  adminName: string | null;
+  adminEmail: string | null;
+  action: string;
+  category: string | null;
+  severity: "info" | "warning" | "critical";
+  entityType: string | null;
+  entityId: string | null;
+  metadata: any;
+  createdAt: string;
+}
+
+/**
+ * Reads the admin activity log (who changed what, and when) — Super Admin-only. isCallerSuperAdmin
+ * is trusted from the client, matching this app's existing (localStorage-based) admin-identity
+ * model elsewhere in this file; the page itself stays visible to every admin, only the entries are
+ * gated here and in the UI.
+ */
+export async function getAuditLogsAction(params: {
+  isCallerSuperAdmin: boolean;
+  limit?: number;
+  sinceDays?: number;
+}): Promise<{ success: boolean; logs: AuditLogEntry[]; error?: string }> {
+  if (!params.isCallerSuperAdmin) {
+    return { success: false, logs: [], error: "Only the Super Admin can view the activity log." };
+  }
+
+  try {
+    const limit = Math.min(Math.max(params.limit || 100, 1), 500);
+    const sinceDays = params.sinceDays ? Math.min(Math.max(params.sinceDays, 1), 365) : null;
+    const rows = await query<any>(
+      `SELECT l.id, l.action, l.category, l.severity, l.entity_type, l.entity_id, l.metadata, l.created_at,
+              u.name AS admin_name, u.email AS admin_email
+         FROM audit_logs l
+         LEFT JOIN admin_users u ON u.id = l.admin_user_id
+        WHERE ($2::int IS NULL OR l.created_at >= NOW() - make_interval(days => $2::int))
+        ORDER BY l.created_at DESC
+        LIMIT $1`,
+      [limit, sinceDays]
+    );
+
+    return {
+      success: true,
+      logs: rows.map((r) => ({
+        id: String(r.id),
+        adminName: r.admin_name || null,
+        adminEmail: r.admin_email || null,
+        action: r.action,
+        category: r.category || null,
+        severity: (r.severity || "info") as AuditLogEntry["severity"],
+        entityType: r.entity_type || null,
+        entityId: r.entity_id || null,
+        metadata: r.metadata || null,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      })),
+    };
+  } catch (error: any) {
+    console.error("Error fetching audit logs:", error);
+    return { success: false, logs: [], error: error.message || "Failed to load the activity log." };
+  }
+}
+
