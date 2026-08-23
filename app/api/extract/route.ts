@@ -2135,20 +2135,48 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
 
   const allLines = preProcessed.split("\n");
 
-  // Regex that identifies a line as the start of a new question (e.g. "Question 1:", "Question 1", "Q1.", "1.")
-  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i;
+  // Regex that identifies a line as an explicit keyword-style question header (e.g. "Question 1:", "Q1.")
+  const KEYWORD_QUESTION_START = /^(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*/i;
+  // Regex that identifies a line as a bare numbered item (e.g. "1.", "12)", "(3)")
+  const NUMERIC_QUESTION_START = /^\(?\d{1,3}[\.\):\-]\s+/;
+
+  // Detect whether the document uses explicit keyword headers anywhere. When it does, those headers
+  // are the reliable signal for question boundaries — bare numbered lines elsewhere in a question's
+  // content (numbered options, numbered explanation bullets, numbered tag lists, etc.) must NOT be
+  // treated as the start of a new question, or the real block gets chopped off after its first line.
+  const usesKeywordHeaders = allLines.some(l => KEYWORD_QUESTION_START.test(l.trim().replace(/^[*#]+\s*/, "")));
 
   // Group lines into blocks — strictly start grouping from the FIRST explicit question header line
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
+  // When the doc relies purely on bare numbering (no keyword headers), only accept a numbered line
+  // as a new question boundary if its number continues the expected sequence — this stops numbered
+  // bullets inside an explanation/tags section (which usually restart at 1) from being mistaken for
+  // a new question.
+  let expectedNumericStart = 1;
 
   for (const rawLine of allLines) {
     const trimmed = rawLine.trim().replace(/^[*#]+\s*/, ""); // strip markdown headers
-    if (QUESTION_START.test(trimmed)) {
+
+    let strippedContent: string | null = null;
+
+    const keywordMatch = trimmed.match(KEYWORD_QUESTION_START);
+    if (keywordMatch) {
+      strippedContent = trimmed.slice(keywordMatch[0].length).trim();
+    } else if (!usesKeywordHeaders) {
+      const numericMatch = trimmed.match(NUMERIC_QUESTION_START);
+      if (numericMatch) {
+        const num = parseInt(numericMatch[0].replace(/\D/g, ""), 10);
+        if (num === expectedNumericStart) {
+          strippedContent = trimmed.slice(numericMatch[0].length).trim();
+          expectedNumericStart += 1;
+        }
+      }
+    }
+
+    if (strippedContent !== null) {
       if (current && current.length > 0) rawBlocks.push(current);
-      // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i, "").trim();
-      current = stripped ? [stripped] : [];
+      current = strippedContent ? [strippedContent] : [];
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
@@ -2367,6 +2395,14 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
           if (next && !isMetadataLine(next)) { v = next; j++; }
+        }
+        // Consume any further lines that continue the same Tags block (e.g. a tag list wrapped
+        // across multiple lines) so only the first line isn't the sole content captured.
+        while (j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (!next || isMetadataLine(next)) break;
+          v = v ? `${v}, ${next}` : next;
+          j++;
         }
         if (v) {
           const newTags = v

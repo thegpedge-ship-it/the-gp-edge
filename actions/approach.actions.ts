@@ -113,6 +113,30 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, card.isFree ?? false, extraJson, card.author || adminUser?.name || "GP Edge Admin"]
     );
 
+    // Sync tags into the real tags / condition_tags tables (previously only stored inline in
+    // clinical_notes JSON, so approach tags never showed up via condition_tags joins)
+    await execute(`DELETE FROM condition_tags WHERE condition_id = $1`, [dbId]);
+    if (card.tags && card.tags.length > 0) {
+      for (const tagLabel of card.tags) {
+        const cleanTag = tagLabel.trim();
+        if (!cleanTag) continue;
+        const tagSlug = cleanTag.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        let tag = await queryOne<{ id: string }>(`SELECT id FROM tags WHERE slug = $1 LIMIT 1`, [tagSlug]);
+        if (!tag) {
+          tag = await queryOne<{ id: string }>(
+            `INSERT INTO tags (slug, label) VALUES ($1, $2)
+             ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
+             RETURNING id`,
+            [tagSlug, cleanTag]
+          );
+        }
+        await execute(
+          `INSERT INTO condition_tags (condition_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [dbId, tag!.id]
+        );
+      }
+    }
+
     // Store fullHtml in condition_items
     if (card.fullHtml) {
       const existingItem = await queryOne<{ id: string }>(

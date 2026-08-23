@@ -105,20 +105,23 @@ export default function ApproachesPage() {
     isSubscriber,
     currentAdmin,
   } = useAdminRole();
-  const { units: taxonomyUnits, topics: taxonomyTopics } = useTaxonomy();
+  const { units: taxonomyUnits } = useTaxonomy();
   const router = useRouter();
   const [cards, setCards] = useState<ApproachCard[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
 
+  // Union real home units from the DB (subjects table, via useTaxonomy) with whatever systems are
+  // already used on existing cards and the static fallback list, so a newly created/imported home
+  // unit shows up as a filter option immediately without needing a hardcoded entry.
   const SYSTEMS = Array.from(
     new Set([
-      ...taxonomyUnits.map((u) => `${u.code}: ${u.name}`),
-      ...taxonomyTopics.filter((t) => t.topicType.includes("Approach")).map((t) => `${t.code}: ${t.label}`),
+      ...taxonomyUnits.map((u) => u.name),
+      ...cards.map((c) => c.system).filter(Boolean),
       ...STATIC_SYSTEMS,
     ])
-  );
+  ).sort((a, b) => a.localeCompare(b));
   // Modal states
 
 
