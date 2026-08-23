@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, RotateCcw, Trash2, Archive } from "lucide-react";
+import { AlertCircle, RotateCcw, Trash2, Archive, CheckCircle2 } from "lucide-react";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import {
@@ -73,6 +73,12 @@ export default function QuestionsPage() {
   const { isReadOnly, isSuperAdmin, canRestoreItem, canArchiveItem, currentAdmin } = useAdminRole();
   const { units: taxonomyUnits, topics: taxonomyTopics } = useTaxonomy();
   const [questions, setQuestions] = useState<Question[]>([]);
+
+  const handlePublishQuestion = async (q: Question) => {
+    if (!isSuperAdmin) return;
+    await updateStatus(q.id, "published");
+    showAlert("Question published.", "Published", "success");
+  };
 
   const handleRestoreQuestion = async (q: Question) => {
     if (!canRestoreItem) {
@@ -292,6 +298,10 @@ export default function QuestionsPage() {
     return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty;
   });
 
+  const showBulkSelectColumn =
+    (statusFilter === "archived" && canRestoreItem) ||
+    (statusFilter !== "archived" && (isSuperAdmin || canArchiveItem));
+
   const updateStatus = async (id: number, newStatus: Question["status"]) => {
     if (isReadOnly) return;
     const targetQ = questions.find((q) => q.id === id);
@@ -334,7 +344,7 @@ export default function QuestionsPage() {
 
   // Multi-select bulk selection state for Archive view
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
-  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete"; ids: number[] } | null>(null);
+  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete" | "publish" | "archive"; ids: number[] } | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Clear selections whenever filters change
@@ -396,6 +406,46 @@ export default function QuestionsPage() {
     setBulkProgress(null);
     setBulkActionConfirm(null);
     showAlert(`Successfully deleted ${successCount} question(s) permanently.`, "Permanently Deleted", "success");
+  };
+
+  const handleBulkPublish = async () => {
+    if (!isSuperAdmin || selectedQuestionIds.length === 0) return;
+    const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id) && (q.status === "draft" || q.status === "review"));
+    if (targetQs.length === 0) {
+      setBulkActionConfirm(null);
+      return;
+    }
+    setBulkProgress({ done: 0, total: targetQs.length });
+
+    for (let i = 0; i < targetQs.length; i++) {
+      await importQuestionsAction([{ ...targetQs[i], status: "published" as const }]);
+      setBulkProgress({ done: i + 1, total: targetQs.length });
+    }
+
+    const targetIds = new Set(targetQs.map((q) => q.id));
+    setQuestions((prev) => prev.map((q) => (targetIds.has(q.id) ? { ...q, status: "published" as const } : q)));
+    setSelectedQuestionIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    showAlert(`Successfully published ${targetQs.length} question(s).`, "Questions Published", "success");
+  };
+
+  const handleBulkArchive = async () => {
+    if (!canArchiveItem || selectedQuestionIds.length === 0) return;
+    const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id));
+    setBulkProgress({ done: 0, total: targetQs.length });
+
+    for (let i = 0; i < targetQs.length; i++) {
+      await deleteQuestionAction(targetQs[i].dbId || targetQs[i].text, currentAdmin);
+      setBulkProgress({ done: i + 1, total: targetQs.length });
+    }
+
+    const targetIds = new Set(targetQs.map((q) => q.id));
+    setQuestions((prev) => prev.map((q) => (targetIds.has(q.id) ? { ...q, status: "archived" as const } : q)));
+    setSelectedQuestionIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    showAlert(`Successfully archived ${targetQs.length} question(s).`, "Questions Archived", "success");
   };
 
   const handleCreateQuestion = async () => {
@@ -1039,7 +1089,7 @@ export default function QuestionsPage() {
         </div>
       </motion.div>
 
-      {/* Bulk Action Floating Toolbar (ONLY active in Archive view when items are selected) */}
+      {/* Bulk Action Floating Toolbar (Archive view: restore/delete) */}
       {statusFilter === "archived" && canRestoreItem && (
         <motion.div
           initial={{ opacity: 0, y: -6 }}
@@ -1080,13 +1130,63 @@ export default function QuestionsPage() {
         </motion.div>
       )}
 
+      {/* Bulk Action Floating Toolbar (Active views: publish/archive) */}
+      {statusFilter !== "archived" && (isSuperAdmin || canArchiveItem) && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-teal-900 dark:text-teal-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedQuestionIds.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All Questions ({selectedQuestionIds.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedQuestionIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              {isSuperAdmin && (() => {
+                const publishableCount = questions.filter((q) => selectedQuestionIds.includes(q.id) && (q.status === "draft" || q.status === "review")).length;
+                return (
+                  <button
+                    type="button"
+                    disabled={publishableCount === 0}
+                    onClick={() => setBulkActionConfirm({ type: "publish", ids: selectedQuestionIds })}
+                    title={publishableCount === 0 ? "None of the selected questions are in Draft or Review" : undefined}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Publish Selected ({publishableCount})
+                  </button>
+                );
+              })()}
+              {canArchiveItem && (
+                <button
+                  type="button"
+                  onClick={() => setBulkActionConfirm({ type: "archive", ids: selectedQuestionIds })}
+                  className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                  Archive Selected ({selectedQuestionIds.length})
+                </button>
+              )}
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Questions table */}
       <motion.div variants={itemVariants} className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl shadow-md shadow-teal-900/5 overflow-hidden relative ${themeBorder} border`}>
         <div className="relative z-10 overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className={`border-b ${themeBorder}`}>
-                {statusFilter === "archived" && canRestoreItem && (
+                {showBulkSelectColumn && (
                   <th className={`text-center text-xs font-semibold uppercase tracking-wider px-3 py-3 w-10 ${themeLabel}`}>
                     <input
                       type="checkbox"
@@ -1111,7 +1211,7 @@ export default function QuestionsPage() {
                   onClick={() => setPreviewQuestion(q)}
                   className={`hover:bg-teal-50/20 hover:shadow-[inset_4px_0_0_0_#14b8a6] transition-all duration-200 group cursor-pointer ${selectedQuestionIds.includes(q.id) ? "bg-amber-50/40 dark:bg-amber-950/20" : ""}`}
                 >
-                  {statusFilter === "archived" && canRestoreItem && (
+                  {showBulkSelectColumn && (
                     <td className="px-3 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
@@ -1216,6 +1316,17 @@ export default function QuestionsPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
+
+                      {isSuperAdmin && (q.status === "draft" || q.status === "review") && (
+                        <button
+                          onClick={() => handlePublishQuestion(q)}
+                          className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                          title="Publish (SA Only)"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Publish
+                        </button>
+                      )}
 
                       {q.status === "archived" ? (
                         <div className="flex items-center gap-1">
@@ -2094,15 +2205,20 @@ export default function QuestionsPage() {
 
       {/* Upload Questions Document Modal */}
       <AnimatePresence>
-        {showUploadModal && (
+        {showUploadModal && (() => {
+          // uploadState is reused for both the initial extraction pass and the final
+          // Import & Publish save — either way, closing the modal mid-flight doesn't stop the
+          // underlying async work, it just hides it, so block dismissal until it settles.
+          const isProcessing = uploadState === "uploading" || extractionState === "extracting";
+          return (
           <>
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] cursor-pointer"
-              onClick={() => setShowUploadModal(false)}
+              className={`fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] ${isProcessing ? "" : "cursor-pointer"}`}
+              onClick={() => !isProcessing && setShowUploadModal(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -2120,8 +2236,9 @@ export default function QuestionsPage() {
                   <p className="text-xs text-slate-400">Upload a DOCX or PDF template to import multiple questions instantly</p>
                 </div>
                 <button
-                  onClick={() => setShowUploadModal(false)}
-                  className="text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-800"
+                  onClick={() => !isProcessing && setShowUploadModal(false)}
+                  disabled={isProcessing}
+                  className={`text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-800 ${isProcessing ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -2705,8 +2822,9 @@ export default function QuestionsPage() {
               {/* Modal Footer */}
               <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 rounded-b-2xl">
                 <button
-                  onClick={() => setShowUploadModal(false)}
-                  className={themeBtnGhost}
+                  onClick={() => !isProcessing && setShowUploadModal(false)}
+                  disabled={isProcessing}
+                  className={`${themeBtnGhost} disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   Cancel
                 </button>
@@ -2721,7 +2839,8 @@ export default function QuestionsPage() {
               </div>
             </motion.div>
           </>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       {/* High Resolution Lightbox Modal */}
@@ -2937,7 +3056,53 @@ export default function QuestionsPage() {
             </div>
           </>
         )}
-        {bulkActionConfirm && (
+        {bulkActionConfirm && (() => {
+          const meta = {
+            restore: {
+              Icon: RotateCcw,
+              title: "Restore Selected Questions?",
+              verb: "restore",
+              handler: handleBulkRestore,
+              confirmLabel: "Restore Questions",
+              iconWrap: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+              progressBar: "bg-emerald-500",
+              confirmBtn: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20",
+            },
+            permanent_delete: {
+              Icon: Trash2,
+              title: "Permanently Delete Selected Questions?",
+              verb: "permanently delete",
+              handler: handleBulkPermanentDelete,
+              confirmLabel: "Delete Permanently",
+              iconWrap: "bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-400",
+              progressBar: "bg-rose-500",
+              confirmBtn: "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20",
+            },
+            publish: {
+              Icon: CheckCircle2,
+              title: "Publish Selected Questions?",
+              verb: "publish",
+              handler: handleBulkPublish,
+              confirmLabel: "Publish Questions",
+              iconWrap: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+              progressBar: "bg-emerald-500",
+              confirmBtn: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20",
+            },
+            archive: {
+              Icon: Archive,
+              title: "Archive Selected Questions?",
+              verb: "archive",
+              handler: handleBulkArchive,
+              confirmLabel: "Archive Questions",
+              iconWrap: "bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 text-amber-600 dark:text-amber-400",
+              progressBar: "bg-amber-500",
+              confirmBtn: "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20",
+            },
+          }[bulkActionConfirm.type];
+          const publishableCount = bulkActionConfirm.type === "publish"
+            ? questions.filter((q) => bulkActionConfirm.ids.includes(q.id) && (q.status === "draft" || q.status === "review")).length
+            : bulkActionConfirm.ids.length;
+          return (
           <>
             <motion.div
               initial={{ opacity: 0 }}
@@ -2955,14 +3120,14 @@ export default function QuestionsPage() {
                 transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                 className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
               >
-                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${bulkActionConfirm.type === "restore" ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400" : "bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-400"}`}>
-                  {bulkActionConfirm.type === "restore" ? <RotateCcw className="w-7 h-7" /> : <Trash2 className="w-7 h-7" />}
+                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${meta.iconWrap}`}>
+                  <meta.Icon className="w-7 h-7" />
                 </div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-                  {bulkActionConfirm.type === "restore" ? "Restore Selected Questions?" : "Permanently Delete Selected Questions?"}
+                  {meta.title}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                  Are you sure you want to {bulkActionConfirm.type === "restore" ? "restore" : "permanently delete"} <strong>{bulkActionConfirm.ids.length} selected question(s)</strong>?
+                  Are you sure you want to {meta.verb} <strong>{bulkActionConfirm.type === "publish" ? publishableCount : bulkActionConfirm.ids.length} selected question(s)</strong>?
                 </p>
                 {bulkActionConfirm.type === "permanent_delete" && !bulkProgress && (
                   <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
@@ -2974,7 +3139,7 @@ export default function QuestionsPage() {
                   <div className="mt-3 pt-1 space-y-1.5">
                     <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-200 ${bulkActionConfirm.type === "restore" ? "bg-emerald-500" : "bg-rose-500"}`}
+                        className={`h-full rounded-full transition-all duration-200 ${meta.progressBar}`}
                         style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
                       />
                     </div>
@@ -2994,17 +3159,18 @@ export default function QuestionsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={bulkActionConfirm.type === "restore" ? handleBulkRestore : handleBulkPermanentDelete}
+                    onClick={meta.handler}
                     disabled={!!bulkProgress}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-60 ${bulkActionConfirm.type === "restore" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"}`}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-60 ${meta.confirmBtn}`}
                   >
-                    {bulkProgress ? "Working…" : bulkActionConfirm.type === "restore" ? "Restore Questions" : "Delete Permanently"}
+                    {bulkProgress ? "Working…" : meta.confirmLabel}
                   </button>
                 </div>
               </motion.div>
             </div>
           </>
-        )}
+          );
+        })()}
       </AnimatePresence>
     </motion.div>
   );

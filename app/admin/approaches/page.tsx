@@ -103,6 +103,7 @@ export default function ApproachesPage() {
     isDrafter,
     isPeerReviewer,
     isSubscriber,
+    isSuperAdmin,
     currentAdmin,
   } = useAdminRole();
   const { units: taxonomyUnits } = useTaxonomy();
@@ -644,6 +645,19 @@ export default function ApproachesPage() {
     addUserNotification("Approaches Archived", `Successfully archived ${count} approach card(s). Switch to "Archived" status filter to view or restore them.`, 1, "custom");
   };
 
+  async function handlePublishApproach(card: ApproachCard) {
+    if (!isSuperAdmin) return;
+    const res = await saveApproachCardToDbAction({ ...card, status: "published" });
+    if (!res.success) {
+      alert(res.error || "Failed to publish approach card.");
+      return;
+    }
+    const updated = cards.map((c) => (c.id === card.id ? { ...c, status: "published" as const } : c));
+    setCards(updated);
+    saveApproachCards(updated);
+    addUserNotification("Approach Published", `"${card.title}" is now live.`, 1, "custom");
+  }
+
   async function handleRestoreApproach(card: ApproachCard) {
     if (!canRestoreItem) return;
     const res = await restoreApproachCardFromDbAction(card.id, currentAdmin);
@@ -900,6 +914,16 @@ export default function ApproachesPage() {
                       >
                         <Lucide.Edit className="w-4 h-4" />
                       </Link>
+                    )}
+                    {isSuperAdmin && (card.status === "draft" || card.status === "review") && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handlePublishApproach(card); }}
+                        title="Publish (SA Only)"
+                        className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      >
+                        <Lucide.CheckCircle2 className="w-3.5 h-3.5" />
+                        Publish
+                      </button>
                     )}
                     {card.status === "archived" && canRestoreItem && (
                       <div className="flex items-center gap-1">

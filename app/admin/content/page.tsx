@@ -43,6 +43,7 @@ export default function ContentPage() {
     isDrafter,
     isPeerReviewer,
     isSubscriber,
+    isSuperAdmin,
     currentAdmin,
   } = useAdminRole();
   const { units: taxonomyUnits } = useTaxonomy();
@@ -135,9 +136,13 @@ export default function ContentPage() {
     return sortedContent.slice(0, visibleCount);
   }, [sortedContent, visibleCount]);
 
-  const updateStatus = (id: string, newStatus: MedicalContent["status"]) => {
+  const updateStatus = async (id: string, newStatus: MedicalContent["status"]) => {
     if (!canEditPostReview && !canEditDraft) return;
-    updateMedicalContentItem(id, { status: newStatus });
+    const ok = await updateMedicalContentItem(id, { status: newStatus });
+    if (!ok) {
+      alert("Failed to update status. Please try again.");
+      return;
+    }
     const updated = content.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
     setContent(updated);
     saveMedicalContent(updated);
@@ -1058,6 +1063,20 @@ export default function ContentPage() {
                     >
                       <Lucide.Edit className="w-4 h-4" />
                     </Link>
+                  )}
+                  {isSuperAdmin && (item.status === "draft" || item.status === "review") && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateStatus(item.id, "published");
+                        addUserNotification("Content Published", `"${item.name}" is now live.`, 1, "custom");
+                      }}
+                      className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      title="Publish (SA Only)"
+                    >
+                      <Lucide.CheckCircle2 className="w-3.5 h-3.5" />
+                      Publish
+                    </button>
                   )}
                   {item.status === "archived" && canRestoreItem && (
                     <div className="flex items-center gap-1">

@@ -784,7 +784,7 @@ export default function AuditPage() {
       <motion.div variants={itemVariants} className="inline-flex items-center gap-1 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl p-1">
         {([
           { id: "security" as const, label: "Audit & Security", icon: Lucide.ShieldCheck },
-          { id: "activity" as const, label: "Activity Log", icon: Lucide.History },
+          ...(isSuperAdmin ? [{ id: "activity" as const, label: "Activity Log", icon: Lucide.History }] : []),
         ]).map((tab) => (
           <button
             key={tab.id}
