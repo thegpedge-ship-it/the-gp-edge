@@ -436,6 +436,58 @@ export async function restoreQuizInDbAction(quizName: string, adminUser: Permiss
 }
 
 /**
+ * Permanently (hard) deletes an archived quiz from the database, purging quiz_questions /
+ * mock_test_questions join rows via cascade. SA-ONLY (Super Admin)!
+ */
+export async function permanentlyDeleteQuizAction(quizName: string, adminUser: PermissionUser) {
+  try {
+    const permCheck = await evaluateRelationalPermission({
+      user: adminUser,
+      capability: "restore_item",
+      item: { id: quizName, type: "quiz" },
+    });
+    if (!permCheck.allowed) {
+      return { success: false, error: permCheck.reason };
+    }
+
+    const quiz = await queryOne<{ id: string }>(`SELECT id FROM quizzes WHERE name = $1 LIMIT 1`, [quizName]);
+    const mock = await queryOne<{ id: string }>(`SELECT id FROM mock_tests WHERE name = $1 LIMIT 1`, [quizName]);
+    if (!quiz && !mock) {
+      return { success: false, error: `Quiz "${quizName}" not found` };
+    }
+
+    if (quiz) {
+      await execute(`DELETE FROM quizzes WHERE id = $1`, [quiz.id]);
+    }
+    if (mock) {
+      await execute(`DELETE FROM mock_tests WHERE id = $1`, [mock.id]);
+    }
+
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "delete_permanent",
+      category: "quiz",
+      entityType: "quiz",
+      entityId: quiz?.id || mock?.id || quizName,
+      metadata: { name: quizName, deletedBy: adminUser.name },
+    });
+
+    revalidatePath("/exam-prep");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to permanently delete quiz:", error);
+    const isFkViolation = typeof error?.code === "string" && error.code === "23503";
+    return {
+      success: false,
+      error: isFkViolation
+        ? "This quiz has existing attempt history and cannot be permanently deleted."
+        : error.message,
+    };
+  }
+}
+
+/**
  * Fetches a single quiz by its DB UUID along with its question DB UUIDs for the edit page.
  */
 export async function fetchQuizByDbIdAction(dbId: string): Promise<{

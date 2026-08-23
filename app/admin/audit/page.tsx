@@ -10,6 +10,13 @@ import { useAdminRole } from "@/hooks/useAdminRole";
 import { addUserNotification } from "@/utils/notifications";
 import { saveAdminToDbAction, deleteAdminFromDbAction, getAdminsFromDbAction } from "@/actions/admin.actions";
 import {
+  getCustomRolesAction,
+  createCustomRoleAction,
+  updateCustomRoleAction,
+  deleteCustomRoleAction,
+} from "@/actions/customRoles.actions";
+import { CUSTOM_ROLE_RESOURCES, CustomRole, CustomRoleResource, PermissionMatrix } from "@/lib/customRoleTypes";
+import {
   themeBorder,
   themeBtnGhost,
   themeBtnPrimary,
@@ -56,6 +63,37 @@ const ROLE_PRESETS: Record<string, string[]> = {
   "PR (Peer Reviewer)": ["dashboard", "questions", "content", "approaches"],
   "SUB (Subscriber)": ["dashboard"],
 };
+
+/* ── Custom (configurable) roles: matrix quick-fill templates ── */
+function emptyCustomMatrix(): PermissionMatrix {
+  const matrix = {} as PermissionMatrix;
+  for (const r of CUSTOM_ROLE_RESOURCES) matrix[r] = { read: false, edit: false };
+  return matrix;
+}
+
+const CUSTOM_ROLE_TEMPLATES: Record<"View Only" | "Editor" | "Manager", { matrix: PermissionMatrix; canViewPii: boolean }> = {
+  "View Only": {
+    matrix: CUSTOM_ROLE_RESOURCES.reduce((m, r) => ({ ...m, [r]: { read: true, edit: false } }), emptyCustomMatrix()),
+    canViewPii: false,
+  },
+  Editor: {
+    matrix: CUSTOM_ROLE_RESOURCES.reduce((m, r) => {
+      const isContent = ["questions", "content", "approaches", "quizzes", "autofill"].includes(r);
+      return { ...m, [r]: { read: true, edit: isContent } };
+    }, emptyCustomMatrix()),
+    canViewPii: false,
+  },
+  Manager: {
+    matrix: CUSTOM_ROLE_RESOURCES.reduce((m, r) => ({ ...m, [r]: { read: true, edit: true } }), emptyCustomMatrix()),
+    canViewPii: true,
+  },
+};
+
+/** Flat ALL_FEATURES-style keys a custom role has read-or-edit access to (keeps the existing
+ * per-admin flat feature-gate system — admin_user_permissions — working for custom-role admins). */
+function customRoleFeatureKeys(role: { matrix: PermissionMatrix }): string[] {
+  return CUSTOM_ROLE_RESOURCES.filter((r) => role.matrix[r]?.read || role.matrix[r]?.edit);
+}
 
 interface AdminUser {
   id: string;
@@ -107,6 +145,95 @@ export default function AuditPage() {
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [adminToDelete, setAdminToDelete] = useState<AdminUser | null>(null);
+
+  /* Custom (configurable) roles state */
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>([]);
+  const [customRoleModal, setCustomRoleModal] = useState<{ mode: "create" | "edit"; role: CustomRole | null } | null>(null);
+  const [customRoleName, setCustomRoleName] = useState("");
+  const [customRoleDescription, setCustomRoleDescription] = useState("");
+  const [customRoleMatrix, setCustomRoleMatrix] = useState<PermissionMatrix>(emptyCustomMatrix());
+  const [customRoleCanViewPii, setCustomRoleCanViewPii] = useState(false);
+  const [customRoleSaving, setCustomRoleSaving] = useState(false);
+  const [customRoleToDelete, setCustomRoleToDelete] = useState<CustomRole | null>(null);
+
+  const loadCustomRoles = async () => {
+    const res = await getCustomRolesAction();
+    if (res.success) setCustomRoles(res.roles);
+  };
+
+  useEffect(() => {
+    loadCustomRoles();
+  }, []);
+
+  function openCreateCustomRole() {
+    setCustomRoleModal({ mode: "create", role: null });
+    setCustomRoleName("");
+    setCustomRoleDescription("");
+    setCustomRoleMatrix(emptyCustomMatrix());
+    setCustomRoleCanViewPii(false);
+  }
+
+  function openEditCustomRole(role: CustomRole) {
+    setCustomRoleModal({ mode: "edit", role });
+    setCustomRoleName(role.name);
+    setCustomRoleDescription(role.description);
+    setCustomRoleMatrix(role.matrix);
+    setCustomRoleCanViewPii(role.canViewPii);
+  }
+
+  function applyCustomRoleTemplate(template: keyof typeof CUSTOM_ROLE_TEMPLATES) {
+    setCustomRoleMatrix(CUSTOM_ROLE_TEMPLATES[template].matrix);
+    setCustomRoleCanViewPii(CUSTOM_ROLE_TEMPLATES[template].canViewPii);
+  }
+
+  function toggleCustomRoleGrant(resource: CustomRoleResource, action: "read" | "edit") {
+    setCustomRoleMatrix((prev) => {
+      const current = prev[resource];
+      if (action === "edit") {
+        const nextEdit = !current.edit;
+        return { ...prev, [resource]: { read: nextEdit ? true : current.read, edit: nextEdit } };
+      }
+      const nextRead = !current.read;
+      return { ...prev, [resource]: { read: nextRead, edit: nextRead ? current.edit : false } };
+    });
+  }
+
+  async function saveCustomRole() {
+    if (!customRoleName.trim()) {
+      alert("Role name is required.");
+      return;
+    }
+    setCustomRoleSaving(true);
+    try {
+      const params = { name: customRoleName, description: customRoleDescription, matrix: customRoleMatrix, canViewPii: customRoleCanViewPii };
+      const res =
+        customRoleModal?.mode === "edit" && customRoleModal.role
+          ? await updateCustomRoleAction(customRoleModal.role.id, params, loggedInAdmin as any)
+          : await createCustomRoleAction(params, loggedInAdmin as any);
+      if (!res.success) {
+        alert(res.error || "Failed to save custom role.");
+        return;
+      }
+      setCustomRoleModal(null);
+      await loadCustomRoles();
+      addUserNotification("Custom Role Saved", `"${customRoleName}" has been saved.`, 1, "custom");
+    } finally {
+      setCustomRoleSaving(false);
+    }
+  }
+
+  async function confirmDeleteCustomRole() {
+    if (!customRoleToDelete) return;
+    const res = await deleteCustomRoleAction(customRoleToDelete.id, loggedInAdmin as any);
+    if (!res.success) {
+      alert(res.error || "Failed to delete custom role.");
+      setCustomRoleToDelete(null);
+      return;
+    }
+    setCustomRoleToDelete(null);
+    await loadCustomRoles();
+    addUserNotification("Custom Role Deleted", `"${customRoleToDelete.name}" has been deleted.`, 1, "custom");
+  }
 
   /* Edit form state */
   const [editName, setEditName] = useState("");
@@ -176,9 +303,12 @@ export default function AuditPage() {
             const uIsDR = uRoles.includes("DR") || u.role === "Drafter" || u.role === "DR (Drafter)";
             const uIsPR = uRoles.includes("PR") || u.role === "Peer Reviewer" || u.role === "PR (Peer Reviewer)";
             const uIsSUB = uRoles.includes("SUB") || u.role === "Subscriber" || u.role === "SUB (Subscriber)";
+            const matchedCustomRole = customRoles.find((cr) => uRoles.includes(cr.code));
 
             if (permissions.length === 0) {
-              if (uIsSA) {
+              if (matchedCustomRole) {
+                permissions = customRoleFeatureKeys(matchedCustomRole);
+              } else if (uIsSA) {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
               } else if (uIsCE) {
                 permissions = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "audit"];
@@ -203,7 +333,8 @@ export default function AuditPage() {
 
             const lastActiveAt = lastActiveMap[u.id] || u.lastActiveAt || defaultPastTimes[u.id] || (u.id === activeId ? Date.now() : undefined);
 
-            const canonicalTitle = uIsSA ? "Super Admin"
+            const canonicalTitle = matchedCustomRole ? matchedCustomRole.name
+              : uIsSA ? "Super Admin"
               : uIsCE ? "Clinical Editor"
               : uIsOM ? "Operations Manager"
               : uIsDR ? "Drafter"
@@ -211,7 +342,8 @@ export default function AuditPage() {
               : uIsSUB ? "Subscriber"
               : "Operations Manager";
 
-            const canonicalCode = uIsSA ? "SA"
+            const canonicalCode = matchedCustomRole ? matchedCustomRole.code
+              : uIsSA ? "SA"
               : uIsCE ? "CE"
               : uIsOM ? "OM"
               : uIsDR ? "DR"
@@ -264,6 +396,13 @@ export default function AuditPage() {
     }
   }, []);
 
+  // Resync admin display fields (role title/permissions) once custom roles have loaded — the
+  // initial sync above can run before they're known, briefly mis-deriving a custom-role admin.
+  useEffect(() => {
+    if (customRoles.length > 0) syncAdminsFromStorage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customRoles]);
+
   const currentAdmin = admins.find((a) => a.id === currentAdminId) || admins[0];
 
   // Lock body scroll when drawer or modal is open to prevent background scrolling lag
@@ -299,6 +438,8 @@ export default function AuditPage() {
   }
 
   function getCanonicalRoleOptionValue(role: string, roles?: string[]): string {
+    const matchedCustom = customRoles.find((cr) => roles?.includes(cr.code));
+    if (matchedCustom) return matchedCustom.name;
     const r = role || (roles && roles[0]) || "";
     if (r.includes("SA") || r === "Super Admin" || roles?.includes("SA")) return "SA (Super Admin)";
     if (r.includes("CE") || r === "Clinical Editor" || roles?.includes("CE")) return "CE (Clinical Editor)";
@@ -339,15 +480,19 @@ export default function AuditPage() {
       return;
     }
 
-    const isTargetSuperAdmin = editRole.includes("SA") || editRole === "Super Admin";
-    const derivedRoles = editRole.includes("SA") ? ["SA"] :
+    const matchedEditCustomRole = customRoles.find((cr) => cr.name === editRole);
+
+    const isTargetSuperAdmin = !matchedEditCustomRole && (editRole.includes("SA") || editRole === "Super Admin");
+    const derivedRoles = matchedEditCustomRole ? [matchedEditCustomRole.code] :
+      editRole.includes("SA") ? ["SA"] :
       editRole.includes("CE") ? ["CE"] :
       editRole.includes("OM") ? ["OM"] :
       editRole.includes("DR") ? ["DR"] :
       editRole.includes("PR") ? ["PR"] :
       editRole.includes("SUB") ? ["SUB"] : ["OM"];
 
-    const cleanRoleTitle = editRole.includes("SA") ? "Super Admin" :
+    const cleanRoleTitle = matchedEditCustomRole ? matchedEditCustomRole.name :
+      editRole.includes("SA") ? "Super Admin" :
       editRole.includes("CE") ? "Clinical Editor" :
       editRole.includes("OM") ? "Operations Manager" :
       editRole.includes("DR") ? "Drafter" :
@@ -355,7 +500,11 @@ export default function AuditPage() {
       editRole.includes("SUB") ? "Subscriber" : "Operations Manager";
 
     // Under 3G, OM cannot alter permission bundles — force preset permissions if non-SA
-    const finalPermissions = isSuperAdmin ? [...editPermissions] : [...(ROLE_PRESETS[editRole] || editPermissions)];
+    const finalPermissions = matchedEditCustomRole
+      ? customRoleFeatureKeys(matchedEditCustomRole)
+      : isSuperAdmin
+      ? [...editPermissions]
+      : [...(ROLE_PRESETS[editRole] || editPermissions)];
 
     const updatedUser = {
       id: editingAdmin.id,
@@ -422,8 +571,14 @@ export default function AuditPage() {
       return;
     }
     
-    const isTargetSuperAdmin = addRole === "Super Admin";
-    const finalPermissions = isSuperAdmin ? [...addPermissions] : [...(ROLE_PRESETS[addRole] || addPermissions)];
+    const matchedAddCustomRole = customRoles.find((cr) => cr.name === addRole);
+
+    const isTargetSuperAdmin = !matchedAddCustomRole && addRole === "Super Admin";
+    const finalPermissions = matchedAddCustomRole
+      ? customRoleFeatureKeys(matchedAddCustomRole)
+      : isSuperAdmin
+      ? [...addPermissions]
+      : [...(ROLE_PRESETS[addRole] || addPermissions)];
 
     const newCred = {
       id: String(Date.now()),
@@ -431,7 +586,8 @@ export default function AuditPage() {
       email: addEmail.trim(),
       username: addUsername.trim(),
       password: addPassword,
-      role: addRole,
+      role: matchedAddCustomRole ? matchedAddCustomRole.name : addRole,
+      roles: matchedAddCustomRole ? [matchedAddCustomRole.code] : undefined,
       permissions: finalPermissions,
       lastChanged: "Just now",
       forgotPasswordEnabled: isTargetSuperAdmin ? addForgotPassword : true,
@@ -556,8 +712,11 @@ export default function AuditPage() {
     { value: "PR (Peer Reviewer)", label: "PR — Section 3A Peer Reviewer (Review Task Management)" },
   ];
 
-  const addRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
-  const editRoleOptions = isSuperAdmin ? ALL_ROLE_OPTIONS : CONTRIBUTOR_ROLE_OPTIONS;
+  // Custom roles are assignable by SA only, same tier as creating/editing them.
+  const CUSTOM_ROLE_OPTIONS = customRoles.map((r) => ({ value: r.name, label: `${r.name} (Custom Role)${r.description ? ` — ${r.description}` : ""}` }));
+
+  const addRoleOptions = isSuperAdmin ? [...ALL_ROLE_OPTIONS, ...CUSTOM_ROLE_OPTIONS] : CONTRIBUTOR_ROLE_OPTIONS;
+  const editRoleOptions = isSuperAdmin ? [...ALL_ROLE_OPTIONS, ...CUSTOM_ROLE_OPTIONS] : CONTRIBUTOR_ROLE_OPTIONS;
 
   /* ── Render ── */
   return (
@@ -589,6 +748,94 @@ export default function AuditPage() {
             <p className="mt-0.5 opacity-90">
               You are signed in under the <strong>Viewer</strong> role. You have full read-only access to all sections and data, but editing settings, adding users, or modifying roles is restricted.
             </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Custom (Configurable) Roles */}
+      {isSuperAdmin && (
+        <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
+          <div className="relative z-10">
+            <div className="px-4 sm:px-6 py-4 border-b border-slate-200/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  <Lucide.ShieldCheck className="w-4 h-4 text-teal-600" />
+                  Custom Roles
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Configurable roles beyond the 6 fixed ones — a read/edit permissions matrix per section, plus whether the role can see learner-identifiable data.
+                </p>
+              </div>
+              <button
+                onClick={openCreateCustomRole}
+                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm hover:shadow-md active:scale-[0.97] transition-all cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}
+              >
+                <Lucide.Plus className="w-3.5 h-3.5" />
+                New Custom Role
+              </button>
+            </div>
+
+            {customRoles.length === 0 ? (
+              <div className="px-6 py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+                No custom roles yet. Create one to grant a shaped-down set of read/edit permissions beyond the fixed roles.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {customRoles.map((role) => (
+                  <div key={role.id} className="px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{role.name}</span>
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border border-teal-200/50 dark:border-teal-900/40">
+                          {role.code}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded border flex items-center gap-1 ${
+                            role.canViewPii
+                              ? "bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-900/40"
+                              : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                          }`}
+                        >
+                          {role.canViewPii ? <Lucide.Eye className="w-3 h-3" /> : <Lucide.EyeOff className="w-3 h-3" />}
+                          {role.canViewPii ? "Sees learner PII" : "PII hidden"}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">{role.assignedCount} admin(s) assigned</span>
+                      </div>
+                      {role.description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{role.description}</p>}
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+                        {customRoleFeatureKeys(role).length === 0
+                          ? "No resource access granted"
+                          : CUSTOM_ROLE_RESOURCES.filter((r) => role.matrix[r].edit).length > 0
+                          ? `Edit: ${CUSTOM_ROLE_RESOURCES.filter((r) => role.matrix[r].edit).join(", ")}`
+                          : `Read only: ${customRoleFeatureKeys(role).join(", ")}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => openEditCustomRole(role)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/25 transition-all cursor-pointer"
+                        title="Edit role"
+                      >
+                        <Lucide.Edit3 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => (role.assignedCount > 0 ? undefined : setCustomRoleToDelete(role))}
+                        disabled={role.assignedCount > 0}
+                        className={`p-1.5 rounded-lg transition-all ${
+                          role.assignedCount > 0
+                            ? "text-slate-300 dark:text-slate-700 cursor-not-allowed"
+                            : "text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/25 cursor-pointer"
+                        }`}
+                        title={role.assignedCount > 0 ? "Reassign admins off this role before deleting" : "Delete role"}
+                      >
+                        <Lucide.Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </motion.div>
       )}
@@ -1316,6 +1563,201 @@ export default function AuditPage() {
                 >
                   <Lucide.Trash2 className="w-3.5 h-3.5" />
                   Delete Admin
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Create / Edit Custom Role Modal */}
+      <AnimatePresence>
+        {customRoleModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 pointer-events-auto"
+            onClick={() => setCustomRoleModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/80 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between sticky top-0 bg-white dark:bg-slate-900 z-10">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-150">
+                    {customRoleModal.mode === "edit" ? "Edit Custom Role" : "New Custom Role"}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Configure what this role can read and edit, section by section.</p>
+                </div>
+                <button
+                  onClick={() => setCustomRoleModal(null)}
+                  className="p-1.5 border-none bg-transparent rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-850 cursor-pointer transition-colors"
+                >
+                  <Lucide.X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={themeLabel}>Role Name *</label>
+                    <input
+                      type="text"
+                      value={customRoleName}
+                      onChange={(e) => setCustomRoleName(e.target.value)}
+                      placeholder="e.g. Content Manager"
+                      className={themeInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={themeLabel}>Description</label>
+                    <input
+                      type="text"
+                      value={customRoleDescription}
+                      onChange={(e) => setCustomRoleDescription(e.target.value)}
+                      placeholder="What this role is for"
+                      className={themeInput}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={themeLabel}>Quick-Fill Template</label>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {(Object.keys(CUSTOM_ROLE_TEMPLATES) as (keyof typeof CUSTOM_ROLE_TEMPLATES)[]).map((tpl) => (
+                      <button
+                        key={tpl}
+                        type="button"
+                        onClick={() => applyCustomRoleTemplate(tpl)}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-all cursor-pointer"
+                      >
+                        {tpl}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1.5">Templates pre-fill the matrix below — still fully editable after.</p>
+                </div>
+
+                <div>
+                  <label className={themeLabel}>Permissions Matrix</label>
+                  <div className="mt-1.5 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 dark:bg-slate-850 text-slate-500 dark:text-slate-400">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-semibold">Section</th>
+                          <th className="text-center px-3 py-2 font-semibold w-20">Read</th>
+                          <th className="text-center px-3 py-2 font-semibold w-20">Edit</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {ALL_FEATURES.map((f) => (
+                          <tr key={f.key}>
+                            <td className="px-3 py-2">
+                              <div className="font-semibold text-slate-700 dark:text-slate-200">{f.label}</div>
+                              <div className="text-[10px] text-slate-400">{f.desc}</div>
+                            </td>
+                            <td className="text-center px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={customRoleMatrix[f.key as CustomRoleResource]?.read || false}
+                                onChange={() => toggleCustomRoleGrant(f.key as CustomRoleResource, "read")}
+                                className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 cursor-pointer"
+                              />
+                            </td>
+                            <td className="text-center px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={customRoleMatrix[f.key as CustomRoleResource]?.edit || false}
+                                onChange={() => toggleCustomRoleGrant(f.key as CustomRoleResource, "edit")}
+                                className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 cursor-pointer"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-3 p-3.5 rounded-xl border border-amber-200/60 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/20 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={customRoleCanViewPii}
+                    onChange={(e) => setCustomRoleCanViewPii(e.target.checked)}
+                    className="w-4 h-4 rounded border-amber-300 dark:border-amber-700 accent-amber-600 cursor-pointer"
+                  />
+                  <div>
+                    <p className="text-xs font-bold text-amber-900 dark:text-amber-200">Can view learner-identifiable data</p>
+                    <p className="text-[11px] text-amber-700/80 dark:text-amber-300/70 mt-0.5">
+                      When off, learner names and emails are masked on the Users page for admins with this role.
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3 sticky bottom-0 bg-white dark:bg-slate-900">
+                <button onClick={() => setCustomRoleModal(null)} className={`px-4 py-2 text-xs font-semibold ${themeBtnGhost}`}>
+                  Cancel
+                </button>
+                <button
+                  onClick={saveCustomRole}
+                  disabled={customRoleSaving}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl shadow-sm transition-all duration-200 cursor-pointer hover:opacity-95 active:scale-[0.97] disabled:opacity-50"
+                  style={{ background: "linear-gradient(135deg, #0f766e, #115e59)" }}
+                >
+                  {customRoleSaving ? "Saving..." : customRoleModal.mode === "edit" ? "Save Changes" : "Create Role"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Custom Role Confirm Modal */}
+      <AnimatePresence>
+        {customRoleToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm p-4 pointer-events-auto"
+            onClick={() => setCustomRoleToDelete(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-800/80 w-full max-w-lg overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-150">Delete Custom Role</h3>
+                <p className="text-xs text-slate-400 mt-0.5">This cannot be undone.</p>
+              </div>
+              <div className="px-6 py-5">
+                <div className="p-4 rounded-xl border border-rose-200/40 dark:border-rose-900/30 bg-rose-50/40 dark:bg-rose-950/20">
+                  <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                    Are you sure you want to delete the role <span className="font-bold text-rose-700 dark:text-rose-400">"{customRoleToDelete.name}"</span>?
+                  </p>
+                </div>
+              </div>
+              <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <button onClick={() => setCustomRoleToDelete(null)} className={`px-4 py-2 text-xs font-semibold ${themeBtnGhost}`}>
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteCustomRole}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition-all duration-200 cursor-pointer active:scale-[0.97]"
+                >
+                  <Lucide.Trash2 className="w-3.5 h-3.5" />
+                  Delete Role
                 </button>
               </div>
             </motion.div>

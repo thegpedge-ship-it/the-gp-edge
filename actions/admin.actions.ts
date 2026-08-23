@@ -81,7 +81,8 @@ function mapRowToCredentialUser(row: any): CredentialUser {
   const roleCode = isSuperAdmin ? "SA"
     : row.role_code || (row.role?.includes("CE") ? "CE" : row.role?.includes("OM") ? "OM" : row.role?.includes("DR") ? "DR" : row.role?.includes("PR") ? "PR" : row.role?.includes("SUB") ? "SUB" : row.role === "Clinical Editor" ? "CE" : row.role === "Drafter" ? "DR" : row.role === "Peer Reviewer" ? "PR" : "OM");
 
-  const roleTitle = roleCode === "SA" ? "Super Admin"
+  const roleTitle = row.custom_role_name ? row.custom_role_name
+    : roleCode === "SA" ? "Super Admin"
     : roleCode === "CE" ? "Clinical Editor"
     : roleCode === "OM" ? "Operations Manager"
     : roleCode === "DR" ? "Drafter"
@@ -110,13 +111,20 @@ function mapRowToCredentialUser(row: any): CredentialUser {
 
 export async function getAdminsFromDbAction(): Promise<CredentialUser[]> {
   try {
+    // Ensure the custom-role columns exist before joining against them (idempotent, matches the
+    // ensure-columns pattern already used below for admin_users.role/role_code).
+    try {
+      await execute(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false; ALTER TABLE roles ADD COLUMN IF NOT EXISTS can_view_pii BOOLEAN DEFAULT false;`);
+    } catch (e) {}
+
     const rows = await query<any>(
-      `SELECT u.*,
+      `SELECT u.*, r.name AS custom_role_name,
               ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
          FROM admin_users u
          LEFT JOIN admin_user_permissions p ON p.admin_user_id = u.id
+         LEFT JOIN roles r ON r.code = u.role_code AND r.is_custom = true
         WHERE u.deleted_at IS NULL
-        GROUP BY u.id
+        GROUP BY u.id, r.name
         ORDER BY u.created_at ASC`
     );
     return rows.map(mapRowToCredentialUser);

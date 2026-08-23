@@ -193,6 +193,96 @@ export default function ContentPage() {
     setShowDeleteModal(true);
   };
 
+  // Multi-select bulk selection state for Archive view
+  const [selectedContentIds, setSelectedContentIds] = useState<string[]>([]);
+  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete" | "archive"; ids: string[] } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  useEffect(() => {
+    setSelectedContentIds([]);
+  }, [searchQuery, statusFilter, typeFilter, systemFilter]);
+
+  const toggleSelectContent = (id: string) => {
+    setSelectedContentIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  };
+
+  const handleSelectAllFiltered = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedContentIds(e.target.checked ? filtered.map((c) => c.id) : []);
+  };
+
+  const handleBulkRestoreContent = async () => {
+    if (!canRestoreItem || selectedContentIds.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedContentIds.length });
+    let successCount = 0;
+    for (let i = 0; i < selectedContentIds.length; i++) {
+      try {
+        const res = await fetch(`/api/medical-content/${selectedContentIds[i]}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adminUser: currentAdmin }),
+        });
+        const data = await res.json();
+        if (data.success) successCount++;
+      } catch {}
+      setBulkProgress({ done: i + 1, total: selectedContentIds.length });
+    }
+    const updated = content.map((c) => (selectedContentIds.includes(c.id) ? { ...c, status: "published" as const } : c));
+    setContent(updated);
+    saveMedicalContent(updated);
+    setSelectedContentIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Content Restored", `Successfully restored ${successCount} item(s).`, 1, "custom");
+  };
+
+  const handleBulkPermanentDeleteContent = async () => {
+    if (!canRestoreItem || selectedContentIds.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedContentIds.length });
+    let successCount = 0;
+    for (let i = 0; i < selectedContentIds.length; i++) {
+      try {
+        const res = await fetch(`/api/medical-content/${selectedContentIds[i]}?permanent=true`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adminUser: currentAdmin }),
+        });
+        const data = await res.json();
+        if (data.success) successCount++;
+      } catch {}
+      setBulkProgress({ done: i + 1, total: selectedContentIds.length });
+    }
+    const updated = content.filter((c) => !selectedContentIds.includes(c.id));
+    setContent(updated);
+    saveMedicalContent(updated);
+    setSelectedContentIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Content Permanently Deleted", `${successCount} item(s) purged from database.`, 1, "custom");
+  };
+
+  const handleBulkArchiveContent = async () => {
+    if (!canArchiveItem || selectedContentIds.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedContentIds.length });
+    for (let i = 0; i < selectedContentIds.length; i++) {
+      try {
+        await fetch(`/api/medical-content/${selectedContentIds[i]}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adminUser: currentAdmin }),
+        });
+      } catch {}
+      setBulkProgress({ done: i + 1, total: selectedContentIds.length });
+    }
+    const count = selectedContentIds.length;
+    const updated = content.map((c) => (selectedContentIds.includes(c.id) ? { ...c, status: "archived" as const } : c));
+    setContent(updated);
+    saveMedicalContent(updated);
+    setSelectedContentIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Content Archived", `Successfully archived ${count} item(s).`, 1, "custom");
+  };
+
   const handleToggleLibraryItemFree = async (item: MedicalContent, newIsFree: boolean) => {
     if (!canToggleBilling) return;
 
@@ -817,6 +907,79 @@ export default function ContentPage() {
         />
       </motion.div>
 
+      {/* Bulk Action Floating Toolbar (ONLY active in Archive view when items are selected) */}
+      {statusFilter === "archived" && canRestoreItem && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedContentIds.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-amber-300 dark:border-amber-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All Archived Content ({selectedContentIds.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedContentIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "restore", ids: selectedContentIds })}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                Restore Selected ({selectedContentIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "permanent_delete", ids: selectedContentIds })}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.Trash2 className="w-3.5 h-3.5" />
+                Delete Selected Permanently ({selectedContentIds.length})
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {statusFilter !== "archived" && canArchiveItem && filtered.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-teal-900 dark:text-teal-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedContentIds.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All ({selectedContentIds.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedContentIds.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "archive", ids: selectedContentIds })}
+                className="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.Archive className="w-3.5 h-3.5" />
+                Archive Selected ({selectedContentIds.length})
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Content cards grid */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {displayedContent.map((item) => (
@@ -826,13 +989,22 @@ export default function ContentPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border border-teal-200/70 dark:border-teal-900/40 shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-300 cursor-pointer"
+            className={`bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl rounded-2xl border shadow-md shadow-slate-200/30 overflow-hidden relative group hover:shadow-lg hover:border-teal-300 dark:hover:border-teal-700 hover:shadow-[inset_4px_0_0_0_#0f766e] transition-all duration-300 cursor-pointer ${selectedContentIds.includes(item.id) ? (item.status === "archived" ? "border-amber-300 dark:border-amber-700 ring-2 ring-amber-200/60 dark:ring-amber-900/40" : "border-teal-300 dark:border-teal-700 ring-2 ring-teal-200/60 dark:ring-teal-900/40") : "border-teal-200/70 dark:border-teal-900/40"}`}
             onClick={() => router.push(`/admin/content/${item.id}`)}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/85 dark:from-slate-900/60 via-transparent to-slate-50/5 dark:to-teal-950/5 pointer-events-none" />
             <div className="relative z-10 p-5">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2 flex-wrap">
+                  {((item.status === "archived" && canRestoreItem) || (item.status !== "archived" && canArchiveItem)) && (
+                    <input
+                      type="checkbox"
+                      checked={selectedContentIds.includes(item.id)}
+                      onChange={() => toggleSelectContent(item.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                    />
+                  )}
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${typeColors[item.type]}`}>{item.type}</span>
                   <StatusBadge variant={item.status} />
                   <button
@@ -1340,6 +1512,111 @@ export default function ContentPage() {
             </motion.div>
           </div>
         )}
+      </AnimatePresence>
+
+      {/* Bulk Restore / Archive / Permanent Delete Confirm Modal */}
+      <AnimatePresence>
+        {bulkActionConfirm && (() => {
+          const meta =
+            bulkActionConfirm.type === "restore"
+              ? {
+                  Icon: Lucide.RotateCcw,
+                  title: "Restore Selected Content?",
+                  verb: "restore",
+                  handler: handleBulkRestoreContent,
+                  confirmLabel: "Restore Content",
+                  iconWrap: "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400",
+                  progressBar: "bg-emerald-500",
+                  confirmBtn: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10",
+                }
+              : bulkActionConfirm.type === "archive"
+              ? {
+                  Icon: Lucide.Archive,
+                  title: "Archive Selected Content?",
+                  verb: "archive",
+                  handler: handleBulkArchiveContent,
+                  confirmLabel: "Archive Content",
+                  iconWrap: "bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400",
+                  progressBar: "bg-teal-500",
+                  confirmBtn: "bg-teal-700 hover:bg-teal-800 shadow-teal-700/10",
+                }
+              : {
+                  Icon: Lucide.Trash2,
+                  title: "Permanently Delete Selected Content?",
+                  verb: "permanently delete",
+                  handler: handleBulkPermanentDeleteContent,
+                  confirmLabel: "Delete Permanently",
+                  iconWrap: "bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400",
+                  progressBar: "bg-rose-500",
+                  confirmBtn: "bg-rose-600 hover:bg-rose-700 shadow-rose-500/10",
+                };
+          return (
+            <div key="bulk-confirm-modal-portal" className="fixed inset-0 z-[70] flex items-center justify-center pointer-events-none">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm pointer-events-auto cursor-pointer"
+                onClick={() => setBulkActionConfirm(null)}
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                className="relative w-full max-w-md mx-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden pointer-events-auto text-slate-800 dark:text-slate-100 text-center space-y-4"
+              >
+                <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${meta.iconWrap}`}>
+                  <meta.Icon className="w-6 h-6" />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="font-serif text-lg font-bold text-slate-900 dark:text-slate-50">{meta.title}</h3>
+                  <p className="text-xs text-slate-550 dark:text-slate-400 leading-relaxed px-2">
+                    Are you sure you want to {meta.verb} <strong>{bulkActionConfirm.ids.length} selected item(s)</strong>?
+                  </p>
+                  {bulkActionConfirm.type === "permanent_delete" && !bulkProgress && (
+                    <div className="mt-1 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                      <p className="font-semibold">⚠️ Danger Zone</p>
+                      <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge all selected content from the database.</p>
+                    </div>
+                  )}
+                  {bulkProgress && (
+                    <div className="pt-1 space-y-1.5">
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-200 ${meta.progressBar}`}
+                          style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 font-medium">
+                        Processing {bulkProgress.done} of {bulkProgress.total}…
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2.5 justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setBulkActionConfirm(null)}
+                    disabled={!!bulkProgress}
+                    className="px-4 py-2.5 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={meta.handler}
+                    disabled={!!bulkProgress}
+                    className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold transition shadow-md disabled:opacity-50 cursor-pointer border-none active:scale-95 ${meta.confirmBtn}`}
+                  >
+                    {bulkProgress ? "Working…" : meta.confirmLabel}
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Themed Success Notification Modal */}

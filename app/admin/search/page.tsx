@@ -344,6 +344,70 @@ export default function SearchPage() {
     }
   };
 
+  // Multi-select bulk selection state for archived taxonomy topics
+  const [selectedTopicCodes, setSelectedTopicCodes] = useState<string[]>([]);
+  const [bulkTopicActionConfirm, setBulkTopicActionConfirm] = useState<{ type: "restore" | "permanent_delete" | "archive"; codes: string[] } | null>(null);
+  const [bulkTopicProgress, setBulkTopicProgress] = useState<{ done: number; total: number } | null>(null);
+
+  const toggleSelectTopic = (code: string) => {
+    setSelectedTopicCodes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
+  };
+
+  const handleSelectAllArchivedTopics = (e: React.ChangeEvent<HTMLInputElement>, archivedCodes: string[]) => {
+    setSelectedTopicCodes(e.target.checked ? archivedCodes : []);
+  };
+
+  const handleBulkRestoreTopics = async () => {
+    if (selectedTopicCodes.length === 0) return;
+    const total = selectedTopicCodes.length;
+    setBulkTopicProgress({ done: 0, total });
+    let successCount = 0;
+    for (let i = 0; i < selectedTopicCodes.length; i++) {
+      const res = await restoreTaxonomyTopicAction(selectedTopicCodes[i]);
+      if (res.success) successCount++;
+      setBulkTopicProgress({ done: i + 1, total });
+    }
+    setTaxonomyTopics((prev) => prev.map((t) => (selectedTopicCodes.includes(t.code) ? { ...t, status: "active" } : t)));
+    setSelectedTopicCodes([]);
+    setBulkTopicProgress(null);
+    setBulkTopicActionConfirm(null);
+    alert(`Successfully restored ${successCount} topic(s).`);
+  };
+
+  const handleBulkPermanentDeleteTopics = async () => {
+    if (selectedTopicCodes.length === 0) return;
+    const total = selectedTopicCodes.length;
+    setBulkTopicProgress({ done: 0, total });
+    let successCount = 0;
+    for (let i = 0; i < selectedTopicCodes.length; i++) {
+      const res = await deleteTaxonomyTopicAction(selectedTopicCodes[i]);
+      if (res.success) successCount++;
+      setBulkTopicProgress({ done: i + 1, total });
+    }
+    setTaxonomyTopics((prev) => prev.filter((t) => !selectedTopicCodes.includes(t.code)));
+    setSelectedTopicCodes([]);
+    setBulkTopicProgress(null);
+    setBulkTopicActionConfirm(null);
+    alert(`Successfully deleted ${successCount} topic(s) permanently.`);
+  };
+
+  const handleBulkArchiveTopics = async () => {
+    if (selectedTopicCodes.length === 0) return;
+    const total = selectedTopicCodes.length;
+    setBulkTopicProgress({ done: 0, total });
+    let successCount = 0;
+    for (let i = 0; i < selectedTopicCodes.length; i++) {
+      const res = await archiveTaxonomyTopicAction(selectedTopicCodes[i]);
+      if (res.success) successCount++;
+      setBulkTopicProgress({ done: i + 1, total });
+    }
+    setTaxonomyTopics((prev) => prev.map((t) => (selectedTopicCodes.includes(t.code) ? { ...t, status: "archived" } : t)));
+    setSelectedTopicCodes([]);
+    setBulkTopicProgress(null);
+    setBulkTopicActionConfirm(null);
+    alert(`Successfully archived ${successCount} topic(s).`);
+  };
+
   const handleExecuteDeleteTopic = async () => {
     if (!deleteTopicTarget) return;
     setIsDeletingTopic(true);
@@ -879,10 +943,100 @@ export default function SearchPage() {
             </div>
           </div>
 
+          {/* Bulk Action Floating Toolbars — archived rows offer Restore/Delete (amber, danger-toned);
+              active rows offer bulk Archive (teal, matching the project's primary brand theme).
+              Since this page has no status-filter tab, both can be visible in the same view; each
+              toolbar's action buttons only activate when the current selection is entirely within
+              its own status group, so a mixed selection can't fire the wrong action. */}
+          {(() => {
+            const visibleTopics = filteredTaxonomy.slice(0, visibleTopicsCount);
+            const archivedCodes = visibleTopics.filter((t) => t.status === "archived").map((t) => t.code);
+            const activeCodes = visibleTopics.filter((t) => t.status !== "archived").map((t) => t.code);
+            const selectionIsArchived = selectedTopicCodes.length > 0 && selectedTopicCodes.every((c) => archivedCodes.includes(c));
+            const selectionIsActive = selectedTopicCodes.length > 0 && selectedTopicCodes.every((c) => activeCodes.includes(c));
+
+            return (
+              <>
+                {archivedCodes.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-amber-900 dark:text-amber-200">
+                        <input
+                          type="checkbox"
+                          checked={archivedCodes.every((c) => selectedTopicCodes.includes(c))}
+                          onChange={(e) => handleSelectAllArchivedTopics(e, archivedCodes)}
+                          className="w-4 h-4 rounded border-amber-300 dark:border-amber-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                        />
+                        <span>Select All Archived Topics ({selectionIsArchived ? selectedTopicCodes.length : 0} of {archivedCodes.length} selected)</span>
+                      </label>
+                    </div>
+                    {selectionIsArchived && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setBulkTopicActionConfirm({ type: "restore", codes: selectedTopicCodes })}
+                          className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          Restore Selected ({selectedTopicCodes.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBulkTopicActionConfirm({ type: "permanent_delete", codes: selectedTopicCodes })}
+                          className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Delete Selected Permanently ({selectedTopicCodes.length})
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {activeCodes.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-teal-900 dark:text-teal-200">
+                        <input
+                          type="checkbox"
+                          checked={activeCodes.every((c) => selectedTopicCodes.includes(c))}
+                          onChange={(e) => handleSelectAllArchivedTopics(e, activeCodes)}
+                          className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                        />
+                        <span>Select All ({selectionIsActive ? selectedTopicCodes.length : 0} of {activeCodes.length} selected)</span>
+                      </label>
+                    </div>
+                    {selectionIsActive && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setBulkTopicActionConfirm({ type: "archive", codes: selectedTopicCodes })}
+                          className="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                          Archive Selected ({selectedTopicCodes.length})
+                        </button>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </>
+            );
+          })()}
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-semibold border-b border-slate-200 dark:border-slate-800">
                 <tr>
+                  <th className="p-3 w-8"></th>
                   <th className="p-3 w-28">topicCode</th>
                   <th className="p-3">Label / Topic Title</th>
                   <th className="p-3 w-44">homeUnit.group</th>
@@ -898,7 +1052,15 @@ export default function SearchPage() {
                   const grpName = getGroupName(t.homeUnit, t.group);
                   const displayUnitName = t.homeUnitName || getUnitName(t.homeUnit);
                   return (
-                    <tr key={`${t.code}-${t.label}`} className="hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all">
+                    <tr key={`${t.code}-${t.label}`} className={`hover:bg-teal-50/20 dark:hover:bg-teal-950/20 transition-all ${selectedTopicCodes.includes(t.code) ? (t.status === "archived" ? "bg-amber-50/40 dark:bg-amber-950/20" : "bg-teal-50/40 dark:bg-teal-950/20") : ""}`}>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedTopicCodes.includes(t.code)}
+                          onChange={() => toggleSelectTopic(t.code)}
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="p-3">
                         <span className="font-mono font-bold text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/40 px-2 py-0.5 rounded border border-teal-200/50 dark:border-teal-900/40">
                           {formatTopicCode(t.code)}
@@ -1952,6 +2114,107 @@ export default function SearchPage() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Bulk Restore / Archive / Permanent Delete Confirm Modal (Taxonomy Topics) */}
+      <AnimatePresence>
+        {bulkTopicActionConfirm && (() => {
+          const meta =
+            bulkTopicActionConfirm.type === "restore"
+              ? {
+                  Icon: RotateCcw,
+                  title: "Restore Selected Topics?",
+                  verb: "restore",
+                  handler: handleBulkRestoreTopics,
+                  confirmLabel: "Restore Topics",
+                  iconWrap: "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+                  progressBar: "bg-emerald-500",
+                  confirmBtn: "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20",
+                }
+              : bulkTopicActionConfirm.type === "archive"
+              ? {
+                  Icon: Archive,
+                  title: "Archive Selected Topics?",
+                  verb: "archive",
+                  handler: handleBulkArchiveTopics,
+                  confirmLabel: "Archive Topics",
+                  iconWrap: "bg-teal-50 dark:bg-teal-950/40 border border-teal-100 dark:border-teal-900/40 text-teal-600 dark:text-teal-400",
+                  progressBar: "bg-teal-500",
+                  confirmBtn: "bg-teal-700 hover:bg-teal-800 shadow-teal-700/20",
+                }
+              : {
+                  Icon: Trash2,
+                  title: "Permanently Delete Selected Topics?",
+                  verb: "permanently delete",
+                  handler: handleBulkPermanentDeleteTopics,
+                  confirmLabel: "Delete Permanently",
+                  iconWrap: "bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-400",
+                  progressBar: "bg-rose-500",
+                  confirmBtn: "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20",
+                };
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4"
+              >
+                <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center ${meta.iconWrap}`}>
+                  <meta.Icon className="w-7 h-7" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 text-center">{meta.title}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 text-center leading-relaxed">
+                  Are you sure you want to {meta.verb} <strong>{bulkTopicActionConfirm.codes.length} selected topic(s)</strong>?
+                </p>
+                {bulkTopicActionConfirm.type === "permanent_delete" && !bulkTopicProgress && (
+                  <div className="p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                    <p className="font-semibold">⚠️ Danger Zone</p>
+                    <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge all selected topics from the database.</p>
+                  </div>
+                )}
+
+                {bulkTopicProgress && (
+                  <div className="space-y-1.5">
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-200 ${meta.progressBar}`}
+                        style={{ width: `${Math.round((bulkTopicProgress.done / bulkTopicProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 font-medium">
+                      Processing {bulkTopicProgress.done} of {bulkTopicProgress.total}…
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setBulkTopicActionConfirm(null)}
+                    disabled={!!bulkTopicProgress}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={meta.handler}
+                    disabled={!!bulkTopicProgress}
+                    className={`px-4 py-2 text-xs font-bold text-white rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer ${meta.confirmBtn}`}
+                  >
+                    {bulkTopicProgress ? "Working…" : meta.confirmLabel}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </motion.div>
   );

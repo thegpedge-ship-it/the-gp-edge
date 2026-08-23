@@ -95,6 +95,76 @@ export type ItemType =
 
 export type RoleCode = "SA" | "CE" | "OM" | "DR" | "PR" | "SUB" | "Super Admin" | "Admin" | "Reviewer" | "Editor" | "Author" | "Moderator" | "Viewer";
 
+/** Maps an item's ItemType to the resource key used by the custom-role permissions matrix. */
+const ITEM_TYPE_TO_CUSTOM_ROLE_RESOURCE: Partial<Record<ItemType, string>> = {
+  question: "questions",
+  medical_condition: "content",
+  approach: "approaches",
+  autofill_template: "autofill",
+  quiz: "quizzes",
+  mock_test: "quizzes",
+  user: "users",
+  statement: "billing",
+  rate_card: "billing",
+  audit_log: "audit",
+};
+
+/** Capabilities a custom role's "edit" grant on a resource authorizes. */
+const CUSTOM_ROLE_EDIT_CAPABILITIES = new Set<Capability>([
+  "create",
+  "edit",
+  "delete",
+  "publish",
+  "archive",
+  "create_item",
+  "create_bulk_items",
+  "edit_draft",
+  "edit_post_review",
+  "attach_references",
+  "archive_item",
+]);
+
+/** Capabilities a custom role's "read" grant on a resource authorizes (edit also implies read). */
+const CUSTOM_ROLE_READ_CAPABILITIES = new Set<Capability>(["read", "view_unpublished", "view_pipeline_metadata"]);
+
+interface CustomRoleMatrixResult {
+  read: Record<string, boolean>;
+  edit: Record<string, boolean>;
+  canViewPii: boolean;
+}
+
+/**
+ * Looks up a custom (non-fixed) role's permissions matrix by its code. Returns null when the
+ * code doesn't match any custom role (e.g. it's a fixed-role code, or unrecognized).
+ */
+async function getCustomRoleMatrix(roleCode: string): Promise<CustomRoleMatrixResult | null> {
+  try {
+    const role = await queryOne<{ id: number; can_view_pii: boolean }>(
+      `SELECT id, can_view_pii FROM roles WHERE is_custom = true AND code = $1 LIMIT 1`,
+      [roleCode]
+    );
+    if (!role) return null;
+
+    const grants = await query<{ permission_key: string }>(
+      `SELECT permission_key FROM role_permissions WHERE role_id = $1`,
+      [role.id]
+    );
+
+    const read: Record<string, boolean> = {};
+    const edit: Record<string, boolean> = {};
+    for (const g of grants) {
+      const [resource, action] = g.permission_key.split(".");
+      if (action === "read") read[resource] = true;
+      if (action === "edit") edit[resource] = true;
+    }
+
+    return { read, edit, canViewPii: role.can_view_pii };
+  } catch (err) {
+    console.error("[getCustomRoleMatrix] error:", err);
+    return null;
+  }
+}
+
 export type AccountState = "active" | "deactivated" | "suspended" | "trial" | "lapsed" | "pending_invite";
 
 export interface PermissionUser {
@@ -357,6 +427,40 @@ export async function evaluateRelationalPermission(params: {
   const isDrafter = assignedRoles.includes("DR") || assignedRoles.includes("Drafter");
   const isPeerReviewer = assignedRoles.includes("PR") || assignedRoles.includes("Peer Reviewer");
   const isSubscriber = assignedRoles.includes("SUB") || assignedRoles.includes("Subscriber");
+
+  // 5b. CUSTOM (CONFIGURABLE) ROLE MATRIX CHECK
+  // Purely additive: only runs for a role that isn't one of the 6 fixed codes, and only
+  // resolves capabilities that map onto the resource read/edit matrix. Anything else (rate
+  // cards, task assignment, contributor payments, restore, etc.) falls through unchanged to
+  // the fixed-role logic below, which correctly denies since none of the isSuperAdmin/... role
+  // booleans are true for a custom role.
+  const isFixedRole = isSuperAdmin || isClinicalEditor || isOMRole || isDrafter || isPeerReviewer || isSubscriber;
+  if (!isFixedRole && capability !== "restore_item") {
+    const customMatrix = await getCustomRoleMatrix(assignedRoles[0]);
+    if (customMatrix) {
+      const resource = item?.type ? ITEM_TYPE_TO_CUSTOM_ROLE_RESOURCE[item.type] : undefined;
+      if (resource) {
+        if (CUSTOM_ROLE_EDIT_CAPABILITIES.has(capability)) {
+          return customMatrix.edit[resource]
+            ? { allowed: true, code: "ALLOWED" }
+            : {
+                allowed: false,
+                code: "ROLE_DENIED",
+                reason: `Custom role '${assignedRoles[0]}' does not have edit access to '${resource}'.`,
+              };
+        }
+        if (CUSTOM_ROLE_READ_CAPABILITIES.has(capability)) {
+          return customMatrix.read[resource] || customMatrix.edit[resource]
+            ? { allowed: true, code: "ALLOWED" }
+            : {
+                allowed: false,
+                code: "ROLE_DENIED",
+                reason: `Custom role '${assignedRoles[0]}' does not have read access to '${resource}'.`,
+              };
+        }
+      }
+    }
+  }
 
   // 6. RESTORE IS SA-ONLY
   if (capability === "restore_item") {

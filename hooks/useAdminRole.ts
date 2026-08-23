@@ -1,7 +1,35 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { RoleCode, AccountState } from "@/lib/relationalPermissions";
+import { getCustomRoleByCodeAction } from "@/actions/customRoles.actions";
+import { CustomRoleResource, PermissionMatrix } from "@/lib/customRoleTypes";
+
+const FIXED_ROLE_CODES = new Set(["SA", "CE", "OM", "DR", "PR", "SUB"]);
+
+/** Maps an admin page pathname to the custom-role matrix resource it corresponds to. */
+function resourceForPathname(pathname: string | null): CustomRoleResource | undefined {
+  if (!pathname) return undefined;
+  const segments = pathname.replace(/^\/admin\/?/, "").split("/");
+  const first = segments[0];
+  const known: CustomRoleResource[] = [
+    "dashboard",
+    "questions",
+    "quizzes",
+    "content",
+    "approaches",
+    "autofill",
+    "users",
+    "mbs",
+    "notifications",
+    "billing",
+    "audit",
+    "settings",
+    "search",
+  ];
+  return known.includes(first as CustomRoleResource) ? (first as CustomRoleResource) : undefined;
+}
 
 export interface AdminProfile {
   id: string;
@@ -290,6 +318,70 @@ export function useAdminRole() {
   const canViewPipeline = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isOperationsManager || isDrafter || isPeerReviewer);
   const canToggleBilling = isAccessAllowed && (isSuperAdmin || isOperationsManager);
 
+  // ── Custom (configurable) role support ──────────────────────────────────
+  // A custom role's code is neither SA/CE/OM/DR/PR/SUB, so all the role-flag booleans above are
+  // false for it. Resolve its permissions matrix here and override the handful of flags that
+  // pages actually gate on, scoped to whichever admin page is currently rendering.
+  const pathname = usePathname();
+  const isFixedRole = isSuperAdmin || isClinicalEditor || isOperationsManager || isDrafter || isPeerReviewer || isSubscriber;
+  const customRoleCode = !isFixedRole ? userRoles[0] : undefined;
+
+  const [customMatrix, setCustomMatrix] = useState<{ matrix: PermissionMatrix; canViewPii: boolean } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!customRoleCode || FIXED_ROLE_CODES.has(customRoleCode)) {
+      setCustomMatrix(null);
+      return;
+    }
+    getCustomRoleByCodeAction(customRoleCode).then((res) => {
+      if (isMounted && res.success && res.role) {
+        setCustomMatrix({ matrix: res.role.matrix, canViewPii: res.role.canViewPii });
+      } else if (isMounted) {
+        setCustomMatrix(null);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [customRoleCode]);
+
+  const currentResource = resourceForPathname(pathname);
+  const currentResourceGrant = customMatrix && currentResource ? customMatrix.matrix[currentResource] : undefined;
+  const hasCustomRole = !!customMatrix;
+
+  const canViewLearnerPii = hasCustomRole ? customMatrix!.canViewPii : true;
+
+  // Overrides applied only for a custom-role admin, scoped to the resource of the page they're
+  // currently on. Spread last into the return object below so a fixed-role admin's flags (computed
+  // above) are completely unaffected.
+  const customRoleOverrides = hasCustomRole
+    ? (() => {
+        const canEditResource = isAccessAllowed && !!currentResourceGrant?.edit;
+        const canReadResource = isAccessAllowed && !!(currentResourceGrant?.read || currentResourceGrant?.edit);
+        const canReadAuditResource = isAccessAllowed && !!(customMatrix!.matrix.audit?.read || customMatrix!.matrix.audit?.edit);
+        const canEditBillingResource = isAccessAllowed && !!customMatrix!.matrix.billing?.edit;
+        const canEditUsersResource = isAccessAllowed && !!customMatrix!.matrix.users?.edit;
+
+        return {
+          isReadOnly: isAccessAllowed ? !canEditResource : isReadOnly,
+          canCreateItem: canEditResource,
+          canBulkImport: canEditResource,
+          canEditDraft: canEditResource,
+          canEditPostReview: canEditResource,
+          canAttachRefs: canEditResource,
+          canArchiveItem: canEditResource,
+          canRestoreItem: false, // restore stays SA-only, matching the server-side rule
+          canReviewItem: false,
+          canAudit: canReadAuditResource,
+          canManageUsers: canEditUsersResource,
+          canToggleBilling: canEditBillingResource,
+          canViewUnpublished: canReadResource,
+          canViewPipeline: canReadResource,
+        };
+      })()
+    : {};
+
   return {
     currentAdmin,
     accountStatus,
@@ -351,5 +443,8 @@ export function useAdminRole() {
     canViewUnpublished,
     canViewPipeline,
     canToggleBilling,
+    // Custom (configurable) role support
+    canViewLearnerPii,
+    ...customRoleOverrides,
   };
 }
