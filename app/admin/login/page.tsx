@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
-import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, verifyAdminCredentialsAction } from "@/actions/admin.actions";
+import {
+  getAdminsFromDbAction,
+  syncLocalAdminsWithDbAction,
+  verifyAdminCredentialsAction,
+  requestPasswordResetAction,
+} from "@/actions/admin.actions";
 
 import {
   themeBorder,
@@ -69,6 +74,7 @@ export default function AdminLoginPage() {
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -143,16 +149,29 @@ export default function AdminLoginPage() {
     }
   };
 
-  const handleSendResetLink = (e: React.FormEvent) => {
+  const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!forgotEmail.trim()) return;
+    setForgotError(null);
     setForgotSent(true);
-    setTimeout(() => {
-      setForgotSent(false);
+
+    try {
+      const result = await requestPasswordResetAction(forgotEmail);
+      if (!result.success || !result.userId) {
+        setForgotError(result.error || "Could not verify that account.");
+        setForgotSent(false);
+        return;
+      }
+
+      localStorage.setItem("gpedge_temp_reset_admin_id", result.userId);
       setShowForgotModal(false);
       setForgotEmail("");
-      alert("A password reset link has been dispatched to your verified email address.");
-    }, 1500);
+      setForgotSent(false);
+      router.push("/admin/reset-password");
+    } catch (err) {
+      setForgotError("An error occurred while verifying your account. Please try again.");
+      setForgotSent(false);
+    }
   };
 
   return (
@@ -272,26 +291,6 @@ export default function AdminLoginPage() {
               )}
             </button>
           </form>
-
-          {/* Collapsible reference block for demo access */}
-          <details className="mt-6 pt-5 border-t border-teal-150/20 dark:border-teal-900/30 text-left group">
-            <summary className="text-[10px] font-bold text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 transition-colors uppercase tracking-wider cursor-pointer list-none flex items-center justify-between select-none">
-              <span>Demo Accounts Reference</span>
-              <Lucide.ChevronDown className="w-3.5 h-3.5 text-slate-400 group-open:rotate-180 transition-transform duration-200" />
-            </summary>
-            <div className="grid grid-cols-2 gap-3 text-[10px] text-slate-500 dark:text-slate-400 font-mono leading-relaxed mt-3.5">
-              <div className="bg-teal-50/20 dark:bg-teal-950/10 p-2.5 rounded-xl border border-teal-100/40 dark:border-teal-900/20">
-                <p className="font-bold text-teal-800 dark:text-teal-450 mb-1">Super Admin</p>
-                <p className="text-slate-600 dark:text-slate-450">U: <span className="text-slate-800 dark:text-slate-200">siddhant_super</span></p>
-                <p className="text-slate-600 dark:text-slate-450">P: <span className="text-slate-800 dark:text-slate-200">super123</span></p>
-              </div>
-              <div className="bg-teal-50/20 dark:bg-teal-950/10 p-2.5 rounded-xl border border-teal-100/40 dark:border-teal-900/20">
-                <p className="font-bold text-teal-800 dark:text-teal-450 mb-1">Admin (View-Only)</p>
-                <p className="text-slate-600 dark:text-slate-450">U: <span className="text-slate-800 dark:text-slate-200">sarah_view</span></p>
-                <p className="text-slate-600 dark:text-slate-450">P: <span className="text-slate-800 dark:text-slate-200">viewer123</span></p>
-              </div>
-            </div>
-          </details>
         </motion.div>
       </div>
 
@@ -315,10 +314,13 @@ export default function AdminLoginPage() {
             >
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-850 dark:text-slate-200">
-                  Password Recovery Link
+                  Reset Password
                 </h3>
                 <button
-                  onClick={() => setShowForgotModal(false)}
+                  onClick={() => {
+                    setShowForgotModal(false);
+                    setForgotError(null);
+                  }}
                   className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 border-none bg-transparent cursor-pointer"
                 >
                   <Lucide.X className="w-4 h-4" />
@@ -327,8 +329,15 @@ export default function AdminLoginPage() {
 
               <form onSubmit={handleSendResetLink} className="space-y-4">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Enter your administrator email address or username. A verification code will be sent to the configured recovery address.
+                  Enter your administrator email address or username. If it matches an account with password reset enabled, you'll be taken straight to set a new password.
                 </p>
+
+                {forgotError && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-xs text-red-650 dark:text-red-400 rounded-xl flex gap-2 items-start leading-relaxed">
+                    <Lucide.AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
@@ -347,7 +356,10 @@ export default function AdminLoginPage() {
                 <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-850">
                   <button
                     type="button"
-                    onClick={() => setShowForgotModal(false)}
+                    onClick={() => {
+                      setShowForgotModal(false);
+                      setForgotError(null);
+                    }}
                     className="px-3 py-2 text-xs font-semibold text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border-none bg-transparent cursor-pointer"
                   >
                     Cancel
@@ -357,7 +369,7 @@ export default function AdminLoginPage() {
                     disabled={forgotSent}
                     className={`px-4 py-2.5 text-xs font-bold rounded-xl cursor-pointer ${themeBtnPrimary}`}
                   >
-                    {forgotSent ? "Sending..." : "Request Reset Link"}
+                    {forgotSent ? "Verifying..." : "Continue"}
                   </button>
                 </div>
               </form>

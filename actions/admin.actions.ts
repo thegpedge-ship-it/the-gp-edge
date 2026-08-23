@@ -908,3 +908,127 @@ export async function deleteNotificationFromDbAction(id: string): Promise<{ succ
   }
 }
 
+/**
+ * Looks up an admin by username or email for the "Forgot Password" flow and, if the account
+ * exists, isn't deleted, and has forgot_password_enabled, returns its id so the client can route
+ * the admin straight to the existing reset-password page (this app has no email/SMTP integration).
+ */
+export async function requestPasswordResetAction(
+  identifier: string
+): Promise<{ success: boolean; userId?: string; name?: string; error?: string }> {
+  try {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      return { success: false, error: "Enter your username or email address." };
+    }
+
+    const row = await queryOne<any>(
+      `SELECT id, name, forgot_password_enabled
+         FROM admin_users
+        WHERE (LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1))
+          AND deleted_at IS NULL
+        LIMIT 1`,
+      [trimmed]
+    );
+
+    if (!row) {
+      return { success: false, error: "No admin account matches that username or email." };
+    }
+    if (!row.forgot_password_enabled) {
+      return { success: false, error: "Password reset is disabled for this account. Contact your Super Admin." };
+    }
+
+    return { success: true, userId: row.id, name: row.name };
+  } catch (error: any) {
+    console.error("Error requesting password reset:", error);
+    return { success: false, error: error.message || "Failed to process the reset request." };
+  }
+}
+
+export interface UploadMonitoringStats {
+  totalStorageBytes: number;
+  totalFiles: number;
+  filesUploadedThisMonth: number;
+  largestFile: { name: string; sizeBytes: number } | null;
+}
+
+export async function getUploadMonitoringStatsAction(): Promise<UploadMonitoringStats> {
+  try {
+    const totals = await queryOne<any>(
+      `SELECT COALESCE(SUM(size_bytes), 0) AS total_bytes, COUNT(*) AS total_files FROM files`
+    );
+    const thisMonth = await queryOne<any>(
+      `SELECT COUNT(*) AS count FROM files WHERE created_at >= date_trunc('month', NOW())`
+    );
+    const largest = await queryOne<any>(
+      `SELECT original_name, size_bytes FROM files ORDER BY size_bytes DESC NULLS LAST LIMIT 1`
+    );
+
+    return {
+      totalStorageBytes: Number(totals?.total_bytes || 0),
+      totalFiles: Number(totals?.total_files || 0),
+      filesUploadedThisMonth: Number(thisMonth?.count || 0),
+      largestFile: largest ? { name: largest.original_name, sizeBytes: Number(largest.size_bytes) } : null,
+    };
+  } catch (error) {
+    console.error("Error fetching upload monitoring stats:", error);
+    return { totalStorageBytes: 0, totalFiles: 0, filesUploadedThisMonth: 0, largestFile: null };
+  }
+}
+
+/**
+ * Self-service profile update: name/username/email and an optional password change.
+ * A password change requires the caller's current password to verify against the stored hash.
+ * Role is intentionally never accepted here — role assignment is managed on the audit/security page.
+ */
+export async function updateAdminProfileAction(params: {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  currentPassword?: string;
+  newPassword?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const existing = await queryOne<any>(
+      `SELECT password_hash FROM admin_users WHERE id = $1 AND deleted_at IS NULL`,
+      [params.id]
+    );
+    if (!existing) {
+      return { success: false, error: "Account not found." };
+    }
+
+    let passwordHash = existing.password_hash;
+    let passwordChanged = false;
+    if (params.newPassword) {
+      if (!params.currentPassword || !(await verifyPassword(params.currentPassword, existing.password_hash))) {
+        return { success: false, error: "Current password is incorrect." };
+      }
+      passwordHash = await hashPassword(params.newPassword);
+      passwordChanged = true;
+    }
+
+    await execute(
+      `UPDATE admin_users
+          SET name = $1, username = $2, email = $3, password_hash = $4,
+              password_changed_at = CASE WHEN $5::boolean THEN NOW() ELSE password_changed_at END,
+              updated_at = NOW()
+        WHERE id = $6`,
+      [params.name, params.username, params.email, passwordHash, passwordChanged, params.id]
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating admin profile:", error);
+    if (error.code === "23505") {
+      if (error.constraint === "admin_users_email_key") {
+        return { success: false, error: "This email is already in use by another admin." };
+      }
+      if (error.constraint === "admin_users_username_key") {
+        return { success: false, error: "This username is already in use by another admin." };
+      }
+    }
+    return { success: false, error: error.message || "Failed to update profile." };
+  }
+}
+

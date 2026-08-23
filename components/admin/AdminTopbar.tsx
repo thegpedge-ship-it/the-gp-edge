@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { getNotificationsFromDbAction, SystemNotificationItem } from "@/actions/admin.actions";
 
 interface AdminTopbarProps {
   collapsed: boolean;
@@ -26,11 +27,17 @@ const sectionLabels: Record<string, string> = {
   settings: "System Settings",
 };
 
-const ADMIN_PROFILES = [
-  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin", email: "admin@gpedge.com", role: "Super Admin", initials: "SU" },
-  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", initials: "AM" },
-  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", initials: "JP" },
-];
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps) {
   const pathname = usePathname();
@@ -77,11 +84,14 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
     };
   }, []);
 
-  const mockNotifs = [
-    { id: 1, title: "New Cardiology Questions", desc: "Added to review bank", time: "2 hours ago", unread: true },
-    { id: 2, title: "System Maintenance", desc: "Scheduled for tonight 11 PM", time: "4 hours ago", unread: true },
-    { id: 3, title: "Account Suspended", desc: "ToS policy action logged", time: "1 day ago", unread: false },
-  ];
+  const [notifications, setNotifications] = useState<SystemNotificationItem[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
+
+  useEffect(() => {
+    getNotificationsFromDbAction()
+      .then((rows) => setNotifications(rows.slice(0, 5)))
+      .finally(() => setNotificationsLoading(false));
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem("gpedge_admin_logged_in");
@@ -132,7 +142,9 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                 }`}
               >
                 <Lucide.Bell className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+                {notifications.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+                )}
               </button>
 
               <AnimatePresence>
@@ -146,28 +158,34 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                   >
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Notifications</span>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">3 New</span>
+                      {notifications.length > 0 && (
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">{notifications.length} Recent</span>
+                      )}
                     </div>
                     <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[280px] overflow-y-auto">
-                      {mockNotifs.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => {
-                            setShowNotifications(false);
-                            router.push("/admin/notifications");
-                          }}
-                          className={`p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-all flex items-start gap-3 relative ${
-                            n.unread ? "bg-teal-50/10 dark:bg-teal-950/5" : ""
-                          }`}
-                        >
-                          <div className={`w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0 ${n.unread ? "opacity-100" : "opacity-0"}`} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{n.title}</p>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{n.desc}</p>
-                            <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1">{n.time}</p>
+                      {notificationsLoading ? (
+                        <div className="px-4 py-6 text-center text-xs text-slate-400">Loading...</div>
+                      ) : notifications.length === 0 ? (
+                        <div className="px-4 py-6 text-center text-xs text-slate-400">No notifications yet.</div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => {
+                              setShowNotifications(false);
+                              router.push("/admin/notifications");
+                            }}
+                            className="p-3.5 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-all flex items-start gap-3 relative"
+                          >
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{n.title}</p>
+                              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 truncate">{n.message}</p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1">{timeAgo(n.createdAt)}</p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))
+                      )}
                     </div>
                     <button
                       onClick={() => {
@@ -227,6 +245,16 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                       <span className="inline-block text-[9px] font-bold bg-teal-50 dark:bg-teal-950/20 text-teal-800 dark:text-teal-400 px-2 py-0.5 rounded-md border border-teal-100/30 dark:border-teal-900/20 mt-1.5">{currentAdmin.role}</span>
                     </div>
                     <div className="py-1">
+                      <button
+                        onClick={() => {
+                          setShowProfile(false);
+                          router.push("/admin/settings#profile");
+                        }}
+                        className="w-full text-left px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center gap-2 border-none bg-transparent cursor-pointer"
+                      >
+                        <Lucide.UserCog className="w-3.5 h-3.5 text-slate-400" />
+                        Edit Profile
+                      </button>
                       <button
                         onClick={() => {
                           setShowProfile(false);
