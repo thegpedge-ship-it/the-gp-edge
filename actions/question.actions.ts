@@ -96,8 +96,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       if (subtopicMap.has(key)) return subtopicMap.get(key)!.id;
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      // subtopics has UNIQUE (subject_id, slug); the in-memory map is keyed by lowercased name,
+      // so two label variants that normalize to the same slug (e.g. differing punctuation across
+      // a large batch) can both miss the map and collide on insert. ON CONFLICT keeps that safe
+      // instead of throwing and failing the whole import chunk.
       const newSubtopic = await queryOne<{ id: string }>(
-        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
+        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3)
+         ON CONFLICT (subject_id, slug) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id`,
         [subjectId, slug, name]
       );
       if (newSubtopic) {
@@ -127,9 +133,15 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
     };
 
     const results: { text: string; dbId: string; uqid?: string }[] = [];
+    const errors: { text: string; error: string }[] = [];
 
     for (const q of questionsList) {
       if (!q.text || !q.text.trim()) continue;
+
+      // Isolate each question so one bad row (a constraint violation, a malformed field) can't
+      // silently fail the entire chunk it was imported in — every other question in the batch
+      // still gets saved, and the caller learns exactly which ones didn't.
+      try {
 
       const difficulty = (q.difficulty?.toLowerCase() || "medium") as string;
       const status = (q.status?.toLowerCase() || "published") as string;
@@ -450,8 +462,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       });
 
       results.push({ text: q.text, dbId: questionId, uqid: finalUqid });
+      } catch (qErr: any) {
+        console.error("Error importing question:", q.text?.slice(0, 80), qErr);
+        errors.push({ text: q.text, error: qErr.message || "Failed to import this question." });
+      }
     }
-    return { success: true, results };
+    return { success: true, results, errors: errors.length > 0 ? errors : undefined };
   } catch (error: any) {
     console.error("Error importing questions:", error);
     return { success: false, error: error.message };

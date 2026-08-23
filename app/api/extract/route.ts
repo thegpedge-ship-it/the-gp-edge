@@ -449,7 +449,7 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
  * Checks if a line is a metadata tag. Supports plural, alternative, or misspelled forms.
  */
 function isMetadataLine(line: string): boolean {
-  const clean = line.trim().replace(/^[*#•●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
+  const clean = line.trim().replace(/^[*#•◦●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
   return (
     /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]/i.test(clean) ||
@@ -475,8 +475,10 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
     const line = rawLine.trim();
     if (!line) continue;
 
+    const startsWithBulletGlyph = /^[•◦●○■▪▫·]\s*/.test(line);
     const isNewEntryHeader =
-      /^(?:[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-]\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
+      startsWithBulletGlyph ||
+      /^(?:[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-](?!\s*[a-z])\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
 
     if (isNewEntryHeader && current) {
       entries.push(current.trim());
@@ -506,8 +508,8 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
   const unmatchedEntries: string[] = [];
   const filledSlots = new Set<number>();
   for (const entry of entries) {
-    const cleanEntry = entry.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
-    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-]|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
+    const cleanEntry = entry.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-](?!\s*[a-z])|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
 
     if (letterMatch) {
       const letter = (letterMatch[1] || letterMatch[2] || letterMatch[3] || letterMatch[4]).toUpperCase();
@@ -515,7 +517,7 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
       if (idx >= 0 && idx < options.length) {
         let content = letterMatch[5]?.trim() || cleanEntry;
         if (!content) content = cleanEntry;
-        content = content.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+        content = content.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
         result[idx] = content;
         filledSlots.add(idx);
         continue;
@@ -2242,10 +2244,14 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
   // When the doc relies purely on bare numbering (no keyword headers), only accept a numbered line
-  // as a new question boundary if its number continues the expected sequence — this stops numbered
-  // bullets inside an explanation/tags section (which usually restart at 1) from being mistaken for
-  // a new question.
-  let expectedNumericStart = 1;
+  // as a new question boundary if its number is strictly greater than the last accepted question
+  // number — this stops numbered bullets inside an explanation/tags section (which almost always
+  // restart at 1) from being mistaken for a new question, while still tolerating a skipped or
+  // mis-typed number in the source document. Requiring an exact "next integer" match instead would
+  // permanently desync on the first such irregularity and silently merge every remaining question
+  // in the document into one block; strictly-increasing recovers after just that one question.
+  let lastAcceptedNum = 0;
+  const MAX_FORWARD_JUMP = 20; // guards against a stray large number coincidentally starting a line
 
   for (const rawLine of allLines) {
     const trimmed = rawLine.trim().replace(/^[*#]+\s*/, ""); // strip markdown headers
@@ -2259,9 +2265,9 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       const numericMatch = trimmed.match(NUMERIC_QUESTION_START);
       if (numericMatch) {
         const num = parseInt(numericMatch[0].replace(/\D/g, ""), 10);
-        if (num === expectedNumericStart) {
+        if (num > lastAcceptedNum && num - lastAcceptedNum <= MAX_FORWARD_JUMP) {
           strippedContent = trimmed.slice(numericMatch[0].length).trim();
-          expectedNumericStart += 1;
+          lastAcceptedNum = num;
         }
       }
     }
@@ -2353,7 +2359,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     for (let j = 0; j < filteredLines.length; j++) {
       let line = filteredLines[j];
       if (!line) continue;
-      let cleanLine = line.trim().replace(/^[\s*#|•●○■▪▫·\-\u2013\u2014–—]+/u, "").replace(/[\s|]+$/u, "").trim();
+      let cleanLine = line.trim().replace(/^[\s*#|•◦●○■▪▫·\-\u2013\u2014–—]+/u, "").replace(/[\s|]+$/u, "").trim();
 
       // ── Exam Type (e.g. "Exam Type: KFP" or "Exam Type: AKT") ─────────
       const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
@@ -2382,14 +2388,14 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         const before = line.slice(0, inlineDiffMatch.index);
         const after = line.slice(inlineDiffMatch.index + inlineDiffMatch[0].length);
         const strippedLine = (before + after)
-          .replace(/^[\s|*#•●○■▪▫·\-\u2013\u2014]+/u, "")
-          .replace(/[\s|*#•●○■▪▫·\-\u2013\u2014]+$/u, "")
+          .replace(/^[\s|*#•◦●○■▪▫·\-\u2013\u2014]+/u, "")
+          .replace(/[\s|*#•◦●○■▪▫·\-\u2013\u2014]+$/u, "")
           .trim();
         if (!strippedLine) {
           continue;
         }
         line = strippedLine;
-        cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·|\-\u2013\u2014]+/u, "").replace(/[\s|]+$/u, "").trim();
+        cleanLine = line.trim().replace(/^[\s*#•◦●○■▪▫·|\-\u2013\u2014]+/u, "").replace(/[\s|]+$/u, "").trim();
       }
 
       // ── Limit / Allowed Selections (KFP) ──────────────────────────────
@@ -2655,10 +2661,10 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       } else if (parsingState === "metadata") {
         if (parsingRationale && !isMetadataLine(line)) {
           // If a distractor header was embedded in rationale text (e.g. "● Why each distractor is wrong:"), switch to distractors
-          if (/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)/i.test(line.trim())) {
+          if (/^(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)/i.test(line.trim())) {
             parsingState = "distractors";
             parsingRationale = false;
-            const strippedHeader = line.trim().replace(/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)\s*/i, "").trim();
+            const strippedHeader = line.trim().replace(/^(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)\s*/i, "").trim();
             if (strippedHeader) distractorLines.push(strippedHeader);
           } else {
             const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
@@ -2686,7 +2692,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     const pearl = stripBoldMarkers(pearlLines.join("\n\n")).trim();
 
     // If whyCorrect or rationale accidentally captured a distractor block, separate them
-    const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
+    const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
     let cleanedWhyCorrect = whyCorrect || rationale;
     if (distractorHeaderInWhy) {
       cleanedWhyCorrect = distractorHeaderInWhy[1].trim();

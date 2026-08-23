@@ -335,6 +335,7 @@ export default function QuestionsPage() {
   // Multi-select bulk selection state for Archive view
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<number[]>([]);
   const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete"; ids: number[] } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Clear selections whenever filters change
   useEffect(() => {
@@ -359,34 +360,41 @@ export default function QuestionsPage() {
   const handleBulkRestore = async () => {
     if (!canRestoreItem || selectedQuestionIds.length === 0) return;
     const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id));
+    setBulkProgress({ done: 0, total: targetQs.length });
+
+    // Persist restore status update to Neon DB
+    for (let i = 0; i < targetQs.length; i++) {
+      await importQuestionsAction([{ ...targetQs[i], status: "published" as const }]);
+      setBulkProgress({ done: i + 1, total: targetQs.length });
+    }
+
     const updated = questions.map((q) => (selectedQuestionIds.includes(q.id) ? { ...q, status: "published" as const } : q));
     setQuestions(updated);
     setSelectedQuestionIds([]);
+    setBulkProgress(null);
     setBulkActionConfirm(null);
-
-    // Persist restore status update to Neon DB
-    for (const q of targetQs) {
-      await importQuestionsAction([{ ...q, status: "published" as const }]);
-    }
     showAlert(`Successfully restored ${targetQs.length} question(s) to Published status.`, "Questions Restored", "success");
   };
 
   const handleBulkPermanentDelete = async () => {
     if (!canRestoreItem || selectedQuestionIds.length === 0) return;
     const targetQs = questions.filter((q) => selectedQuestionIds.includes(q.id));
-    setBulkActionConfirm(null);
+    setBulkProgress({ done: 0, total: targetQs.length });
 
     let successCount = 0;
-    for (const q of targetQs) {
-      const targetId = q.dbId || String(q.id);
+    for (let i = 0; i < targetQs.length; i++) {
+      const targetId = targetQs[i].dbId || String(targetQs[i].id);
       const res = await permanentlyDeleteQuestionAction(targetId, currentAdmin);
       if (res.success) {
         successCount++;
       }
+      setBulkProgress({ done: i + 1, total: targetQs.length });
     }
-    
+
     setQuestions((prev) => prev.filter((item) => !selectedQuestionIds.includes(item.id)));
     setSelectedQuestionIds([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
     showAlert(`Successfully deleted ${successCount} question(s) permanently.`, "Permanently Deleted", "success");
   };
 
@@ -594,7 +602,11 @@ export default function QuestionsPage() {
             const qs = result.questions || [];
             const compressedQs = await Promise.all(
               qs.map(async (q: any) => {
-                const finalQ = { ...q, examType: uploadExamType };
+                // Preserve the parser's per-question exam-type detection (it defaults to the
+                // admin's chosen batch type already, but can correctly flag an individual question
+                // as the other format when the document explicitly marks it) — only fall back to
+                // the batch-wide choice if nothing was detected at all.
+                const finalQ = { ...q, examType: q.examType || uploadExamType };
                 if (finalQ.image) {
                   const comp = await compressBase64Image(finalQ.image);
                   return { ...finalQ, image: comp };
@@ -755,6 +767,7 @@ export default function QuestionsPage() {
       // 2. Import questions to DB in chunks of 5 to report precise per-question progress
       const chunkSize = 5;
       const allResults: any[] = [];
+      const allErrors: { text: string; error: string }[] = [];
       for (let i = 0; i < uploadedNewQs.length; i += chunkSize) {
         const chunk = uploadedNewQs.slice(i, i + chunkSize);
         try {
@@ -762,8 +775,17 @@ export default function QuestionsPage() {
           if (res?.success && res.results) {
             allResults.push(...res.results);
           }
-        } catch (err) {
+          if (res?.errors) {
+            allErrors.push(...res.errors);
+          }
+          if (!res?.success) {
+            // The whole chunk failed before any per-question isolation (e.g. a permission check) —
+            // record every question in it as failed so the admin isn't left silently short.
+            allErrors.push(...chunk.map((c: any) => ({ text: c.text, error: res?.error || "Chunk failed to import." })));
+          }
+        } catch (err: any) {
           console.error("Failed to import question chunk:", err);
+          allErrors.push(...chunk.map((c: any) => ({ text: c.text, error: err.message || "Network error." })));
         }
         processedCount += chunk.length;
         updatePublishProgress(processedCount);
@@ -788,10 +810,15 @@ export default function QuestionsPage() {
       setDifficultyFilter("all");
       setExamTypeFilter("all");
       
+      const importedCount = allResults.length;
+      const failedCount = allErrors.length;
+
       addUserNotification(
-        `${newQs.length} Questions Imported`,
-        `Successfully imported ${newQs.length} questions from document template.`,
-        newQs.length,
+        failedCount > 0 ? `${importedCount} of ${newQs.length} Questions Imported` : `${importedCount} Questions Imported`,
+        failedCount > 0
+          ? `${failedCount} question(s) failed to import — see the import summary for details.`
+          : `Successfully imported ${importedCount} questions from document template.`,
+        importedCount,
         "new-questions"
       );
 
@@ -800,8 +827,18 @@ export default function QuestionsPage() {
       setExtractionState("idle");
       setExtractedQuestions([]);
       setDuplicatePrompt(null);
-      
-      showAlert(`Successfully imported ${newQs.length} questions as published!`, "Import Successful", "success");
+
+      if (failedCount > 0) {
+        const preview = allErrors.slice(0, 5).map((e) => `• ${(e.text || "").slice(0, 60)}${(e.text || "").length > 60 ? "…" : ""} — ${e.error}`).join("\n");
+        const more = failedCount > 5 ? `\n…and ${failedCount - 5} more.` : "";
+        showAlert(
+          `Imported ${importedCount} of ${newQs.length} questions. ${failedCount} failed:\n\n${preview}${more}`,
+          "Import Completed With Errors",
+          "warning"
+        );
+      } else {
+        showAlert(`Successfully imported ${importedCount} questions as published!`, "Import Successful", "success");
+      }
     };
 
     if (duplicates.length > 0) {
@@ -2908,7 +2945,7 @@ export default function QuestionsPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15 }}
               className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
-              onClick={() => setBulkActionConfirm(null)}
+              onClick={() => !bulkProgress && setBulkActionConfirm(null)}
             />
             <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
               <motion.div
@@ -2927,26 +2964,41 @@ export default function QuestionsPage() {
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
                   Are you sure you want to {bulkActionConfirm.type === "restore" ? "restore" : "permanently delete"} <strong>{bulkActionConfirm.ids.length} selected question(s)</strong>?
                 </p>
-                {bulkActionConfirm.type === "permanent_delete" && (
+                {bulkActionConfirm.type === "permanent_delete" && !bulkProgress && (
                   <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
                     <p className="font-semibold">⚠️ Danger Zone</p>
                     <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge all selected questions from the database.</p>
+                  </div>
+                )}
+                {bulkProgress && (
+                  <div className="mt-3 pt-1 space-y-1.5">
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-200 ${bulkActionConfirm.type === "restore" ? "bg-emerald-500" : "bg-rose-500"}`}
+                        style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 font-medium">
+                      Processing {bulkProgress.done} of {bulkProgress.total}…
+                    </p>
                   </div>
                 )}
                 <div className="mt-6 flex gap-3">
                   <button
                     type="button"
                     onClick={() => setBulkActionConfirm(null)}
-                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                    disabled={!!bulkProgress}
+                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 disabled:opacity-50 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
                     onClick={bulkActionConfirm.type === "restore" ? handleBulkRestore : handleBulkPermanentDelete}
-                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer ${bulkActionConfirm.type === "restore" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"}`}
+                    disabled={!!bulkProgress}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-60 ${bulkActionConfirm.type === "restore" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20" : "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20"}`}
                   >
-                    {bulkActionConfirm.type === "restore" ? "Restore Questions" : "Delete Permanently"}
+                    {bulkProgress ? "Working…" : bulkActionConfirm.type === "restore" ? "Restore Questions" : "Delete Permanently"}
                   </button>
                 </div>
               </motion.div>
