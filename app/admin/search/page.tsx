@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
@@ -55,6 +55,8 @@ import {
   updateTopicClassificationAction,
   registerOrUpdateTopicWithCodeAction,
   bulkImportTaxonomyTopicsAction,
+  getExistingTaxonomyCodesAction,
+  importMasterTaxonomyFileAction,
   UnifiedTopicItem,
 } from "@/actions/taxonomy.actions";
 import {
@@ -132,6 +134,13 @@ export default function SearchPage() {
     importedCount: number;
     failedCount: number;
     errors: { label: string; error: string }[];
+  } | null>(null);
+  const [pendingBulkFiles, setPendingBulkFiles] = useState<{ file: File; count: number; error?: string; shape?: "master" | "legacy" }[]>([]);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
+  const [taxonomyOverwritePrompt, setTaxonomyOverwritePrompt] = useState<{
+    unitOverlap: number;
+    topicOverlap: number;
+    onConfirm: (mode: "overwrite" | "skip-existing") => void;
   } | null>(null);
 
   // Delete Topic modal state
@@ -261,36 +270,141 @@ export default function SearchPage() {
     }
   };
 
-  const handleBulkUploadFile = async (file: File) => {
-    setIsBulkUploading(true);
-    setBulkUploadResult(null);
+  // Parses each selected file just to preview its shape and count (or the parse error) —
+  // nothing is imported until the user clicks Upload. Two accepted shapes:
+  //  - "legacy": a flat array of { label, homeUnit, ... } — auto-assigns new T#### codes.
+  //  - "master": the full GP-Edge-Master-Taxonomy file — { units: [...], topics: [...] },
+  //    where every code is fixed/permanent and upserted as-is.
+  const parseBulkTaxonomyFile = async (file: File): Promise<{
+    shape: "master" | "legacy" | null;
+    legacyItems?: any[];
+    masterUnits?: any[];
+    masterTopics?: any[];
+    count: number;
+    error?: string;
+  }> => {
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
+      if (parsed && !Array.isArray(parsed) && (Array.isArray(parsed.units) || Array.isArray(parsed.topics))) {
+        const units = Array.isArray(parsed.units) ? parsed.units : [];
+        const topics = Array.isArray(parsed.topics) ? parsed.topics : [];
+        return { shape: "master", masterUnits: units, masterTopics: topics, count: units.length + topics.length };
+      }
       const items = Array.isArray(parsed) ? parsed : parsed?.topics;
       if (!Array.isArray(items)) {
-        setBulkUploadResult({ importedCount: 0, failedCount: 1, errors: [{ label: "", error: "JSON must be an array of topics (or { \"topics\": [...] })" }] });
-        return;
+        return { shape: null, count: 0, error: "JSON must be an array of topics, or a master-taxonomy file with \"units\"/\"topics\"" };
       }
-      const res = await bulkImportTaxonomyTopicsAction(
-        items.map((it: any) => ({
-          label: it.label ?? it.name ?? "",
-          homeUnit: it.homeUnit ?? it.home_unit ?? it.unit,
-          topicType: it.topicType ?? it.topic_type,
-          depth: it.depth,
-          tags: Array.isArray(it.tags) ? it.tags : typeof it.tags === "string" ? it.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : undefined,
-          variants: Array.isArray(it.variants) ? it.variants : undefined,
-        }))
-      );
-      setBulkUploadResult({ importedCount: res.importedCount, failedCount: res.failedCount, errors: res.errors });
-      if (res.importedCount > 0) {
+      return { shape: "legacy", legacyItems: items, count: items.length };
+    } catch (err: any) {
+      return { shape: null, count: 0, error: `Invalid JSON: ${err.message}` };
+    }
+  };
+
+  const handleBulkFilesSelected = async (fileList: FileList) => {
+    const files = Array.from(fileList);
+    const previews = await Promise.all(
+      files.map(async (file) => {
+        const { shape, count, error } = await parseBulkTaxonomyFile(file);
+        return { file, count, error: error || (shape ? undefined : "Unrecognized file format"), shape: shape || undefined };
+      })
+    );
+    setPendingBulkFiles((prev) => [...prev, ...previews]);
+  };
+
+  const handleRemovePendingFile = (index: number) => {
+    setPendingBulkFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const runBulkImport = async (mode: "overwrite" | "skip-existing") => {
+    const validFiles = pendingBulkFiles.filter((f) => !f.error);
+    setIsBulkUploading(true);
+    setBulkUploadResult(null);
+    let importedCount = 0;
+    let failedCount = 0;
+    const errors: { label: string; error: string }[] = [];
+
+    try {
+      for (const { file, shape } of validFiles) {
+        const parsed = await parseBulkTaxonomyFile(file);
+
+        if (shape === "master") {
+          const res = await importMasterTaxonomyFileAction(
+            { units: parsed.masterUnits, topics: parsed.masterTopics },
+            mode
+          );
+          importedCount += res.unitsImported + res.topicsImported;
+          failedCount += res.errors.length;
+          errors.push(...res.errors.map((e) => ({ label: e.code, error: e.error })));
+          continue;
+        }
+
+        if (!parsed.legacyItems) {
+          failedCount += 1;
+          errors.push({ label: file.name, error: parsed.error || "Invalid JSON" });
+          continue;
+        }
+        const res = await bulkImportTaxonomyTopicsAction(
+          parsed.legacyItems.map((it: any) => ({
+            label: it.label ?? it.name ?? "",
+            homeUnit: it.homeUnit ?? it.home_unit ?? it.unit,
+            topicType: it.topicType ?? it.topic_type,
+            depth: it.depth,
+            tags: Array.isArray(it.tags) ? it.tags : typeof it.tags === "string" ? it.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : undefined,
+            variants: Array.isArray(it.variants) ? it.variants : undefined,
+          }))
+        );
+        importedCount += res.importedCount;
+        failedCount += res.failedCount;
+        errors.push(...res.errors);
+      }
+      setBulkUploadResult({ importedCount, failedCount, errors });
+      setPendingBulkFiles([]);
+      if (importedCount > 0) {
         await loadTaxonomyTopics();
       }
-    } catch (err: any) {
-      setBulkUploadResult({ importedCount: 0, failedCount: 1, errors: [{ label: "", error: `Invalid JSON file: ${err.message}` }] });
     } finally {
       setIsBulkUploading(false);
     }
+  };
+
+  const handleUploadPendingFiles = async () => {
+    const validFiles = pendingBulkFiles.filter((f) => !f.error);
+    if (validFiles.length === 0) return;
+
+    const masterFiles = validFiles.filter((f) => f.shape === "master");
+    if (masterFiles.length === 0) {
+      await runBulkImport("overwrite");
+      return;
+    }
+
+    // Master-taxonomy files carry fixed codes that overwrite existing entries — confirm
+    // with the admin first, same "Overwrite & Replace" / "Skip" pattern used for duplicate
+    // questions elsewhere in the admin panel.
+    const { unitCodes: existingUnitCodes, topicCodes: existingTopicCodes } = await getExistingTaxonomyCodesAction();
+    const existingUnitSet = new Set(existingUnitCodes);
+    const existingTopicSet = new Set(existingTopicCodes);
+    let unitOverlap = 0;
+    let topicOverlap = 0;
+    for (const f of masterFiles) {
+      const parsed = await parseBulkTaxonomyFile(f.file);
+      (parsed.masterUnits || []).forEach((u: any) => { if (existingUnitSet.has(u.code)) unitOverlap++; });
+      (parsed.masterTopics || []).forEach((t: any) => { if (existingTopicSet.has(t.code)) topicOverlap++; });
+    }
+
+    if (unitOverlap === 0 && topicOverlap === 0) {
+      await runBulkImport("overwrite");
+      return;
+    }
+
+    setTaxonomyOverwritePrompt({
+      unitOverlap,
+      topicOverlap,
+      onConfirm: (mode) => {
+        setTaxonomyOverwritePrompt(null);
+        runBulkImport(mode);
+      },
+    });
   };
 
   const handleOpenMoveModal = (topic: TopicItem) => {
@@ -1980,13 +2094,14 @@ export default function SearchPage() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">Mass Upload Topics (JSON)</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Upload a JSON array of topics. Existing topics (matched by label) are updated; new ones get an auto-assigned T#### code.
+                    Upload a flat JSON array of topics (matched by label, new ones get an auto-assigned T#### code), or a full master-taxonomy file with fixed <code>units</code>/<code>topics</code> codes.
                   </p>
                 </div>
                 <button
                   onClick={() => {
                     setShowBulkUploadModal(false);
                     setBulkUploadResult(null);
+                    setPendingBulkFiles([]);
                   }}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                 >
@@ -1998,23 +2113,83 @@ export default function SearchPage() {
                 {`[{ "label": "Approach to chest pain", "homeUnit": "u03", "topicType": "Approach to a Presentation", "depth": "Core", "tags": ["emergency"] }]`}
               </div>
 
-              <div>
+              <div className="space-y-3">
                 <input
+                  ref={bulkFileInputRef}
                   type="file"
                   accept="application/json,.json"
+                  multiple
                   disabled={isBulkUploading}
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleBulkUploadFile(file);
+                    if (e.target.files && e.target.files.length > 0) handleBulkFilesSelected(e.target.files);
                     e.target.value = "";
                   }}
-                  className="w-full text-xs text-slate-600 dark:text-slate-300 file:mr-3 file:px-3 file:py-2 file:rounded-xl file:border-0 file:bg-teal-50 file:text-teal-700 dark:file:bg-teal-950/40 dark:file:text-teal-300 file:font-semibold file:cursor-pointer cursor-pointer disabled:opacity-50"
+                  className="hidden"
                 />
-              </div>
+                <button
+                  type="button"
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  disabled={isBulkUploading}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-xl bg-teal-50 text-teal-700 dark:bg-teal-950/40 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-950/60 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  Upload file(s)
+                </button>
 
-              {isBulkUploading && (
-                <div className="text-xs text-slate-500 dark:text-slate-400">Importing topics…</div>
-              )}
+                {pendingBulkFiles.length > 0 && (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {pendingBulkFiles.map((pf, idx) => (
+                      <div
+                        key={`${pf.file.name}-${idx}`}
+                        className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border text-xs ${
+                          pf.error
+                            ? "bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40"
+                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{pf.file.name}</p>
+                            {pf.shape === "master" && (
+                              <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">
+                                Master
+                              </span>
+                            )}
+                          </div>
+                          <p className={`text-[10px] mt-0.5 ${pf.error ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"}`}>
+                            {pf.error
+                              ? pf.error
+                              : pf.shape === "master"
+                                ? `${pf.count} entries (units + topics) · ${(pf.file.size / 1024).toFixed(1)} KB`
+                                : `${pf.count} topic${pf.count === 1 ? "" : "s"} · ${(pf.file.size / 1024).toFixed(1)} KB`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePendingFile(idx)}
+                          disabled={isBulkUploading}
+                          className="text-slate-400 hover:text-rose-500 shrink-0 cursor-pointer disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {pendingBulkFiles.some((f) => !f.error) && (
+                  <button
+                    type="button"
+                    onClick={handleUploadPendingFiles}
+                    disabled={isBulkUploading}
+                    className="w-full px-4 py-2.5 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {isBulkUploading
+                      ? "Importing…"
+                      : `Import ${pendingBulkFiles.filter((f) => !f.error).reduce((sum, f) => sum + f.count, 0)} entries from ${pendingBulkFiles.filter((f) => !f.error).length} file(s)`}
+                  </button>
+                )}
+              </div>
 
               {bulkUploadResult && (
                 <div className="space-y-2">
@@ -2052,6 +2227,60 @@ export default function SearchPage() {
                   Close
                 </button>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {taxonomyOverwritePrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl text-center"
+            >
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center justify-center mb-4 text-amber-500 dark:text-amber-400">
+                <AlertTriangle className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Existing Entries Found</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                This file matches <strong>{taxonomyOverwritePrompt.unitOverlap} existing unit(s)</strong> and{" "}
+                <strong>{taxonomyOverwritePrompt.topicOverlap} existing topic(s)</strong> by their permanent code.
+              </p>
+              <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl text-left text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5 border border-slate-100 dark:border-slate-800/30">
+                <p>• <span className="font-semibold text-slate-800 dark:text-slate-200">Overwrite &amp; Replace</span>: Updates every existing unit/topic with the file's values (label, homeUnit, depth, crossRefs, status, etc).</p>
+                <p>• <span className="font-semibold text-slate-800 dark:text-slate-200">Skip Existing</span>: Leaves existing codes untouched and only imports codes not already in the database.</p>
+              </div>
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                <button
+                  type="button"
+                  onClick={() => taxonomyOverwritePrompt.onConfirm("skip-existing")}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                >
+                  Skip Existing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => taxonomyOverwritePrompt.onConfirm("overwrite")}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-teal-800 hover:bg-teal-700 text-xs font-bold text-white shadow-md shadow-teal-800/20 transition-all cursor-pointer"
+                >
+                  Overwrite &amp; Replace
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTaxonomyOverwritePrompt(null)}
+                className="mt-3 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+              >
+                Cancel
+              </button>
             </motion.div>
           </motion.div>
         )}
