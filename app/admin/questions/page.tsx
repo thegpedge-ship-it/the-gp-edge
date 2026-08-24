@@ -29,6 +29,9 @@ import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizDa
 import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
+import QuestionHistoryPanel from "@/components/admin/QuestionHistoryPanel";
+import QueryExplorerModal from "@/components/admin/QueryExplorerModal";
+import BulkQuestionEditModal from "@/components/admin/BulkQuestionEditModal";
 
 import { useAdminRole } from "@/hooks/useAdminRole";
 
@@ -121,6 +124,7 @@ export default function QuestionsPage() {
   const [examTypeFilter, setExamTypeFilter] = useState<string>("all");
   const [topicFilter, setTopicFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [batchFilter, setBatchFilter] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<Question | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
@@ -135,9 +139,54 @@ export default function QuestionsPage() {
   const [newKnowledgeBank, setNewKnowledgeBank] = useState("");   // Zone 3
   const [newPearl, setNewPearl] = useState("");                   // Zone 3
   const [newRationale, setNewRationale] = useState("");
-  const [activeZone, setActiveZone] = useState<1 | 2 | 3>(1);    // active tab
+  const [activeZone, setActiveZone] = useState<1 | 2 | 3 | 4>(1);    // active tab
   const [newQuestionTags, setNewQuestionTags] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState("");
+
+  // Zone 4: Item metadata (Item Data Collection spec — task type, patient context,
+  // provenance/currency, testable point)
+  const [newTaskType, setNewTaskType] = useState("");
+  const [newDepthTier, setNewDepthTier] = useState("");
+  const [newVolatilityTier, setNewVolatilityTier] = useState("");
+  const [newAgeBand, setNewAgeBand] = useState("");
+  const [newSex, setNewSex] = useState("");
+  const [newPregnancyStatus, setNewPregnancyStatus] = useState("");
+  const [newSetting, setNewSetting] = useState("");
+  const [newAtsiStatus, setNewAtsiStatus] = useState("");
+  const [newKeyDrugsMentioned, setNewKeyDrugsMentioned] = useState<string[]>([]);
+  const [newClinicalConcepts, setNewClinicalConcepts] = useState<string[]>([]);
+  const [newSourceRefs, setNewSourceRefs] = useState<{ docId: string; edition: string; locator: string; tier: string; claimType: string }[]>([]);
+  const [newWikiPageId, setNewWikiPageId] = useState("");
+  const [newWikiVersion, setNewWikiVersion] = useState("");
+  const [newSupplementalSources, setNewSupplementalSources] = useState<string[]>([]);
+  const [newKeyRestsOnSupplemental, setNewKeyRestsOnSupplemental] = useState(false);
+  const [newTestablePoint, setNewTestablePoint] = useState("");
+  const [newExpectedPassRate, setNewExpectedPassRate] = useState("");
+  const [newSupersedesUqid, setNewSupersedesUqid] = useState("");
+  const [showHistoryFor, setShowHistoryFor] = useState<Question | null>(null);
+  const [showQueryExplorer, setShowQueryExplorer] = useState(false);
+  const [bulkEditIds, setBulkEditIds] = useState<string[] | null>(null);
+
+  const populateEditExtraFields = (q: Question) => {
+    setNewTaskType(q.taskType || "");
+    setNewDepthTier(q.depthTier || "");
+    setNewVolatilityTier(q.volatilityTier || "");
+    setNewAgeBand(q.patientContext?.ageBand || "");
+    setNewSex(q.patientContext?.sex || "");
+    setNewPregnancyStatus(q.patientContext?.pregnancyStatus || "");
+    setNewSetting(q.patientContext?.setting || "");
+    setNewAtsiStatus(q.patientContext?.atsiStatus || "");
+    setNewKeyDrugsMentioned(q.keyDrugsMentioned ? [...q.keyDrugsMentioned] : []);
+    setNewClinicalConcepts(q.clinicalConcepts ? [...q.clinicalConcepts] : []);
+    setNewSourceRefs(q.sourceRefs ? q.sourceRefs.map(r => ({ docId: r.docId || "", edition: r.edition || "", locator: r.locator || "", tier: r.tier || "", claimType: r.claimType || "" })) : []);
+    setNewWikiPageId(q.wikiPageId || "");
+    setNewWikiVersion(q.wikiVersion || "");
+    setNewSupplementalSources(q.supplementalSourcesUsed ? [...q.supplementalSourcesUsed] : []);
+    setNewKeyRestsOnSupplemental(!!q.keyRestsOnSupplemental);
+    setNewTestablePoint(q.testablePoint || "");
+    setNewExpectedPassRate(q.expectedPassRate != null ? String(q.expectedPassRate) : "");
+    setNewSupersedesUqid("");
+  };
   const [showTagSuggestions, setShowTagSuggestions] = useState(false);
   const [newImage, setNewImage] = useState("");
   const [zoomImage, setZoomImage] = useState<string | null>(null);
@@ -205,7 +254,7 @@ export default function QuestionsPage() {
   // Reset visibleCount when search query or filters change
   useEffect(() => {
     setVisibleCount(9);
-  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter]);
+  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter, batchFilter]);
 
   // Lock body scroll when any modal is open to prevent background scrolling lag
   useEffect(() => {
@@ -255,6 +304,24 @@ export default function QuestionsPage() {
     setNewKfpCorrectCount(3);
     setNewQuestionTopics(["Cardiology"]);
     setNewDifficulty("Medium");
+    setNewTaskType("");
+    setNewDepthTier("");
+    setNewVolatilityTier("");
+    setNewAgeBand("");
+    setNewSex("");
+    setNewPregnancyStatus("");
+    setNewSetting("");
+    setNewAtsiStatus("");
+    setNewKeyDrugsMentioned([]);
+    setNewClinicalConcepts([]);
+    setNewSourceRefs([]);
+    setNewWikiPageId("");
+    setNewWikiVersion("");
+    setNewSupplementalSources([]);
+    setNewKeyRestsOnSupplemental(false);
+    setNewTestablePoint("");
+    setNewExpectedPassRate("");
+    setNewSupersedesUqid("");
   };
 
   const topics = (() => {
@@ -272,9 +339,10 @@ export default function QuestionsPage() {
     const matchExamType = examTypeFilter === "all" || qType === examTypeFilter;
     const matchTopic = topicFilter === "all" || q.topic.split(",").map((t) => t.trim()).includes(topicFilter);
     const matchDifficulty = difficultyFilter === "all" || q.difficulty === difficultyFilter;
+    const matchBatch = batchFilter === "all" || q.batchId === batchFilter;
 
     if (!searchLower) {
-      return matchStatus && matchExamType && matchTopic && matchDifficulty;
+      return matchStatus && matchExamType && matchTopic && matchDifficulty && matchBatch;
     }
 
     const matchSearch =
@@ -295,8 +363,10 @@ export default function QuestionsPage() {
       (q.examType && q.examType.toLowerCase().includes(searchLower)) ||
       (q.difficulty && q.difficulty.toLowerCase().includes(searchLower));
 
-    return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty;
+    return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty && matchBatch;
   });
+
+  const availableBatchIds = Array.from(new Set(questions.map((q) => q.batchId).filter(Boolean))) as string[];
 
   const showBulkSelectColumn =
     (statusFilter === "archived" && canRestoreItem) ||
@@ -350,7 +420,7 @@ export default function QuestionsPage() {
   // Clear selections whenever filters change
   useEffect(() => {
     setSelectedQuestionIds([]);
-  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter]);
+  }, [searchQuery, statusFilter, examTypeFilter, topicFilter, difficultyFilter, batchFilter]);
 
   const toggleSelectQuestion = (id: number) => {
     setSelectedQuestionIds((prev) =>
@@ -509,6 +579,27 @@ export default function QuestionsPage() {
       status: (editingQuestion ? (editingQuestion.status || "draft") : "draft") as any,
       tags: newQuestionTags.length > 0 ? newQuestionTags : ["General"],
       image: newImage || undefined,
+      // Zone 4: item metadata
+      taskType: newTaskType || undefined,
+      depthTier: (newDepthTier || undefined) as any,
+      volatilityTier: (newVolatilityTier || undefined) as any,
+      patientContext: (newAgeBand || newSex || newPregnancyStatus || newSetting || newAtsiStatus) ? {
+        ageBand: newAgeBand || undefined,
+        sex: newSex || undefined,
+        pregnancyStatus: newPregnancyStatus || undefined,
+        setting: newSetting || undefined,
+        atsiStatus: newAtsiStatus || undefined,
+      } : undefined,
+      keyDrugsMentioned: newKeyDrugsMentioned.length > 0 ? newKeyDrugsMentioned : undefined,
+      clinicalConcepts: newClinicalConcepts,
+      sourceRefs: newSourceRefs.filter(r => r.docId.trim()).length > 0 ? newSourceRefs.filter(r => r.docId.trim()) : undefined,
+      wikiPageId: newWikiPageId.trim() || undefined,
+      wikiVersion: newWikiVersion.trim() || undefined,
+      supplementalSourcesUsed: newSupplementalSources.length > 0 ? newSupplementalSources : undefined,
+      keyRestsOnSupplemental: newKeyRestsOnSupplemental,
+      testablePoint: newTestablePoint.trim() || undefined,
+      expectedPassRate: newExpectedPassRate.trim() ? Number(newExpectedPassRate) : undefined,
+      supersedesUqid: newSupersedesUqid.trim() || undefined,
     };
 
     if (editingQuestion) {
@@ -982,6 +1073,15 @@ export default function QuestionsPage() {
               </AnimatePresence>
             </div>
             <button
+              onClick={() => setShowQueryExplorer(true)}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder}`}
+            >
+              <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              Query Explorer
+            </button>
+            <button
               onClick={() => {
                 if (isReadOnly) return;
                 setShowUploadModal(true);
@@ -1076,6 +1176,15 @@ export default function QuestionsPage() {
             { value: "Easy", label: "Easy" },
             { value: "Medium", label: "Medium" },
             { value: "Hard", label: "Hard" },
+          ]}
+          className="w-48"
+        />
+        <CustomSelect
+          value={batchFilter}
+          onChange={setBatchFilter}
+          options={[
+            { value: "all", label: "All Batches" },
+            ...availableBatchIds.map((b) => ({ value: b, label: b })),
           ]}
           className="w-48"
         />
@@ -1200,6 +1309,7 @@ export default function QuestionsPage() {
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Question</th>
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Topic</th>
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Difficulty</th>
+                <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Batch</th>
                 <th className={`text-left text-xs font-semibold uppercase tracking-wider px-4 py-3 ${themeLabel}`}>Status</th>
                 <th className={`text-right text-xs font-semibold uppercase tracking-wider px-6 py-3 ${themeLabel}`}>Actions</th>
               </tr>
@@ -1275,6 +1385,20 @@ export default function QuestionsPage() {
                     <span className={themeBadgeMd}>{q.difficulty}</span>
                   </td>
                   <td className="px-4 py-4">
+                    {q.batchId ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setBatchFilter(q.batchId!); }}
+                        className="font-mono text-[11px] text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 hover:underline"
+                        title="Filter to this batch"
+                      >
+                        {q.batchId}
+                      </button>
+                    ) : (
+                      <span className="text-[11px] text-slate-300 dark:text-slate-600">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-wide border ${themeBadge}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${themeDot}`} />
                       {q.status.charAt(0).toUpperCase() + q.status.slice(1)}
@@ -1305,6 +1429,7 @@ export default function QuestionsPage() {
                           setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                           setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
                           setNewDifficulty(q.difficulty);
+                          populateEditExtraFields(q);
                           setActiveZone(1);
                           setEditingQuestion(q);
                           setShowAddModal(true);
@@ -1391,6 +1516,7 @@ export default function QuestionsPage() {
         {previewQuestion && (
           <>
             <motion.div
+              key="preview-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1398,6 +1524,7 @@ export default function QuestionsPage() {
               onClick={() => setPreviewQuestion(null)}
             />
             <motion.div
+              key="preview-modal"
               initial={{ opacity: 0, scale: 0.96, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -1458,6 +1585,7 @@ export default function QuestionsPage() {
                         setNewCorrectAnswer(String.fromCharCode(65 + (q.correctIndex ?? 0)));
                         setNewQuestionTopics(q.topic.split(",").map(t => t.trim()));
                         setNewDifficulty(q.difficulty);
+                        populateEditExtraFields(q);
                         setActiveZone(1);
                         setEditingQuestion(q);
                         setShowAddModal(true);
@@ -1626,12 +1754,12 @@ export default function QuestionsPage() {
       <AnimatePresence>
         {showAddModal && (
           <>
-             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] cursor-pointer" onClick={() => {
+             <motion.div key="add-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] cursor-pointer" onClick={() => {
                 setShowAddModal(false);
                 setEditingQuestion(null);
                 resetAddForm();
               }} />
-             <motion.div initial={{ opacity: 0, scale: 0.96, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 15 }} transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }} className={`fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-y-auto max-h-[90vh] ${themeBorder}`}>
+             <motion.div key="add-modal" initial={{ opacity: 0, scale: 0.96, y: 15 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96, y: 15 }} transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }} className={`fixed inset-x-4 top-[5%] mx-auto max-w-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-y-auto max-h-[90vh] ${themeBorder}`}>
               <div className="p-6">
                 {/* Modal Header with UQID and Version */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 pb-4 border-b dark:border-slate-800">
@@ -1660,7 +1788,7 @@ export default function QuestionsPage() {
                 </div>
 
                 {/* 3-Zone Tab Navigation */}
-                <div className="grid grid-cols-3 gap-2 mb-6 p-1.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+                <div className="grid grid-cols-4 gap-2 mb-6 p-1.5 bg-slate-100/80 dark:bg-slate-800/60 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
                   <button
                     type="button"
                     onClick={() => setActiveZone(1)}
@@ -1696,6 +1824,18 @@ export default function QuestionsPage() {
                   >
                     <span className="w-4 h-4 rounded-full bg-teal-100 dark:bg-teal-950 text-[10px] flex items-center justify-center font-black">3</span>
                     <span>Zone 3: Explanations</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveZone(4)}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      activeZone === 4
+                        ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm"
+                        : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <span className="w-4 h-4 rounded-full bg-teal-100 dark:bg-teal-950 text-[10px] flex items-center justify-center font-black">4</span>
+                    <span>Metadata</span>
                   </button>
                 </div>
 
@@ -2160,6 +2300,181 @@ export default function QuestionsPage() {
                     </div>
                   )}
 
+                  {/* ZONE 4: ITEM METADATA (task type, patient context, provenance/currency) */}
+                  {activeZone === 4 && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Task Type</label>
+                          <CustomSelect
+                            value={newTaskType}
+                            onChange={setNewTaskType}
+                            options={[
+                              { value: "", label: "Not set" },
+                              { value: "diagnosis", label: "Diagnosis" },
+                              { value: "investigation", label: "Investigation" },
+                              { value: "management", label: "Management" },
+                              { value: "prescribing", label: "Prescribing" },
+                              { value: "prognosis", label: "Prognosis" },
+                              { value: "communication", label: "Communication" },
+                              { value: "ethics-legal", label: "Ethics / Legal" },
+                              { value: "preventive-screening", label: "Preventive / Screening" },
+                              { value: "interpretation-of-results", label: "Interpretation of Results" },
+                            ]}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Depth Tier</label>
+                          <CustomSelect
+                            value={newDepthTier}
+                            onChange={setNewDepthTier}
+                            options={[
+                              { value: "", label: "Not set" },
+                              { value: "Core", label: "Core" },
+                              { value: "Working", label: "Working" },
+                              { value: "Awareness", label: "Awareness" },
+                            ]}
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Volatility Tier</label>
+                          <CustomSelect
+                            value={newVolatilityTier}
+                            onChange={setNewVolatilityTier}
+                            options={[
+                              { value: "", label: "Not set" },
+                              { value: "Volatile", label: "Volatile (6mo cycle)" },
+                              { value: "Standard", label: "Standard (12mo cycle)" },
+                              { value: "Stable", label: "Stable (24mo cycle)" },
+                            ]}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Patient Context</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                          <input type="text" value={newAgeBand} onChange={(e) => setNewAgeBand(e.target.value)} placeholder="Age band" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                          <input type="text" value={newSex} onChange={(e) => setNewSex(e.target.value)} placeholder="Sex" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                          <input type="text" value={newPregnancyStatus} onChange={(e) => setNewPregnancyStatus(e.target.value)} placeholder="Pregnancy status" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                          <input type="text" value={newSetting} onChange={(e) => setNewSetting(e.target.value)} placeholder="Setting (metro/rural/...)" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                          <input type="text" value={newAtsiStatus} onChange={(e) => setNewAtsiStatus(e.target.value)} placeholder="ATSI status" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Key Drugs Mentioned (comma-separated, generic names)</label>
+                          <input
+                            type="text"
+                            value={newKeyDrugsMentioned.join(", ")}
+                            onChange={(e) => setNewKeyDrugsMentioned(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                            className={`w-full px-3 py-2 text-xs rounded-lg border ${themeInput}`}
+                            placeholder="amoxicillin, warfarin"
+                          />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Clinical Concepts (comma-separated, controlled vocabulary)</label>
+                          <input
+                            type="text"
+                            value={newClinicalConcepts.join(", ")}
+                            onChange={(e) => setNewClinicalConcepts(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                            className={`w-full px-3 py-2 text-xs rounded-lg border ${themeInput}`}
+                            placeholder="anticoagulation, CHA2DS2-VASc"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`block text-xs font-semibold ${themeLabel}`}>Source References</label>
+                          <button
+                            type="button"
+                            onClick={() => setNewSourceRefs([...newSourceRefs, { docId: "", edition: "", locator: "", tier: "", claimType: "" }])}
+                            className="text-[11px] font-semibold text-teal-600 hover:text-teal-700"
+                          >
+                            + Add source
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {newSourceRefs.map((ref, idx) => (
+                            <div key={idx} className="grid grid-cols-5 gap-1.5 items-center">
+                              <input type="text" value={ref.docId} onChange={(e) => { const next = [...newSourceRefs]; next[idx] = { ...next[idx], docId: e.target.value }; setNewSourceRefs(next); }} placeholder="Document" className={`px-2 py-1.5 text-[11px] rounded-lg border ${themeInput}`} />
+                              <input type="text" value={ref.edition} onChange={(e) => { const next = [...newSourceRefs]; next[idx] = { ...next[idx], edition: e.target.value }; setNewSourceRefs(next); }} placeholder="Edition" className={`px-2 py-1.5 text-[11px] rounded-lg border ${themeInput}`} />
+                              <input type="text" value={ref.locator} onChange={(e) => { const next = [...newSourceRefs]; next[idx] = { ...next[idx], locator: e.target.value }; setNewSourceRefs(next); }} placeholder="Locator (heading)" className={`px-2 py-1.5 text-[11px] rounded-lg border ${themeInput}`} />
+                              <input type="text" value={ref.claimType} onChange={(e) => { const next = [...newSourceRefs]; next[idx] = { ...next[idx], claimType: e.target.value }; setNewSourceRefs(next); }} placeholder="Backs up (key/dose/...)" className={`px-2 py-1.5 text-[11px] rounded-lg border ${themeInput}`} />
+                              <div className="flex gap-1">
+                                <input type="text" value={ref.tier} onChange={(e) => { const next = [...newSourceRefs]; next[idx] = { ...next[idx], tier: e.target.value }; setNewSourceRefs(next); }} placeholder="Tier" className={`flex-1 px-2 py-1.5 text-[11px] rounded-lg border ${themeInput}`} />
+                                <button type="button" onClick={() => setNewSourceRefs(newSourceRefs.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-600 px-1">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {newSourceRefs.length === 0 && (
+                            <p className="text-[11px] text-slate-400">No sources added yet.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input type="text" value={newWikiPageId} onChange={(e) => setNewWikiPageId(e.target.value)} placeholder="Wiki page ID" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                        <input type="text" value={newWikiVersion} onChange={(e) => setNewWikiVersion(e.target.value)} placeholder="Wiki version" className={`px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Supplemental Sources Used (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={newSupplementalSources.join(", ")}
+                          onChange={(e) => setNewSupplementalSources(e.target.value.split(",").map(s => s.trim()).filter(Boolean))}
+                          className={`w-full px-3 py-2 text-xs rounded-lg border ${themeInput}`}
+                        />
+                        <label className="flex items-center gap-2 mt-2 text-xs font-medium text-slate-600 dark:text-slate-300">
+                          <input type="checkbox" checked={newKeyRestsOnSupplemental} onChange={(e) => setNewKeyRestsOnSupplemental(e.target.checked)} />
+                          Key rests on a supplemental source (highest-priority human-review stratum)
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Testable Point (admin-only, duplicate detection)</label>
+                        <textarea
+                          rows={2}
+                          value={newTestablePoint}
+                          onChange={(e) => setNewTestablePoint(e.target.value)}
+                          className={`w-full px-3 py-2 text-xs rounded-lg border resize-y ${themeInput}`}
+                          placeholder="One-line statement of exactly what this item tests"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Expected Pass Rate — Angoff estimate (%)</label>
+                          <input type="number" min={0} max={100} value={newExpectedPassRate} onChange={(e) => setNewExpectedPassRate(e.target.value)} className={`w-full px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-semibold mb-1.5 ${themeLabel}`}>Supersedes UQID</label>
+                          <input type="text" value={newSupersedesUqid} onChange={(e) => setNewSupersedesUqid(e.target.value)} placeholder="e.g. AKT-000042" className={`w-full px-3 py-2 text-xs rounded-lg border ${themeInput}`} />
+                          {editingQuestion?.parentId && <p className="text-[11px] text-slate-400 mt-1">Already supersedes an earlier item.</p>}
+                        </div>
+                      </div>
+
+                      {editingQuestion && (
+                        <div className="pt-2 border-t dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+                          {editingQuestion.dateLastReviewed && <p>Last reviewed: {new Date(editingQuestion.dateLastReviewed).toLocaleDateString()}</p>}
+                          {editingQuestion.signedOffBy && <p>Signed off by an admin on record.</p>}
+                          <button
+                            type="button"
+                            onClick={() => setShowHistoryFor(editingQuestion)}
+                            className="mt-1 text-teal-600 hover:text-teal-700 font-semibold"
+                          >
+                            View change history →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Modal Footer Controls */}
                   <div className="flex items-center justify-between pt-4 border-t dark:border-slate-800">
                     <div className="flex gap-2">
@@ -2172,10 +2487,10 @@ export default function QuestionsPage() {
                           &larr; Back
                         </button>
                       )}
-                      {activeZone < 3 && (
+                      {activeZone < 4 && (
                         <button
                           type="button"
-                          onClick={() => setActiveZone((prev) => Math.min(3, prev + 1) as any)}
+                          onClick={() => setActiveZone((prev) => Math.min(4, prev + 1) as any)}
                           className={`px-3.5 py-2 text-xs font-semibold rounded-xl border ${themeBorder} ${themeSurface} hover:border-teal-500 transition-all`}
                         >
                           Next Zone &rarr;
@@ -2213,6 +2528,7 @@ export default function QuestionsPage() {
           return (
           <>
             <motion.div
+              key="upload-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2221,6 +2537,7 @@ export default function QuestionsPage() {
               onClick={() => !isProcessing && setShowUploadModal(false)}
             />
             <motion.div
+              key="upload-modal"
               initial={{ opacity: 0, scale: 0.96, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 15 }}
@@ -2890,6 +3207,7 @@ export default function QuestionsPage() {
         {alertConfig.isOpen && (
           <>
             <motion.div
+              key="alert-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2898,6 +3216,7 @@ export default function QuestionsPage() {
               onClick={() => setAlertConfig(prev => ({ ...prev, isOpen: false }))}
             />
             <motion.div
+              key="alert-modal"
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -2955,6 +3274,7 @@ export default function QuestionsPage() {
         {duplicatePrompt && (
           <>
             <motion.div
+              key="dup-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2962,7 +3282,7 @@ export default function QuestionsPage() {
               className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm"
               onClick={() => setDuplicatePrompt(null)}
             />
-            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+            <div key="dup-modal-wrap" className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -3010,6 +3330,7 @@ export default function QuestionsPage() {
         {deleteConfirmQuestion && (
           <>
             <motion.div
+              key="delete-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -3017,7 +3338,7 @@ export default function QuestionsPage() {
               className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
               onClick={() => setDeleteConfirmQuestion(null)}
             />
-            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+            <div key="delete-modal-wrap" className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -3055,6 +3376,37 @@ export default function QuestionsPage() {
               </motion.div>
             </div>
           </>
+        )}
+        {showHistoryFor && (showHistoryFor.dbId || showHistoryFor.id) && (
+          <QuestionHistoryPanel
+            key="history-panel"
+            questionId={showHistoryFor.dbId || String(showHistoryFor.id)}
+            uqid={showHistoryFor.uqid}
+            onClose={() => setShowHistoryFor(null)}
+          />
+        )}
+        {showQueryExplorer && (
+          <QueryExplorerModal
+            key="query-explorer"
+            adminUser={currentAdmin}
+            onClose={() => setShowQueryExplorer(false)}
+            onOpenBulkEdit={(ids) => setBulkEditIds(ids)}
+          />
+        )}
+        {bulkEditIds && (
+          <BulkQuestionEditModal
+            key="bulk-edit-modal"
+            ids={bulkEditIds}
+            adminUser={currentAdmin}
+            onClose={() => setBulkEditIds(null)}
+            onApplied={async (count) => {
+              setBulkEditIds(null);
+              setShowQueryExplorer(false);
+              showAlert(`Bulk edit applied to ${count} question(s).`, "Bulk Edit Applied", "success");
+              const data = await fetchQuestions(canRestoreItem);
+              setQuestions(data);
+            }}
+          />
         )}
         {bulkActionConfirm && (() => {
           const meta = {
@@ -3105,6 +3457,7 @@ export default function QuestionsPage() {
           return (
           <>
             <motion.div
+              key="bulk-confirm-backdrop"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -3112,7 +3465,7 @@ export default function QuestionsPage() {
               className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
               onClick={() => !bulkProgress && setBulkActionConfirm(null)}
             />
-            <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+            <div key="bulk-confirm-modal-wrap" className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: 16 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
