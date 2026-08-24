@@ -581,9 +581,6 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
          u.first_name,
          u.last_name,
          u.email,
-         u.role,
-         u.roles,
-         u.is_super_admin,
          u.status,
          u.created_at,
          u.joined_at,
@@ -633,23 +630,9 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
         else lastActiveFormatted = new Date(row.last_active_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       }
 
-      // Canonical role resolution: SA | CE | OM | DR | PR | SUB
-      let roleCode = "SUB";
-      const rawRole = (row.role || "").toUpperCase();
-      if (rawRole === "SA" || rawRole === "SUPER ADMIN" || row.is_super_admin) {
-        roleCode = "SA";
-      } else if (rawRole === "CE" || rawRole === "CLINICAL EDITOR" || rawRole === "EDITOR") {
-        roleCode = "CE";
-      } else if (rawRole === "OM" || rawRole === "OPERATIONS MANAGER" || rawRole === "MODERATOR") {
-        roleCode = "OM";
-      } else if (rawRole === "DR" || rawRole === "DRAFTER" || rawRole === "AUTHOR") {
-        roleCode = "DR";
-      } else if (rawRole === "PR" || rawRole === "PEER REVIEWER" || rawRole === "REVIEWER") {
-        roleCode = "PR";
-      } else {
-        roleCode = "SUB";
-      }
-
+      // Regular app users (registrars) are always subscribers — SA/CE/OM/DR/PR
+      // are admin-staff roles that live on admin_users, not users.
+      const roleCode = "SUB";
       const roleInfo = ROLE_DEFINITIONS[roleCode] || ROLE_DEFINITIONS.SUB;
 
       return {
@@ -657,7 +640,7 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
         name: fullName,
         email: row.email || "No email",
         role: roleCode,
-        roles: Array.isArray(row.roles) ? row.roles : [roleCode],
+        roles: [roleCode],
         roleTitle: roleInfo.title,
         plan: isPremium ? ("premium" as const) : ("free" as const),
         status: (row.status || "active") as any,
