@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { ensureQuestionExtendedColumns } from "@/actions/question.actions";
 
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
@@ -14,7 +13,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   // ── DB fetch ──────────────────────────────────────────────────────────────
   try {
-    await ensureQuestionExtendedColumns();
     const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
     const uqidFilter = req.nextUrl.searchParams.get("uqid");
     const searchParam = req.nextUrl.searchParams.get("search");
@@ -73,21 +71,6 @@ export async function GET(req: NextRequest) {
          st.name                 AS subtopic,
          st.slug                 AS "topicCode",
          f.object_key            AS image_object_key,
-         q.depth_tier             AS "depthTier",
-         q.task_type              AS "taskType",
-         q.patient_context        AS "patientContext",
-         q.key_drugs_mentioned    AS "keyDrugsMentioned",
-         q.source_refs            AS "sourceRefs",
-         q.wiki_page_id           AS "wikiPageId",
-         q.wiki_version           AS "wikiVersion",
-         q.supplemental_sources_used AS "supplementalSourcesUsed",
-         q.key_rests_on_supplemental AS "keyRestsOnSupplemental",
-         q.volatility_tier        AS "volatilityTier",
-         q.testable_point         AS "testablePoint",
-         q.expected_pass_rate     AS "expectedPassRate",
-         q.date_last_reviewed     AS "dateLastReviewed",
-         q.reviewed_by            AS "reviewedBy",
-         q.signed_off_by          AS "signedOffBy",
          q.created_at,
          q.updated_at
        FROM questions q
@@ -114,20 +97,12 @@ export async function GET(req: NextRequest) {
       [questionIds]
     );
 
-    // Tags per question — general tags and clinicalConcepts (controlled-vocab tags) are the
-    // same underlying table, split here by tag_category so each renders in its own field.
+    // Tags per question
     const tagRows = await query<any>(
       `SELECT qt.question_id, t.label
          FROM question_tags qt
          JOIN tags t ON t.id = qt.tag_id
-        WHERE qt.question_id = ANY($1::uuid[]) AND COALESCE(t.tag_category, 'general') = 'general'`,
-      [questionIds]
-    );
-    const conceptRows = await query<any>(
-      `SELECT qt.question_id, t.label
-         FROM question_tags qt
-         JOIN tags t ON t.id = qt.tag_id
-        WHERE qt.question_id = ANY($1::uuid[]) AND t.tag_category = 'clinical_concept'`,
+        WHERE qt.question_id = ANY($1::uuid[])`,
       [questionIds]
     );
 
@@ -147,12 +122,6 @@ export async function GET(req: NextRequest) {
     for (const t of tagRows) {
       if (!tagMap.has(t.question_id)) tagMap.set(t.question_id, []);
       tagMap.get(t.question_id)!.push(t.label);
-    }
-
-    const conceptMap = new Map<string, string[]>();
-    for (const c of conceptRows) {
-      if (!conceptMap.has(c.question_id)) conceptMap.set(c.question_id, []);
-      conceptMap.get(c.question_id)!.push(c.label);
     }
 
 
@@ -213,23 +182,6 @@ export async function GET(req: NextRequest) {
         version: q.version ?? 1,
         parentId: q.parentId ?? undefined,
         batchId: q.batchId ?? undefined,
-        // Item Data Collection spec fields
-        depthTier: q.depthTier ?? undefined,
-        taskType: q.taskType ?? undefined,
-        patientContext: q.patientContext ?? undefined,
-        keyDrugsMentioned: q.keyDrugsMentioned ?? undefined,
-        clinicalConcepts: conceptMap.get(q.id) ?? undefined,
-        sourceRefs: q.sourceRefs ?? undefined,
-        wikiPageId: q.wikiPageId ?? undefined,
-        wikiVersion: q.wikiVersion ?? undefined,
-        supplementalSourcesUsed: q.supplementalSourcesUsed ?? undefined,
-        keyRestsOnSupplemental: q.keyRestsOnSupplemental ?? undefined,
-        volatilityTier: q.volatilityTier ?? undefined,
-        testablePoint: q.testablePoint ?? undefined,
-        expectedPassRate: q.expectedPassRate != null ? Number(q.expectedPassRate) : undefined,
-        dateLastReviewed: q.dateLastReviewed ? new Date(q.dateLastReviewed).toISOString() : undefined,
-        reviewedBy: q.reviewedBy ?? undefined,
-        signedOffBy: q.signedOffBy ?? undefined,
       };
     });
 

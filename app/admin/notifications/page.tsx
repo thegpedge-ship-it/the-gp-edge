@@ -39,7 +39,6 @@ export default function NotificationsPage() {
   const [newNotifType, setNewNotifType] = useState("In-app");
   const [newNotifTarget, setNewNotifTarget] = useState("All Subscribers");
   const [newNotifSchedule, setNewNotifSchedule] = useState("Send Now");
-  const [newNotifScheduledAt, setNewNotifScheduledAt] = useState("");
 
   // Real data state
   const [notifications, setNotifications] = useState<SystemNotificationItem[]>([]);
@@ -76,10 +75,6 @@ export default function NotificationsPage() {
       setFeedback({ type: "error", msg: "Please enter a notification title." });
       return;
     }
-    if (newNotifSchedule === "Scheduled" && !newNotifScheduledAt) {
-      setFeedback({ type: "error", msg: "Please choose a date and time to schedule this notification." });
-      return;
-    }
 
     setIsSubmitting(true);
     setFeedback(null);
@@ -90,7 +85,6 @@ export default function NotificationsPage() {
       type: newNotifType,
       target: newNotifTarget,
       schedule: newNotifSchedule,
-      scheduledAt: newNotifSchedule === "Scheduled" ? new Date(newNotifScheduledAt).toISOString() : undefined,
     });
 
     setIsSubmitting(false);
@@ -99,8 +93,6 @@ export default function NotificationsPage() {
       setFeedback({ type: "success", msg: "Notification created and processed successfully!" });
       setNewNotifTitle("");
       setNewNotifMessage("");
-      setNewNotifSchedule("Send Now");
-      setNewNotifScheduledAt("");
       setShowCompose(false);
       await loadData();
     } else {
@@ -253,6 +245,8 @@ export default function NotificationsPage() {
                     onChange={setNewNotifType}
                     options={[
                       { value: "In-app", label: "In-app" },
+                      { value: "Email", label: "Email" },
+                      { value: "Both", label: "Both" },
                     ]}
                     className="w-full"
                   />
@@ -275,30 +269,15 @@ export default function NotificationsPage() {
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Schedule</label>
                   <CustomSelect
                     value={newNotifSchedule}
-                    onChange={(v) => {
-                      setNewNotifSchedule(v);
-                      if (v === "Send Now") setNewNotifScheduledAt("");
-                    }}
+                    onChange={setNewNotifSchedule}
                     options={[
                       { value: "Send Now", label: "Send Immediately" },
-                      { value: "Scheduled", label: "Schedule for Later" },
+                      { value: "Scheduled (Next Window)", label: "Schedule Next Window" },
                     ]}
                     className="w-full"
                   />
                 </div>
               </div>
-              {newNotifSchedule === "Scheduled" && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Send Date & Time</label>
-                  <input
-                    type="datetime-local"
-                    value={newNotifScheduledAt}
-                    min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
-                    onChange={(e) => setNewNotifScheduledAt(e.target.value)}
-                    className="w-full sm:w-1/3 px-4 py-2.5 text-sm bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all text-slate-800 dark:text-slate-200"
-                  />
-                </div>
-              )}
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"

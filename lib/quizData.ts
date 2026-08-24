@@ -67,8 +67,6 @@ export interface Question {
   /** Auto-increments on every save — tracks how many times this question was edited */
   version?: number;
   parentId?: string;
-  /** UQID of the item this version supersedes, resolved server-side to parentId */
-  supersedesUqid?: string;
   batchId?: string;
 
   // ── Classification ────────────────────────────────────────────────────────
@@ -76,38 +74,10 @@ export interface Question {
   subtopic?: string;
   subject?: string;
   topicCode?: string;
-  depthTier?: "Core" | "Working" | "Awareness";
-  taskType?:
-    | "diagnosis" | "investigation" | "management" | "prescribing" | "prognosis"
-    | "communication" | "ethics-legal" | "preventive-screening" | "interpretation-of-results";
-  patientContext?: {
-    ageBand?: string;
-    sex?: string;
-    pregnancyStatus?: string;
-    setting?: string;
-    atsiStatus?: string;
-  };
-  keyDrugsMentioned?: string[];
-  clinicalConcepts?: string[];
   difficulty: "Easy" | "Medium" | "Hard";
   examType: "AKT" | "KFP" | "KFP";
   status: "draft" | "review" | "published" | "archived";
   tags: string[];
-
-  // ── Provenance & currency ─────────────────────────────────────────────────
-  sourceRefs?: { docId: string; edition?: string; locator?: string; tier?: string; claimType?: string }[];
-  wikiPageId?: string;
-  wikiVersion?: string;
-  supplementalSourcesUsed?: string[];
-  keyRestsOnSupplemental?: boolean;
-  volatilityTier?: "Volatile" | "Standard" | "Stable";
-  testablePoint?: string;
-  expectedPassRate?: number;
-
-  // ── Lifecycle snapshot ────────────────────────────────────────────────────
-  dateLastReviewed?: string;
-  reviewedBy?: string;
-  signedOffBy?: string;
 }
 
 export type QuestionBankItem = Question;

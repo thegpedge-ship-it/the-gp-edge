@@ -768,68 +768,29 @@ export async function getNotificationAudienceMetricsAction(): Promise<AudienceMe
   }
 }
 
-async function ensureNotificationsTable() {
-  await execute(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      type VARCHAR(50) NOT NULL,
-      title VARCHAR(255) NOT NULL,
-      message TEXT,
-      payload JSONB,
-      created_by UUID,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
-}
-
-async function dispatchDueScheduledNotifications() {
-  const due = await query<{ id: string; payload: any; target: string }>(`
-    SELECT id, payload, (payload->>'target') as target
-    FROM notifications
-    WHERE scheduled_at IS NOT NULL
-      AND scheduled_at <= NOW()
-      AND COALESCE(payload->>'status', 'active') = 'active'
-  `);
-
-  for (const n of due) {
-    try {
-      let userQuery = `SELECT id FROM users LIMIT 500`;
-      if (n.target === "All Subscribers") {
-        userQuery = `SELECT DISTINCT user_id as id FROM subscriptions WHERE status = 'active' LIMIT 500`;
-      }
-      const targetUsers = await query<{ id: string }>(userQuery);
-      for (const u of targetUsers) {
-        await execute(
-          `INSERT INTO user_notifications (user_id, notification_id, is_read, delivered_at)
-           VALUES ($1, $2, false, NOW())
-           ON CONFLICT (user_id, notification_id) DO NOTHING`,
-          [u.id, n.id]
-        );
-      }
-
-      const updatedPayload = { ...(n.payload || {}), status: "sent", scheduled: "Sent" };
-      await execute(`UPDATE notifications SET payload = $1 WHERE id = $2`, [JSON.stringify(updatedPayload), n.id]);
-    } catch (e) {
-      console.warn(`Could not dispatch scheduled notification ${n.id}:`, e);
-    }
-  }
-}
-
 export async function getNotificationsFromDbAction(): Promise<SystemNotificationItem[]> {
   try {
-    await ensureNotificationsTable();
-    await dispatchDueScheduledNotifications();
+    // Ensure table exists
+    await execute(`
+      CREATE TABLE IF NOT EXISTS notifications (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        message TEXT,
+        payload JSONB,
+        created_by UUID,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
 
     const rows = await query<any>(`
-      SELECT
+      SELECT 
         n.id,
         n.type,
         n.title,
         n.message,
         n.payload,
         n.created_at,
-        n.scheduled_at,
         COUNT(un.id)::int as total_delivered,
         COUNT(CASE WHEN un.is_read = true THEN 1 END)::int as total_read
       FROM notifications n
@@ -841,9 +802,7 @@ export async function getNotificationsFromDbAction(): Promise<SystemNotification
     return rows.map((r) => {
       const payload = (typeof r.payload === "object" && r.payload) ? r.payload : {};
       const target = payload.target || "All Users";
-      const scheduled = payload.scheduled || (r.scheduled_at
-        ? new Date(r.scheduled_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-        : "Immediate");
+      const scheduled = payload.scheduled || (payload.schedule === "Send Now" ? "Immediate" : "Scheduled");
       const status: "active" | "pending" | "sent" | "failed" = payload.status || (payload.schedule === "Send Now" ? "sent" : "active");
       
       const sentCount = r.total_delivered > 0 ? r.total_delivered : (payload.sent_count || (status === "sent" ? 1 : 0));
@@ -885,26 +844,15 @@ export async function createNotificationInDbAction(data: {
   type: string;
   target: string;
   schedule: string;
-  scheduledAt?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    await ensureNotificationsTable();
-
     const isImmediate = data.schedule === "Send Now";
-    if (!isImmediate && !data.scheduledAt) {
-      return { success: false, error: "Please choose a date and time to schedule this notification." };
-    }
-
-    const scheduledAtDate = !isImmediate && data.scheduledAt ? new Date(data.scheduledAt) : null;
-    if (scheduledAtDate && scheduledAtDate.getTime() <= Date.now()) {
-      return { success: false, error: "Scheduled date and time must be in the future." };
-    }
-
     const status = isImmediate ? "sent" : "active";
 
     const payload = {
       target: data.target,
       schedule: data.schedule,
+      scheduled: isImmediate ? "Immediate" : data.schedule,
       status,
       sent_count: 0,
       opened_count: 0,
@@ -912,10 +860,10 @@ export async function createNotificationInDbAction(data: {
     };
 
     const insertResult = await queryOne<{ id: string }>(
-      `INSERT INTO notifications (type, title, message, payload, scheduled_at, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
+      `INSERT INTO notifications (type, title, message, payload, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
        RETURNING id`,
-      [data.type, data.title, data.message, JSON.stringify(payload), scheduledAtDate ? scheduledAtDate.toISOString() : null]
+      [data.type, data.title, data.message, JSON.stringify(payload)]
     );
 
     const notifId = insertResult?.id;

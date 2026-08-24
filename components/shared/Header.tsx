@@ -8,7 +8,6 @@ import { SignOutButton, useAuth } from "@clerk/nextjs";
 import { House, Menu, X, Sun, Moon } from "lucide-react";
 import Logo from "./Logo";
 import ThemeToggle from "./ThemeToggle";
-import NotificationBell from "./NotificationBell";
 import { useSidebarOptional } from "@/contexts/SidebarContext";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -172,10 +171,6 @@ const Header = memo(function Header({ variant = "fixed" }: HeaderProps) {
             >
               <span className="btn-dashboard-span whitespace-nowrap">Dashboard</span>
             </Link>
-          </SignedIn>
-
-          <SignedIn>
-            <NotificationBell />
           </SignedIn>
 
           <ThemeToggle />
