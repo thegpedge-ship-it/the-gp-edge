@@ -575,12 +575,20 @@ export interface RealAdminUser {
 
 export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
   try {
+    // Ensure the admin-role assignment columns exist (idempotent, matches the
+    // ensure-columns pattern used above for admin_users.role/role_code).
+    try {
+      await execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[];`);
+    } catch (e) {}
+
     const rows = await query<any>(
-      `SELECT 
+      `SELECT
          u.id,
          u.first_name,
          u.last_name,
          u.email,
+         u.role,
+         u.roles,
          u.status,
          u.created_at,
          u.joined_at,
@@ -630,9 +638,21 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
         else lastActiveFormatted = new Date(row.last_active_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       }
 
-      // Regular app users (registrars) are always subscribers — SA/CE/OM/DR/PR
-      // are admin-staff roles that live on admin_users, not users.
-      const roleCode = "SUB";
+      // Canonical role resolution: SA | CE | OM | DR | PR | SUB
+      const rawRole = (row.role || "").toUpperCase();
+      let roleCode = "SUB";
+      if (rawRole === "SA" || rawRole === "SUPER ADMIN") {
+        roleCode = "SA";
+      } else if (rawRole === "CE" || rawRole === "CLINICAL EDITOR" || rawRole === "EDITOR") {
+        roleCode = "CE";
+      } else if (rawRole === "OM" || rawRole === "OPERATIONS MANAGER" || rawRole === "MODERATOR") {
+        roleCode = "OM";
+      } else if (rawRole === "DR" || rawRole === "DRAFTER" || rawRole === "AUTHOR") {
+        roleCode = "DR";
+      } else if (rawRole === "PR" || rawRole === "PEER REVIEWER" || rawRole === "REVIEWER") {
+        roleCode = "PR";
+      }
+
       const roleInfo = ROLE_DEFINITIONS[roleCode] || ROLE_DEFINITIONS.SUB;
 
       return {
@@ -640,7 +660,7 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
         name: fullName,
         email: row.email || "No email",
         role: roleCode,
-        roles: [roleCode],
+        roles: Array.isArray(row.roles) ? row.roles : [roleCode],
         roleTitle: roleInfo.title,
         plan: isPremium ? ("premium" as const) : ("free" as const),
         status: (row.status || "active") as any,
@@ -660,6 +680,11 @@ export async function updateUserRoleInDbAction(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const roleInfo = ROLE_DEFINITIONS[newRole] || ROLE_DEFINITIONS.SUB;
+
+    try {
+      await execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[];`);
+    } catch (e) {}
+
     await execute(
       `UPDATE users
           SET role = $1,
@@ -678,6 +703,15 @@ export async function updateUserRoleInDbAction(
 
 export async function toggleUserStatusInDbAction(userId: string, newStatus: "active" | "suspended" | "deactivated" | "trial" | "lapsed" | string): Promise<{ success: boolean; error?: string }> {
   try {
+    // The account_status enum only ships with active/suspended/deleted — extend it with the
+    // statuses this admin UI actually offers (idempotent, mirrors the ensure-columns pattern
+    // used elsewhere in this file).
+    for (const value of ["deactivated", "trial", "lapsed"]) {
+      try {
+        await execute(`ALTER TYPE account_status ADD VALUE IF NOT EXISTS '${value}'`);
+      } catch (e) {}
+    }
+
     await execute(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
       [newStatus, userId]
@@ -734,7 +768,7 @@ export async function getNotificationAudienceMetricsAction(): Promise<AudienceMe
 
     let monthly = 0;
     try {
-      const monthRow = await queryOne<{ count: string }>(`SELECT COUNT(DISTINCT s.user_id)::text as count FROM subscriptions s JOIN plans p ON s.plan_id = p.id WHERE p.interval = 'month' AND s.status = 'active'`);
+      const monthRow = await queryOne<{ count: string }>(`SELECT COUNT(DISTINCT s.user_id)::text as count FROM subscriptions s WHERE s.cycle = 'monthly' AND s.status = 'active'`);
       monthly = parseInt(monthRow?.count || "0", 10);
     } catch {
       monthly = 0;
