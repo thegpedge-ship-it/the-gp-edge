@@ -40,6 +40,7 @@ interface Props {
   activePriceId?: string | null;
   hasPaidAccess?: boolean;
   hasPurchasedRegistrar?: boolean;
+  activePlanName?: string | null;
 }
 
 // ─── Checkout handler ─────────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ function PlanCard({
   accessExpiresAt,
   cancelAtPeriodEnd,
   onAttemptActivePurchase,
+  activePlanName,
 }: {
   plan: PricingPlan;
   currentAccessLevel: string;
@@ -78,14 +80,20 @@ function PlanCard({
   accessExpiresAt?: string | null;
   cancelAtPeriodEnd?: boolean;
   onAttemptActivePurchase: () => void;
+  activePlanName?: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // 1. Identify the EXACT plan card using the original Price ID or fallback Package Key
+  // 1. Identify the EXACT plan card using the original Price ID or fallback Package Key or granular activePlanName
   const isThisSpecificPlan = Boolean(
     hasPaidAccess &&
       ((plan.priceId && plan.priceId === activePriceId) ||
+        (plan.id === "registrar_6mo" && activePlanName === "Registrar 6-Month Package") ||
+        (plan.id === "registrar_12mo" && activePlanName === "Registrar 12-Month Package") ||
+        (plan.id === "post_registrar_upgrade" && (activePlanName === "Loyalty Monthly Plan" || activePlanName === "Post-Registrar Upgrade")) ||
+        (plan.id === "fellowship_monthly" && activePlanName === "Fellowship Monthly Plan") ||
+        (plan.id === "fellowship_yearly" && activePlanName === "Fellowship Annual Plan") ||
         (plan.id === "post_registrar_upgrade" && activePriceId === "MONTHLY_15") ||
         (plan.id === "fellowship_monthly" && activePriceId === "MONTHLY_30") ||
         (plan.id === "fellowship_yearly" && activePriceId === "YEARLY_300") ||
@@ -279,11 +287,13 @@ function AccessBanner({
   accessExpiresAt,
   cancelAtPeriodEnd,
   isRecurring,
+  activePlanName = null,
 }: {
   currentAccessLevel: string;
   accessExpiresAt: string | null;
   cancelAtPeriodEnd?: boolean;
   isRecurring?: boolean;
+  activePlanName?: string | null;
 }) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -337,7 +347,7 @@ function AccessBanner({
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <p className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100">
-              Active Plan: <span className="text-teal-600 dark:text-teal-400 font-semibold">{levelLabel[currentAccessLevel] ?? currentAccessLevel}</span>
+              Active Plan: <span className="text-teal-600 dark:text-teal-400 font-semibold">{activePlanName || levelLabel[currentAccessLevel] || currentAccessLevel}</span>
             </p>
             {cancelAtPeriodEnd && (
               <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 px-2 py-0.5 rounded-md">
@@ -417,6 +427,7 @@ export default function PricingPageClient({
   activePriceId,
   hasPaidAccess,
   hasPurchasedRegistrar,
+  activePlanName = null,
 }: Props) {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
@@ -481,6 +492,7 @@ export default function PricingPageClient({
           accessExpiresAt={accessExpiresAt} 
           cancelAtPeriodEnd={cancelAtPeriodEnd}
           isRecurring={isRecurring}
+          activePlanName={activePlanName}
         />
 
         {/* ── Section 2: Pricing Cards ──────────────────────────────────────── */}
@@ -504,6 +516,7 @@ export default function PricingPageClient({
                 accessExpiresAt={accessExpiresAt}
                 cancelAtPeriodEnd={cancelAtPeriodEnd}
                 onAttemptActivePurchase={() => setShowDuplicateModal(true)}
+                activePlanName={activePlanName}
               />
             ))}
           </div>

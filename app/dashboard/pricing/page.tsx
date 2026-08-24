@@ -15,7 +15,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
-import { getVisiblePlans, type PlanId } from "@/lib/access";
+import { getVisiblePlans, getUserAccess, type PlanId } from "@/lib/access";
 import PricingPageClient, { type PricingPlan } from "./PricingPageClient";
 
 // Force a fresh DB read — subscription expiry must be evaluated live.
@@ -217,6 +217,8 @@ export default async function PricingPage() {
       ? "REGISTRAR"
       : "FREE";
 
+  const accessInfo = await getUserAccess(dbUser.id);
+
   return (
     <PricingPageClient
       plans={plans}
@@ -228,6 +230,7 @@ export default async function PricingPage() {
       activePriceId={activeSub?.stripe_price_id ?? null}
       hasPaidAccess={currentAccessLevel !== "FREE" || dbUser.has_purchased_registrar}
       hasPurchasedRegistrar={dbUser.has_purchased_registrar}
+      activePlanName={accessInfo?.planName ?? null}
     />
   );
 }

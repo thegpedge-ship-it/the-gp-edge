@@ -69,6 +69,8 @@ interface AccessSnapshot {
   accessExpiresAt: number | null; // epoch ms — the exact subscription expiry
   activePriceId: string | null;
   currentPeriodStart: number | null; // epoch ms
+  planName: string | null;
+  purchasedPackageType: string | null;
 }
 
 // ─── Signing ───────────────────────────────────────────────────────────────────
@@ -139,6 +141,8 @@ function toSnapshot(
     accessExpiresAt: accessExpiresAt ? accessExpiresAt.getTime() : null,
     activePriceId: access.activePriceId,
     currentPeriodStart: access.currentPeriodStart ? access.currentPeriodStart.getTime() : null,
+    planName: access.planName,
+    purchasedPackageType: access.purchasedPackageType,
   };
 }
 
@@ -159,6 +163,8 @@ function fromSnapshot(s: AccessSnapshot): UserAccessInfo {
     currentPeriodEnd: s.currentPeriodEnd != null ? new Date(s.currentPeriodEnd) : null,
     activePriceId: s.activePriceId,
     currentPeriodStart: s.currentPeriodStart != null ? new Date(s.currentPeriodStart) : null,
+    planName: s.planName ?? null,
+    purchasedPackageType: s.purchasedPackageType ?? null,
   };
 }
 

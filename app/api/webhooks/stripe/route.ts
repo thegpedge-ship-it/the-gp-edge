@@ -45,6 +45,25 @@ function addMonths(date: Date, months: number): Date {
   return d;
 }
 
+function getPlanDetailsByPriceId(priceId: string): { planName: string | null; packageName: string | null } {
+  if (priceId === process.env.STRIPE_PRICE_REGISTRAR_6MONTH) {
+    return { planName: "Registrar 6-Month Package", packageName: "Registrar 6-Month Package" };
+  }
+  if (priceId === process.env.STRIPE_PRICE_REGISTRAR_12MONTH) {
+    return { planName: "Registrar 12-Month Package", packageName: "Registrar 12-Month Package" };
+  }
+  if (priceId === process.env.STRIPE_PRICE_POST_REGISTRAR_MONTHLY) {
+    return { planName: "Loyalty Monthly Plan", packageName: "Post-Registrar Upgrade" };
+  }
+  if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_MONTHLY) {
+    return { planName: "Fellowship Monthly Plan", packageName: "Fellowship Monthly" };
+  }
+  if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_YEARLY) {
+    return { planName: "Fellowship Annual Plan", packageName: "Fellowship Annual" };
+  }
+  return { planName: null, packageName: null };
+}
+
 /**
  * Resolve the Neon DB user ID from a Stripe event payload using
  * a 3-tier fallback strategy.
@@ -295,10 +314,20 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     const months = REGISTRAR_ACCESS_MONTHS[priceId] ?? 6;
     const accessExpiresAt = addMonths(now, months);
 
+    const metaPkg = session.metadata?.package_name;
+    const metaTitle = session.metadata?.plan_title;
+    const details = getPlanDetailsByPriceId(priceId);
+
+    const resolvedPkg = metaPkg || details.packageName || "Registrar Package";
+    const resolvedTitle = metaTitle || details.planName || resolvedPkg;
+
     // Mark user as having purchased Registrar
     await prisma.users.update({
       where: { id: userId },
-      data: { has_purchased_registrar: true },
+      data: { 
+        has_purchased_registrar: true,
+        purchased_package_type: resolvedPkg,
+      },
     });
 
     const planId = await resolvePlanId("registrar");
@@ -327,6 +356,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         stripe_checkout_session_id: checkoutSessionId,
         current_period_start: now,
         current_period_end: accessExpiresAt,
+        plan_name: resolvedTitle,
+        purchased_package_type: resolvedPkg,
       },
       update: {
         status: "active",
@@ -340,6 +371,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         canceled_at: null,
         cancel_at: null,
         updated_at: now,
+        plan_name: resolvedTitle,
+        purchased_package_type: resolvedPkg,
       },
     });
     console.log(`[webhook/checkout.completed] ✅ Subscription upserted in Neon: ${upserted.id}`);
@@ -626,6 +659,13 @@ async function upsertSubscriptionRow(
     return;
   }
 
+  const metaPkg = stripeSub.metadata?.package_name;
+  const metaTitle = stripeSub.metadata?.plan_title;
+  const details = getPlanDetailsByPriceId(priceId);
+
+  const resolvedPkg = metaPkg || details.packageName || "Fellowship Subscription";
+  const resolvedTitle = metaTitle || details.planName || resolvedPkg;
+
   // ─── CRITICAL FIX: Upsert using provider_sub_id (full @unique) ────────────
   // user_id has only a PARTIAL unique index — Prisma upsert() requires a FULL
   // unique constraint. provider_sub_id is @unique without conditions, so it
@@ -647,6 +687,8 @@ async function upsertSubscriptionRow(
       current_period_start: periodStart,
       current_period_end: periodEnd,
       cancel_at: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
+      plan_name: resolvedTitle,
+      purchased_package_type: resolvedPkg,
     },
     update: {
       status: dbStatus,
@@ -659,18 +701,21 @@ async function upsertSubscriptionRow(
       cancel_at: stripeSub.cancel_at ? new Date(stripeSub.cancel_at * 1000) : null,
       canceled_at: stripeSub.canceled_at ? new Date(stripeSub.canceled_at * 1000) : null,
       updated_at: now,
+      plan_name: resolvedTitle,
+      purchased_package_type: resolvedPkg,
     },
   });
 
-  // Also persist stripe_customer_id on the users record (idempotent)
-  if (stripeCustomerId) {
-    await prisma.users
-      .update({
-        where: { id: userId },
-        data: { stripe_customer_id: stripeCustomerId },
-      })
-      .catch((e) => console.warn("[webhook/upsertSubscriptionRow] stripe_customer_id update warning:", e.message));
-  }
+  // Also persist stripe_customer_id and purchased_package_type on the users record (idempotent)
+  await prisma.users
+    .update({
+      where: { id: userId },
+      data: {
+        ...(stripeCustomerId ? { stripe_customer_id: stripeCustomerId } : {}),
+        purchased_package_type: resolvedPkg,
+      },
+    })
+    .catch((e) => console.warn("[webhook/upsertSubscriptionRow] user fields update warning:", e.message));
 
   console.log(`[webhook/upsertSubscriptionRow] ✅ Subscription Table Updated in Neon: ${upserted.id}`);
 }

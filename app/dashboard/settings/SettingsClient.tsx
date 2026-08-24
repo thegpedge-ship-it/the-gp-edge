@@ -527,6 +527,7 @@ export default function SettingsClient({
             isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
             showDownloadInvoice={true}
             showCancelSubscription={true}
+            activePlanName={accessInfo?.planName}
           />
         </PageCard>
       </FadeIn>
