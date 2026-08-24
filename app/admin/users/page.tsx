@@ -26,8 +26,21 @@ const itemVariants = {
 type FilterType = "all" | "active" | "suspended" | "deactivated" | "trial" | "lapsed" | "premium" | "free";
 type RoleFilterType = "all" | "SA" | "CE" | "OM" | "DR" | "PR" | "SUB";
 
+/** Masks a learner's name/email for roles without the "can view learner-identifiable data" grant. */
+function maskPiiName(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => (part ? `${part[0]}${"*".repeat(Math.max(part.length - 1, 2))}` : part))
+    .join(" ");
+}
+function maskPiiEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "••••••";
+  return `${(local || "").slice(0, 1)}${"*".repeat(Math.max((local || "").length - 1, 2))}@${domain}`;
+}
+
 export default function UsersPage() {
-  const { isReadOnly, isSuperAdmin, isOperationsManager, canManageUsers } = useAdminRole();
+  const { isReadOnly, isSuperAdmin, isOperationsManager, canManageUsers, canViewLearnerPii } = useAdminRole();
   const [searchQuery, setSearchQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [roleFilter, setRoleFilter] = useState<RoleFilterType>("all");
@@ -361,7 +374,9 @@ export default function UsersPage() {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{user.name}</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            {canViewLearnerPii ? user.name : maskPiiName(user.name)}
+                          </p>
                           <p className="text-xs text-slate-400 dark:text-slate-500 font-mono">ID #{user.id}</p>
                         </div>
                       </div>
@@ -537,7 +552,10 @@ export default function UsersPage() {
               <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed space-y-2">
                 <p>
                   Are you sure you want to {confirmUser.action}{" "}
-                  <strong className="text-slate-900 dark:text-slate-100">{confirmUser.user.name}</strong> ({confirmUser.user.email})?
+                  <strong className="text-slate-900 dark:text-slate-100">
+                    {canViewLearnerPii ? confirmUser.user.name : maskPiiName(confirmUser.user.name)}
+                  </strong>{" "}
+                  ({canViewLearnerPii ? confirmUser.user.email : maskPiiEmail(confirmUser.user.email)})?
                 </p>
                 {confirmUser.action === "deactivate" && (
                   <p className="text-xs bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/40 text-rose-800 dark:text-rose-300 font-medium">

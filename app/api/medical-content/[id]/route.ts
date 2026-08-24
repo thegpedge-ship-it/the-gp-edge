@@ -375,11 +375,13 @@ export async function PATCH(
       }
     }
 
-    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section.
+    // Prefer an explicit topic (e.g. extracted from the document's "Topic:" line) over the
+    // condition's own title so re-imports/updates match an existing shared topic.
     const updatedName = name || exists.name;
     const updatedSystem = body.system || category || "General";
     await registerOrUpdateTopicWithCodeAction({
-      label: updatedName,
+      label: (body.topic || "").trim() || updatedName,
       homeUnit: updatedSystem,
       topicType: (type || exists.kind) === "Approach" ? "Approach to a Presentation" : "Clinical Condition",
       tags: body.tags || [],

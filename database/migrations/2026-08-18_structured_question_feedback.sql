@@ -1,13 +1,3 @@
--- ============================================================================
--- Migration: Restructure question_feedback for AKT / KFP structured reviews
--- Date: 2026-08-18
---
--- Adds structured dropdown fields (where, issue_type) with exam-type-specific
--- allowed values, plus conditional fields:
---   AKT  →  suggested_answer (A–E)  when issue = 'keyed_answer_wrong'
---   KFP  →  disputed_answer (text)  when issue = 'schedule_wrong'
--- ============================================================================
-
 BEGIN;
 
 -- 1. Add new structured columns

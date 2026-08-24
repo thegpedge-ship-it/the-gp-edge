@@ -53,7 +53,7 @@ async function run() {
   const questionsRes = await pool.query(`
     SELECT q.id, q.subject_id, q.stem,
            COALESCE(
-             (SELECT t.label FROM question_tags qt JOIN tags t ON t.id = qt.tag_id WHERE qt.question_id = q.id AND t.label NOT IN ('General', 'AKT', 'KFT', 'KFP') ORDER BY length(t.label) DESC LIMIT 1),
+             (SELECT t.label FROM question_tags qt JOIN tags t ON t.id = qt.tag_id WHERE qt.question_id = q.id AND t.label NOT IN ('General', 'AKT', 'KFP') ORDER BY length(t.label) DESC LIMIT 1),
              (SELECT t.label FROM question_tags qt JOIN tags t ON t.id = qt.tag_id WHERE qt.question_id = q.id LIMIT 1)
            ) as tag_label
     FROM questions q

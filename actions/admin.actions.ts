@@ -81,7 +81,8 @@ function mapRowToCredentialUser(row: any): CredentialUser {
   const roleCode = isSuperAdmin ? "SA"
     : row.role_code || (row.role?.includes("CE") ? "CE" : row.role?.includes("OM") ? "OM" : row.role?.includes("DR") ? "DR" : row.role?.includes("PR") ? "PR" : row.role?.includes("SUB") ? "SUB" : row.role === "Clinical Editor" ? "CE" : row.role === "Drafter" ? "DR" : row.role === "Peer Reviewer" ? "PR" : "OM");
 
-  const roleTitle = roleCode === "SA" ? "Super Admin"
+  const roleTitle = row.custom_role_name ? row.custom_role_name
+    : roleCode === "SA" ? "Super Admin"
     : roleCode === "CE" ? "Clinical Editor"
     : roleCode === "OM" ? "Operations Manager"
     : roleCode === "DR" ? "Drafter"
@@ -110,13 +111,20 @@ function mapRowToCredentialUser(row: any): CredentialUser {
 
 export async function getAdminsFromDbAction(): Promise<CredentialUser[]> {
   try {
+    // Ensure the custom-role columns exist before joining against them (idempotent, matches the
+    // ensure-columns pattern already used below for admin_users.role/role_code).
+    try {
+      await execute(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false; ALTER TABLE roles ADD COLUMN IF NOT EXISTS can_view_pii BOOLEAN DEFAULT false;`);
+    } catch (e) {}
+
     const rows = await query<any>(
-      `SELECT u.*,
+      `SELECT u.*, r.name AS custom_role_name,
               ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
          FROM admin_users u
          LEFT JOIN admin_user_permissions p ON p.admin_user_id = u.id
+         LEFT JOIN roles r ON r.code = u.role_code AND r.is_custom = true
         WHERE u.deleted_at IS NULL
-        GROUP BY u.id
+        GROUP BY u.id, r.name
         ORDER BY u.created_at ASC`
     );
     return rows.map(mapRowToCredentialUser);
@@ -897,6 +905,193 @@ export async function deleteNotificationFromDbAction(id: string): Promise<{ succ
   } catch (error: any) {
     console.error("Error deleting notification from DB:", error);
     return { success: false, error: error.message || "Failed to delete notification." };
+  }
+}
+
+/**
+ * Looks up an admin by username or email for the "Forgot Password" flow and, if the account
+ * exists, isn't deleted, and has forgot_password_enabled, returns its id so the client can route
+ * the admin straight to the existing reset-password page (this app has no email/SMTP integration).
+ */
+export async function requestPasswordResetAction(
+  identifier: string
+): Promise<{ success: boolean; userId?: string; name?: string; error?: string }> {
+  try {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      return { success: false, error: "Enter your username or email address." };
+    }
+
+    const row = await queryOne<any>(
+      `SELECT id, name, forgot_password_enabled
+         FROM admin_users
+        WHERE (LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1))
+          AND deleted_at IS NULL
+        LIMIT 1`,
+      [trimmed]
+    );
+
+    if (!row) {
+      return { success: false, error: "No admin account matches that username or email." };
+    }
+    if (!row.forgot_password_enabled) {
+      return { success: false, error: "Password reset is disabled for this account. Contact your Super Admin." };
+    }
+
+    return { success: true, userId: row.id, name: row.name };
+  } catch (error: any) {
+    console.error("Error requesting password reset:", error);
+    return { success: false, error: error.message || "Failed to process the reset request." };
+  }
+}
+
+export interface UploadMonitoringStats {
+  totalStorageBytes: number;
+  totalFiles: number;
+  filesUploadedThisMonth: number;
+  largestFile: { name: string; sizeBytes: number } | null;
+}
+
+export async function getUploadMonitoringStatsAction(): Promise<UploadMonitoringStats> {
+  try {
+    const totals = await queryOne<any>(
+      `SELECT COALESCE(SUM(size_bytes), 0) AS total_bytes, COUNT(*) AS total_files FROM files`
+    );
+    const thisMonth = await queryOne<any>(
+      `SELECT COUNT(*) AS count FROM files WHERE created_at >= date_trunc('month', NOW())`
+    );
+    const largest = await queryOne<any>(
+      `SELECT original_name, size_bytes FROM files ORDER BY size_bytes DESC NULLS LAST LIMIT 1`
+    );
+
+    return {
+      totalStorageBytes: Number(totals?.total_bytes || 0),
+      totalFiles: Number(totals?.total_files || 0),
+      filesUploadedThisMonth: Number(thisMonth?.count || 0),
+      largestFile: largest ? { name: largest.original_name, sizeBytes: Number(largest.size_bytes) } : null,
+    };
+  } catch (error) {
+    console.error("Error fetching upload monitoring stats:", error);
+    return { totalStorageBytes: 0, totalFiles: 0, filesUploadedThisMonth: 0, largestFile: null };
+  }
+}
+
+/**
+ * Self-service profile update: name/username/email and an optional password change.
+ * A password change requires the caller's current password to verify against the stored hash.
+ * Role is intentionally never accepted here — role assignment is managed on the audit/security page.
+ */
+export async function updateAdminProfileAction(params: {
+  id: string;
+  name: string;
+  username: string;
+  email: string;
+  currentPassword?: string;
+  newPassword?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const existing = await queryOne<any>(
+      `SELECT password_hash FROM admin_users WHERE id = $1 AND deleted_at IS NULL`,
+      [params.id]
+    );
+    if (!existing) {
+      return { success: false, error: "Account not found." };
+    }
+
+    let passwordHash = existing.password_hash;
+    let passwordChanged = false;
+    if (params.newPassword) {
+      if (!params.currentPassword || !(await verifyPassword(params.currentPassword, existing.password_hash))) {
+        return { success: false, error: "Current password is incorrect." };
+      }
+      passwordHash = await hashPassword(params.newPassword);
+      passwordChanged = true;
+    }
+
+    await execute(
+      `UPDATE admin_users
+          SET name = $1, username = $2, email = $3, password_hash = $4,
+              password_changed_at = CASE WHEN $5::boolean THEN NOW() ELSE password_changed_at END,
+              updated_at = NOW()
+        WHERE id = $6`,
+      [params.name, params.username, params.email, passwordHash, passwordChanged, params.id]
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error updating admin profile:", error);
+    if (error.code === "23505") {
+      if (error.constraint === "admin_users_email_key") {
+        return { success: false, error: "This email is already in use by another admin." };
+      }
+      if (error.constraint === "admin_users_username_key") {
+        return { success: false, error: "This username is already in use by another admin." };
+      }
+    }
+    return { success: false, error: error.message || "Failed to update profile." };
+  }
+}
+
+export interface AuditLogEntry {
+  id: string;
+  adminName: string | null;
+  adminEmail: string | null;
+  action: string;
+  category: string | null;
+  severity: "info" | "warning" | "critical";
+  entityType: string | null;
+  entityId: string | null;
+  metadata: any;
+  createdAt: string;
+}
+
+/**
+ * Reads the admin activity log (who changed what, and when) — Super Admin-only. isCallerSuperAdmin
+ * is trusted from the client, matching this app's existing (localStorage-based) admin-identity
+ * model elsewhere in this file; the page itself stays visible to every admin, only the entries are
+ * gated here and in the UI.
+ */
+export async function getAuditLogsAction(params: {
+  isCallerSuperAdmin: boolean;
+  limit?: number;
+  sinceDays?: number;
+}): Promise<{ success: boolean; logs: AuditLogEntry[]; error?: string }> {
+  if (!params.isCallerSuperAdmin) {
+    return { success: false, logs: [], error: "Only the Super Admin can view the activity log." };
+  }
+
+  try {
+    const limit = Math.min(Math.max(params.limit || 100, 1), 500);
+    const sinceDays = params.sinceDays ? Math.min(Math.max(params.sinceDays, 1), 365) : null;
+    const rows = await query<any>(
+      `SELECT l.id, l.action, l.category, l.severity, l.entity_type, l.entity_id, l.metadata, l.created_at,
+              u.name AS admin_name, u.email AS admin_email
+         FROM audit_logs l
+         LEFT JOIN admin_users u ON u.id = l.admin_user_id
+        WHERE ($2::int IS NULL OR l.created_at >= NOW() - make_interval(days => $2::int))
+        ORDER BY l.created_at DESC
+        LIMIT $1`,
+      [limit, sinceDays]
+    );
+
+    return {
+      success: true,
+      logs: rows.map((r) => ({
+        id: String(r.id),
+        adminName: r.admin_name || null,
+        adminEmail: r.admin_email || null,
+        action: r.action,
+        category: r.category || null,
+        severity: (r.severity || "info") as AuditLogEntry["severity"],
+        entityType: r.entity_type || null,
+        entityId: r.entity_id || null,
+        metadata: r.metadata || null,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      })),
+    };
+  } catch (error: any) {
+    console.error("Error fetching audit logs:", error);
+    return { success: false, logs: [], error: error.message || "Failed to load the activity log." };
   }
 }
 

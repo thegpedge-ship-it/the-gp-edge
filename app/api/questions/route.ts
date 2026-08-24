@@ -131,10 +131,10 @@ export async function GET(req: NextRequest) {
         .map((o: any, i: number) => (o.is_correct ? i : -1))
         .filter((i: number) => i >= 0);
       const correctIndex = correctIndices[0] ?? 0;
-      const examType = (q.examType ?? "AKT") as "AKT" | "KFP" | "KFP";
-      const isKft = examType === "KFP";
+      const examType = (q.examType ?? "AKT") as "AKT" | "KFP";
+      const isKfp = examType === "KFP";
       const kfpCorrectCount: number | undefined =
-        isKft
+        isKfp
           ? (q.kfpCorrectCount != null ? Number(q.kfpCorrectCount) : correctIndices.length || 1)
           : undefined;
 
@@ -162,7 +162,6 @@ export async function GET(req: NextRequest) {
         options: opts.map((o: any) => o.label),
         correctIndex,
         correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
-        kftCorrectCount: isKft ? kfpCorrectCount : undefined,
         kfpCorrectCount,
         whyCorrect: q.whyCorrect ?? undefined,
         rationale: q.rationale ?? q.whyCorrect ?? "",
@@ -171,7 +170,7 @@ export async function GET(req: NextRequest) {
         knowledgeBank: q.knowledgeBank ?? undefined,
         pearl: q.pearl ?? undefined,
         // Classification
-        topic: q.subtopic || q.subject || "General",
+        topic: q.subject || "General",
         subtopic: q.subtopic ?? undefined,
         subject: q.subject ?? undefined,
         topicCode: q.topicCode ?? undefined,

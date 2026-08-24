@@ -28,7 +28,7 @@ import {
 } from "@/lib/adminTheme";
 import { Quiz, Question, fetchQuestions } from "@/lib/quizData";
 import { addUserNotification } from "@/utils/notifications";
-import { fetchQuizzesFromDbAction, syncQuizToDbAction, deleteQuizFromDbAction, toggleQuizFreeStatus, restoreQuizInDbAction } from "@/actions/quiz.actions";
+import { fetchQuizzesFromDbAction, syncQuizToDbAction, deleteQuizFromDbAction, toggleQuizFreeStatus, restoreQuizInDbAction, permanentlyDeleteQuizAction } from "@/actions/quiz.actions";
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.02 } } };
 const itemVariants = { hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] } } };
@@ -168,12 +168,26 @@ export default function QuizzesPage() {
   };
 
   const confirmDeleteQuiz = async () => {
-    if (!quizToDelete || !canArchiveItem) return;
-    await deleteQuizFromDbAction(quizToDelete.name, currentAdmin);
-    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
-    setQuizzes(refreshed as any);
-    setQuizToDelete(null);
-    addUserNotification("Quiz Archived", `"${quizToDelete.name}" has been archived.`, 1, "custom");
+    if (!quizToDelete) return;
+    if (quizToDelete.status === "archived") {
+      if (!canRestoreItem) return;
+      const res = await permanentlyDeleteQuizAction(quizToDelete.name, currentAdmin);
+      if (!res.success) {
+        alert(res.error || "Failed to permanently delete quiz.");
+        return;
+      }
+      const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+      setQuizzes(refreshed as any);
+      setQuizToDelete(null);
+      addUserNotification("Quiz Permanently Deleted", `"${quizToDelete.name}" has been permanently purged from database.`, 1, "custom");
+    } else {
+      if (!canArchiveItem) return;
+      await deleteQuizFromDbAction(quizToDelete.name, currentAdmin);
+      const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+      setQuizzes(refreshed as any);
+      setQuizToDelete(null);
+      addUserNotification("Quiz Archived", `"${quizToDelete.name}" has been archived.`, 1, "custom");
+    }
   };
 
   const handleRestoreQuiz = async (quiz: Quiz) => {
@@ -186,6 +200,73 @@ export default function QuizzesPage() {
     const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
     setQuizzes(refreshed as any);
     addUserNotification("Quiz Restored", `Successfully restored "${quiz.name}".`, 1, "custom");
+  };
+
+  // Multi-select bulk selection state for Archive view
+  const [selectedQuizNames, setSelectedQuizNames] = useState<string[]>([]);
+  const [bulkActionConfirm, setBulkActionConfirm] = useState<{ type: "restore" | "permanent_delete" | "archive"; names: string[] } | null>(null);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+
+  useEffect(() => {
+    setSelectedQuizNames([]);
+  }, [searchQuery, statusFilter, selectedExamType]);
+
+  const toggleSelectQuiz = (name: string) => {
+    setSelectedQuizNames((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
+  };
+
+  const handleSelectAllFiltered = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedQuizNames(e.target.checked ? filtered.map((q) => q.name) : []);
+  };
+
+  const handleBulkRestoreQuizzes = async () => {
+    if (!canRestoreItem || selectedQuizNames.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedQuizNames.length });
+    let successCount = 0;
+    for (let i = 0; i < selectedQuizNames.length; i++) {
+      const res = await restoreQuizInDbAction(selectedQuizNames[i], currentAdmin);
+      if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: selectedQuizNames.length });
+    }
+    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+    setQuizzes(refreshed as any);
+    setSelectedQuizNames([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Quizzes Restored", `Successfully restored ${successCount} quiz(zes).`, 1, "custom");
+  };
+
+  const handleBulkPermanentDeleteQuizzes = async () => {
+    if (!canRestoreItem || selectedQuizNames.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedQuizNames.length });
+    let successCount = 0;
+    for (let i = 0; i < selectedQuizNames.length; i++) {
+      const res = await permanentlyDeleteQuizAction(selectedQuizNames[i], currentAdmin);
+      if (res.success) successCount++;
+      setBulkProgress({ done: i + 1, total: selectedQuizNames.length });
+    }
+    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+    setQuizzes(refreshed as any);
+    setSelectedQuizNames([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Quizzes Permanently Deleted", `${successCount} quiz(zes) purged from database.`, 1, "custom");
+  };
+
+  const handleBulkArchiveQuizzes = async () => {
+    if (!canArchiveItem || selectedQuizNames.length === 0) return;
+    setBulkProgress({ done: 0, total: selectedQuizNames.length });
+    for (let i = 0; i < selectedQuizNames.length; i++) {
+      await deleteQuizFromDbAction(selectedQuizNames[i], currentAdmin);
+      setBulkProgress({ done: i + 1, total: selectedQuizNames.length });
+    }
+    const count = selectedQuizNames.length;
+    const refreshed = await fetchQuizzesFromDbAction(canRestoreItem);
+    setQuizzes(refreshed as any);
+    setSelectedQuizNames([]);
+    setBulkProgress(null);
+    setBulkActionConfirm(null);
+    addUserNotification("Quizzes Archived", `Successfully archived ${count} quiz(zes).`, 1, "custom");
   };
 
   const handleToggleQuizFree = async (quiz: Quiz, newIsFree: boolean) => {
@@ -325,6 +406,79 @@ export default function QuizzesPage() {
         </div>
       </motion.div>
 
+      {/* Bulk Action Floating Toolbar (ONLY active in Archive view when items are selected) */}
+      {statusFilter === "archived" && canRestoreItem && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-amber-900 dark:text-amber-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedQuizNames.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-amber-300 dark:border-amber-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All Archived Quizzes ({selectedQuizNames.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedQuizNames.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "restore", names: selectedQuizNames })}
+                className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.RotateCcw className="w-3.5 h-3.5" />
+                Restore Selected ({selectedQuizNames.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "permanent_delete", names: selectedQuizNames })}
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.Trash2 className="w-3.5 h-3.5" />
+                Delete Selected Permanently ({selectedQuizNames.length})
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {statusFilter !== "archived" && canArchiveItem && filtered.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200/80 dark:border-teal-900/40 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <label className="inline-flex items-center gap-2 cursor-pointer font-bold text-teal-900 dark:text-teal-200">
+              <input
+                type="checkbox"
+                checked={filtered.length > 0 && selectedQuizNames.length === filtered.length}
+                onChange={handleSelectAllFiltered}
+                className="w-4 h-4 rounded border-teal-300 dark:border-teal-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span>Select All ({selectedQuizNames.length} of {filtered.length} selected)</span>
+            </label>
+          </div>
+          {selectedQuizNames.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkActionConfirm({ type: "archive", names: selectedQuizNames })}
+                className="px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <Lucide.Archive className="w-3.5 h-3.5" />
+                Archive Selected ({selectedQuizNames.length})
+              </button>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {viewMode === "grid" && (
         <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {displayedQuizzes.map((quiz, idx) => {
@@ -335,22 +489,31 @@ export default function QuizzesPage() {
                 initial={{ opacity: 0, y: 16, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.45, delay: idx * 0.05, ease: [0.22, 1, 0.36, 1] }}
-                className={`group relative ${themePanel} overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 hover:border-teal-300/60 hover:-translate-y-1 transition-all duration-300`}
+                className={`group relative ${themePanel} overflow-hidden cursor-pointer hover:shadow-xl hover:shadow-teal-500/10 hover:border-teal-300/60 hover:-translate-y-1 transition-all duration-300 ${selectedQuizNames.includes(quiz.name) ? (statusFilter === "archived" ? "ring-2 ring-amber-300 dark:ring-amber-700" : "ring-2 ring-teal-300 dark:ring-teal-700") : ""}`}
               >
                 {/* Header */}
                 <div className="relative bg-teal-800 bg-gradient-to-r from-teal-800 to-teal-900 px-5 py-4">
                   <div className="relative z-10 flex items-start justify-between gap-3">
+                    {((quiz.status === "archived" && canRestoreItem) || (quiz.status !== "archived" && canArchiveItem)) && (
+                      <input
+                        type="checkbox"
+                        checked={selectedQuizNames.includes(quiz.name)}
+                        onChange={() => toggleSelectQuiz(quiz.name)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 w-4 h-4 rounded border-white/40 accent-teal-500 cursor-pointer shrink-0"
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white leading-snug">{quiz.name}</p>
                       <p className="text-[11px] text-teal-100 mt-1">{quiz.questionCount} questions · {quiz.timeLimit} min</p>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border shrink-0 ${
-                        ((quiz.examType as string)?.toUpperCase() === 'KFP' || (quiz.examType as string)?.toUpperCase() === 'KFT')
+                        (quiz.examType as string)?.toUpperCase() === 'KFP'
                           ? 'bg-purple-500/25 text-purple-200 border-purple-400/40'
                           : 'bg-teal-400/20 text-teal-100 border-teal-300/40'
                       }`}>
-                        {((quiz.examType as string)?.toUpperCase() === 'KFP' || (quiz.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (quiz.examType || 'AKT')}
+                        {(quiz.examType as string)?.toUpperCase() === 'KFP' ? 'KFP' : (quiz.examType || 'AKT')}
                       </span>
                       <button
                         type="button"
@@ -568,6 +731,108 @@ export default function QuizzesPage() {
         )}
       </AnimatePresence>
 
+      {/* Bulk Restore / Archive / Permanent Delete Confirm Modal */}
+      <AnimatePresence>
+        {bulkActionConfirm && (() => {
+          const meta =
+            bulkActionConfirm.type === "restore"
+              ? {
+                  Icon: Lucide.RotateCcw,
+                  title: "Restore Selected Quizzes?",
+                  verb: "restore",
+                  handler: handleBulkRestoreQuizzes,
+                  confirmLabel: "Restore Quizzes",
+                  iconWrap: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/40 text-emerald-600 dark:text-emerald-400",
+                  progressBar: "bg-emerald-500",
+                  confirmBtn: "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/20",
+                }
+              : bulkActionConfirm.type === "archive"
+              ? {
+                  Icon: Lucide.Archive,
+                  title: "Archive Selected Quizzes?",
+                  verb: "archive",
+                  handler: handleBulkArchiveQuizzes,
+                  confirmLabel: "Archive Quizzes",
+                  iconWrap: "bg-teal-50 dark:bg-teal-950/40 border-teal-100 dark:border-teal-900/40 text-teal-600 dark:text-teal-400",
+                  progressBar: "bg-teal-500",
+                  confirmBtn: "bg-teal-700 hover:bg-teal-800 shadow-teal-700/20",
+                }
+              : {
+                  Icon: Lucide.Trash2,
+                  title: "Permanently Delete Selected Quizzes?",
+                  verb: "permanently delete",
+                  handler: handleBulkPermanentDeleteQuizzes,
+                  confirmLabel: "Delete Permanently",
+                  iconWrap: "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30 text-rose-500 dark:text-rose-400",
+                  progressBar: "bg-rose-500",
+                  confirmBtn: "bg-rose-600 hover:bg-rose-500 shadow-rose-600/20",
+                };
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+            >
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setBulkActionConfirm(null)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="relative w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+              >
+                <div className="px-6 pt-6 pb-4 text-center">
+                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 border ${meta.iconWrap}`}>
+                    <meta.Icon className="w-7 h-7" />
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">{meta.title}</h2>
+                  <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-1">
+                    Are you sure you want to {meta.verb} <strong>{bulkActionConfirm.names.length} selected quiz(zes)</strong>?
+                  </p>
+                  {bulkActionConfirm.type === "permanent_delete" && !bulkProgress && (
+                    <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                      <p className="font-semibold">⚠️ Danger Zone</p>
+                      <p className="mt-0.5 opacity-90">This action is irreversible and will permanently purge all selected quizzes from the database.</p>
+                    </div>
+                  )}
+                  {bulkProgress && (
+                    <div className="mt-3 space-y-1.5">
+                      <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-200 ${meta.progressBar}`}
+                          style={{ width: `${Math.round((bulkProgress.done / bulkProgress.total) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-center text-slate-500 dark:text-slate-400 font-medium">
+                        Processing {bulkProgress.done} of {bulkProgress.total}…
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex gap-3">
+                  <button
+                    onClick={() => setBulkActionConfirm(null)}
+                    disabled={!!bulkProgress}
+                    className="flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 text-[13px] font-semibold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 transition-colors duration-200 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={meta.handler}
+                    disabled={!!bulkProgress}
+                    className={`flex-1 px-4 py-2 rounded-lg text-white text-[13px] font-bold shadow-md disabled:opacity-50 transition-all duration-200 cursor-pointer ${meta.confirmBtn}`}
+                  >
+                    {bulkProgress ? "Working…" : meta.confirmLabel}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
+      </AnimatePresence>
+
       {/* ========== TABLE VIEW ========== */}
       {viewMode === "table" && (
         <motion.div variants={itemVariants} className={`${themePanel} overflow-hidden relative`}>
@@ -605,11 +870,11 @@ export default function QuizzesPage() {
                     </td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                        ((q.examType as string)?.toUpperCase() === 'KFP' || (q.examType as string)?.toUpperCase() === 'KFT')
+                        (q.examType as string)?.toUpperCase() === 'KFP'
                           ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800/40'
                           : 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-800/40'
                       }`}>
-                        {((q.examType as string)?.toUpperCase() === 'KFP' || (q.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (q.examType || 'AKT')}
+                        {(q.examType as string)?.toUpperCase() === 'KFP' ? 'KFP' : (q.examType || 'AKT')}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-sm text-teal-800/80 dark:text-teal-300/80">{q.questionCount}</td>
@@ -842,11 +1107,11 @@ export default function QuizzesPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-serif text-lg font-bold">Quiz Preview</h3>
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase border ${
-                      ((previewQuiz.examType as string)?.toUpperCase() === 'KFP' || (previewQuiz.examType as string)?.toUpperCase() === 'KFT')
+                      (previewQuiz.examType as string)?.toUpperCase() === 'KFP'
                         ? 'bg-purple-500/30 text-purple-200 border-purple-400/40'
                         : 'bg-teal-500/30 text-teal-200 border-teal-400/40'
                     }`}>
-                      {((previewQuiz.examType as string)?.toUpperCase() === 'KFP' || (previewQuiz.examType as string)?.toUpperCase() === 'KFT') ? 'KFP' : (previewQuiz.examType || 'AKT')}
+                      {(previewQuiz.examType as string)?.toUpperCase() === 'KFP' ? 'KFP' : (previewQuiz.examType || 'AKT')}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">Reviewing: {previewQuiz.name}</p>

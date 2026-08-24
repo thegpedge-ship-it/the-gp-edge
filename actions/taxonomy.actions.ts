@@ -243,16 +243,73 @@ export async function moveTopicHomeUnitAction(
   adminUser?: PermissionUser
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const topic = await queryOne<{ code: string; home_unit: string }>(
-      `SELECT code, home_unit FROM taxonomy_topics WHERE code = $1`,
-      [topicCode]
+    // Topics are backed by different tables depending on where they were created
+    // (the standalone taxonomy_topics table if it exists, or the real subtopics /
+    // medical_conditions tables whose "home unit" is their subject_id). Resolve the
+    // destination subject/unit once, then move whichever table actually holds this topic.
+    const targetSubject = await queryOne<{ id: string; slug: string }>(
+      `SELECT id, slug FROM subjects WHERE LOWER(slug) = LOWER($1) LIMIT 1`,
+      [newHomeUnit]
     );
-    if (!topic) return { success: false, error: `Topic ${topicCode} not found` };
 
-    await execute(
-      `UPDATE taxonomy_topics SET home_unit = $1, group_code = $2, updated_at = NOW() WHERE code = $3`,
-      [newHomeUnit, newGroupCode || null, topicCode]
-    );
+    let oldHomeUnit: string | null = null;
+    let moved = false;
+
+    try {
+      const topic = await queryOne<{ code: string; home_unit: string }>(
+        `SELECT code, home_unit FROM taxonomy_topics WHERE code = $1`,
+        [topicCode]
+      );
+      if (topic) {
+        oldHomeUnit = topic.home_unit;
+        await execute(
+          `UPDATE taxonomy_topics SET home_unit = $1, group_code = $2, updated_at = NOW() WHERE code = $3`,
+          [newHomeUnit, newGroupCode || null, topicCode]
+        );
+        moved = true;
+      }
+    } catch {
+      // taxonomy_topics table does not exist — fall through to the real tables below
+    }
+
+    if (targetSubject) {
+      try {
+        const subtopicRow = await queryOne<{ id: string; homeUnitSlug: string | null }>(
+          `SELECT st.id, s.slug AS "homeUnitSlug" FROM subtopics st LEFT JOIN subjects s ON s.id = st.subject_id WHERE LOWER(st.slug) = LOWER($1)`,
+          [topicCode]
+        );
+        if (subtopicRow) {
+          oldHomeUnit = oldHomeUnit || subtopicRow.homeUnitSlug;
+          await execute(`UPDATE subtopics SET subject_id = $1, updated_at = NOW() WHERE id = $2`, [
+            targetSubject.id,
+            subtopicRow.id,
+          ]);
+          moved = true;
+        }
+      } catch {}
+
+      try {
+        const conditionRow = await queryOne<{ id: string; homeUnitSlug: string | null }>(
+          `SELECT mc.id, s.slug AS "homeUnitSlug" FROM medical_conditions mc LEFT JOIN subjects s ON s.id = mc.subject_id WHERE LOWER(mc.slug) = LOWER($1)`,
+          [topicCode]
+        );
+        if (conditionRow) {
+          oldHomeUnit = oldHomeUnit || conditionRow.homeUnitSlug;
+          await execute(`UPDATE medical_conditions SET subject_id = $1, updated_at = NOW() WHERE id = $2`, [
+            targetSubject.id,
+            conditionRow.id,
+          ]);
+          moved = true;
+        }
+      } catch {}
+    }
+
+    if (!moved) {
+      return {
+        success: false,
+        error: targetSubject ? `Topic ${topicCode} not found` : `Home unit "${newHomeUnit}" not found`,
+      };
+    }
 
     if (adminUser) {
       await recordAuditLog({
@@ -261,7 +318,7 @@ export async function moveTopicHomeUnitAction(
         category: "TAXONOMY",
         entityType: "TAXONOMY_TOPIC",
         entityId: topicCode,
-        metadata: { oldHomeUnit: topic.home_unit, newHomeUnit, newGroupCode },
+        metadata: { oldHomeUnit, newHomeUnit, newGroupCode },
       });
     }
 
@@ -287,49 +344,62 @@ export async function updateTopicClassificationAction(
   adminUser?: PermissionUser
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const existing = await queryOne<{ code: string }>(`SELECT code FROM taxonomy_topics WHERE code = $1`, [topicCode]);
-    if (!existing) return { success: false, error: `Topic ${topicCode} not found` };
+    let matched = false;
 
-    let fields: string[] = [];
-    let vals: any[] = [topicCode];
-    let idx = 2;
+    // Rich classification fields (depth, crossRefs, crossCuttingTags, variants, topicType) only
+    // have a home in the standalone taxonomy_topics table when it exists.
+    try {
+      const existing = await queryOne<{ code: string }>(`SELECT code FROM taxonomy_topics WHERE code = $1`, [topicCode]);
+      if (existing) {
+        let fields: string[] = [];
+        let vals: any[] = [topicCode];
+        let idx = 2;
 
-    if (updates.label !== undefined) {
-      fields.push(`label = $${idx}`);
-      vals.push(updates.label);
-      idx++;
-    }
-    if (updates.topicType !== undefined) {
-      fields.push(`topic_type = $${idx}`);
-      vals.push(updates.topicType);
-      idx++;
-    }
-    if (updates.depth !== undefined) {
-      fields.push(`depth = $${idx}`);
-      vals.push(updates.depth);
-      idx++;
-    }
-    if (updates.crossRefs !== undefined) {
-      fields.push(`cross_refs = $${idx}::jsonb`);
-      vals.push(JSON.stringify(updates.crossRefs));
-      idx++;
-    }
-    if (updates.crossCuttingTags !== undefined) {
-      fields.push(`cross_cutting_tags = $${idx}::jsonb`);
-      vals.push(JSON.stringify(updates.crossCuttingTags));
-      idx++;
-    }
-    if (updates.variants !== undefined) {
-      fields.push(`variants = $${idx}::jsonb`);
-      vals.push(JSON.stringify(updates.variants));
-      idx++;
+        if (updates.label !== undefined) { fields.push(`label = $${idx}`); vals.push(updates.label); idx++; }
+        if (updates.topicType !== undefined) { fields.push(`topic_type = $${idx}`); vals.push(updates.topicType); idx++; }
+        if (updates.depth !== undefined) { fields.push(`depth = $${idx}`); vals.push(updates.depth); idx++; }
+        if (updates.crossRefs !== undefined) { fields.push(`cross_refs = $${idx}::jsonb`); vals.push(JSON.stringify(updates.crossRefs)); idx++; }
+        if (updates.crossCuttingTags !== undefined) { fields.push(`cross_cutting_tags = $${idx}::jsonb`); vals.push(JSON.stringify(updates.crossCuttingTags)); idx++; }
+        if (updates.variants !== undefined) { fields.push(`variants = $${idx}::jsonb`); vals.push(JSON.stringify(updates.variants)); idx++; }
+
+        if (fields.length > 0) {
+          fields.push(`updated_at = NOW()`);
+          await execute(`UPDATE taxonomy_topics SET ${fields.join(", ")} WHERE code = $1`, vals);
+        }
+        matched = true;
+      }
+    } catch {
+      // taxonomy_topics table does not exist — fall through to the real tables below
     }
 
-    if (fields.length === 0) return { success: true };
+    // The real tables (subtopics / medical_conditions / tags) only carry a name/label —
+    // keep that in sync with the topic's real backing row, wherever it lives.
+    if (updates.label !== undefined && updates.label.trim()) {
+      const newLabel = updates.label.trim();
 
-    fields.push(`updated_at = NOW()`);
+      try {
+        const n = await execute(`UPDATE subtopics SET name = $1, updated_at = NOW() WHERE LOWER(slug) = LOWER($2)`, [
+          newLabel,
+          topicCode,
+        ]);
+        if (n > 0) matched = true;
+      } catch {}
 
-    await execute(`UPDATE taxonomy_topics SET ${fields.join(", ")} WHERE code = $1`, vals);
+      try {
+        const n = await execute(`UPDATE medical_conditions SET name = $1, updated_at = NOW() WHERE LOWER(slug) = LOWER($2)`, [
+          newLabel,
+          topicCode,
+        ]);
+        if (n > 0) matched = true;
+      } catch {}
+
+      try {
+        const n = await execute(`UPDATE tags SET label = $1 WHERE LOWER(slug) = LOWER($2)`, [newLabel, topicCode]);
+        if (n > 0) matched = true;
+      } catch {}
+    }
+
+    if (!matched) return { success: false, error: `Topic ${topicCode} not found` };
 
     if (adminUser) {
       await recordAuditLog({
@@ -346,6 +416,78 @@ export async function updateTopicClassificationAction(
   } catch (err: any) {
     return { success: false, error: err.message };
   }
+}
+
+/**
+ * Bulk-imports/creates topics from a mass-uploaded JSON file. Each item is upserted via the same
+ * logic as a single manual "Create Topic" (registerOrUpdateTopicWithCodeAction) so behavior — T-code
+ * assignment, home unit creation, tag registration — stays identical between the single and bulk paths.
+ */
+export async function bulkImportTaxonomyTopicsAction(
+  topics: {
+    label: string;
+    homeUnit?: string;
+    topicType?: string;
+    depth?: "Core" | "Working" | "Awareness";
+    tags?: string[];
+    variants?: string[];
+  }[],
+  adminUser?: PermissionUser
+): Promise<{
+  success: boolean;
+  importedCount: number;
+  failedCount: number;
+  errors: { label: string; error: string }[];
+}> {
+  const errors: { label: string; error: string }[] = [];
+  let importedCount = 0;
+
+  if (!Array.isArray(topics) || topics.length === 0) {
+    return { success: false, importedCount: 0, failedCount: 0, errors: [{ label: "", error: "No topics provided" }] };
+  }
+
+  for (const item of topics) {
+    const label = (item?.label || "").trim();
+    if (!label) {
+      errors.push({ label: "(blank)", error: "Missing label" });
+      continue;
+    }
+    try {
+      const res = await registerOrUpdateTopicWithCodeAction({
+        label,
+        homeUnit: item.homeUnit,
+        topicType: item.topicType,
+        depth: item.depth,
+        tags: item.tags,
+        variants: item.variants,
+      });
+      if (res.success) {
+        importedCount++;
+      } else {
+        errors.push({ label, error: res.error || "Unknown error" });
+      }
+    } catch (err: any) {
+      errors.push({ label, error: err.message });
+    }
+  }
+
+  if (adminUser && importedCount > 0) {
+    await recordAuditLog({
+      adminUserId: adminUser.id,
+      action: "BULK_IMPORT_TAXONOMY_TOPICS",
+      category: "TAXONOMY",
+      entityType: "TAXONOMY_TOPIC",
+      entityId: "BULK",
+      metadata: { importedCount, failedCount: errors.length },
+    });
+  }
+
+  return {
+    success: errors.length === 0,
+    importedCount,
+    failedCount: errors.length,
+    errors,
+  };
 }
 
 /**

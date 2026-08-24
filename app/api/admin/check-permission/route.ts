@@ -10,10 +10,22 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { user, capability, item } = body as {
+    const {
+      user,
+      capability,
+      item,
+      targetAssignee,
+      targetRoleToAssign,
+      targetAccountRole,
+      findingRaiserId,
+    } = body as {
       user: PermissionUser;
       capability: Capability;
       item?: PermissionTargetItem;
+      targetAssignee?: PermissionUser;
+      targetRoleToAssign?: string;
+      targetAccountRole?: string;
+      findingRaiserId?: string;
     };
 
     if (!user || !capability) {
@@ -23,7 +35,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await evaluateRelationalPermission({ user, capability, item });
+    const result = await evaluateRelationalPermission({
+      user,
+      capability,
+      item,
+      targetAssignee,
+      targetRoleToAssign,
+      targetAccountRole,
+      findingRaiserId,
+    });
 
     if (!result.allowed) {
       return NextResponse.json(

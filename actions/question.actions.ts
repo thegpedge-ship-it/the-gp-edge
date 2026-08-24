@@ -96,8 +96,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       if (subtopicMap.has(key)) return subtopicMap.get(key)!.id;
 
       const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      // subtopics has UNIQUE (subject_id, slug); the in-memory map is keyed by lowercased name,
+      // so two label variants that normalize to the same slug (e.g. differing punctuation across
+      // a large batch) can both miss the map and collide on insert. ON CONFLICT keeps that safe
+      // instead of throwing and failing the whole import chunk.
       const newSubtopic = await queryOne<{ id: string }>(
-        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3) RETURNING id`,
+        `INSERT INTO subtopics (subject_id, slug, name) VALUES ($1, $2, $3)
+         ON CONFLICT (subject_id, slug) DO UPDATE SET name = EXCLUDED.name
+         RETURNING id`,
         [subjectId, slug, name]
       );
       if (newSubtopic) {
@@ -127,9 +133,15 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
     };
 
     const results: { text: string; dbId: string; uqid?: string }[] = [];
+    const errors: { text: string; error: string }[] = [];
 
     for (const q of questionsList) {
       if (!q.text || !q.text.trim()) continue;
+
+      // Isolate each question so one bad row (a constraint violation, a malformed field) can't
+      // silently fail the entire chunk it was imported in — every other question in the batch
+      // still gets saved, and the caller learns exactly which ones didn't.
+      try {
 
       const difficulty = (q.difficulty?.toLowerCase() || "medium") as string;
       const status = (q.status?.toLowerCase() || "published") as string;
@@ -138,12 +150,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       // Ensure exam type exists
       const examTypeKey = examTypeCode.toUpperCase();
       if (!examTypeSet.has(examTypeKey)) {
-        const isKft = examTypeCode === "KFP";
+        const isKfp = examTypeCode === "KFP";
         const examName =
           examTypeCode === "AKT"
             ? "Applied Knowledge Test"
-            : isKft
-            ? "Key Feature Test"
+            : isKfp
+            ? "Key Feature Problem"
             : examTypeCode;
         await execute(
           `INSERT INTO exam_types (code, name) VALUES ($1, $2) ON CONFLICT (code) DO NOTHING`,
@@ -187,7 +199,11 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         }
 
         const key = searchTopic.toLowerCase();
-        if (subtopicMap.has(key)) {
+        // Only let the Topic text resolve a subtopic when the admin didn't explicitly give one —
+        // otherwise a brand-new subtopic name (e.g. "medical") that doesn't exist yet gets
+        // silently overwritten here whenever the Topic text happens to match a DIFFERENT,
+        // unrelated subtopic already in the database.
+        if (!rawSubtopic && subtopicMap.has(key)) {
           subtopicId = subtopicMap.get(key)!.id;
           subjectId = subtopicMap.get(key)!.subjectId;
         } else if (subjectMap.has(key)) {
@@ -292,8 +308,8 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
             throw new Error(permCheck.reason || "Permission denied for updating question.");
           }
         }
-        const isKftOrKfp = examTypeCode === "KFP";
-        const correctCount = isKftOrKfp ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null;
+        const isKfp = examTypeCode === "KFP";
+        const correctCount = isKfp ? (q.kfpCorrectCount ?? q.kftCorrectCount ?? null) : null;
 
         // Fetch current question's exam_type_code and uqid to see if exam type changed
         const currentQ = await queryOne<{ exam_type_code: string; uqid: string }>(
@@ -308,7 +324,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
 
         if (currentQ && (currentExamType !== targetExamType || (currentQ.uqid && !currentQ.uqid.startsWith(targetExamType)))) {
           // Exam type changed (e.g. AKT -> KFP or KFP -> AKT): allocate a new sequential UQID with target prefix
-          const targetSeq = targetExamType === "KFP" ? "kft_seq" : "akt_seq";
+          const targetSeq = targetExamType === "KFP" ? "kfp_seq" : "akt_seq";
           const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${targetSeq}') AS n`);
           const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
           finalUqid = `${targetExamType}-${seqNum}`;
@@ -344,8 +360,8 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         });
       } else {
         // Auto-generate UQID using DB sequence
-        const isKftOrKfpNew = examTypeCode === "KFP";
-        const seqName = isKftOrKfpNew ? "kft_seq" : "akt_seq";
+        const isKfpNew = examTypeCode === "KFP";
+        const seqName = isKfpNew ? "kfp_seq" : "akt_seq";
         const seqResult = await queryOne<{ n: string }>(`SELECT nextval('${seqName}') AS n`);
         const seqNum = String(seqResult?.n ?? 1).padStart(6, "0");
         finalUqid = `${examTypeCode.toUpperCase()}-${seqNum}`;
@@ -362,7 +378,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
            RETURNING id`,
           [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status, examTypeCode,
            subjectId, subtopicId, imageFileId,
-           isKftOrKfpNew ? (q.kftCorrectCount ?? q.kfpCorrectCount ?? null) : null,
+           isKfpNew ? (q.kfpCorrectCount ?? q.kftCorrectCount ?? null) : null,
            finalUqid,
            q.leadIn || null, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,
@@ -446,8 +462,12 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       });
 
       results.push({ text: q.text, dbId: questionId, uqid: finalUqid });
+      } catch (qErr: any) {
+        console.error("Error importing question:", q.text?.slice(0, 80), qErr);
+        errors.push({ text: q.text, error: qErr.message || "Failed to import this question." });
+      }
     }
-    return { success: true, results };
+    return { success: true, results, errors: errors.length > 0 ? errors : undefined };
   } catch (error: any) {
     console.error("Error importing questions:", error);
     return { success: false, error: error.message };

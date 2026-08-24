@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getTaxonomyUnitsAction, getTaxonomyTopicsAction } from "@/actions/taxonomy.actions";
+import { getAllDatabaseTopicsAction } from "@/actions/taxonomy.actions";
 import type { UnitItem, TopicItem } from "@/lib/taxonomyData";
 
 interface TaxonomyData {
@@ -71,20 +71,22 @@ export function useTaxonomy(): TaxonomyData {
       }
 
       try {
-        const [unitsRes, topicsRes] = await Promise.all([
-          getTaxonomyUnitsAction(),
-          getTaxonomyTopicsAction({ limit: 5000 }),
-        ]);
+        // getTaxonomyUnitsAction/getTaxonomyTopicsAction queried a standalone taxonomy_units /
+        // taxonomy_topics pair that was never created in the live DB. getAllDatabaseTopicsAction
+        // is the working aggregator (subjects, subtopics, medical_conditions, tags, autofill_templates)
+        // already proven to surface every real topic/tag/subtopic — use it here so every page that
+        // consumes useTaxonomy() gets live DB-backed filter options instead of an always-empty list.
+        const res = await getAllDatabaseTopicsAction();
 
-        const fetchedUnits: UnitItem[] = (unitsRes.data || []).map((u: any) => ({
+        const fetchedUnits: UnitItem[] = (res.units || []).map((u: any) => ({
           code: u.code,
           name: u.name,
-          kind: u.kind || "owner",
-          groups: u.groups || [],
-          displayOrder: u.displayOrder || 0,
+          kind: "owner",
+          groups: [],
+          displayOrder: 0,
         }));
 
-        const fetchedTopics: TopicItem[] = (topicsRes.data || []).map((t: any) => ({
+        const fetchedTopics: TopicItem[] = (res.topics || []).map((t: any) => ({
           code: t.code,
           label: t.label,
           topicType: t.topicType,

@@ -34,6 +34,7 @@ function mapRowToApproachCard(row: any): ApproachCard {
     isPremium: row.is_premium || false,
     isFree: row.is_free || false,
     tags: extra.tags || [],
+    topic: extra.topic || "",
     overview: extra.overview || "",
     steps: extra.steps || [],
     keyPoints: extra.keyPoints || [],
@@ -88,6 +89,7 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       subtitle: card.subtitle,
       system: card.system,
       tags: card.tags,
+      topic: card.topic,
       overview: card.overview,
       steps: card.steps,
       keyPoints: card.keyPoints,
@@ -112,6 +114,30 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
          updated_at = NOW()`,
       [dbId, slug, card.title, card.category || "Clinical Reference", statusVal, card.isPremium ?? false, card.isFree ?? false, extraJson, card.author || adminUser?.name || "GP Edge Admin"]
     );
+
+    // Sync tags into the real tags / condition_tags tables (previously only stored inline in
+    // clinical_notes JSON, so approach tags never showed up via condition_tags joins)
+    await execute(`DELETE FROM condition_tags WHERE condition_id = $1`, [dbId]);
+    if (card.tags && card.tags.length > 0) {
+      for (const tagLabel of card.tags) {
+        const cleanTag = tagLabel.trim();
+        if (!cleanTag) continue;
+        const tagSlug = cleanTag.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+        let tag = await queryOne<{ id: string }>(`SELECT id FROM tags WHERE slug = $1 LIMIT 1`, [tagSlug]);
+        if (!tag) {
+          tag = await queryOne<{ id: string }>(
+            `INSERT INTO tags (slug, label) VALUES ($1, $2)
+             ON CONFLICT (slug) DO UPDATE SET label = EXCLUDED.label
+             RETURNING id`,
+            [tagSlug, cleanTag]
+          );
+        }
+        await execute(
+          `INSERT INTO condition_tags (condition_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [dbId, tag!.id]
+        );
+      }
+    }
 
     // Store fullHtml in condition_items
     if (card.fullHtml) {
@@ -143,9 +169,12 @@ export async function saveApproachCardToDbAction(card: ApproachCard, adminUser?:
       metadata: { title: card.title, author: card.author || adminUser?.name || adminUser?.email },
     });
 
-    // Auto-register Topic Code (T####), Home Unit, and Tags in database
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database.
+    // Prefer an explicit topic (e.g. extracted from the document's "Topic:" line) over the
+    // card's own title — the title is unique per document, so using it as the label meant
+    // every import minted its own topic instead of matching an existing shared one.
     await registerOrUpdateTopicWithCodeAction({
-      label: card.title,
+      label: (card.topic || "").trim() || card.title,
       homeUnit: card.system || card.category || "General",
       topicType: "Approach to a Presentation",
       tags: card.tags,

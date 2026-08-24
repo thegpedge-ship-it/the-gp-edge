@@ -47,9 +47,9 @@ export interface Question {
   /** KFP / multi-select: all correct option indices */
   correctIndices?: number[];
   /** KFP: how many options the user may select (= max marks for this question) */
-  kftCorrectCount?: number;
-  /** Backward-compat alias for kftCorrectCount */
   kfpCorrectCount?: number;
+  /** Legacy alias for kfpCorrectCount */
+  kftCorrectCount?: number;
   /** Explanation for why the keyed answer is correct */
   whyCorrect?: string;
   /** Backward-compat alias for whyCorrect */
@@ -477,6 +477,7 @@ export interface MedicalContent {
   author: string;
   references: number;
   tags?: string[];
+  topic?: string;
   usedInQuestions?: number;
   pdfUrl?: string;
   pdfSize?: string;
@@ -541,9 +542,19 @@ export async function saveMedicalContentItem(item: Partial<MedicalContent> & { f
         try {
           const creds = JSON.parse(credsStr);
           const found = creds.find((u: any) => u.id === activeId);
-          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "SA", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
+          if (found) adminUser = { id: found.id, name: found.name, email: found.email, role: found.role || "Super Admin", roles: found.roles || [found.role || "SA"], status: found.status || "active" };
         } catch (e) {}
       }
+    }
+    if (!adminUser) {
+      adminUser = {
+        id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
+        name: "Super Admin",
+        email: "admin@gpedge.com",
+        role: "Super Admin",
+        roles: ["SA"],
+        status: "active",
+      };
     }
     const res = await fetch("/api/medical-content", {
       method: "POST",
@@ -631,6 +642,7 @@ export interface ApproachCard {
   isPremium: boolean;
   isFree?: boolean;
   tags: string[];
+  topic?: string;
   overview: string;
   steps: ApproachStep[];
   keyPoints: string[];

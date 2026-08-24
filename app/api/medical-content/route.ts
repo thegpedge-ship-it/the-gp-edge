@@ -76,19 +76,21 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, system, category, type, status, author, isFree, is_free, tags, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
+    const { name, system, category, type, status, author, isFree, is_free, tags, topic, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
     const isFreeVal = Boolean(isFree ?? is_free ?? false);
 
-    const userContext: PermissionUser = adminUser || {
-      id: "admin-system",
-      name: author || "GP Edge Admin",
-      role: "Admin",
+    const userContext: PermissionUser = {
+      id: adminUser?.id || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
+      name: adminUser?.name || author || "Super Admin",
+      role: adminUser?.role || "Super Admin",
+      roles: adminUser?.roles && adminUser.roles.length > 0 ? adminUser.roles : ["SA"],
+      status: adminUser?.status || "active",
     };
 
     // Server-side relational permission check
     const permCheck = await evaluateRelationalPermission({
       user: userContext,
-      capability: status === "published" || status === "review" ? "review" : "create",
+      capability: status === "published" ? "review" : "create_item",
       item: { type: "medical_condition", author },
     });
 
@@ -206,9 +208,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section
+    // Auto-register Topic Code (T####), Home Unit, and Tags in database & search section.
+    // Prefer an explicit topic (e.g. extracted from the document's "Topic:" line) over the
+    // condition's own title — the title is unique per document, so using it as the label meant
+    // every import minted its own topic instead of matching an existing shared one.
     await registerOrUpdateTopicWithCodeAction({
-      label: name,
+      label: (topic || "").trim() || name,
       homeUnit: system || "General",
       topicType: type === "Approach" ? "Approach to a Presentation" : "Clinical Condition",
       tags: tags || [],

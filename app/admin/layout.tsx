@@ -29,6 +29,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
   });
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
+  // Both start with SSR-safe defaults (the server has no localStorage, so the first client render
+  // must match that same "not yet known" state, or hydration fails) and only flip once the effect
+  // below runs on the client. A defensive timeout further down force-clears `loading` if that
+  // effect is ever delayed, so the spinner can no longer get stuck indefinitely.
   const [loading, setLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [collapsed, setCollapsed] = useState(true); // Default to collapsed for hover UX
@@ -53,7 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         } catch (e) {
           credsList = [];
         }
-        if (!credsList || credsList.length === 0 || !credsList.find(u => u.username === "siddhant_super")) {
+        if (!credsList || credsList.length === 0) {
           const defaultCreds = [
             { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin (Founder)", username: "siddhant_super", role: "Super Admin", roles: ["SA"], email: "admin@gpedge.com", lastChanged: "12 days ago", forgotPasswordEnabled: true, oauthEnabled: true, mfaEnabled: true, password: "super123" },
             { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta (Clinical Editor)", username: "arun_editor", role: "Clinical Editor", roles: ["CE"], email: "content@gpedge.com", lastChanged: "3 days ago", forgotPasswordEnabled: true, oauthEnabled: false, mfaEnabled: false, password: "admin123" },
@@ -164,6 +168,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // ← Run ONCE on mount only
+
+  // Safety net: the effect above should always clear `loading` almost immediately, but if it's
+  // ever delayed or skipped (a remount race, a slow tick), don't leave the admin panel stuck
+  // behind the loading screen forever — force it closed after a short grace period.
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Separate effect: redirect to login when not authenticated (deferred to next tick to prevent AppRouter hook conflict)
   useEffect(() => {
@@ -292,7 +304,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading Admin Dashboard...</span>
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">Loading...</span>
                 </div>
               </div>
             ) : hasPermission ? (

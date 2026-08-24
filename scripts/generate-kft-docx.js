@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-const tempDir = path.join(__dirname, 'temp_kft_docx');
+const tempDir = path.join(__dirname, 'temp_kfp_docx');
 if (fs.existsSync(tempDir)) {
   fs.rmSync(tempDir, { recursive: true, force: true });
 }
@@ -71,42 +71,45 @@ const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:rPr>
         <w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>
         <w:sz w:val="21"/>
-        <w:color w:val="0F172A"/>
+        <w:color w:val="1E293B"/>
       </w:rPr>
     </w:rPrDefault>
     <w:pPrDefault>
       <w:pPr>
-        <w:spacing w:after="140" w:line="276" w:lineRule="auto"/>
+        <w:spacing w:line="276" w:lineRule="auto" w:before="0" w:after="120"/>
       </w:pPr>
     </w:pPrDefault>
   </w:docDefaults>
 </w:styles>`;
 
-// word/document.xml with structured placeholder fields
+// word/document.xml
 const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+            xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <w:body>
 
-    <!-- HEADER TITLE -->
+    <!-- TITLE / HEADER -->
     <w:p>
       <w:pPr>
-        <w:spacing w:before="240" w:after="80"/>
+        <w:pBdr>
+          <w:bottom w:val="single" w:sz="24" w:space="8" w:color="0D9488"/>
+        </w:pBdr>
+        <w:spacing w:before="120" w:after="240"/>
         <w:jc w:val="center"/>
       </w:pPr>
       <w:r>
         <w:rPr>
           <w:b/>
-          <w:sz w:val="38"/>
+          <w:sz w:val="36"/>
           <w:color w:val="0D9488"/>
         </w:rPr>
-        <w:t>THE GP EDGE</w:t>
+        <w:t>GP EDGE</w:t>
       </w:r>
     </w:p>
 
-    <!-- SUBTITLE -->
     <w:p>
       <w:pPr>
-        <w:spacing w:after="240"/>
+        <w:spacing w:before="0" w:after="160"/>
         <w:jc w:val="center"/>
       </w:pPr>
       <w:r>
@@ -115,7 +118,7 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <w:sz w:val="24"/>
           <w:color w:val="0F172A"/>
         </w:rPr>
-        <w:t>Key Feature Test (KFT) Question Authoring Template</w:t>
+        <w:t>Key Feature Problem (KFP) Question Authoring Template</w:t>
       </w:r>
     </w:p>
 
@@ -138,37 +141,21 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       <w:r><w:br/></w:r>
       <w:r>
         <w:rPr><w:sz w:val="20"/><w:color w:val="334155"/></w:rPr>
-        <w:t>• Replace all placeholder bracketed text [Enter ...] below with your clinical question content.</w:t>
+        <w:t>• Replace all bracketed text [Enter ...] below with your clinical question content.</w:t>
       </w:r>
       <w:r><w:br/></w:r>
       <w:r>
         <w:rPr><w:sz w:val="20"/><w:color w:val="334155"/></w:rPr>
-        <w:t>• Duplicate the Question block below for each new question (Question 1, Question 2, Question 3, etc.).</w:t>
-      </w:r>
-      <w:r><w:br/></w:r>
-      <w:r>
-        <w:rPr><w:sz w:val="20"/><w:color w:val="334155"/></w:rPr>
-        <w:t>• Keep field labels intact ('Stem:', 'Lead-in:', 'Options:', 'Correct Answers:', 'Limit:', 'Why Correct:', 'Distractor Rationales:', 'Knowledge Bank:', 'Clinical Pearl:').</w:t>
+        <w:t>• Duplicate the Question block below for each new question.</w:t>
       </w:r>
     </w:p>
 
-    <!-- HORIZONTAL DIVIDER -->
-    <w:p>
-      <w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="0D9488"/></w:pBdr></w:pPr>
-    </w:p>
-
-    <!-- ==================== QUESTION 1 TEMPLATE ==================== -->
-    <w:p>
-      <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
-      <w:r>
-        <w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="0D9488"/></w:rPr>
-        <w:t>Question 1:</w:t>
-      </w:r>
-    </w:p>
+    <!-- QUESTION 1 -->
+    <w:p><w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="0D9488"/></w:rPr><w:t>Question 1:</w:t></w:r></w:p>
 
     <w:p>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Exam Type: </w:t></w:r>
-      <w:r><w:t>KFT</w:t></w:r>
+      <w:r><w:t>KFP</w:t></w:r>
     </w:p>
 
     <w:p>
@@ -178,134 +165,7 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
     <w:p>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Subtopic: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter clinical condition / subtopic, e.g. Infective Endocarditis / Acute Coronary Syndrome]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Difficulty: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter difficulty level: Easy / Medium / Hard]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Tags: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter comma-separated tags, e.g. Blood Cultures, Echocardiography, Duke Criteria]</w:t></w:r>
-    </w:p>
-
-    <!-- ZONE 1 -->
-    <w:p>
-      <w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr>
-      <w:r>
-        <w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="0D9488"/></w:rPr>
-        <w:t>Zone 1 — Clinical Presentation &amp; Prompt</w:t>
-      </w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Stem:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter patient clinical scenario / vignette here. Include patient age, presentation timeline, symptoms, past medical history, current medications, vital signs, physical examination findings, and baseline investigation results.]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Lead-in:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter clear action directive stating the required selection count here, e.g. 'Select the THREE (3) most appropriate initial diagnostic investigations.' or 'Select the TWO (2) essential management steps.']</w:t></w:r>
-    </w:p>
-
-    <!-- ZONE 2 -->
-    <w:p>
-      <w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr>
-      <w:r>
-        <w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="0D9488"/></w:rPr>
-        <w:t>Zone 2 — Clinical Options, Correct Answers &amp; Rationales</w:t>
-      </w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Options:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>A) [Enter Option A text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>B) [Enter Option B text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>C) [Enter Option C text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>D) [Enter Option D text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>E) [Enter Option E text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>F) [Enter Option F text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>G) [Enter Option G text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>H) [Enter Option H text here]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>I) [Enter Option I text here (optional)]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>J) [Enter Option J text here (optional)]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Correct Answers: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter correct option letters separated by commas, e.g. A, B, D]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Limit: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter maximum selection limit / total marks, e.g. 3]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Why Correct:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter comprehensive master rationale explaining why the correct combination of options is the standard of care, citing Australian guidelines such as RACGP / eTG / Murtagh.]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Distractor Rationales:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter rationale for unselected distractor options here. Example: C) Not indicated in the acute presentation; E) Contraindicated due to risk of hemodynamic collapse.]</w:t></w:r>
-    </w:p>
-
-    <!-- ZONE 3 -->
-    <w:p>
-      <w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr>
-      <w:r>
-        <w:rPr><w:b/><w:sz w:val="22"/><w:color w:val="0D9488"/></w:rPr>
-        <w:t>Zone 3 — Educational Bank &amp; Clinical Pearl</w:t>
-      </w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Knowledge Bank:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter deep-dive clinical guidance, formal diagnostic criteria (e.g. Modified Duke / Wells / Centor criteria), red flags, and RACGP / Therapeutic Guidelines references.]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Clinical Pearl:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter high-yield exam rule of thumb or memory hook, e.g. 'Always draw three sets of blood cultures before starting antibiotics in suspected endocarditis.']</w:t></w:r>
-    </w:p>
-
-    <!-- HORIZONTAL DIVIDER -->
-    <w:p>
-      <w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="0D9488"/></w:pBdr></w:pPr>
-    </w:p>
-
-    <!-- ==================== QUESTION 2 TEMPLATE ==================== -->
-    <w:p>
-      <w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr>
-      <w:r>
-        <w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="0D9488"/></w:rPr>
-        <w:t>Question 2:</w:t>
-      </w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Exam Type: </w:t></w:r>
-      <w:r><w:t>KFT</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Topic: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter primary topic]</w:t></w:r>
-    </w:p>
-
-    <w:p>
-      <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Subtopic: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter subtopic / condition]</w:t></w:r>
+      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter subtopic / condition, e.g. Acute Coronary Syndrome / Asthma / Heart Failure]</w:t></w:r>
     </w:p>
 
     <w:p>
@@ -315,67 +175,103 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
     <w:p>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Tags: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter tags]</w:t></w:r>
+      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter comma-separated tags, e.g. KFP, Cardiovascular, Acute Care]</w:t></w:r>
     </w:p>
 
+    <!-- ZONE 1: STEM & LEAD-IN -->
     <w:p>
+      <w:pPr><w:spacing w:before="160" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Stem:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter patient clinical scenario / vignette here]</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>[Enter detailed clinical case presentation / scenario here. Include patient age, presentation, history, physical exam findings, and preliminary investigations.]</w:t></w:r>
     </w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Lead-in:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter clear question prompt / action directive here]</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>[Enter specific instructional question, e.g. Which THREE (3) of the following initial investigations are most appropriate?]</w:t></w:r>
     </w:p>
 
+    <!-- ZONE 2: OPTIONS -->
     <w:p>
+      <w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Options:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>A) [Enter Option A text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>B) [Enter Option B text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>C) [Enter Option C text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>D) [Enter Option D text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>E) [Enter Option E text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>F) [Enter Option F text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>G) [Enter Option G text]</w:t></w:r><w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>H) [Enter Option H text]</w:t></w:r>
     </w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>A. </w:t></w:r><w:r><w:t>[Option A]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>B. </w:t></w:r><w:r><w:t>[Option B]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>C. </w:t></w:r><w:r><w:t>[Option C]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>D. </w:t></w:r><w:r><w:t>[Option D]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>E. </w:t></w:r><w:r><w:t>[Option E]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>F. </w:t></w:r><w:r><w:t>[Option F]</w:t></w:r></w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Correct Answers: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter correct option letters, e.g. A, D, F]</w:t></w:r>
+      <w:r><w:rPr><w:color w:val="0D9488"/><w:b/></w:rPr><w:t>A, C, E</w:t></w:r>
     </w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="40" w:after="120"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Limit: </w:t></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter selection limit, e.g. 3]</w:t></w:r>
+      <w:r><w:t>3</w:t></w:r>
     </w:p>
 
+    <!-- ZONE 3: EXPLANATIONS -->
     <w:p>
+      <w:pPr><w:spacing w:before="120" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Why Correct:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter clinical master rationale]</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>[Explain in detail why the keyed answers are correct and cite evidence-based RACGP / ACRRM guidelines.]</w:t></w:r>
     </w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Distractor Rationales:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter distractor rationales]</w:t></w:r>
     </w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>A: </w:t></w:r><w:r><w:t>[Why A is correct]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>B: </w:t></w:r><w:r><w:t>[Why B is incorrect]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>C: </w:t></w:r><w:r><w:t>[Why C is correct]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>D: </w:t></w:r><w:r><w:t>[Why D is incorrect]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>E: </w:t></w:r><w:r><w:t>[Why E is correct]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/></w:rPr><w:t>F: </w:t></w:r><w:r><w:t>[Why F is incorrect]</w:t></w:r></w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Knowledge Bank:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter knowledge bank content]</w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:spacing w:before="0" w:after="120"/></w:pPr>
+      <w:r><w:rPr><w:color w:val="334155"/></w:rPr><w:t>[Comprehensive background overview, diagnostic algorithms, treatment criteria, guideline references.]</w:t></w:r>
     </w:p>
 
     <w:p>
+      <w:pPr><w:spacing w:before="80" w:after="40"/></w:pPr>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Clinical Pearl:</w:t></w:r>
-      <w:r><w:br/></w:r>
-      <w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter clinical pearl]</w:t></w:r>
     </w:p>
+    <w:p>
+      <w:pPr><w:spacing w:before="0" w:after="240"/></w:pPr>
+      <w:r><w:rPr><w:color w:val="0D9488"/><w:i/></w:rPr><w:t>[One-sentence high-yield clinical takeaway / exam tip]</w:t></w:r>
+    </w:p>
+
+    <!-- HORIZONTAL DIVIDER -->
+    <w:p>
+      <w:pPr><w:pBdr><w:bottom w:val="single" w:sz="12" w:space="6" w:color="CBD5E1"/></w:pBdr></w:pPr>
+    </w:p>
+
+    <!-- QUESTION 2 -->
+    <w:p><w:pPr><w:spacing w:before="240" w:after="80"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="28"/><w:color w:val="0D9488"/></w:rPr><w:t>Question 2:</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Exam Type: </w:t></w:r><w:r><w:t>KFP</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Topic: </w:t></w:r><w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter primary topic]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Subtopic: </w:t></w:r><w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter subtopic]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Difficulty: </w:t></w:r><w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter difficulty]</w:t></w:r></w:p>
+    <w:p><w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Tags: </w:t></w:r><w:r><w:rPr><w:color w:val="64748B"/><w:i/></w:rPr><w:t>[Enter tags]</w:t></w:r></w:p>
 
   </w:body>
 </w:document>`;
@@ -387,11 +283,13 @@ fs.writeFileSync(path.join(tempDir, 'word', 'theme', 'theme1.xml'), themeXml);
 fs.writeFileSync(path.join(tempDir, 'word', 'styles.xml'), stylesXml);
 fs.writeFileSync(path.join(tempDir, 'word', 'document.xml'), documentXml);
 
-const outputPath = path.join(__dirname, '..', 'public', 'templates', 'kft_template.docx');
+const outputPath = path.join(__dirname, '..', 'public', 'templates', 'kfp_template.docx');
+const legacyPath = path.join(__dirname, '..', 'public', 'templates', 'kft_template.docx');
 
 try {
   execSync(`pwsh -Command "Compress-Archive -Path '${tempDir}\\*' -DestinationPath '${outputPath}' -Force"`);
-  console.log('Successfully regenerated KFT placeholder template:', outputPath, 'Size:', fs.statSync(outputPath).size);
+  fs.copyFileSync(outputPath, legacyPath);
+  console.log('Successfully regenerated KFP placeholder template:', outputPath, 'Size:', fs.statSync(outputPath).size);
 } catch (e) {
   console.error('Failed to create DOCX:', e);
 } finally {

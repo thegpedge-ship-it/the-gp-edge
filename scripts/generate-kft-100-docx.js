@@ -98,7 +98,7 @@ for (let i = 1; i <= 100; i++) {
 
     <w:p>
       <w:r><w:rPr><w:b/><w:color w:val="0F172A"/></w:rPr><w:t>Exam Type: </w:t></w:r>
-      <w:r><w:t>KFT</w:t></w:r>
+      <w:r><w:t>KFP</w:t></w:r>
     </w:p>
 
     <w:p>
@@ -227,7 +227,7 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
           <w:sz w:val="24"/>
           <w:color w:val="0F172A"/>
         </w:rPr>
-        <w:t>Key Feature Test (KFT) Question Authoring Template (100 Questions)</w:t>
+        <w:t>Key Feature Problem (KFP) Question Authoring Template (100 Questions)</w:t>
       </w:r>
     </w:p>
 
@@ -245,7 +245,7 @@ const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
       </w:pPr>
       <w:r>
         <w:rPr><w:b/><w:color w:val="0F766E"/><w:sz w:val="22"/></w:rPr>
-        <w:t>INSTRUCTIONS FOR KFT QUESTION AUTHORS:</w:t>
+        <w:t>INSTRUCTIONS FOR KFP QUESTION AUTHORS:</w:t>
       </w:r>
       <w:r><w:br/></w:r>
       <w:r>
@@ -281,11 +281,13 @@ fs.writeFileSync(path.join(tempDir, 'word', 'theme', 'theme1.xml'), themeXml);
 fs.writeFileSync(path.join(tempDir, 'word', 'styles.xml'), stylesXml);
 fs.writeFileSync(path.join(tempDir, 'word', 'document.xml'), documentXml);
 
-const outputPath = path.join(__dirname, '..', 'public', 'templates', 'kft_template.docx');
+const outputPath = path.join(__dirname, '..', 'public', 'templates', 'kfp_template.docx');
+const legacyPath = path.join(__dirname, '..', 'public', 'templates', 'kft_template.docx');
 
 try {
   execSync(`pwsh -Command "Compress-Archive -Path '${tempDir}\\*' -DestinationPath '${outputPath}' -Force"`);
-  console.log('Successfully generated 100-question KFT template (Proper Paragraphs):', outputPath, 'Size:', fs.statSync(outputPath).size);
+  fs.copyFileSync(outputPath, legacyPath);
+  console.log('Successfully generated 100-question KFP template (Proper Paragraphs):', outputPath, 'Size:', fs.statSync(outputPath).size);
 } catch (e) {
   console.error('Failed to create DOCX:', e);
 } finally {

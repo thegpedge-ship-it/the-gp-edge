@@ -239,7 +239,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   };
 
   data.questions.forEach((q, idx) => {
-    const isKft = (q.examType || "").toUpperCase() === "KFP" || (q.examType || "").toUpperCase() === "KFP";
+    const isKfp = (q.examType || "").toUpperCase() === "KFP";
     const correctSet = new Set(q.correctIndices && q.correctIndices.length > 0 ? q.correctIndices : [q.correctIndex]);
     const chosenSet = new Set(q.selectedIndices || []);
     const attempted = chosenSet.size > 0;
@@ -262,7 +262,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
       statusText = "Not Attempted";
       statusColor = C.slate500;
       chipBg = C.slate100;
-    } else if (isKft) {
+    } else if (isKfp) {
       const earned = q.earnedMarks ?? 0;
       const max = q.maxMarks ?? 1;
       statusText = `${earned}/${max} Marks (${isFullyCorrect ? "Full" : earned > 0 ? "Partial" : "Incorrect"})`;
@@ -285,7 +285,7 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     setText(C.slate400);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    const meta = `${isKft ? "KFP · " : "AKT · "}${q.topic} · ${q.difficulty}`;
+    const meta = `${isKfp ? "KFP · " : "AKT · "}${q.topic} · ${q.difficulty}`;
     doc.text(meta, PAGE.w - PAGE.margin, y, { align: "right" });
     y += 16;
 

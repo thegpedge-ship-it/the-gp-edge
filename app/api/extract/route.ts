@@ -449,7 +449,7 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
  * Checks if a line is a metadata tag. Supports plural, alternative, or misspelled forms.
  */
 function isMetadataLine(line: string): boolean {
-  const clean = line.trim().replace(/^[*#•●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
+  const clean = line.trim().replace(/^[*#•◦●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
   return (
     /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]/i.test(clean) ||
@@ -475,8 +475,10 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
     const line = rawLine.trim();
     if (!line) continue;
 
+    const startsWithBulletGlyph = /^[•◦●○■▪▫·]\s*/.test(line);
     const isNewEntryHeader =
-      /^(?:[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-]\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
+      startsWithBulletGlyph ||
+      /^(?:[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-](?!\s*[a-z])\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
 
     if (isNewEntryHeader && current) {
       entries.push(current.trim());
@@ -491,10 +493,23 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
 
   if (entries.length === 0) return result;
 
-  let mappedByLetterCount = 0;
+  // If every raw line merged into a single entry, none of them matched a header pattern —
+  // most likely the source document listed one rationale per line/bullet with no "Option X:"
+  // prefix at all. Re-split on newlines so each line maps to its own option instead of the
+  // whole block collapsing into a single slot.
+  if (entries.length === 1) {
+    const splitBack = entries[0].split("\n").map(l => l.trim()).filter(Boolean);
+    if (splitBack.length > 1) {
+      entries.length = 0;
+      entries.push(...splitBack);
+    }
+  }
+
+  const unmatchedEntries: string[] = [];
+  const filledSlots = new Set<number>();
   for (const entry of entries) {
-    const cleanEntry = entry.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
-    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-]|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
+    const cleanEntry = entry.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-](?!\s*[a-z])|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
 
     if (letterMatch) {
       const letter = (letterMatch[1] || letterMatch[2] || letterMatch[3] || letterMatch[4]).toUpperCase();
@@ -502,15 +517,13 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
       if (idx >= 0 && idx < options.length) {
         let content = letterMatch[5]?.trim() || cleanEntry;
         if (!content) content = cleanEntry;
-        content = content.replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
+        content = content.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
         result[idx] = content;
-        mappedByLetterCount++;
+        filledSlots.add(idx);
+        continue;
       }
     }
-  }
-
-  if (mappedByLetterCount > 0) {
-    return result;
+    unmatchedEntries.push(cleanEntry);
   }
 
   const correctSet = new Set(correctIndices);
@@ -521,14 +534,16 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
     }
   }
 
-  const targetSlots = (entries.length === distractorSlots.length && distractorSlots.length > 0)
-    ? distractorSlots
-    : Array.from({ length: Math.min(entries.length, options.length) }, (_, i) => i);
+  // Entries with no explicit letter (e.g. a document that only labels *some* options) fill the
+  // remaining empty distractor slots in document order, instead of being silently dropped just
+  // because a different entry elsewhere matched by letter.
+  const remainingSlots = distractorSlots.filter((i) => !filledSlots.has(i));
+  const targetSlots = remainingSlots.length > 0
+    ? remainingSlots
+    : options.map((_, i) => i).filter((i) => !filledSlots.has(i));
 
-  for (let k = 0; k < Math.min(entries.length, targetSlots.length); k++) {
-    const slotIdx = targetSlots[k];
-    const cleanContent = entries[k].replace(/^[\s•●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
-    result[slotIdx] = cleanContent;
+  for (let k = 0; k < Math.min(unmatchedEntries.length, targetSlots.length); k++) {
+    result[targetSlots[k]] = unmatchedEntries[k];
   }
 
   return result;
@@ -928,6 +943,7 @@ async function extractTextFromDocxBuffer(buffer: Buffer): Promise<string> {
 interface ExtractedCatalog {
   title: string;
   tags: string[];
+  topic: string;
   definition: string;
   sections: {
     overview: string;
@@ -993,9 +1009,51 @@ async function extractHtmlFromDocxBuffer(buffer: Buffer): Promise<string> {
  * Preserves all original content — tables, images, lists, headings — and applies
  * the GP Edge design system styles without discarding anything.
  */
+/**
+ * Strips metadata lines (Title:/System:/Category:/Tags: and template branding) that live in the
+ * document header, before the first real heading. Scoped to that header zone only — using
+ * `.includes()` further into the body risks deleting genuine content that happens to mention
+ * "tags:"/"category:" etc.
+ */
+function stripMetadataHeaderLines(html: string): string {
+  const firstHeading = html.match(/<h[1-4][^>]*>/i);
+  if (!firstHeading || firstHeading.index === undefined) return html;
+
+  const splitIndex = firstHeading.index;
+  let header = html.slice(0, splitIndex);
+  const rest = html.slice(splitIndex);
+
+  header = header.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, content) => {
+    const plain = content.replace(/<[^>]+>/g, "").toLowerCase();
+    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("topic:") || plain.includes("tags:")) {
+      return "";
+    }
+    return match;
+  });
+
+  header = header.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (match, content) => {
+    const plain = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
+    if (
+      plain.startsWith("title:") ||
+      plain.startsWith("system:") ||
+      plain.startsWith("category:") ||
+      plain.startsWith("topic:") ||
+      plain.startsWith("tags:") ||
+      plain.includes("clinical catalogue template") ||
+      plain.includes("gp edge") ||
+      plain === ""
+    ) {
+      return "";
+    }
+    return match;
+  });
+
+  return header + rest;
+}
+
 function polishDocxHtml(rawHtml: string): string {
   if (!rawHtml) return "";
-  let html = rawHtml;
+  let html = stripMetadataHeaderLines(rawHtml);
 
   // ── 1. Style headings ──────────────────────────────────────────────────────
   html = html.replace(/<h1([^>]*)>([\s\S]*?)<\/h1>/gi, (_m, attrs, inner) =>
@@ -1223,39 +1281,49 @@ function markHtmlHeaders(html: string): string {
   return marked;
 }
 
-function parseHeaderMetadata(headerHtml: string, fileName: string): { title: string, system: string, category: string, tags: string[] } {
+function parseHeaderMetadata(headerHtml: string, fileName: string): { title: string, system: string, category: string, topic: string, tags: string[] } {
   const text = headerHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  
+
   let title = "";
   let system = "Respiratory";
   let category = "Acute";
+  let topic = "";
   const tags: string[] = [];
-  
-  const titleMatch = text.match(/title[:\s]+(.*?)(?=\s*system:|\s*category:|\s*tags:|$)/i);
+
+  // Any of these header field labels can terminate a preceding field's free-text capture,
+  // regardless of which order they appear in the document.
+  const fieldBoundary = "(?=\\s*title:|\\s*system:|\\s*category:|\\s*topic:|\\s*tags:|$)";
+
+  const titleMatch = text.match(new RegExp(`title[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (titleMatch && titleMatch[1].trim()) {
     title = titleMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
-  const systemMatch = text.match(/system[:\s]+(.*?)(?=\s*category:|\s*tags:|$)/i);
+
+  const systemMatch = text.match(new RegExp(`system[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (systemMatch && systemMatch[1].trim()) {
     system = systemMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
-  const categoryMatch = text.match(/category[:\s]+(.*?)(?=\s*tags:|$)/i);
+
+  const categoryMatch = text.match(new RegExp(`category[:\\s]+(.*?)${fieldBoundary}`, "i"));
   if (categoryMatch && categoryMatch[1].trim()) {
     category = categoryMatch[1].replace(/\[|\]/g, "").trim();
   }
-  
+
+  const topicMatch = text.match(new RegExp(`topic[:\\s]+(.*?)${fieldBoundary}`, "i"));
+  if (topicMatch && topicMatch[1].trim()) {
+    topic = topicMatch[1].replace(/\[|\]/g, "").trim();
+  }
+
   const hashtags = text.match(/#\w+/g) || [];
   tags.push(...hashtags.map(t => t.substring(1)));
-  
+
   if (!title) {
     const lines = headerHtml.replace(/<[^>]+>/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
     const firstLine = lines.find((l: string) => !l.toLowerCase().includes("clinical catalogue") && !l.toLowerCase().includes("gp edge"));
     title = firstLine || fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
   }
-  
-  return { title, system, category, tags };
+
+  return { title, system, category, topic, tags };
 }
 
 function mergeStyles(originalAttrStr: string, defaultStyles: Record<string, string>): string {
@@ -1328,7 +1396,7 @@ function convertTextCallouts(html: string): string {
     return placeholder;
   });
 
-  type CalloutInfo = { variant: string; bg: string; border: string; color: string; titleColor: string; label: string; };
+  type CalloutInfo = { variant: string; bg: string; border: string; borderLight?: string; color: string; titleColor: string; label: string; };
   const calloutMap: Record<number, CalloutInfo> = {};
   let idx = 0;
 
@@ -1364,20 +1432,20 @@ function convertTextCallouts(html: string): string {
       // Use the document's own header text as the label (strip HTML tags + leading symbols only)
       const rawLabel = content.replace(/<[^>]+>/g, "").replace(/^[\s⚠️⚠⚡✅☑📋ℹ️ℹ\-—:\[\]]+/u, "").replace(/[-—:\s]+$/, "").trim();
 
-      let variant = "info", bg = "#e6f7f4", border = "#2bb09c", color = "#1a5c51", titleColor = "#2bb09c";
+      let variant = "info", bg = "#ccfbf1", border = "#0d9488", borderLight = "#99f6e4", color = "#115e59", titleColor = "#0f766e";
       let label = rawLabel;
 
       if (isWarning) {
-        variant = "warning"; bg = "#fef2f2"; border = "#ef4444"; titleColor = "#b91c1c"; color = "#7f1d1d";
+        variant = "warning"; bg = "#fee2e2"; border = "#dc2626"; borderLight = "#fca5a5"; titleColor = "#991b1b"; color = "#7f1d1d";
         label = rawLabel || (plainLower.includes("red flag") ? "Red Flags" : "Warning");
       } else if (isImportant) {
-        variant = "important"; bg = "#fefce8"; border = "#eab308"; titleColor = "#854d0e"; color = "#713f12";
+        variant = "important"; bg = "#fef3c7"; border = "#d97706"; borderLight = "#fde68a"; titleColor = "#92400e"; color = "#78350f";
         label = rawLabel || "Important";
       } else if (isPearl) {
-        variant = "pearl"; bg = "#f0fdf4"; border = "#16a34a"; titleColor = "#15803d"; color = "#14532d";
+        variant = "pearl"; bg = "#dcfce7"; border = "#16a34a"; borderLight = "#86efac"; titleColor = "#166534"; color = "#14532d";
         label = rawLabel || "Key Points";
       } else if (isMbs) {
-        variant = "billing"; bg = "#f8fafc"; border = "#64748b"; titleColor = "#475569"; color = "#334155";
+        variant = "billing"; bg = "#f1f5f9"; border = "#475569"; borderLight = "#cbd5e1"; titleColor = "#334155"; color = "#1e293b";
         label = "MBS Billing Info";
       }
       if (!label) label = isWarning ? "Warning" : isImportant ? "Important" : isPearl ? "Key Points" : "Info";
@@ -1386,32 +1454,32 @@ function convertTextCallouts(html: string): string {
       label = stripAllEmojis(label).trim();
 
       const id = idx++;
-      calloutMap[id] = { variant, bg, border, color, titleColor, label };
+      calloutMap[id] = { variant, bg, border, borderLight, color, titleColor, label };
       return `\x00CALLOUT${id}\x00`;
     }
   );
 
-  // ── PASS 2: For each marker, greedily consume following lists → build callout div ──
+  // ── PASS 2: For each marker, consume following paragraphs, lists, blockquotes → build complete callout div ──
   processed = processed.replace(
-    /\x00CALLOUT(\d+)\x00((?:\s*(?:<ul[^>]*>[\s\S]*?<\/ul>|<ol[^>]*>[\s\S]*?<\/ol>|<p[^>]*>\s*[•\-\*\u2022][\s\S]*?<\/p>))*)/g,
+    /\x00CALLOUT(\d+)\x00([\s\S]*?)(?=(?:<h[1-6]|\x00CALLOUT|\x00TABLE_BLOCK_|<hr|$))/gi,
     (_m: string, idStr: string, followRaw: string) => {
       const info = calloutMap[parseInt(idStr, 10)];
       if (!info) return "";
-      const { variant, bg, border, color, titleColor, label } = info;
+      const { variant, bg, border, borderLight, color, titleColor, label } = info;
 
       let bodyHtml = "";
-      if (followRaw.trim()) {
-        let body = followRaw;
-        body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
-        body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.25rem 0 0.5rem;">`);
+      if (followRaw && followRaw.trim()) {
+        let body = followRaw.trim();
+        body = body.replace(/<ul[^>]*>/gi,  `<ul style="list-style-type:disc;padding-left:1.4rem;margin:0.35rem 0 0.6rem;">`);
+        body = body.replace(/<ol[^>]*>/gi,  `<ol style="list-style-type:decimal;padding-left:1.4rem;margin:0.35rem 0 0.6rem;">`);
         body = body.replace(/<li[^>]*>/gi,  `<li style="margin-bottom:0.4rem;font-size:0.875rem;color:inherit;line-height:1.65;">`);
-        body = body.replace(/<p[^>]*>/gi,   `<p style="margin:0.3rem 0;font-size:0.875rem;color:inherit;line-height:1.65;">`);
+        body = body.replace(/<p[^>]*>/gi,   `<p style="margin:0.45rem 0;font-size:0.875rem;color:inherit;line-height:1.65;">`);
         bodyHtml = body;
       }
 
-      return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg};border-left:4px solid ${border};border-radius:0.5rem;padding:0.85rem 1rem;margin-bottom:1.25rem;color:${color};">
-<div style="font-weight:700;font-size:0.85rem;margin-bottom:${bodyHtml.trim() ? "0.5rem" : "0"};color:${titleColor};">${label}</div>${bodyHtml.trim() ? `
-<div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;">${bodyHtml}</div>` : ""}
+      return `<div class="callout-block" data-variant="${variant}" style="background-color:${bg} !important;background:${bg} !important;border:1px solid ${borderLight || border} !important;border-left:5px solid ${border} !important;border-radius:0.75rem;padding:1rem 1.25rem;margin:1.25rem 0;color:${color};">
+<div style="font-weight:700;font-size:0.9rem;margin-bottom:${bodyHtml.trim() ? "0.6rem" : "0"};color:${titleColor};">${label}</div>${bodyHtml.trim() ? `
+<div style="font-family:'DM Sans',sans-serif;font-size:0.875rem;line-height:1.65;color:${color};">${bodyHtml}</div>` : ""}
 </div>`;
     }
   );
@@ -1725,6 +1793,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   const catalog: ExtractedCatalog = {
     title: meta.title,
     tags: meta.tags,
+    topic: meta.topic,
     definition: "",
     sections: {
       overview: "",
@@ -1764,17 +1833,28 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   // Let's remove any table that contains metadata fields
   cleanHeaderHtml = cleanHeaderHtml.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, content) => {
     const plain = content.replace(/<[^>]+>/g, "").toLowerCase();
-    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("tags:")) {
+    if (plain.includes("title:") || plain.includes("system:") || plain.includes("category:") || plain.includes("topic:") || plain.includes("tags:")) {
       return ""; // remove metadata table
     }
     return match; // keep other tables
   });
-  
-  // Also remove simple paragraph headers like "Synapse Clinical Catalogue Template" or similar branding
+
+  // Also remove metadata paragraph lines (Title:/System:/Category:/Topic:/Tags:) and simple
+  // branding headers like "Synapse Clinical Catalogue Template", so they never leak into the
+  // saved overview/body content.
   cleanHeaderHtml = cleanHeaderHtml.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (match, content) => {
     const plain = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
-    if (plain.includes("clinical catalogue template") || plain.includes("gp edge") || plain.trim() === "") {
-      return ""; // remove branding line
+    if (
+      plain.startsWith("title:") ||
+      plain.startsWith("system:") ||
+      plain.startsWith("category:") ||
+      plain.startsWith("topic:") ||
+      plain.startsWith("tags:") ||
+      plain.includes("clinical catalogue template") ||
+      plain.includes("gp edge") ||
+      plain.trim() === ""
+    ) {
+      return ""; // remove metadata/branding line
     }
     return match;
   });
@@ -1812,7 +1892,7 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   }
   if (!catalog.definition) {
     const plainHeader = headerHtml.replace(/<[^>]+>/g, "\n").split("\n").map(l => l.trim()).filter(Boolean);
-    const defLine = plainHeader.find(l => !l.toLowerCase().includes("title:") && !l.toLowerCase().includes("system:") && !l.toLowerCase().includes("category:") && !l.toLowerCase().includes("tags:"));
+    const defLine = plainHeader.find(l => !l.toLowerCase().includes("title:") && !l.toLowerCase().includes("system:") && !l.toLowerCase().includes("category:") && !l.toLowerCase().includes("topic:") && !l.toLowerCase().includes("tags:"));
     catalog.definition = defLine || `Clinical catalogue entry for ${catalog.title}.`;
   }
   
@@ -1897,6 +1977,9 @@ const SOAP_PATTERNS: Record<string, RegExp[]> = {
   category: [
     /category[:\s]+(acute|chronic|screening|mental health|billing|obstetrics)/i,
     /(acute|chronic|screening|mental health|billing)/i,
+  ],
+  topic: [
+    /topic[:\s]+([^\n]+)/i,
   ],
   subjective: [
     /subjective[:\s]*\n?([^\n]+(?:\n(?!objective|assessment|plan|doctor|patient)[^\n]+)*)/i,
@@ -2071,16 +2154,27 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
       }
     }
 
+    // Preserve bold runs as ... markers (instead of stripping them like the other
+    // inline tags) so downstream parsing can tell which sentence was bold in the source document —
+    // e.g. the lead-in question sentence is conventionally bolded after a plain-text stem paragraph.
     htmlText = html
-      .replace(/<\/?(strong|b|em|i|u|span|a)\b[^>]*>/gi, "")
+      .replace(/<(strong|b)\b[^>]*>/gi, "")
+      .replace(/<\/(strong|b)>/gi, "")
+      .replace(/<\/?(em|i|u|span|a)\b[^>]*>/gi, "")
       .replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n")
       .replace(/<[^>]+>/g, "\n");
   } catch (e) {
     console.warn("Mammoth image extraction warning:", e);
   }
 
-  // Pick the text with higher content length to guarantee complete extraction
-  let finalText = (rawText.trim().length >= htmlText.trim().length ? rawText : htmlText) || rawText || htmlText;
+  // Pick the text with higher content length to guarantee complete extraction, but prefer the
+  // HTML-derived text (which carries bold markers) when it's not meaningfully shorter than the
+  // plain-text version, so bold-sentence detection (e.g. the lead-in) isn't lost for no reason.
+  const htmlHasBoldMarkers = htmlText.includes("");
+  let finalText =
+    htmlHasBoldMarkers && htmlText.trim().length >= rawText.trim().length * 0.9
+      ? htmlText
+      : (rawText.trim().length >= htmlText.trim().length ? rawText : htmlText) || rawText || htmlText;
 
   if (finalText && finalText.trim().length > 10) {
     let cleanText = finalText
@@ -2135,20 +2229,52 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
 
   const allLines = preProcessed.split("\n");
 
-  // Regex that identifies a line as the start of a new question (e.g. "Question 1:", "Question 1", "Q1.", "1.")
-  const QUESTION_START = /^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i;
+  // Regex that identifies a line as an explicit keyword-style question header (e.g. "Question 1:", "Q1.")
+  const KEYWORD_QUESTION_START = /^(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\b[:.|\\-—]?\s*/i;
+  // Regex that identifies a line as a bare numbered item (e.g. "1.", "12)", "(3)")
+  const NUMERIC_QUESTION_START = /^\(?\d{1,3}[\.\):\-]\s+/;
+
+  // Detect whether the document uses explicit keyword headers anywhere. When it does, those headers
+  // are the reliable signal for question boundaries — bare numbered lines elsewhere in a question's
+  // content (numbered options, numbered explanation bullets, numbered tag lists, etc.) must NOT be
+  // treated as the start of a new question, or the real block gets chopped off after its first line.
+  const usesKeywordHeaders = allLines.some(l => KEYWORD_QUESTION_START.test(l.trim().replace(/^[*#]+\s*/, "")));
 
   // Group lines into blocks — strictly start grouping from the FIRST explicit question header line
   let rawBlocks: string[][] = [];
   let current: string[] | null = null;
+  // When the doc relies purely on bare numbering (no keyword headers), only accept a numbered line
+  // as a new question boundary if its number is strictly greater than the last accepted question
+  // number — this stops numbered bullets inside an explanation/tags section (which almost always
+  // restart at 1) from being mistaken for a new question, while still tolerating a skipped or
+  // mis-typed number in the source document. Requiring an exact "next integer" match instead would
+  // permanently desync on the first such irregularity and silently merge every remaining question
+  // in the document into one block; strictly-increasing recovers after just that one question.
+  let lastAcceptedNum = 0;
+  const MAX_FORWARD_JUMP = 20; // guards against a stray large number coincidentally starting a line
 
   for (const rawLine of allLines) {
     const trimmed = rawLine.trim().replace(/^[*#]+\s*/, ""); // strip markdown headers
-    if (QUESTION_START.test(trimmed)) {
+
+    let strippedContent: string | null = null;
+
+    const keywordMatch = trimmed.match(KEYWORD_QUESTION_START);
+    if (keywordMatch) {
+      strippedContent = trimmed.slice(keywordMatch[0].length).trim();
+    } else if (!usesKeywordHeaders) {
+      const numericMatch = trimmed.match(NUMERIC_QUESTION_START);
+      if (numericMatch) {
+        const num = parseInt(numericMatch[0].replace(/\D/g, ""), 10);
+        if (num > lastAcceptedNum && num - lastAcceptedNum <= MAX_FORWARD_JUMP) {
+          strippedContent = trimmed.slice(numericMatch[0].length).trim();
+          lastAcceptedNum = num;
+        }
+      }
+    }
+
+    if (strippedContent !== null) {
       if (current && current.length > 0) rawBlocks.push(current);
-      // Strip the question-number prefix so we don't include it in the stem
-      const stripped = trimmed.replace(/^(?:(?:Question|Q\.?|Item|Case|Scenario|MCQ|Task|Station|Clinical\s*Case)\s*#?\s*\d+\s*[:.|\\-—]?\s*|(?:\(?\d{1,3}[\.\):\-]\s+))/i, "").trim();
-      current = stripped ? [stripped] : [];
+      current = strippedContent ? [strippedContent] : [];
     } else {
       if (current !== null) {
         if (trimmed) current.push(trimmed);
@@ -2231,9 +2357,9 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     let parsingRationale = false;
 
     for (let j = 0; j < filteredLines.length; j++) {
-      const line = filteredLines[j];
+      let line = filteredLines[j];
       if (!line) continue;
-      const cleanLine = line.trim().replace(/^[\s*#•●○■▪▫·\-\u2013\u2014–—]+/u, "").trim();
+      let cleanLine = line.trim().replace(/^[\s*#|•◦●○■▪▫·\-\u2013\u2014–—]+/u, "").replace(/[\s|]+$/u, "").trim();
 
       // ── Exam Type (e.g. "Exam Type: KFP" or "Exam Type: AKT") ─────────
       const examTypeMatch = cleanLine.match(/^(?:exam\s*type|exam\s*format|format|test\s*type)\s*[:\-\=\–\—]\s*(.*)$/i);
@@ -2247,13 +2373,29 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         continue;
       }
 
-      // Check for inline difficulty marker anywhere in rationale or explanation lines
-      const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)/i);
-      if (inlineDiffMatch) {
+      // Check for an inline difficulty marker (e.g. "Grade: Medium", "| Difficulty: Hard") anywhere
+      // in the line. Unlike the full-line "Difficulty:" header match below, this also catches the
+      // marker when it's embedded in a table-row / bulleted line (e.g. a leading "|" from a markdown
+      // table cell) that wouldn't match a strict ^-anchored header regex — and strips just the marker
+      // back out of the line so it doesn't leak into the stem/rationale text as leftover "Grade: X".
+      const inlineDiffMatch = line.match(/\b(?:difficulty|level|grade|tier)\s*[:\-\=\–\—]\s*(easy|medium|hard|intermediate|advanced|basic)\b/i);
+      if (inlineDiffMatch && inlineDiffMatch.index !== undefined) {
         const d = inlineDiffMatch[1].toLowerCase();
         if (/easy|basic/i.test(d)) difficulty = "Easy";
         else if (/hard|advanced/i.test(d)) difficulty = "Hard";
         else difficulty = "Medium";
+
+        const before = line.slice(0, inlineDiffMatch.index);
+        const after = line.slice(inlineDiffMatch.index + inlineDiffMatch[0].length);
+        const strippedLine = (before + after)
+          .replace(/^[\s|*#•◦●○■▪▫·\-\u2013\u2014]+/u, "")
+          .replace(/[\s|*#•◦●○■▪▫·\-\u2013\u2014]+$/u, "")
+          .trim();
+        if (!strippedLine) {
+          continue;
+        }
+        line = strippedLine;
+        cleanLine = line.trim().replace(/^[\s*#•◦●○■▪▫·|\-\u2013\u2014]+/u, "").replace(/[\s|]+$/u, "").trim();
       }
 
       // ── Limit / Allowed Selections (KFP) ──────────────────────────────
@@ -2367,6 +2509,14 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         if (!v && j + 1 < filteredLines.length) {
           const next = filteredLines[j + 1].trim();
           if (next && !isMetadataLine(next)) { v = next; j++; }
+        }
+        // Consume any further lines that continue the same Tags block (e.g. a tag list wrapped
+        // across multiple lines) so only the first line isn't the sole content captured.
+        while (j + 1 < filteredLines.length) {
+          const next = filteredLines[j + 1].trim();
+          if (!next || isMetadataLine(next)) break;
+          v = v ? `${v}, ${next}` : next;
+          j++;
         }
         if (v) {
           const newTags = v
@@ -2511,10 +2661,10 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       } else if (parsingState === "metadata") {
         if (parsingRationale && !isMetadataLine(line)) {
           // If a distractor header was embedded in rationale text (e.g. "● Why each distractor is wrong:"), switch to distractors
-          if (/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)/i.test(line.trim())) {
+          if (/^(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)/i.test(line.trim())) {
             parsingState = "distractors";
             parsingRationale = false;
-            const strippedHeader = line.trim().replace(/^(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)\s*/i, "").trim();
+            const strippedHeader = line.trim().replace(/^(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)\s*/i, "").trim();
             if (strippedHeader) distractorLines.push(strippedHeader);
           } else {
             const cleanRationaleLine = line.replace(/\bDifficulty\s*:\s*(?:Easy|Medium|Hard)\b/gi, "").trim();
@@ -2526,14 +2676,23 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       }
     }
 
-    let stem = stemLines.join("\n\n").trim();
-    let leadIn = leadInLines.join("\n\n").trim();
-    let whyCorrect = whyCorrectLines.join("\n\n").trim();
-    const knowledgeBank = knowledgeBankLines.join("\n\n").trim();
-    const pearl = pearlLines.join("\n\n").trim();
+    // Collapse any leftover mid-sentence line breaks (from the original document's wrapped
+    // lines, which don't correspond to real paragraph breaks — that signal is lost during block
+    // splitting above) into a single flowing paragraph, so text wraps naturally instead of
+    // breaking onto a new visual line for every source line. Also strips the bold-run marker
+    // control chars used below to detect the lead-in sentence.
+    const stripBoldMarkers = (text: string) => text.replace(/[\u0001\u0002]/g, "");
+    const flattenParagraph = (text: string) =>
+      stripBoldMarkers(text).replace(/\s*\n\s*/g, " ").replace(/[ \t]{2,}/g, " ").trim();
+
+    let stem = flattenParagraph(stemLines.join("\n"));
+    let leadIn = flattenParagraph(leadInLines.join("\n"));
+    let whyCorrect = flattenParagraph(whyCorrectLines.join("\n"));
+    const knowledgeBank = stripBoldMarkers(knowledgeBankLines.join("\n\n")).trim();
+    const pearl = stripBoldMarkers(pearlLines.join("\n\n")).trim();
 
     // If whyCorrect or rationale accidentally captured a distractor block, separate them
-    const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
+    const distractorHeaderInWhy = (whyCorrect || rationale).match(/^(.*?)[\s\n]*(?:[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Why\s+(?:each\s+|other\s+|all\s+)?distractor\s+(?:is|are)?\s+(?:wrong|incorrect|false)|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Distractor\s*Rationales?|[•◦●○■▪▫·\*\-\u2013\u2014–—\s]*Incorrect\s*Options?[\s:]+)([\s\S]*)$/i);
     let cleanedWhyCorrect = whyCorrect || rationale;
     if (distractorHeaderInWhy) {
       cleanedWhyCorrect = distractorHeaderInWhy[1].trim();
@@ -2543,40 +2702,50 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
         distractorLines.push(...lines);
       }
     }
+    cleanedWhyCorrect = flattenParagraph(cleanedWhyCorrect);
 
-    // If no explicit Lead-in header was provided, separate the clinical scenario from the question sentence (?)
+    // If no explicit Lead-in header was provided, separate the clinical scenario from the
+    // question sentence. Prefer a real signal — a sentence the source document had in BOLD (the
+    // conventional way exam banks format the lead-in directive after a plain-text stem) — and
+    // only fall back to guessing from the last "?" when no bold run was captured.
     if (!leadIn && questionTextLines.length > 0) {
       const fullText = questionTextLines.join("\n").trim();
-      // Look for the last line or question sentence ending with a ?
-      const qIndex = fullText.lastIndexOf("?");
-      if (qIndex !== -1) {
-        // Find the start of the question sentence before ?
-        const beforeQ = fullText.substring(0, qIndex);
-        const lastNewline = beforeQ.lastIndexOf("\n");
-        const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf("! "));
-        
-        const splitIdx = lastNewline !== -1 ? lastNewline + 1 : (lastPeriod !== -1 ? lastPeriod + 2 : 0);
-        if (splitIdx > 0 && splitIdx < fullText.length) {
-          stem = fullText.substring(0, splitIdx).trim();
-          leadIn = fullText.substring(splitIdx).trim();
-        } else {
-          leadIn = fullText;
-          stem = "";
-        }
+      const boldMatch = fullText.match(/\u0001([\s\S]*?)\u0002/);
+      if (boldMatch && boldMatch.index !== undefined && boldMatch[1].trim()) {
+        leadIn = flattenParagraph(boldMatch[1]);
+        stem = flattenParagraph(fullText.slice(0, boldMatch.index) + fullText.slice(boldMatch.index + boldMatch[0].length));
       } else {
-        // Fallback if no ? mark is found
-        if (questionTextLines.length > 1) {
-          leadIn = questionTextLines[questionTextLines.length - 1];
-          stem = questionTextLines.slice(0, -1).join("\n").trim();
+        // Look for the last line or question sentence ending with a ?
+        const qIndex = fullText.lastIndexOf("?");
+        if (qIndex !== -1) {
+          // Find the start of the question sentence before ?
+          const beforeQ = fullText.substring(0, qIndex);
+          const lastNewline = beforeQ.lastIndexOf("\n");
+          const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf("! "));
+
+          const splitIdx = lastNewline !== -1 ? lastNewline + 1 : (lastPeriod !== -1 ? lastPeriod + 2 : 0);
+          if (splitIdx > 0 && splitIdx < fullText.length) {
+            stem = flattenParagraph(fullText.substring(0, splitIdx));
+            leadIn = flattenParagraph(fullText.substring(splitIdx));
+          } else {
+            leadIn = flattenParagraph(fullText);
+            stem = "";
+          }
         } else {
-          stem = fullText;
+          // Fallback if no ? mark is found
+          if (questionTextLines.length > 1) {
+            leadIn = flattenParagraph(questionTextLines[questionTextLines.length - 1]);
+            stem = flattenParagraph(questionTextLines.slice(0, -1).join("\n"));
+          } else {
+            stem = flattenParagraph(fullText);
+          }
         }
       }
     }
 
     const finalQuestionText = stem
       ? (leadIn ? `${stem}\n\n${leadIn}` : stem)
-      : (leadIn || questionTextLines.join("\n").trim());
+      : (leadIn || flattenParagraph(questionTextLines.join("\n")));
 
     // Skip empty text blocks
     if (!finalQuestionText) continue;
@@ -2588,15 +2757,20 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
     const numOptions = Math.max(4, optionSource.length);
     for (let k = 0; k < numOptions; k++) {
       const optVal = optionSource[k] || `Option ${String.fromCharCode(65 + k)}`;
-      finalOptions.push(optVal.replace(/\[Enter Option [A-Z] text here(?:\s*\(optional\))?\]/gi, `Option ${String.fromCharCode(65 + k)}`));
+      finalOptions.push(
+        stripBoldMarkers(optVal).replace(/\[Enter Option [A-Z] text here(?:\s*\(optional\))?\]/gi, `Option ${String.fromCharCode(65 + k)}`)
+      );
     }
 
     // Auto-derive primary Topic from first tag if topic is still "General"
     if (topic === "General" && tags.length > 0) {
       topic = tags[0];
     }
+    topic = stripBoldMarkers(topic).trim();
+    subtopic = stripBoldMarkers(subtopic).trim();
+    const finalTags = tags.map((t) => stripBoldMarkers(t).trim()).filter(Boolean);
 
-    let finalDistractorRationales = formatDistractorRationales(distractorLines, finalOptions, correctIndices);
+    let finalDistractorRationales = formatDistractorRationales(distractorLines.map(stripBoldMarkers), finalOptions, correctIndices);
     if (finalDistractorRationales.every(d => !d) && cleanedWhyCorrect) {
       const optionExpMatches = cleanedWhyCorrect.match(/(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))\s*[:\-\=\–\—]?\s*[\s\S]*?(?=(?:(?:Option|Choice)\s*[A-J]|(?:^|\n)\s*[A-J][\.\):\-]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false))|$)/gim);
       if (optionExpMatches && optionExpMatches.length > 0) {
@@ -2612,7 +2786,6 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       correctIndex,
       correctIndices: correctIndices.length > 0 ? correctIndices : [correctIndex],
       kfpCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
-      kftCorrectCount: kfpCorrectCount || (correctIndices.length > 1 ? correctIndices.length : 1),
       whyCorrect: cleanedWhyCorrect,
       distractorRationales: finalDistractorRationales,
       knowledgeBank,
@@ -2622,7 +2795,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       topic,
       subtopic,
       difficulty,
-      tags: tags.length > 0 ? tags : ["General"],
+      tags: finalTags.length > 0 ? finalTags : ["General"],
       image,
     });
   }
@@ -2952,7 +3125,9 @@ export async function POST(req: NextRequest) {
       const title = inferTitle(fileName, rawText);
       const system = matchField(rawText, SOAP_PATTERNS.system) || "Cardiology";
       const category = matchField(rawText, SOAP_PATTERNS.category) || "Clinical Approach";
-      
+      const topic = matchField(rawText, SOAP_PATTERNS.topic);
+      const tags = Array.from(new Set((rawText.match(/#\w+/g) || []).map(t => t.substring(1))));
+
       const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
       
       let overview = "";
@@ -2985,7 +3160,7 @@ export async function POST(req: NextRequest) {
         }
         
         if (currentSection === "overview") {
-          if (line !== title && !line.startsWith("System:") && !line.startsWith("Category:")) {
+          if (line !== title && !lower.startsWith("system:") && !lower.startsWith("category:") && !lower.startsWith("topic:") && !lower.startsWith("tags:") && !/^#\w+(\s+#\w+)*$/.test(line)) {
             overview += (overview ? " " : "") + line;
           }
         } else if (currentSection === "steps") {
@@ -3078,6 +3253,8 @@ export async function POST(req: NextRequest) {
           subtitle: overview.substring(0, 120) + (overview.length > 120 ? "..." : ""),
           system,
           category,
+          topic,
+          tags,
           status: "draft",
           overview,
           steps,
@@ -3183,6 +3360,8 @@ export async function POST(req: NextRequest) {
       title: catalog.title || title || inferTitle(fileName, rawText),
       system,
       category,
+      topic: catalog.topic || matchField(rawText, SOAP_PATTERNS.topic),
+      tags: catalog.tags,
       subjective: finalSymptoms,
       objective: matchField(rawText, SOAP_PATTERNS.objective) || catalog.sections.diagnosis.replace(/<[^>]+>/g, " ").trim(),
       assessment: finalNotes,

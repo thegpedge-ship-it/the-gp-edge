@@ -218,8 +218,8 @@ export default async function ProfilePage() {
                         ? Math.min(100, Math.max(0, Math.round((exam.mocksDone / exam.mocksTotal) * 100)))
                         : (exam.mocksDone > 0 ? 100 : 0);
 
-                    const quizDone = exam.quizzesDone ?? completeness.quizzesCompleted;
-                    const quizTotal = exam.quizzesTotal ?? completeness.quizzesTotal;
+                    const quizDone = typeof exam.quizzesDone === "number" ? exam.quizzesDone : completeness.quizzesCompleted;
+                    const quizTotal = typeof exam.quizzesTotal === "number" ? exam.quizzesTotal : completeness.quizzesTotal;
                     const quizPct =
                       typeof exam.quizzesPercent === "number"
                         ? exam.quizzesPercent
