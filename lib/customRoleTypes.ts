@@ -18,11 +18,17 @@ export const CUSTOM_ROLE_RESOURCES = [
   "autofill",
   "users",
   "mbs",
+  "medical",
   "notifications",
   "billing",
   "audit",
   "settings",
   "search",
+  "validation",
+  "cancellations",
+  "feedbacksLibrary",
+  "feedbacksQuestions",
+  "feedbacksNoteTemplates",
 ] as const;
 
 export type CustomRoleResource = (typeof CUSTOM_ROLE_RESOURCES)[number];

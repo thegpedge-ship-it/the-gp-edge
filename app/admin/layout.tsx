@@ -6,19 +6,25 @@ import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
 import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
+import { resolveAdminSectionKey } from "@/lib/adminPermissionKeys";
 
+const FULL_PERMISSIONS = [
+  "dashboard", "questions", "quizzes", "content", "approaches", "autofill",
+  "users", "mbs", "medical", "notifications", "billing", "audit", "settings", "search",
+  "validation", "cancellations", "feedbacksLibrary", "feedbacksQuestions", "feedbacksNoteTemplates",
+];
 
 const ADMIN_PROFILES = [
-  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin", email: "admin@gpedge.com", role: "Super Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"] },
-  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing"] },
-  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches", "feedbacks"] },
+  { id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00", name: "GPEDGE Admin", email: "admin@gpedge.com", role: "Super Admin", permissions: FULL_PERMISSIONS },
+  { id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101", name: "Arun Mehta", email: "content@gpedge.com", role: "Admin", permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacksLibrary", "feedbacksQuestions", "feedbacksNoteTemplates", "users", "mbs", "notifications", "billing"] },
+  { id: "d7c92b23-1c32-4f8a-9a99-8cb142646202", name: "Jessica Park", email: "moderator@gpedge.com", role: "Moderator", permissions: ["dashboard", "questions", "content", "approaches", "feedbacksLibrary", "feedbacksQuestions", "feedbacksNoteTemplates"] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const segments = pathname.split("/").filter(Boolean);
-  const currentSection = segments[1] || "dashboard";
+  const currentSection = resolveAdminSectionKey(segments.slice(1));
 
   // --- All hooks must be declared before any early returns ---
   const [currentAdmin, setCurrentAdmin] = useState({
@@ -26,7 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     name: "GPEDGE Admin",
     email: "admin@gpedge.com",
     role: "Super Admin",
-    permissions: ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "feedbacks", "users", "mbs", "notifications", "billing", "audit", "settings", "search"]
+    permissions: FULL_PERMISSIONS,
   });
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   // Both start with SSR-safe defaults (the server has no localStorage, so the first client render
@@ -196,7 +202,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  const sectionKeys = ["dashboard", "questions", "quizzes", "content", "approaches", "autofill", "users", "mbs", "notifications", "billing", "audit", "settings", "search"];
+  const sectionKeys = [
+    "dashboard", "questions", "quizzes", "content", "approaches", "autofill",
+    "users", "mbs", "medical", "notifications", "billing", "audit", "settings", "search",
+    "validation", "cancellations", "feedbacksLibrary", "feedbacksQuestions", "feedbacksNoteTemplates",
+  ];
   const isGatedSection = sectionKeys.includes(currentSection);
   const hasPermission = !isGatedSection || currentAdmin.permissions.includes(currentSection);
 
@@ -225,11 +235,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     autofill: "Clinical Autofills",
     users: "Subscriber Management",
     mbs: "MBS Data Update",
+    medical: "Medical Reference Data",
     notifications: "System Notifications",
     billing: "Revenue & Subscriptions",
     audit: "Audit & Security Logs",
     settings: "System Settings",
     search: "Global Admin Search",
+    validation: "Validation Queue",
+    cancellations: "Subscription Cancellations",
+    feedbacksLibrary: "Library Feedback",
+    feedbacksQuestions: "Question Feedback",
+    feedbacksNoteTemplates: "Note Template Feedback",
   };
   const sectionName = sectionNames[currentSection] || currentSection;
 

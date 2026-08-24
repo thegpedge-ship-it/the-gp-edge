@@ -45,11 +45,17 @@ const ALL_FEATURES = [
   { key: "autofill", label: "Autofill Templates", desc: "Create & edit autofill templates" },
   { key: "users", label: "Users", desc: "View & manage user accounts" },
   { key: "mbs", label: "Update MBS", desc: "Upload government MBS data & rebuild search" },
+  { key: "medical", label: "Medical", desc: "Manage medical reference data" },
   { key: "notifications", label: "Notifications", desc: "Send system notifications" },
   { key: "billing", label: "Billing", desc: "View revenue & manage subscriptions" },
   { key: "audit", label: "Audit & Security", desc: "View audit logs & manage roles" },
   { key: "settings", label: "Settings", desc: "System-level configuration" },
   { key: "search", label: "Search", desc: "Global admin search tool" },
+  { key: "validation", label: "Validation", desc: "Review flagged/validation queue" },
+  { key: "cancellations", label: "Cancellations", desc: "Manage subscription cancellation requests" },
+  { key: "feedbacksLibrary", label: "Feedback — Library", desc: "Triage library article reports" },
+  { key: "feedbacksQuestions", label: "Feedback — Questions", desc: "Triage question reports" },
+  { key: "feedbacksNoteTemplates", label: "Feedback — Note Templates", desc: "Triage note template reports" },
 ];
 
 const ALL_FEATURE_KEYS = ALL_FEATURES.map((f) => f.key);
@@ -131,7 +137,7 @@ export default function AuditPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [currentAdminId, setCurrentAdminId] = useState("e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00");
   const [nowTick, setNowTick] = useState(Date.now());
-  const [activeTab, setActiveTab] = useState<"security" | "activity">("security");
+  const [activeTab, setActiveTab] = useState<"security" | "roles" | "activity">("security");
 
   /* 3G Governance Capability Flags */
   const canInviteContributor = isSuperAdmin || isOperationsManager;
@@ -154,6 +160,7 @@ export default function AuditPage() {
   const [customRoleDescription, setCustomRoleDescription] = useState("");
   const [customRoleMatrix, setCustomRoleMatrix] = useState<PermissionMatrix>(emptyCustomMatrix());
   const [customRoleCanViewPii, setCustomRoleCanViewPii] = useState(false);
+  const [selectedRoleTemplate, setSelectedRoleTemplate] = useState<keyof typeof CUSTOM_ROLE_TEMPLATES | null>(null);
   const [customRoleSaving, setCustomRoleSaving] = useState(false);
   const [customRoleToDelete, setCustomRoleToDelete] = useState<CustomRole | null>(null);
 
@@ -199,6 +206,7 @@ export default function AuditPage() {
     setCustomRoleDescription("");
     setCustomRoleMatrix(emptyCustomMatrix());
     setCustomRoleCanViewPii(false);
+    setSelectedRoleTemplate(null);
   }
 
   function openEditCustomRole(role: CustomRole) {
@@ -207,14 +215,17 @@ export default function AuditPage() {
     setCustomRoleDescription(role.description);
     setCustomRoleMatrix(role.matrix);
     setCustomRoleCanViewPii(role.canViewPii);
+    setSelectedRoleTemplate(null);
   }
 
   function applyCustomRoleTemplate(template: keyof typeof CUSTOM_ROLE_TEMPLATES) {
     setCustomRoleMatrix(CUSTOM_ROLE_TEMPLATES[template].matrix);
     setCustomRoleCanViewPii(CUSTOM_ROLE_TEMPLATES[template].canViewPii);
+    setSelectedRoleTemplate(template);
   }
 
   function toggleCustomRoleGrant(resource: CustomRoleResource, action: "read" | "edit") {
+    setSelectedRoleTemplate(null);
     setCustomRoleMatrix((prev) => {
       const current = prev[resource];
       if (action === "edit") {
@@ -784,6 +795,7 @@ export default function AuditPage() {
       <motion.div variants={itemVariants} className="inline-flex items-center gap-1 bg-slate-100/70 dark:bg-slate-800/60 rounded-xl p-1">
         {([
           { id: "security" as const, label: "Audit & Security", icon: Lucide.ShieldCheck },
+          ...(isSuperAdmin ? [{ id: "roles" as const, label: "Custom Roles", icon: Lucide.Users }] : []),
           ...(isSuperAdmin ? [{ id: "activity" as const, label: "Activity Log", icon: Lucide.History }] : []),
         ]).map((tab) => (
           <button
@@ -802,10 +814,7 @@ export default function AuditPage() {
         ))}
       </motion.div>
 
-      {activeTab === "security" && (
-        <>
-      {/* Custom (Configurable) Roles */}
-      {isSuperAdmin && (
+      {activeTab === "roles" && isSuperAdmin && (
         <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
           <div className="relative z-10">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-200/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -892,6 +901,8 @@ export default function AuditPage() {
         </motion.div>
       )}
 
+      {activeTab === "security" && (
+        <>
       {/* Administrator Accounts */}
       <div className="space-y-6">
         <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
@@ -1796,7 +1807,11 @@ export default function AuditPage() {
                         key={tpl}
                         type="button"
                         onClick={() => applyCustomRoleTemplate(tpl)}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/40 transition-all cursor-pointer"
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                          selectedRoleTemplate === tpl
+                            ? "border-teal-600 dark:border-teal-500 bg-teal-600 dark:bg-teal-600 text-white shadow-sm"
+                            : "border-teal-200 dark:border-teal-900/50 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 hover:bg-teal-100 dark:hover:bg-teal-900/40"
+                        }`}
                       >
                         {tpl}
                       </button>

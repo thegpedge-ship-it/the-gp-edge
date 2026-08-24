@@ -28,6 +28,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAdminRole } from "@/hooks/useAdminRole";
+import { resolveAdminSectionKey } from "@/lib/adminPermissionKeys";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
 const GAP     = 8;   // gap from viewport left/top edge
@@ -263,7 +264,7 @@ export default function AdminSidebar({
               const isActive = href === "/admin/dashboard"
                 ? pathname === "/admin/dashboard"
                 : pathname.startsWith(href);
-              const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+              const itemKey = resolveAdminSectionKey(href.split("/").filter(Boolean).slice(1));
               const hasPermission = currentAdmin.permissions.includes(itemKey);
 
               return (
@@ -442,7 +443,7 @@ export default function AdminSidebar({
                       const isActive = href === "/admin/dashboard"
                         ? pathname === "/admin/dashboard"
                         : pathname.startsWith(href);
-                      const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+                      const itemKey = resolveAdminSectionKey(href.split("/").filter(Boolean).slice(1));
                       const hasPermission = currentAdmin.permissions.includes(itemKey);
 
                       return (
@@ -578,7 +579,7 @@ export default function AdminSidebar({
                     const isActive = href === "/admin/dashboard"
                       ? pathname === "/admin/dashboard"
                       : pathname.startsWith(href);
-                    const itemKey = href.split("/").filter(Boolean)[1] || "dashboard";
+                    const itemKey = resolveAdminSectionKey(href.split("/").filter(Boolean).slice(1));
                     const hasPermission = currentAdmin.permissions.includes(itemKey);
 
                     return (

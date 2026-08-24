@@ -66,11 +66,17 @@ function mapRowToCredentialUser(row: any): CredentialUser {
       "autofill",
       "users",
       "mbs",
+      "medical",
       "notifications",
       "billing",
       "audit",
       "settings",
       "search",
+      "validation",
+      "cancellations",
+      "feedbacksLibrary",
+      "feedbacksQuestions",
+      "feedbacksNoteTemplates",
     ];
   } else if (dbPermissions.length > 0) {
     permissions = dbPermissions;
