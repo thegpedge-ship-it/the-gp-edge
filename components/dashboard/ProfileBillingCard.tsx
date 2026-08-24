@@ -15,6 +15,7 @@ interface Props {
   isRecurring?: boolean;
   showDownloadInvoice?: boolean;
   showCancelSubscription?: boolean;
+  activePlanName?: string | null;
 }
 
 export default function ProfileBillingCard({
@@ -27,6 +28,7 @@ export default function ProfileBillingCard({
   isRecurring,
   showDownloadInvoice = true,
   showCancelSubscription = true,
+  activePlanName = null,
 }: Props) {
   const [pendingAction, setPendingAction] = useState<"invoice" | "cancel" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +67,7 @@ export default function ProfileBillingCard({
     FREE: "Free Tier",
   };
 
-  const planTitle = planTitles[accessLevel] || (hasPaidAccess ? "Active Paid Plan" : "Free Tier");
+  const planTitle = activePlanName || planTitles[accessLevel] || (hasPaidAccess ? "Active Paid Plan" : "Free Tier");
   const formattedExpiry = accessExpiresAt
     ? new Date(accessExpiresAt).toLocaleDateString("en-AU", {
         day: "numeric",

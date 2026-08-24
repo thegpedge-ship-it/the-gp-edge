@@ -50,6 +50,8 @@ export interface UserAccessInfo {
   currentPeriodEnd: Date | null;
   activePriceId: string | null;
   currentPeriodStart: Date | null;
+  planName: string | null;
+  purchasedPackageType: string | null;
 }
 
 // ─── Core access resolver ─────────────────────────────────────────────────────
@@ -205,6 +207,40 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
   const isSubValid = activeSub != null;
   let accessLevel: AccessLevel = "FREE";
 
+  let planName = activeSub?.plan_name ?? null;
+  let purchasedPackageType = activeSub?.purchased_package_type ?? null;
+
+  if (activeSub && (!planName || !purchasedPackageType)) {
+    const priceId = activeSub.stripe_price_id;
+    if (priceId === process.env.STRIPE_PRICE_REGISTRAR_6MONTH) {
+      planName = planName || "Registrar 6-Month Package";
+      purchasedPackageType = purchasedPackageType || "Registrar 6-Month Package";
+    } else if (priceId === process.env.STRIPE_PRICE_REGISTRAR_12MONTH) {
+      planName = planName || "Registrar 12-Month Package";
+      purchasedPackageType = purchasedPackageType || "Registrar 12-Month Package";
+    } else if (priceId === process.env.STRIPE_PRICE_POST_REGISTRAR_MONTHLY) {
+      planName = planName || "Loyalty Monthly Plan";
+      purchasedPackageType = purchasedPackageType || "Post-Registrar Upgrade";
+    } else if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_MONTHLY) {
+      planName = planName || "Fellowship Monthly Plan";
+      purchasedPackageType = purchasedPackageType || "Fellowship Monthly";
+    } else if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_YEARLY) {
+      planName = planName || "Fellowship Annual Plan";
+      purchasedPackageType = purchasedPackageType || "Fellowship Annual";
+    } else if (activeSub.access_level === "REGISTRAR" && activeSub.current_period_start && activeSub.access_expires_at) {
+      const start = new Date(activeSub.current_period_start);
+      const end = new Date(activeSub.access_expires_at);
+      const diffMonths = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30));
+      if (diffMonths > 9) {
+        planName = planName || "Registrar 12-Month Package";
+        purchasedPackageType = purchasedPackageType || "Registrar 12-Month Package";
+      } else {
+        planName = planName || "Registrar 6-Month Package";
+        purchasedPackageType = purchasedPackageType || "Registrar 6-Month Package";
+      }
+    }
+  }
+
   if (isSubValid && activeSub) {
     const lvl = String(activeSub.access_level ?? "").toUpperCase();
     if (lvl === "REGISTRAR" || lvl === "FELLOWSHIP" || lvl === "POST_REGISTRAR_UPGRADE") {
@@ -263,6 +299,8 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
     currentPeriodEnd: activeSub?.current_period_end ?? null,
     activePriceId: activeSub?.stripe_price_id ?? null,
     currentPeriodStart: activeSub?.current_period_start ?? activeSub?.created_at ?? null,
+    planName,
+    purchasedPackageType,
   };
 
   // Refresh the signed cookie so subsequent requests can skip the DB. This is a

@@ -65,6 +65,33 @@ export async function POST(req: Request) {
     const successUrl = `${baseUrl}/dashboard/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/dashboard/pricing?canceled=true`;
 
+    // ── Map Price IDs to granular names/durations ──────────────────────────────
+    let packageName = "Unknown Plan";
+    let planTitle = "Unknown Plan";
+    let packageDurationMonths = "1";
+
+    if (priceId === process.env.STRIPE_PRICE_REGISTRAR_6MONTH) {
+      packageName = "Registrar 6-Month Package";
+      planTitle = "Registrar 6-Month Package";
+      packageDurationMonths = "6";
+    } else if (priceId === process.env.STRIPE_PRICE_REGISTRAR_12MONTH) {
+      packageName = "Registrar 12-Month Package";
+      planTitle = "Registrar 12-Month Package";
+      packageDurationMonths = "12";
+    } else if (priceId === process.env.STRIPE_PRICE_POST_REGISTRAR_MONTHLY) {
+      packageName = "Post-Registrar Upgrade";
+      planTitle = "Loyalty Monthly Plan";
+      packageDurationMonths = "1";
+    } else if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_MONTHLY) {
+      packageName = "Fellowship Monthly";
+      planTitle = "Fellowship Monthly Plan";
+      packageDurationMonths = "1";
+    } else if (priceId === process.env.STRIPE_PRICE_FELLOWSHIP_YEARLY) {
+      packageName = "Fellowship Annual";
+      planTitle = "Fellowship Annual Plan";
+      packageDurationMonths = "12";
+    }
+
     // ── Create Checkout Session ────────────────────────────────────────────────
     const sessionConfig: any = {
       mode,
@@ -73,6 +100,9 @@ export async function POST(req: Request) {
       metadata: {
         userId: dbUser.id,
         priceId,
+        package_name: packageName,
+        plan_title: planTitle,
+        package_duration_months: packageDurationMonths,
       },
       success_url: successUrl,
       cancel_url: cancelUrl,
@@ -89,8 +119,12 @@ export async function POST(req: Request) {
       sessionConfig.invoice_creation = { 
         enabled: true,
         invoice_data: {
-          description: "Payment for The GP Edge Registrar Package",
-          metadata: { userId: dbUser.id },
+          description: `Payment for The GP Edge ${planTitle}`,
+          metadata: { 
+            userId: dbUser.id,
+            package_name: packageName,
+            plan_title: planTitle,
+          },
         },
       };
     } else if (mode === "subscription") {
@@ -98,6 +132,9 @@ export async function POST(req: Request) {
         metadata: {
           userId: dbUser.id,
           priceId,
+          package_name: packageName,
+          plan_title: planTitle,
+          package_duration_months: packageDurationMonths,
         },
       };
       sessionConfig.billing_address_collection = "auto";

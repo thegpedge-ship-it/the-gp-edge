@@ -305,6 +305,7 @@ export default async function ProfilePage() {
                 isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
                 showDownloadInvoice={false}
                 showCancelSubscription={false}
+                activePlanName={accessInfo?.planName}
               />
             </PageCard>
           </FadeIn>
