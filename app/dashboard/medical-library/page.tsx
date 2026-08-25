@@ -293,6 +293,8 @@ function SystemFilterBar({
   onSelect,
   counts,
   slide,
+  showFavoritesOnly,
+  onToggleFavoritesOnly,
 }: {
   label: string;
   systems: { id: string; name: string }[];
@@ -300,19 +302,40 @@ function SystemFilterBar({
   onSelect: (id: string) => void;
   counts: Map<string, number>;
   slide: SlideTrack;
+  showFavoritesOnly?: boolean;
+  onToggleFavoritesOnly?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-2 select-none">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">{label}</span>
-        {selected !== "all" && (
-          <button
-            onClick={() => onSelect("all")}
-            className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent"
-          >
-            Reset Filter
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {selected !== "all" && (
+            <button
+              onClick={() => onSelect("all")}
+              className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent"
+            >
+              Reset Filter
+            </button>
+          )}
+          {onToggleFavoritesOnly && (
+            <button
+              onClick={onToggleFavoritesOnly}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+                showFavoritesOnly
+                  ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-600 dark:hover:text-teal-400"
+              }`}
+            >
+              {showFavoritesOnly ? (
+                <Lucide.BookmarkCheck className="w-3.5 h-3.5" />
+              ) : (
+                <Lucide.Bookmark className="w-3.5 h-3.5" />
+              )}
+              Saved Templates
+            </button>
+          )}
+        </div>
       </div>
       <div className="relative">
         <div
@@ -1399,8 +1422,8 @@ function MedicalLibraryContent() {
               </div>
             </div>
 
-            {/* Saved Bookmarks toggle — system filters now live inside each section below */}
-            <div className="flex items-center justify-end select-none">
+            {/* Saved Bookmarks toggle — on mobile this now lives inside each section's filter bar below */}
+            <div className="hidden md:flex items-center justify-end select-none">
               <button
                 onClick={() => setShowFavoritesOnly((prev) => !prev)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
@@ -1446,6 +1469,8 @@ function MedicalLibraryContent() {
                       onSelect={setMcSelectedSystem}
                       counts={mcSystemCounts}
                       slide={mcSlide}
+                      showFavoritesOnly={showFavoritesOnly}
+                      onToggleFavoritesOnly={() => setShowFavoritesOnly((prev) => !prev)}
                     />
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
@@ -1484,6 +1509,8 @@ function MedicalLibraryContent() {
                       onSelect={setApproachSelectedSystem}
                       counts={approachSystemCounts}
                       slide={approachSlide}
+                      showFavoritesOnly={showFavoritesOnly}
+                      onToggleFavoritesOnly={() => setShowFavoritesOnly((prev) => !prev)}
                     />
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
