@@ -49,12 +49,21 @@ const FALLBACK_USERS: CredentialUser[] = [
 
 export default function AdminLoginPage() {
   const router = useRouter();
+
+  // ── All useState hooks MUST be declared before any useEffect calls ──
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+
+  // Forgot password flow state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSent, setForgotSent] = useState(false);
+
+  // ── Effects come AFTER all hook declarations ──
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -64,11 +73,6 @@ export default function AdminLoginPage() {
       }
     }
   }, []);
-
-  // Forgot password flow
-  const [showForgotModal, setShowForgotModal] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [forgotSent, setForgotSent] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {

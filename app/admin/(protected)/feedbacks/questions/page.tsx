@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getQuestionFeedbacks } from "@/app/admin/feedbacks/actions";
-import type { QuestionFeedbackRow } from "@/app/admin/feedbacks/actions";
+import { getQuestionFeedbacks } from "@/app/admin/(protected)/feedbacks/actions";
+import type { QuestionFeedbackRow } from "@/app/admin/(protected)/feedbacks/actions";
 import { X, Copy, Check } from "lucide-react";
 
 const containerVariants = {
@@ -29,7 +29,7 @@ export default function QuestionFeedbackPage() {
   useEffect(() => {
     setLoading(true);
     getQuestionFeedbacks(page, PAGE_SIZE)
-      .then((res) => { setRows(res.rows); setTotal(res.total); })
+      .then((res: { rows: QuestionFeedbackRow[]; total: number }) => { setRows(res.rows); setTotal(res.total); })
       .finally(() => setLoading(false));
   }, [page]);
 

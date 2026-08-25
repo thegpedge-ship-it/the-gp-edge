@@ -209,6 +209,170 @@ function getStepStyle(type: string) {
   return STEP_TYPES.find(t => t.value === type) || STEP_TYPES[0];
 }
 
+/**
+ * Encapsulates the horizontal "slide bar" (touch-scrollable row + draggable visual
+ * scrollbar) used for a system-filter chip row. Called once per independent filter
+ * section (e.g. Conditions, Approaches) so each gets its own scroll position/thumb.
+ */
+function useHorizontalSlideTrack() {
+  const scrollElRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const [thumb, setThumb] = useState({ left: 0, width: 100 });
+
+  const updateThumb = useCallback(() => {
+    const el = scrollElRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    if (scrollWidth <= clientWidth + 1) {
+      setThumb({ left: 0, width: 100 });
+      return;
+    }
+    const widthPct = Math.max((clientWidth / scrollWidth) * 100, 12);
+    const maxLeftPct = 100 - widthPct;
+    const leftPct = (scrollLeft / (scrollWidth - clientWidth)) * maxLeftPct;
+    setThumb({ left: leftPct, width: widthPct });
+  }, []);
+
+  const scrollRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+    if (scrollElRef.current) {
+      scrollElRef.current.removeEventListener("scroll", updateThumb);
+    }
+    scrollElRef.current = node;
+    if (node) {
+      node.addEventListener("scroll", updateThumb, { passive: true });
+      const observer = new ResizeObserver(updateThumb);
+      observer.observe(node);
+      observerRef.current = observer;
+      updateThumb();
+    }
+  }, [updateThumb]);
+
+  const scrollBy = useCallback((delta: number) => {
+    scrollElRef.current?.scrollBy({ left: delta, behavior: "smooth" });
+  }, []);
+
+  const handleTrackPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const trackEl = trackRef.current;
+    const scrollEl = scrollElRef.current;
+    if (!trackEl || !scrollEl) return;
+    e.preventDefault();
+
+    const applyFromClientX = (clientX: number) => {
+      const rect = trackEl.getBoundingClientRect();
+      const ratio = rect.width > 0 ? Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1) : 0;
+      const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+      scrollEl.scrollLeft = ratio * maxScroll;
+    };
+
+    applyFromClientX(e.clientX);
+
+    const handleMove = (moveEvent: PointerEvent) => applyFromClientX(moveEvent.clientX);
+    const handleUp = () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+  }, []);
+
+  return { scrollRef, trackRef, thumb, scrollBy, handleTrackPointerDown };
+}
+
+type SlideTrack = ReturnType<typeof useHorizontalSlideTrack>;
+
+/** Self-contained "Filter by System" chip row + touch-drag slide bar for one section. */
+function SystemFilterBar({
+  label,
+  systems,
+  selected,
+  onSelect,
+  counts,
+  slide,
+}: {
+  label: string;
+  systems: { id: string; name: string }[];
+  selected: string;
+  onSelect: (id: string) => void;
+  counts: Map<string, number>;
+  slide: SlideTrack;
+}) {
+  return (
+    <div className="flex flex-col gap-2 select-none">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">{label}</span>
+        {selected !== "all" && (
+          <button
+            onClick={() => onSelect("all")}
+            className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent"
+          >
+            Reset Filter
+          </button>
+        )}
+      </div>
+      <div className="relative">
+        <div
+          ref={slide.scrollRef}
+          className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full"
+        >
+          <button
+            onClick={() => onSelect("all")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selected === "all" ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+          >
+            All Systems
+          </button>
+          {systems.map((sys) => (
+            <button
+              key={sys.id}
+              onClick={() => onSelect(selected === sys.id ? "all" : sys.id)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selected === sys.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
+            >
+              {sys.name} ({counts.get(sys.name) || 0})
+            </button>
+          ))}
+        </div>
+        {/* Right-edge fade hinting there are more chips to slide to */}
+        <div className="pointer-events-none absolute top-0 right-0 h-full w-8 bg-gradient-to-l from-white dark:from-slate-950 to-transparent opacity-0 transition-opacity duration-200" style={{ opacity: slide.thumb.width < 99.5 ? 1 : 0 }} />
+      </div>
+      {/* Slide bar — arrow-flanked visual scrollbar for the system chips row.
+          Touch targets are enlarged on mobile (min ~40px) and shrink back down on desktop. */}
+      {slide.thumb.width < 99.5 && (
+        <div className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1 sm:py-1.5 rounded-full bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/60">
+          <button
+            onClick={() => slide.scrollBy(-160)}
+            aria-label="Scroll systems left"
+            className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-5 sm:h-5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 active:text-teal-600 border-none bg-transparent cursor-pointer"
+          >
+            <Lucide.ChevronLeft className="w-4.5 h-4.5 sm:w-3.5 sm:h-3.5" />
+          </button>
+          <div
+            ref={slide.trackRef}
+            onPointerDown={slide.handleTrackPointerDown}
+            className="relative flex-1 h-9 sm:h-5 rounded-full touch-none cursor-grab active:cursor-grabbing flex items-center"
+          >
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 sm:h-1.5 rounded-full bg-slate-200/80 dark:bg-slate-800/80 pointer-events-none" />
+            <div
+              className="absolute top-1/2 -translate-y-1/2 h-2 sm:h-1.5 rounded-full bg-teal-400/80 transition-[left] duration-100 pointer-events-none"
+              style={{ left: `${slide.thumb.left}%`, width: `${slide.thumb.width}%` }}
+            />
+          </div>
+          <button
+            onClick={() => slide.scrollBy(160)}
+            aria-label="Scroll systems right"
+            className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-5 sm:h-5 text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 active:text-teal-600 border-none bg-transparent cursor-pointer"
+          >
+            <Lucide.ChevronRight className="w-4.5 h-4.5 sm:w-3.5 sm:h-3.5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const gridVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.24 } },
@@ -234,7 +398,7 @@ interface CardProps {
   favorites: string[];
   toggleFavorite: (e: React.MouseEvent, id: string) => void;
   handleOpenCondition: (condition: MedicalCondition) => void;
-  handleTagClick: (e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string) => void;
+  handleTagClick: (e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string, section: "condition" | "approach") => void;
   sys: any;
   /** Whether the current user has a paid plan */
   hasPaidAccess: boolean;
@@ -282,9 +446,6 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-start mb-2.5 gap-2">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 shrink-0">
-              {condition.id}
-            </span>
             {condition.isPremium && (
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
@@ -331,7 +492,7 @@ function MedicalConditionCard({ condition, favorites, toggleFavorite, handleOpen
       </div>
 
       <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-2.5 mt-auto flex items-center justify-between gap-2 ${isLocked ? "opacity-40" : ""}`}>
-        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer min-w-0">
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system, "condition"); }} className="flex flex-col cursor-pointer group/footer min-w-0">
           <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors truncate">{condition.system}</span>
         </div>
@@ -383,9 +544,6 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       <div className={isLocked ? "opacity-40 select-none" : ""}>
         <div className="flex justify-between items-start mb-2.5 gap-2">
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span className="text-[10px] font-bold font-mono text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 shrink-0">
-              {condition.id}
-            </span>
             {condition.isPremium && (
               <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-400 px-1.5 py-0.5 rounded border border-amber-200/30 shrink-0" title="Locked item for paid subscribers">
                 <Lucide.Lock className="w-2.5 h-2.5" />
@@ -423,7 +581,7 @@ function ClinicalApproachCard({ condition, favorites, toggleFavorite, handleOpen
       </div>
 
       <div className={`border-t border-slate-150 dark:border-slate-800/80 pt-2.5 mt-auto flex items-center justify-between gap-2 ${isLocked ? "opacity-40" : ""}`}>
-        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system); }} className="flex flex-col cursor-pointer group/footer min-w-0">
+        <div onClick={(e) => { if (!isLocked) handleTagClick(e, "system", condition.system, "approach"); }} className="flex flex-col cursor-pointer group/footer min-w-0">
           <span className="text-[8px] sm:text-[9px] text-slate-400 font-bold uppercase tracking-wider">System</span>
           <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 group-hover/footer:text-teal-600 dark:group-hover/footer:text-teal-500 transition-colors truncate">{condition.system}</span>
         </div>
@@ -640,7 +798,7 @@ function MedicalLibraryContent() {
 
   // Split Workspace Layout States
   const [paneConfig, setPaneConfig] = useState<"3-0" | "2-1" | "1-2" | "0-3">("2-1");
-  const [mobileTab, setMobileTab] = useState<"all" | "conditions" | "approaches">("all");
+  const [mobileTab, setMobileTab] = useState<"conditions" | "approaches">("conditions");
   const [isDragging, setIsDragging] = useState(false);
   const splitPaneRef = useRef<HTMLDivElement>(null);
 
@@ -671,11 +829,16 @@ function MedicalLibraryContent() {
     e.currentTarget.releasePointerCapture(e.pointerId);
   };
 
-  // Search box states (side-by-side)
-  const [searchCondition, setSearchCondition] = useState("");
-  const [searchApproach, setSearchApproach] = useState("");
+  // Unified search box state (covers both conditions and approaches)
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [selectedSystem, setSelectedSystem] = useState<string>("all");
+  // Independent "Filter by System" state per section, so filtering Conditions
+  // never affects what's shown in Approaches and vice versa.
+  const [mcSelectedSystem, setMcSelectedSystem] = useState<string>("all");
+  const [approachSelectedSystem, setApproachSelectedSystem] = useState<string>("all");
+  const mcSlide = useHorizontalSlideTrack();
+  const approachSlide = useHorizontalSlideTrack();
+
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
   const [searchMode, setSearchMode] = useState<"condition" | "approach">("condition");
@@ -701,7 +864,8 @@ function MedicalLibraryContent() {
   const [customConditions, setCustomConditions] = useState<MedicalCondition[]>([]);
   const [dbConditionData, setDbConditionData] = useState<{ fullHtml: string; pages: string[]; references: any[] } | null>(null);
   const [dbLoading, setDbLoading] = useState(false);
-  const [visibleLimit, setVisibleLimit] = useState(9);
+  const [mcVisibleLimit, setMcVisibleLimit] = useState(10);
+  const [approachVisibleLimit, setApproachVisibleLimit] = useState(10);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -904,11 +1068,38 @@ function MedicalLibraryContent() {
   const observerRef = useRef<ResizeObserver | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(720);
 
+  // Custom vertical slide track for the PDF preview pane (mobile)
+  const pdfScrollElRef = useRef<HTMLDivElement | null>(null);
+  const [pdfVScrollThumb, setPdfVScrollThumb] = useState({ top: 0, height: 100 });
+
+  const updatePdfVScrollThumb = useCallback(() => {
+    const el = pdfScrollElRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight <= clientHeight + 1) {
+      setPdfVScrollThumb({ top: 0, height: 100 });
+      return;
+    }
+    const heightPct = Math.max((clientHeight / scrollHeight) * 100, 8);
+    const maxTopPct = 100 - heightPct;
+    const topPct = (scrollTop / (scrollHeight - clientHeight)) * maxTopPct;
+    setPdfVScrollThumb({ top: topPct, height: heightPct });
+  }, []);
+
+  const scrollPdfPreviewBy = useCallback((delta: number) => {
+    pdfScrollElRef.current?.scrollBy({ top: delta, behavior: "smooth" });
+  }, []);
+
   const containerRef = useCallback((node: HTMLDivElement | null) => {
     if (observerRef.current) {
       observerRef.current.disconnect();
       observerRef.current = null;
     }
+
+    if (pdfScrollElRef.current) {
+      pdfScrollElRef.current.removeEventListener("scroll", updatePdfVScrollThumb);
+    }
+    pdfScrollElRef.current = node;
 
     if (node !== null) {
       const width = node.clientWidth;
@@ -927,11 +1118,15 @@ function MedicalLibraryContent() {
         if (w > 0) {
           setContainerWidth(w);
         }
+        updatePdfVScrollThumb();
       });
       observer.observe(node);
       observerRef.current = observer;
+
+      node.addEventListener("scroll", updatePdfVScrollThumb, { passive: true });
+      updatePdfVScrollThumb();
     }
-  }, []);
+  }, [updatePdfVScrollThumb]);
 
   const scaleFactor = useMemo(() => {
     return containerWidth / 794;
@@ -942,78 +1137,84 @@ function MedicalLibraryContent() {
   }, [scaleFactor, pdfZoom]);
 
 
-  // Memoize system counts
-  const systemCounts = useMemo(() => {
+  // Memoize system counts — split per section so each filter bar's chip counts
+  // reflect only its own list.
+  const mcSystemCounts = useMemo(() => {
     const map = new Map<string, number>();
     for (const c of allConditions) {
+      if (c.type === "Approach") continue;
       map.set(c.system, (map.get(c.system) ?? 0) + 1);
     }
     return map;
   }, [allConditions]);
 
-  // Memoize filtered conditions
-  const filteredConditions = useMemo(() => {
-    const condQuery = searchCondition.trim().toLowerCase();
-    const appQuery = searchApproach.trim().toLowerCase();
+  const approachSystemCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const c of allConditions) {
+      if (c.type !== "Approach") continue;
+      map.set(c.system, (map.get(c.system) ?? 0) + 1);
+    }
+    return map;
+  }, [allConditions]);
 
+  const matchesSearchQuery = useCallback((c: MedicalCondition, query: string) => {
+    return (
+      !query ||
+      c.name.toLowerCase().includes(query) ||
+      c.symptoms.some((s) => s.toLowerCase().includes(query)) ||
+      c.system.toLowerCase().includes(query) ||
+      c.category.toLowerCase().includes(query) ||
+      c.type.toLowerCase().includes(query) ||
+      c.treatmentOptions.some((o) => o.toLowerCase().includes(query)) ||
+      c.clinicalNotes.toLowerCase().includes(query) ||
+      (c.document?.summary ? c.document.summary.toLowerCase().includes(query) : false)
+    );
+  }, []);
+
+  // Independently filtered lists — a system filter picked for one section never
+  // affects the other.
+  const filteredMcConditions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     return allConditions.filter((c) => {
-      // 1. Favorites check
-      if (showFavoritesOnly && !favorites.includes(c.id)) {
-        return false;
-      }
-
-      // 2. System check
-      if (selectedSystem !== "all" && c.system !== selectedSystem) {
-        return false;
-      }
-
-      // 3. Condition check (symptoms, name, system, category)
-      const matchesCondition =
-        !condQuery ||
-        c.name.toLowerCase().includes(condQuery) ||
-        c.symptoms.some((s) => s.toLowerCase().includes(condQuery)) ||
-        c.system.toLowerCase().includes(condQuery) ||
-        c.category.toLowerCase().includes(condQuery);
-
-      // 4. Approach check (type, category, treatments, pearls, summary, system, name)
-      const matchesApproach =
-        !appQuery ||
-        c.category.toLowerCase().includes(appQuery) ||
-        c.type.toLowerCase().includes(appQuery) ||
-        c.treatmentOptions.some((o) => o.toLowerCase().includes(appQuery)) ||
-        c.clinicalNotes.toLowerCase().includes(appQuery) ||
-        (c.document?.summary && c.document.summary.toLowerCase().includes(appQuery)) ||
-        c.name.toLowerCase().includes(appQuery) ||
-        c.system.toLowerCase().includes(appQuery);
-
-      return matchesCondition && matchesApproach;
+      if (c.type === "Approach") return false;
+      if (showFavoritesOnly && !favorites.includes(c.id)) return false;
+      if (mcSelectedSystem !== "all" && c.system !== mcSelectedSystem) return false;
+      return matchesSearchQuery(c, query);
     });
-  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly, favorites, allConditions]);
+  }, [searchQuery, mcSelectedSystem, showFavoritesOnly, favorites, allConditions, matchesSearchQuery]);
 
-  // Reset limit when search or system changes
+  const filteredApproachConditions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return allConditions.filter((c) => {
+      if (c.type !== "Approach") return false;
+      if (showFavoritesOnly && !favorites.includes(c.id)) return false;
+      if (approachSelectedSystem !== "all" && c.system !== approachSelectedSystem) return false;
+      return matchesSearchQuery(c, query);
+    });
+  }, [searchQuery, approachSelectedSystem, showFavoritesOnly, favorites, allConditions, matchesSearchQuery]);
+
+  // Reset limits when search or either system filter changes
   useEffect(() => {
-    setVisibleLimit(9);
-  }, [searchCondition, searchApproach, selectedSystem, showFavoritesOnly]);
+    setMcVisibleLimit(10);
+  }, [searchQuery, mcSelectedSystem, showFavoritesOnly]);
 
-  const totalMcCount = useMemo(() => {
-    return filteredConditions.filter(c => c.type !== "Approach").length;
-  }, [filteredConditions]);
+  useEffect(() => {
+    setApproachVisibleLimit(10);
+  }, [searchQuery, approachSelectedSystem, showFavoritesOnly]);
 
-  const totalApproachCount = useMemo(() => {
-    return filteredConditions.filter(c => c.type === "Approach").length;
-  }, [filteredConditions]);
+  const totalMcCount = filteredMcConditions.length;
+  const totalApproachCount = filteredApproachConditions.length;
 
   const mcConditions = useMemo(() => {
-    return filteredConditions.filter(c => c.type !== "Approach").slice(0, visibleLimit);
-  }, [filteredConditions, visibleLimit]);
+    return filteredMcConditions.slice(0, mcVisibleLimit);
+  }, [filteredMcConditions, mcVisibleLimit]);
 
   const approachConditions = useMemo(() => {
-    return filteredConditions.filter(c => c.type === "Approach").slice(0, visibleLimit);
-  }, [filteredConditions, visibleLimit]);
+    return filteredApproachConditions.slice(0, approachVisibleLimit);
+  }, [filteredApproachConditions, approachVisibleLimit]);
 
-  const hasMore = useMemo(() => {
-    return visibleLimit < Math.max(totalMcCount, totalApproachCount);
-  }, [visibleLimit, totalMcCount, totalApproachCount]);
+  const mcHasMore = mcVisibleLimit < totalMcCount;
+  const approachHasMore = approachVisibleLimit < totalApproachCount;
 
 
 
@@ -1023,19 +1224,25 @@ function MedicalLibraryContent() {
     router.push(`/dashboard/medical-library?${params.toString()}`);
     setPdfPage(1);
     setPdfZoom(100);
+    // Keep the mobile tab scoped to whichever section the user opened from,
+    // so navigating back shows only that section instead of both.
+    setMobileTab(condition.type === "Approach" ? "approaches" : "conditions");
   }, [router]);
 
-  const handleTagClick = useCallback((e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string) => {
+  const handleTagClick = useCallback((e: React.MouseEvent, type: "system" | "type" | "category" | "symptom", value: string, section: "condition" | "approach") => {
     e.stopPropagation();
     const params = new URLSearchParams(window.location.search);
     params.delete("id");
     router.push(`/dashboard/medical-library?${params.toString()}`);
     if (type === "system") {
-      setSelectedSystem(value);
-    } else if (type === "category") {
-      setSearchApproach(value);
-    } else if (type === "symptom") {
-      setSearchCondition(value);
+      if (section === "approach") {
+        setApproachSelectedSystem(value);
+      } else {
+        setMcSelectedSystem(value);
+      }
+      setMobileTab(section === "approach" ? "approaches" : "conditions");
+    } else if (type === "category" || type === "symptom") {
+      setSearchQuery(value);
     }
   }, [router]);
 
@@ -1053,45 +1260,96 @@ function MedicalLibraryContent() {
     localStorage.setItem("gpedge_favorite_conditions", JSON.stringify(updated));
   };
 
-  const handleDownloadNotes = (condition: MedicalCondition) => {
-    const content = `GP EDGE CLINICAL REFERENCE NOTE
-======================================
-Condition: ${condition.name}
-Breadcrumb: ${condition.system} > ${condition.category} > ${condition.name}
-Access Level: ${condition.isPremium ? "Premium / Paid Only" : "Free Access"}
-Last Updated: ${condition.lastUpdated}
-Author: ${condition.author}
+  const handleDownloadNotes = async (condition: MedicalCondition) => {
+    const url = condition.document?.downloadUrl;
+    const hasRealFile =
+      !!url &&
+      url !== "#" &&
+      !url.toLowerCase().includes(".docx") &&
+      !url.toLowerCase().includes(".doc");
 
-GP EDGE SUPER SUMMARY:
-${condition.document?.summary || `High-yield clinical overview for ${condition.name} detailing signs, symptoms, diagnostics, and treatments.`}
+    if (hasRealFile) {
+      // Download the exact same file that's shown in the preview — no regeneration.
+      const link = document.createElement("a");
+      link.href = url!;
+      link.setAttribute("download", condition.document?.filename || `${condition.name.replace(/\s+/g, "_")}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addUserNotification("Download Started", `Downloading ${condition.name}...`, 1, "custom");
+      return;
+    }
 
-CLINICAL SIGNS & SYMPTOMS:
-${condition.symptoms.length > 0 ? condition.symptoms.map((s) => `- ${s}`).join("\n") : "No signs or symptoms documented."}
+    // No standalone file attached (HTML-rendered content) — build a real PDF client-side
+    // from the exact content shown in the preview and download it directly. This works the
+    // same way on mobile as desktop, since it's a plain Blob download, not a print dialog.
+    //
+    // Rendered one page-chunk at a time (reusing the same pagination the viewer already
+    // uses) instead of one giant canvas for the whole document — a single huge canvas hits
+    // browser canvas-size limits on long documents and silently truncates the PDF.
+    addUserNotification("Preparing PDF", `Generating your PDF for ${condition.name}...`, 1, "custom");
 
-DIAGNOSIS & ASSESSMENT CRITERIA:
-${condition.diagnosisCriteria.length > 0 ? condition.diagnosisCriteria.map((c, i) => `${i + 1}. ${c}`).join("\n") : "No diagnostics guidelines documented."}
+    const pageChunks = condition.document?.pages && condition.document.pages.length > 0
+      ? condition.document.pages
+      : [condition.clinicalNotes || "<p>No content available.</p>"];
 
-MANAGEMENT & TREATMENT REGIMEN:
-${condition.treatmentOptions.length > 0 ? condition.treatmentOptions.map((o, i) => `${i + 1}. ${o}`).join("\n") : "No treatments options documented."}
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
 
-CLINICAL NOTES & SUMMARY PEARLS:
-${condition.clinicalNotes || "No notes documented."}
+      const PAGE_W = 595.28;
+      const PAGE_H = 841.89;
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
 
-References:
-${condition.references && condition.references.length > 0 ? condition.references.map((r) => `[${r.id}] ${r.text}`).join("\n") : "No references documented."}
+      for (let i = 0; i < pageChunks.length; i++) {
+        const container = document.createElement("div");
+        container.style.position = "absolute";
+        container.style.top = "0";
+        container.style.left = "-9999px";
+        container.style.width = "794px";
+        container.style.background = "#ffffff";
+        container.style.padding = "48px";
+        container.className = "print-area";
+        container.innerHTML = `
+          <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; overflow:hidden; z-index:0;">
+            <span style="opacity:0.05; transform:rotate(35deg); font-family: Arial, Helvetica, sans-serif; font-weight:900; font-size:96px; letter-spacing:0.05em; color:#0f172a; white-space:nowrap;">GP EDGE</span>
+          </div>
+          <div style="position:relative; z-index:1; font-family: Arial, Helvetica, sans-serif; color:#1e293b;">
+            ${i === 0 ? `
+              <div style="border-bottom:2px solid #0d9488; padding-bottom:12px; margin-bottom:20px;">
+                <div style="font-size:10px; font-weight:700; color:#0d9488; text-transform:uppercase; letter-spacing:0.05em;">${condition.system} &middot; ${condition.category}</div>
+                <h1 style="font-size:22px; margin:6px 0 0; color:#0f172a;">${decodeHtmlEntities(condition.name)}</h1>
+              </div>
+            ` : ""}
+            ${sanitizeHtml(pageChunks[i])}
+          </div>
+        `;
+        document.body.appendChild(container);
 
---------------------------------------
-GP EDGE Clinical Reference Library - Confidential Reference Guide
-`;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${condition.name.replace(/\s+/g, "_")}_Notes.txt`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    addUserNotification("Notes Downloaded", `Successfully downloaded notes file for ${condition.name}.`, 1, "custom");
+        try {
+          const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
+          const imgData = canvas.toDataURL("image/jpeg", 0.92);
+          let renderW = PAGE_W;
+          let renderH = (canvas.height * renderW) / canvas.width;
+          if (renderH > PAGE_H) {
+            renderH = PAGE_H;
+            renderW = (canvas.width * renderH) / canvas.height;
+          }
+          if (i > 0) pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, 0, renderW, renderH);
+        } finally {
+          document.body.removeChild(container);
+        }
+      }
+
+      pdf.save(`${condition.name.replace(/\s+/g, "_")}.pdf`);
+      addUserNotification("Download Started", `Your PDF for ${condition.name} is downloading.`, 1, "custom");
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+      addUserNotification("Download Failed", `Could not generate the PDF for ${condition.name}. Please try again.`, 1, "custom");
+    }
   };
 
   const primarySystems = useMemo(() => bodySystems.slice(0, 5), []);
@@ -1118,134 +1376,81 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
             exit="exit"
             className="space-y-6"
           >
-            {/* Dual Search boxes */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 w-full select-none">
-              {/* Box 1: Condition search */}
-              <div className="flex flex-col gap-1 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Search by medical condition</span>
-                <div className="relative flex items-center bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/80 rounded-xl sm:rounded-2xl shadow-sm">
-                  <Lucide.Search className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchCondition}
-                    onChange={(e) => setSearchCondition(e.target.value)}
-                    placeholder="Search symptoms or conditions..."
-                    className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm"
-                  />
-                  {searchCondition && (
-                    <button
-                      onClick={() => setSearchCondition("")}
-                      className="absolute right-3 p-1.5 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                      <Lucide.X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              {/* Box 2: Approach search */}
-              <div className="flex flex-col gap-1 flex-1">
-                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Search by approach</span>
-                <div className="relative flex items-center bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/80 rounded-xl sm:rounded-2xl shadow-sm">
-                  <Lucide.SlidersHorizontal className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchApproach}
-                    onChange={(e) => setSearchApproach(e.target.value)}
-                    placeholder="Search guidelines or management..."
-                    className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm"
-                  />
-                  {searchApproach && (
-                    <button
-                      onClick={() => setSearchApproach("")}
-                      className="absolute right-3 p-1.5 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
-                    >
-                      <Lucide.X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+            {/* Unified Search Box (covers conditions & approaches) */}
+            <div className="flex flex-col gap-1 w-full select-none">
+              <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Search conditions &amp; approaches</span>
+              <div className="relative flex items-center bg-white/70 dark:bg-slate-900/70 border border-slate-200/60 dark:border-slate-800/80 rounded-xl sm:rounded-2xl shadow-sm">
+                <Lucide.Search className="absolute left-3.5 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search symptoms, conditions, guidelines or management..."
+                  className="w-full pl-10 pr-9 py-2.5 sm:py-3 bg-transparent border-0 focus:outline-none focus:ring-0 text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 text-xs sm:text-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 p-1.5 border-none bg-transparent cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  >
+                    <Lucide.X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
-            {/* Mobile & Desktop Touch-Scrollable System Filters Bar + Saved Bookmarks Button */}
-            <div className="flex flex-col gap-2 select-none">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase font-bold text-slate-450 dark:text-slate-500 tracking-wider">Filter by System</span>
-                <div className="flex items-center gap-2">
-                  {selectedSystem !== "all" && (
-                    <button
-                      onClick={() => setSelectedSystem("all")}
-                      className="text-[10px] font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer border-none bg-transparent mr-1"
-                    >
-                      Reset Filter
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setShowFavoritesOnly((prev) => !prev)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
-                      showFavoritesOnly
-                        ? "bg-teal-600 text-white border-teal-600 shadow-sm"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-600 dark:hover:text-teal-400"
-                    }`}
-                  >
-                    {showFavoritesOnly ? (
-                      <Lucide.BookmarkCheck className="w-3.5 h-3.5" />
-                    ) : (
-                      <Lucide.Bookmark className="w-3.5 h-3.5" />
-                    )}
-                    Saved Templates
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full">
-                <button
-                  onClick={() => setSelectedSystem("all")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selectedSystem === "all" ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                >
-                  All Systems
-                </button>
-                {[...primarySystems, ...secondarySystems].map((sys) => (
-                  <button
-                    key={sys.id}
-                    onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-xl border shrink-0 transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-600 shadow-sm" : "bg-white/70 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-                  >
-                    {sys.name} ({systemCounts.get(sys.name) || 0})
-                  </button>
-                ))}
-              </div>
+            {/* Saved Bookmarks toggle — system filters now live inside each section below */}
+            <div className="flex items-center justify-end select-none">
+              <button
+                onClick={() => setShowFavoritesOnly((prev) => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+                  showFavoritesOnly
+                    ? "bg-teal-600 text-white border-teal-600 shadow-sm"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-teal-400 hover:text-teal-600 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300 dark:hover:border-teal-600 dark:hover:text-teal-400"
+                }`}
+              >
+                {showFavoritesOnly ? (
+                  <Lucide.BookmarkCheck className="w-3.5 h-3.5" />
+                ) : (
+                  <Lucide.Bookmark className="w-3.5 h-3.5" />
+                )}
+                Saved Templates
+              </button>
             </div>
 
             {/* Mobile View Switcher Tabs (Only visible on small screens < md) */}
             <div className="flex md:hidden flex-col gap-3 w-full select-none">
-              <div className="grid grid-cols-3 bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-2xl gap-1 border border-slate-300/40 dark:border-slate-700/40 text-center">
-                <button
-                  onClick={() => setMobileTab("all")}
-                  className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "all" ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
-                >
-                  All ({mcConditions.length + approachConditions.length})
-                </button>
+              <div className="grid grid-cols-2 bg-slate-200/60 dark:bg-slate-800/80 p-1 rounded-2xl gap-1 border border-slate-300/40 dark:border-slate-700/40 text-center">
                 <button
                   onClick={() => setMobileTab("conditions")}
                   className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "conditions" ? "bg-white dark:bg-slate-900 text-green-700 dark:text-green-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
                 >
-                  Conditions ({mcConditions.length})
+                  Conditions ({totalMcCount})
                 </button>
                 <button
                   onClick={() => setMobileTab("approaches")}
                   className={`py-2 px-1 text-xs font-bold rounded-xl transition-all border-none cursor-pointer ${mobileTab === "approaches" ? "bg-white dark:bg-slate-900 text-teal-700 dark:text-teal-400 shadow-sm" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"}`}
                 >
-                  Approaches ({approachConditions.length})
+                  Approaches ({totalApproachCount})
                 </button>
               </div>
 
               {/* Mobile Full-width Cards Grid */}
               <div className="space-y-6 pt-1">
-                {(mobileTab === "all" || mobileTab === "conditions") && (
+                {mobileTab === "conditions" && (
                   <div className="space-y-3">
+                    <SystemFilterBar
+                      label="Filter Conditions by System"
+                      systems={[...primarySystems, ...secondarySystems]}
+                      selected={mcSelectedSystem}
+                      onSelect={setMcSelectedSystem}
+                      counts={mcSystemCounts}
+                      slide={mcSlide}
+                    />
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-green-500" />
-                        Medical Conditions ({mcConditions.length})
+                        Medical Conditions ({totalMcCount})
                       </h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
@@ -1256,15 +1461,34 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         <div className="w-full text-center py-8 text-slate-400 text-xs bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">No conditions match your search.</div>
                       )}
                     </div>
+                    {mcHasMore && (
+                      <div className="flex justify-center pt-2">
+                        <button
+                          onClick={() => setMcVisibleLimit((prev) => prev + 10)}
+                          className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <span>See More</span>
+                          <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {(mobileTab === "all" || mobileTab === "approaches") && (
+                {mobileTab === "approaches" && (
                   <div className="space-y-3">
+                    <SystemFilterBar
+                      label="Filter Approaches by System"
+                      systems={[...primarySystems, ...secondarySystems]}
+                      selected={approachSelectedSystem}
+                      onSelect={setApproachSelectedSystem}
+                      counts={approachSystemCounts}
+                      slide={approachSlide}
+                    />
                     <div className="flex items-center justify-between px-1">
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-teal-500" />
-                        Clinical Approaches ({approachConditions.length})
+                        Clinical Approaches ({totalApproachCount})
                       </h3>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
@@ -1275,6 +1499,17 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                         <div className="w-full text-center py-8 text-slate-400 text-xs bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">No clinical approaches match your search.</div>
                       )}
                     </div>
+                    {approachHasMore && (
+                      <div className="flex justify-center pt-2">
+                        <button
+                          onClick={() => setApproachVisibleLimit((prev) => prev + 10)}
+                          className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                          <span>See More</span>
+                          <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1295,7 +1530,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   <div className={`bg-slate-50/80 dark:bg-slate-950/40 relative ${paneConfig === "3-0" ? "col-span-3" : paneConfig === "2-1" ? "col-span-2" : "col-span-1"}`}>
                      <div className="p-5 sticky top-0 bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-3 rounded-tl-3xl">
                        <div className="flex items-center justify-between">
-                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({mcConditions.length})</h3>
+                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Medical Conditions ({totalMcCount})</h3>
                          <div className="relative">
                             <button 
                               onClick={() => setShowMCFilters(!showMCFilters)}
@@ -1317,9 +1552,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                              className="overflow-hidden"
                            >
                              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                <button onClick={() => setMcSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${mcSelectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                 {[...primarySystems, ...secondarySystems].map(sys => (
-                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                  <button key={sys.id} onClick={() => setMcSelectedSystem(mcSelectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-xl border transition-all cursor-pointer ${mcSelectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                 ))}
                              </div>
                            </motion.div>
@@ -1334,6 +1569,17 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                          <div className="w-full text-center py-10 text-slate-400 text-sm">No conditions match your filters.</div>
                        )}
                      </div>
+                     {mcHasMore && (
+                       <div className="flex justify-center pb-5">
+                         <button
+                           onClick={() => setMcVisibleLimit((prev) => prev + 10)}
+                           className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                         >
+                           <span>See More</span>
+                           <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
+                         </button>
+                       </div>
+                     )}
                    </div>
                 )}
 
@@ -1342,7 +1588,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                   <div className={`bg-slate-100/50 dark:bg-slate-900/30 relative ${paneConfig === "0-3" ? "col-span-3" : paneConfig === "1-2" ? "col-span-2" : "col-span-1"}`}>
                      <div className="p-5 sticky top-0 bg-slate-100/90 dark:bg-slate-900/90 backdrop-blur z-10 border-b border-slate-200/50 dark:border-slate-800/50 flex flex-col gap-3 rounded-tr-3xl">
                        <div className="flex items-center justify-between">
-                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({approachConditions.length})</h3>
+                         <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Clinical Approaches ({totalApproachCount})</h3>
                          <button 
                            onClick={() => setShowApproachFilters(!showApproachFilters)}
                            className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer ${showApproachFilters ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200" : "bg-white/60 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
@@ -1361,9 +1607,9 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                              className="overflow-hidden"
                            >
                              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
-                                <button onClick={() => setSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
+                                <button onClick={() => setApproachSelectedSystem("all")} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${approachSelectedSystem === "all" ? "bg-slate-800 text-white border-slate-900 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>All</button>
                                 {[...primarySystems, ...secondarySystems].map(sys => (
-                                  <button key={sys.id} onClick={() => setSelectedSystem(selectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${selectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
+                                  <button key={sys.id} onClick={() => setApproachSelectedSystem(approachSelectedSystem === sys.id ? "all" : sys.id)} className={`px-3 py-1 text-[10px] font-bold rounded-full border transition-all cursor-pointer ${approachSelectedSystem === sys.id ? "bg-teal-600 text-white border-teal-700 shadow-sm" : "bg-white/50 border-slate-200 text-slate-500 hover:bg-slate-100"}`}>{sys.name}</button>
                                 ))}
                              </div>
                            </motion.div>
@@ -1378,6 +1624,17 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                          <div className="w-full text-center py-10 text-slate-400 text-sm">No approaches match your filters.</div>
                        )}
                      </div>
+                     {approachHasMore && (
+                       <div className="flex justify-center pb-5">
+                         <button
+                           onClick={() => setApproachVisibleLimit((prev) => prev + 10)}
+                           className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                         >
+                           <span>See More</span>
+                           <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
+                         </button>
+                       </div>
+                     )}
                   </div>
                 )}
               </div>
@@ -1426,17 +1683,6 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
               </AnimatePresence>
             </div>
 
-            {hasMore && (
-              <div className="flex justify-center pt-6 pb-2 select-none">
-                <button
-                  onClick={() => setVisibleLimit((prev) => prev + 9)}
-                  className="px-6 py-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs sm:text-sm rounded-2xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 hover:shadow-md active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <span>See More Notes</span>
-                  <Lucide.ChevronDown className="w-4 h-4 text-slate-400" />
-                </button>
-              </div>
-            )}
           </motion.div>
         ) : (
           /* ─── DETAIL VIEW ────────────────────────────────────────────────── */
@@ -1463,8 +1709,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
 
             {/* Split Screen 12 Column Layout */}
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-              {/* Left Column: Clinical Info */}
-              <div className="xl:col-span-7 min-w-0">
+              {/* Left Column: Clinical Info — shown after the PDF preview on mobile/tablet */}
+              <div className="order-2 xl:order-1 xl:col-span-7 min-w-0">
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 lg:p-8 border border-slate-200 dark:border-slate-800 shadow-lg space-y-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-gradient-to-br from-green-500/5 to-transparent rounded-full blur-2xl pointer-events-none" />
 
@@ -1482,7 +1728,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                     <div>
                       <div className="flex items-center gap-2 mb-2 flex-wrap select-none">
                         <span
-                          onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
+                          onClick={(e) => handleTagClick(e, "system", selectedCondition.system, selectedCondition.type === "Approach" ? "approach" : "condition")}
                           className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-850 text-slate-300 border border-slate-700 cursor-pointer hover:bg-slate-700 transition-colors"
                         >
                           {selectedCondition.system}
@@ -1539,7 +1785,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                       <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350">{selectedCondition.author}</span>
                     </div>
                     <div
-                      onClick={(e) => handleTagClick(e, "system", selectedCondition.system)}
+                      onClick={(e) => handleTagClick(e, "system", selectedCondition.system, selectedCondition.type === "Approach" ? "approach" : "condition")}
                       className="cursor-pointer hover:bg-slate-200/50 dark:hover:bg-slate-800/85 p-1 rounded-xl transition-colors"
                     >
                       <span className="font-sans text-[9px] font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400 block select-none">System</span>
@@ -1649,8 +1895,8 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                 </div>
               </div>
 
-              {/* Right Column: PDF Viewer or Placeholder */}
-              <div className="xl:col-span-5 space-y-5 min-w-0">
+              {/* Right Column: PDF Viewer or Placeholder — shown first on mobile/tablet */}
+              <div className="order-1 xl:order-2 xl:col-span-5 space-y-5 min-w-0">
                 {selectedCondition.type === "Approach" && (!selectedCondition.document?.pages || selectedCondition.document.pages.length === 0) ? (
                   (() => {
                     const sys = getSystem(selectedCondition.system);
@@ -2138,7 +2384,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                                   <div className="text-center">
                                     <span className="text-[9px] font-bold tracking-widest text-green-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
                                     <h2 className="font-sans text-lg font-extrabold text-slate-900 leading-tight mt-1">{selectedCondition.name} Outline</h2>
-                                    <p className="text-[9px] text-slate-500 mt-0.5 index-index">Reference Index: {selectedCondition.id} · {selectedCondition.category}</p>
+                                    <p className="text-[9px] text-slate-500 mt-0.5 index-index">{selectedCondition.category}</p>
                                   </div>
                                   <p className="font-medium text-slate-600 border-l-2 border-slate-200 pl-3 italic text-xs leading-relaxed">
                                     {selectedCondition.document?.summary || `This high-yield clinical overview for ${selectedCondition.name} details major symptoms presentation, diagnostic steps benchmarks, and stepwise management options.`}
@@ -2253,7 +2499,7 @@ GP EDGE Clinical Reference Library - Confidential Reference Guide
                           {/* Footer */}
                           <footer className="absolute bottom-8 left-16 right-16 border-t border-slate-200 pt-3 flex items-center justify-between text-[8px] text-slate-400 font-medium select-none uppercase tracking-wider">
                             <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
-                            <span>{selectedCondition.id} · Page {pdfPage} of {selectedCondition.document.totalPages}</span>
+                            <span>Page {pdfPage} of {selectedCondition.document.totalPages}</span>
                           </footer>
                         </div>
                       </div>

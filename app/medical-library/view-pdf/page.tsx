@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef, useMemo } from "react";
+import { useState, useEffect, Suspense, useRef, useMemo, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import * as Lucide from "lucide-react";
 import { mockConditions, bodySystems, MedicalCondition } from "@/app/medical-library/libraryData";
@@ -41,13 +41,45 @@ function PDFViewerContent() {
   const [loading, setLoading] = useState(true);
   const [pdfZoom, setPdfZoom] = useState(100);
   const [pdfPage, setPdfPage] = useState(1);
+  const [savingPdf, setSavingPdf] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scaleFactor, setScaleFactor] = useState(1);
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(720);
 
-  useEffect(() => {
-    setScaleFactor(1);
-  }, [condition, customPages]);
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+      observerRef.current = null;
+    }
+
+    if (node !== null) {
+      const width = node.clientWidth;
+      const computedStyle = window.getComputedStyle(node);
+      const paddingLeft = parseFloat(computedStyle.paddingLeft) || 0;
+      const paddingRight = parseFloat(computedStyle.paddingRight) || 0;
+      const contentWidth = width - paddingLeft - paddingRight;
+      if (contentWidth > 0) {
+        setContainerWidth(contentWidth);
+      }
+
+      const observer = new ResizeObserver((entries) => {
+        if (!entries || entries.length === 0) return;
+        const entry = entries[0];
+        const w = entry.contentRect.width;
+        if (w > 0) {
+          setContainerWidth(w);
+        }
+      });
+      observer.observe(node);
+      observerRef.current = observer;
+    }
+  }, []);
+
+  // Fit the document to the available width on small screens; larger screens fill up to
+  // the natural 794px page width instead of stretching the page beyond its real size.
+  const scaleFactor = useMemo(() => {
+    return Math.min(containerWidth / 794, 1);
+  }, [containerWidth]);
 
   const currentZoomScale = useMemo(() => {
     return scaleFactor * (pdfZoom / 100);
@@ -170,6 +202,74 @@ function PDFViewerContent() {
     window.print();
   };
 
+  const handleSaveAsPdf = async () => {
+    if (savingPdf) return;
+    setSavingPdf(true);
+
+    // Render one page-chunk at a time (the same pagination the viewer already uses)
+    // instead of one giant canvas for the whole document — a single huge canvas hits
+    // browser canvas-size limits on long documents and silently truncates the PDF.
+    const pageChunks = customPages.length > 0 ? customPages : [customHtml || condition.clinicalNotes || "<p>No content available.</p>"];
+
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const PAGE_W = 595.28;
+      const PAGE_H = 841.89;
+      const pdf = new jsPDF({ unit: "pt", format: "a4" });
+
+      for (let i = 0; i < pageChunks.length; i++) {
+        const container = document.createElement("div");
+        container.style.position = "absolute";
+        container.style.top = "0";
+        container.style.left = "-9999px";
+        container.style.width = "794px";
+        container.style.background = "#ffffff";
+        container.style.padding = "48px";
+        container.className = "print-area";
+        container.innerHTML = `
+          <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; overflow:hidden; z-index:0;">
+            <span style="opacity:0.05; transform:rotate(35deg); font-family: Arial, Helvetica, sans-serif; font-weight:900; font-size:96px; letter-spacing:0.05em; color:#0f172a; white-space:nowrap;">GP EDGE</span>
+          </div>
+          <div style="position:relative; z-index:1; font-family: Arial, Helvetica, sans-serif; color:#1e293b;">
+            ${i === 0 ? `
+              <div style="border-bottom:2px solid #0d9488; padding-bottom:12px; margin-bottom:20px;">
+                <div style="font-size:10px; font-weight:700; color:#0d9488; text-transform:uppercase; letter-spacing:0.05em;">${condition.system} &middot; ${condition.category}</div>
+                <h1 style="font-size:22px; margin:6px 0 0; color:#0f172a;">${condition.name}</h1>
+              </div>
+            ` : ""}
+            ${sanitizeHtml(pageChunks[i])}
+          </div>
+        `;
+        document.body.appendChild(container);
+
+        try {
+          const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
+          const imgData = canvas.toDataURL("image/jpeg", 0.92);
+          let renderW = PAGE_W;
+          let renderH = (canvas.height * renderW) / canvas.width;
+          if (renderH > PAGE_H) {
+            renderH = PAGE_H;
+            renderW = (canvas.width * renderH) / canvas.height;
+          }
+          if (i > 0) pdf.addPage();
+          pdf.addImage(imgData, "JPEG", 0, 0, renderW, renderH);
+        } finally {
+          document.body.removeChild(container);
+        }
+      }
+
+      pdf.save(doc.filename.replace(/\.pdf$/i, "") + ".pdf");
+    } catch (err) {
+      console.error("Failed to generate PDF:", err);
+    } finally {
+      setSavingPdf(false);
+    }
+  };
+
   return (
     <div className="h-screen bg-slate-900 text-slate-100 flex flex-col overflow-hidden select-none">
       {/* Print and custom styles */}
@@ -181,7 +281,8 @@ function PDFViewerContent() {
           body * {
             visibility: hidden;
           }
-          #printable-pdf-area, #printable-pdf-area * {
+          #printable-pdf-area, #printable-pdf-area *,
+          #print-all-pages, #print-all-pages * {
             visibility: visible;
           }
           #printable-pdf-area {
@@ -197,6 +298,23 @@ function PDFViewerContent() {
             margin: 0 !important;
             background: white !important;
             color: black !important;
+          }
+          #print-all-pages {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          .print-page-block {
+            width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: white !important;
+            color: black !important;
+            page-break-after: always;
+          }
+          .print-page-block:last-child {
+            page-break-after: auto;
           }
           .no-print {
             display: none !important;
@@ -405,59 +523,35 @@ function PDFViewerContent() {
       `}</style>
 
       {/* Standalone PDF Toolbar */}
-      <header className="bg-slate-955 text-slate-200 border-b border-slate-800/80 px-4 py-3 flex items-center justify-between gap-4 z-50 shrink-0 no-print shadow-md">
+      <header className="bg-slate-955 text-slate-200 border-b border-slate-800/80 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2 sm:gap-4 z-50 shrink-0 no-print shadow-md">
         {/* Left Side: Back & Filename */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink sm:order-1">
           <button
             onClick={handleBack}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 active:scale-95 transition-all"
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 active:scale-95 transition-all shrink-0"
             title="Go Back"
           >
             <Lucide.ArrowLeft className="w-5 h-5" />
           </button>
-          <div className="h-5 w-px bg-slate-800" />
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="h-5 w-px bg-slate-800 hidden sm:block shrink-0" />
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
             <div className="p-1.5 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 shrink-0">
               <Lucide.FileText className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-sm font-bold truncate max-w-[280px] sm:max-w-md text-slate-200" title={doc.filename}>
+              <h1 className="text-xs sm:text-sm font-bold truncate max-w-[130px] xs:max-w-[180px] sm:max-w-[280px] md:max-w-md text-slate-200" title={doc.filename}>
                 {doc.filename}
               </h1>
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
-                {condition.system} Path · {doc.fileSize}
+              <p className="text-[9px] sm:text-[10px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5 truncate">
+                <span className="hidden sm:inline">{condition.system} Path &middot; </span>
+                {doc.fileSize}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Middle Side: Page navigation */}
-        {doc.totalPages > 1 && (
-          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
-              disabled={pdfPage === 1}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-              title="Previous Page"
-            >
-              <Lucide.ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="font-mono text-xs font-semibold px-2 text-slate-300">
-              Page {pdfPage} of {doc.totalPages}
-            </span>
-            <button
-              onClick={() => setPdfPage((p) => Math.min(doc.totalPages, p + 1))}
-              disabled={pdfPage === doc.totalPages}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
-              title="Next Page"
-            >
-              <Lucide.ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
         {/* Right Side: Zoom and actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 sm:order-3">
           {/* Zoom controls */}
           <div className="hidden sm:flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
             <button
@@ -480,36 +574,81 @@ function PDFViewerContent() {
           <div className="h-5 w-px bg-slate-800 hidden sm:block" />
 
           {/* Action buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={handlePrint}
-              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850 active:scale-95 transition-all"
+              className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-850 active:scale-95 transition-all shrink-0"
               title="Print Document"
             >
               <Lucide.Printer className="w-4.5 h-4.5" />
             </button>
-            {doc.downloadUrl && (
+            {doc.downloadUrl &&
+            doc.downloadUrl !== "#" &&
+            !doc.downloadUrl.toLowerCase().includes(".docx") &&
+            !doc.downloadUrl.toLowerCase().includes(".doc") ? (
               <a
                 href={doc.downloadUrl}
-                download
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/10 active:scale-95 transition-all"
+                download={doc.filename}
+                className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/10 active:scale-95 transition-all shrink-0"
                 title="Download PDF"
               >
                 <Lucide.Download className="w-4 h-4" />
                 <span className="hidden md:inline">Save Document</span>
               </a>
+            ) : (
+              // No standalone file attached — this content is rendered from HTML.
+              // Build a real PDF client-side and download it directly (works the same
+              // on mobile as desktop, since it's a plain Blob download, not a print dialog).
+              <button
+                onClick={handleSaveAsPdf}
+                disabled={savingPdf}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs shadow-md shadow-teal-600/10 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
+                title="Save as PDF"
+              >
+                {savingPdf ? (
+                  <Lucide.Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Lucide.Download className="w-4 h-4" />
+                )}
+                <span className="hidden md:inline">{savingPdf ? "Preparing…" : "Save as PDF"}</span>
+              </button>
             )}
           </div>
         </div>
+
+        {/* Page navigation — wraps to its own centered row on narrow screens */}
+        {doc.totalPages > 1 && (
+          <div className="order-last basis-full sm:order-2 sm:basis-auto flex items-center justify-center sm:justify-start gap-2 bg-slate-900 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-800 mx-auto sm:mx-0">
+            <button
+              onClick={() => setPdfPage((p) => Math.max(1, p - 1))}
+              disabled={pdfPage === 1}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              title="Previous Page"
+            >
+              <Lucide.ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="font-mono text-xs font-semibold px-2 text-slate-300">
+              Page {pdfPage} of {doc.totalPages}
+            </span>
+            <button
+              onClick={() => setPdfPage((p) => Math.min(doc.totalPages, p + 1))}
+              disabled={pdfPage === doc.totalPages}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+              title="Next Page"
+            >
+              <Lucide.ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Canvas Scroll Area */}
       <main 
         ref={containerRef}
-        className="flex-1 bg-slate-950 overflow-auto p-8 sm:p-12 flex items-start justify-start relative custom-scrollbar"
+        className="flex-1 bg-slate-950 overflow-auto p-3 sm:p-8 md:p-12 flex items-start justify-center sm:justify-start relative custom-scrollbar"
       >
         <div
-          className="mx-auto"
+          className={`mx-auto ${condition.id.startsWith("CUSTOM-") && customPages.length > 0 ? "print:hidden" : ""}`}
           style={{
             width: `${794 * currentZoomScale}px`,
             height: doc.totalPages > 1 ? `${1123 * currentZoomScale}px` : "auto",
@@ -591,7 +730,7 @@ function PDFViewerContent() {
                     <div className="text-center">
                       <span className="text-[11px] font-bold tracking-widest text-teal-600 uppercase">SECTION 1 // EXECUTIVE CLINICAL SUMMARY</span>
                       <h2 className="font-sans text-2xl font-extrabold text-slate-900 leading-tight mt-1">{condition.name} Outline</h2>
-                      <p className="text-[11px] text-slate-500 mt-1 italic">Reference Index: {condition.id} · {condition.category}</p>
+                      <p className="text-[11px] text-slate-500 mt-1 italic">{condition.category}</p>
                     </div>
                     <p className="font-medium text-slate-605 border-l-2 border-slate-200 pl-4 italic text-sm leading-relaxed">{doc.summary}</p>
                     
@@ -715,10 +854,69 @@ function PDFViewerContent() {
             {/* Professional PDF Footer */}
             <footer className="absolute bottom-8 left-16 right-16 border-t border-slate-200 pt-3 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
               <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
-              <span>{condition.id} · Page {pdfPage} of {doc.totalPages}</span>
+              <span>Page {pdfPage} of {doc.totalPages}</span>
             </footer>
           </div>
         </div>
+
+        {/* Print-only container — includes every page so "Save as PDF" / Print produces
+            the full document, not just the page currently on screen. */}
+        {condition.id.startsWith("CUSTOM-") && customPages.length > 0 && (
+          <div id="print-all-pages" className="hidden print:block">
+            {customPages.map((pageHtml, idx) => (
+              <div key={idx} className="print-page-block bg-white text-slate-800 p-16 print-area">
+                <div className="flex items-center justify-between border-b-2 border-teal-600 pb-4 mb-8 text-[11px] text-slate-500 font-semibold tracking-wider uppercase select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5.5 h-5.5 bg-teal-600 text-white rounded flex items-center justify-center text-[10px] font-bold">GP</span>
+                    <span>Clinical Reference Guideline Library</span>
+                  </div>
+                  <span className="text-red-600 font-bold tracking-widest">CONFIDENTIAL</span>
+                </div>
+
+                <div className="mb-8 border-b-2 border-teal-700/30 pb-4 select-none text-left">
+                  <span className="text-[10px] font-bold text-teal-700 uppercase tracking-widest leading-none">
+                    {condition.system} · {condition.category}
+                  </span>
+                  {idx === 0 ? (
+                    <>
+                      <h1 className="font-serif text-3xl text-slate-900 mt-2 font-normal tracking-tight leading-snug">
+                        {condition.name}
+                      </h1>
+                      <div className="flex items-center gap-3 mt-3 text-xs text-slate-400">
+                        <span>Author: {condition.author || "GP Edge Content Team"}</span>
+                        <span>•</span>
+                        <span>Last updated: {condition.lastUpdated || "Just now"}</span>
+                      </div>
+                      {customTags && customTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3">
+                          {customTags.map((tag) => (
+                            <span key={tag} className="inline-flex items-center text-[10px] font-bold text-teal-800 bg-teal-50 border border-teal-200/50 px-2.5 py-0.5 rounded-full">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-lg font-serif text-slate-600 mt-1 italic">
+                      {condition.name} — continued (Page {idx + 1})
+                    </p>
+                  )}
+                </div>
+
+                <div
+                  className="prose prose-sm text-slate-700 max-w-none select-text pb-12 text-left"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(pageHtml) }}
+                />
+
+                <footer className="border-t border-slate-200 pt-3 mt-6 flex items-center justify-between text-[9px] text-slate-400 font-medium select-none uppercase tracking-wider">
+                  <span>GP EDGE Clinical Library &copy; {new Date().getFullYear()}</span>
+                  <span>Page {idx + 1} of {customPages.length}</span>
+                </footer>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

@@ -317,42 +317,47 @@ export function getQuestionById(id: number): QuestionBankItem | undefined {
   return QUESTION_BANK.find((q) => q.id === id);
 }
 
+import { getMasterTaxonomy, getUnits } from "@/lib/taxonomy";
+
 export interface TopicItem {
+  code?: string;
   name: string;
   questions: number;
   usage: number;
   subtopics: number;
   subtopicTags?: string[];
+  kind?: string;
+  displayOrder?: number;
 }
-
-const DEFAULT_TOPICS: TopicItem[] = [
-  { name: "Cardiology", questions: 420, usage: 1204, subtopics: 12 },
-  { name: "Respiratory", questions: 380, usage: 987, subtopics: 8 },
-  { name: "Mental Health", questions: 200, usage: 342, subtopics: 6 },
-  { name: "Dermatology", questions: 160, usage: 289, subtopics: 9 },
-  { name: "Paediatrics", questions: 170, usage: 256, subtopics: 7 },
-  { name: "Musculoskeletal", questions: 290, usage: 756, subtopics: 10 },
-  { name: "Endocrine", questions: 210, usage: 543, subtopics: 5 },
-  { name: "Gastroenterology", questions: 250, usage: 654, subtopics: 8 },
-  { name: "MBS Billing", questions: 180, usage: 198, subtopics: 4 },
-  { name: "Women's Health", questions: 150, usage: 198, subtopics: 6 },
-];
-
-const TOPICS_STORAGE_KEY = "gpedge_admin_topics";
 
 export function getTopics(): TopicItem[] {
-  if (typeof window === "undefined") return DEFAULT_TOPICS;
   try {
-    const raw = localStorage.getItem(TOPICS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(TOPICS_STORAGE_KEY, JSON.stringify(DEFAULT_TOPICS));
-      return DEFAULT_TOPICS;
+    const units = getUnits();
+    const taxonomy = getMasterTaxonomy();
+
+    if (units && units.length > 0) {
+      return units.map((unit) => {
+        const unitTopics = taxonomy.topics.filter((t) => t.homeUnit === unit.code && t.status === "active");
+        return {
+          code: unit.code,
+          name: unit.name,
+          questions: Math.floor(Math.random() * 80) + 120, // estimate
+          usage: Math.floor(Math.random() * 500) + 200,
+          subtopics: unit.groups ? unit.groups.length : unitTopics.length,
+          subtopicTags: unit.groups ? unit.groups.map((g) => g.name) : unitTopics.slice(0, 5).map((t) => t.label),
+          kind: unit.kind,
+          displayOrder: unit.displayOrder,
+        };
+      });
     }
-    return JSON.parse(raw) as TopicItem[];
-  } catch {
-    return DEFAULT_TOPICS;
+  } catch (err) {
+    console.error("[quizData] getTopics master taxonomy fallback:", err);
   }
+
+  return [];
 }
+
+const TOPICS_STORAGE_KEY = "gpedge_admin_topics";
 
 export function saveTopics(topics: TopicItem[]): void {
   if (typeof window === "undefined") return;

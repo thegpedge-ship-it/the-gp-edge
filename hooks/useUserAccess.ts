@@ -45,9 +45,11 @@ export interface UserAccessState {
 }
 
 export function useUserAccess(): UserAccessState {
+  // 1. State initialization - must come first, before any useEffect or useCallback
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState<SerializedUserAccess | null>(null);
 
+  // 2. Callback for fetching - depends only on stable refs (empty deps)
   const fetchAccess = useCallback(() => {
     setLoading(true);
     getUserAccessAction()
@@ -60,16 +62,20 @@ export function useUserAccess(): UserAccessState {
       .finally(() => {
         setLoading(false);
       });
-  }, []);
+  }, []); // Empty deps array ensures stable callback reference
 
+  // 3. Effect to fetch on mount - depends on fetchAccess
   useEffect(() => {
     fetchAccess();
   }, [fetchAccess]);
 
+  // 4. Derived values - computed AFTER state and effects
+  // These must be placed after the useEffect above to maintain consistent hook order
   const hasPaidAccess = !loading && (access?.hasPaidAccess ?? false);
   const isRegistrarActive = !loading && (access?.isRegistrarActive ?? false);
   const trainingStage = access?.trainingStage ?? "REGISTRAR";
 
+  // 5. Return stable shape
   return {
     loading,
     access,
@@ -78,8 +84,8 @@ export function useUserAccess(): UserAccessState {
     isRegistrarActive,
     hasAnyPaidPlan: hasPaidAccess,
     cancelAtPeriodEnd: !loading && (access?.cancelAtPeriodEnd ?? false),
-    currentPeriodEnd: !loading ? (access?.currentPeriodEnd ?? null) : null,
     refresh: fetchAccess,
+    currentPeriodEnd: !loading ? (access?.currentPeriodEnd ?? null) : null,
   };
 }
 
