@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { LibraryBig, ClipboardList, FilePenLine, BookCheck, Lock, Unlock, ArrowRight, Info } from "lucide-react";
+import { LibraryBig, ClipboardList, FilePenLine, BookCheck, Lock, Unlock, ArrowRight, Info, MessageSquare } from "lucide-react";
+import Link from "next/link";
 import { cachedMockTests, clearMockTestsCache } from "@/lib/examCache";
 import type { UiMockTest } from "@/app/exam-prep/actions";
 import { fetchQuizzesFromDbAction } from "@/actions/quiz.actions";
@@ -138,6 +139,14 @@ export default function ExamPrepPage() {
     <div
       className="relative flex flex-col justify-center items-center py-8 lg:py-16 min-h-[calc(100vh-100px)] w-full"
     >
+      <Link
+        href="/exam-prep/my-feedback"
+        className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-400 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-300 dark:hover:border-teal-600 transition-all duration-200 shadow-sm"
+      >
+        <MessageSquare className="w-3.5 h-3.5" />
+        My Feedback
+      </Link>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}

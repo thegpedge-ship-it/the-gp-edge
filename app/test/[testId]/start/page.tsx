@@ -70,8 +70,8 @@ function AnimatedScoreCircle({ score }: { score: number }) {
     </div>
   );
 }
-import { getQuestionsByIds, saveQuizAttempt, saveQuestionFeedback } from "@/app/exam-prep/actions";
-import type { QuizQuestion, SaveAttemptInput } from "@/app/exam-prep/actions";
+import { getQuestionsByIds, saveQuizAttempt, saveQuestionFeedback, getUserFeedbackForQuestions } from "@/app/exam-prep/actions";
+import type { QuizQuestion, SaveAttemptInput, UserQuestionFeedback } from "@/app/exam-prep/actions";
 import { clearMockTestsCache } from "@/lib/examCache";
 import { buildReportData, reportFileName } from "@/lib/report/buildReportData";
 import { generateReportBlob } from "@/lib/report/generateReport";
@@ -357,6 +357,8 @@ export default function TestPage() {
   const [fbSuggestedAnswer, setFbSuggestedAnswer] = useState("");
   const [fbDisputedAnswer, setFbDisputedAnswer] = useState("");
   const [timerPaused, setTimerPaused] = useState(false);
+  const [userFeedbacks, setUserFeedbacks] = useState<Map<string, UserQuestionFeedback[]>>(new Map());
+  const [viewingFeedback, setViewingFeedback] = useState<UserQuestionFeedback[] | null>(null);
 
   const [reportState, setReportState] = useState<"generating" | "ready" | "error">("generating");
   const reportBlobRef = useRef<Blob | null>(null);
@@ -414,6 +416,17 @@ export default function TestPage() {
         setQuestions(qs);
         startedAtRef.current = new Date().toISOString();
         setLoading(false);
+        getUserFeedbackForQuestions(plan.questionIds).then((feedbacks) => {
+          if (!cancelled) {
+            const map = new Map<string, UserQuestionFeedback[]>();
+            for (const fb of feedbacks) {
+              const arr = map.get(fb.questionId) ?? [];
+              arr.push(fb);
+              map.set(fb.questionId, arr);
+            }
+            setUserFeedbacks(map);
+          }
+        });
       }
     });
     return () => {
@@ -751,6 +764,24 @@ export default function TestPage() {
     });
     setFeedbackSubmitting(false);
     closeFeedback();
+
+    const newFb: UserQuestionFeedback = {
+      id: crypto.randomUUID(),
+      questionId: q.id,
+      issueWhere: fbWhere,
+      issueType: fbIssue,
+      comment: feedbackText.trim() || null,
+      status: "open",
+      adminReply: null,
+      repliedAt: null,
+      createdAt: new Date().toISOString(),
+    };
+    setUserFeedbacks((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(q.id) ?? [];
+      next.set(q.id, [newFb, ...existing]);
+      return next;
+    });
   };
 
   const toggleFlagged = () => {
@@ -1134,17 +1165,31 @@ export default function TestPage() {
               <div className="p-4 sm:p-5 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 mb-6 max-w-4xl shadow-2xs">
                 <p className="text-[15.5px] sm:text-[17px] leading-[1.65] text-slate-950 dark:text-slate-50 font-medium">
                   {question.text}
-                  {/* Report Issue — inline at end of question text */}
-                  <button
-                    onClick={openFeedback}
-                    title="Report an issue with this question — timer will be paused"
-                    className="group relative inline-flex items-center justify-center w-3.5 h-3.5 ml-1.5 align-middle cursor-pointer"
-                  >
-                    <AlertTriangle className="w-3 h-3 text-rose-500 transition-transform duration-150 group-hover:scale-125" strokeWidth={2.4} fill="rgba(244,63,94,0.15)" />
-                    <span className="pointer-events-none absolute -bottom-7 right-0 whitespace-nowrap rounded-md bg-slate-900 dark:bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-10">
-                      Report issue — we&apos;ll pause the timer
-                    </span>
-                  </button>
+                  {/* Report Issue / View Feedback — inline at end of question text */}
+                  {(() => {
+                    const qFeedbacks = userFeedbacks.get(question.id);
+                    const hasFeedback = !!qFeedbacks && qFeedbacks.length > 0;
+                    const hasReply = hasFeedback && qFeedbacks.some(fb => fb.adminReply);
+                    return (
+                      <button
+                        onClick={hasFeedback ? () => setViewingFeedback(qFeedbacks) : openFeedback}
+                        title={hasFeedback ? "View your reported feedback" : "Report an issue with this question — timer will be paused"}
+                        className="group relative inline-flex items-center justify-center w-3.5 h-3.5 ml-1.5 align-middle cursor-pointer"
+                      >
+                        <AlertTriangle
+                          className={`w-3 h-3 transition-transform duration-150 group-hover:scale-125 ${hasFeedback ? "text-amber-500" : "text-rose-500"}`}
+                          strokeWidth={2.4}
+                          fill={hasFeedback ? "rgba(245,158,11,0.20)" : "rgba(244,63,94,0.15)"}
+                        />
+                        {hasFeedback && (
+                          <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${hasReply ? "bg-teal-500" : "bg-amber-500"}`} />
+                        )}
+                        <span className="pointer-events-none absolute -bottom-7 right-0 whitespace-nowrap rounded-md bg-slate-900 dark:bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-white dark:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-lg z-10">
+                          {hasFeedback ? (hasReply ? "View feedback & reply" : "View your feedback") : "Report issue — we’ll pause the timer"}
+                        </span>
+                      </button>
+                    );
+                  })()}
                 </p>
               </div>
 
@@ -1478,6 +1523,112 @@ export default function TestPage() {
             </motion.div>
           );
         })()}
+      </AnimatePresence>
+
+      {/* ── View Previous Feedback Modal ─────────────────────────── */}
+      <AnimatePresence>
+        {viewingFeedback && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-[62] flex items-center justify-center p-4"
+          >
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-md" onClick={() => setViewingFeedback(null)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 12 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className="relative w-full max-w-[520px] bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-7 flex flex-col max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-50/80 dark:bg-amber-950/40 border border-amber-100/60 dark:border-amber-900/30 flex items-center justify-center text-amber-500 dark:text-amber-400 shrink-0">
+                    <ClipboardList className="w-5.5 h-5.5" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Your Feedback</h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Previously reported issue{viewingFeedback.length > 1 ? "s" : ""} for this question
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setViewingFeedback(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="w-full h-px bg-slate-100 dark:bg-slate-800 my-5" />
+
+              <div className="space-y-5">
+                {viewingFeedback.map((fb) => {
+                  const issueLabels: Record<string, string> = {
+                    keyed_answer_wrong: "Keyed answer wrong", schedule_wrong: "Schedule wrong",
+                    more_than_one_defensible: "Multiple defensible", no_correct_option: "No correct option",
+                    out_of_date: "Out of date", drug_error: "Drug error", stem_ambiguous: "Stem ambiguous",
+                    stem_ambiguous_or_inconsistent: "Stem ambiguous / inconsistent",
+                    explanation_contradicts_key: "Explanation contradicts key", poor_distractor: "Poor distractor", typo: "Typo",
+                  };
+                  const whereLabels: Record<string, string> = {
+                    stem: "Stem", lead_in: "Lead-in", answer_key: "Answer key", explanation: "Explanation",
+                    reference: "Reference", image_table: "Image / table",
+                    option_a: "Option A", option_b: "Option B", option_c: "Option C", option_d: "Option D", option_e: "Option E",
+                  };
+                  const statusColors: Record<string, string> = {
+                    open: "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300",
+                    under_review: "bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300",
+                    accepted: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
+                    rejected: "bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300",
+                    resolved: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+                  };
+                  return (
+                    <div key={fb.id} className="rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${statusColors[fb.status] || statusColors.open}`}>
+                          {fb.status.replace(/_/g, " ")}
+                        </span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                          {new Date(fb.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                      <div className="text-sm text-slate-700 dark:text-slate-300">
+                        <span className="font-semibold">{issueLabels[fb.issueType || ""] || fb.issueType}</span>
+                        {fb.issueWhere && (
+                          <span className="text-slate-400 dark:text-slate-500"> in {whereLabels[fb.issueWhere] || fb.issueWhere}</span>
+                        )}
+                      </div>
+                      {fb.comment && (
+                        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{fb.comment}</p>
+                      )}
+                      {fb.adminReply && (
+                        <div className="mt-2 p-3 rounded-lg bg-teal-50/60 dark:bg-teal-950/30 border border-teal-200/50 dark:border-teal-900/40">
+                          <span className="text-[10px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider block mb-1.5">Admin Reply</span>
+                          <p className="text-sm text-teal-900 dark:text-teal-200 leading-relaxed">{fb.adminReply}</p>
+                          {fb.repliedAt && (
+                            <p className="text-[11px] text-teal-500 dark:text-teal-500 mt-1.5">
+                              {new Date(fb.repliedAt).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  onClick={() => { setViewingFeedback(null); openFeedback(); }}
+                  className="w-full py-2.5 rounded-xl border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 font-bold text-sm hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer text-center"
+                >
+                  Report Another Issue
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* ── Submit confirmation modal ─────────────────────────────── */}

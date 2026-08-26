@@ -1111,6 +1111,164 @@ export async function saveQuestionFeedback(input: {
 }
 
 /* ============================================================================
+ * User's own feedback — lets users view their previously reported feedback
+ * and any admin replies, batch-loaded for a set of question IDs.
+ * ========================================================================== */
+export interface UserQuestionFeedback {
+  id: string;
+  questionId: string;
+  issueWhere: string | null;
+  issueType: string | null;
+  comment: string | null;
+  status: string;
+  adminReply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+}
+
+export async function getUserFeedbackForQuestions(
+  questionIds: string[]
+): Promise<UserQuestionFeedback[]> {
+  if (questionIds.length === 0) return [];
+  const dbUser = await ensureDbUser();
+  if (!dbUser) return [];
+
+  const rows = await query(
+    `SELECT id, question_id, issue_where, issue_type, comment,
+            status, admin_reply, replied_at, created_at
+     FROM question_feedback
+     WHERE user_id = $1 AND question_id = ANY($2::uuid[])
+     ORDER BY created_at DESC`,
+    [dbUser.id, questionIds]
+  );
+
+  return rows.map((r: any) => ({
+    id: r.id,
+    questionId: r.question_id,
+    issueWhere: r.issue_where ?? null,
+    issueType: r.issue_type ?? null,
+    comment: r.comment ?? null,
+    status: r.status ?? "open",
+    adminReply: r.admin_reply ?? null,
+    repliedAt: r.replied_at instanceof Date ? r.replied_at.toISOString() : r.replied_at ? String(r.replied_at) : null,
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  }));
+}
+
+/* ============================================================================
+ * Feedback messages — threaded conversation on feedback items.
+ * ========================================================================== */
+export interface FeedbackMessage {
+  id: string;
+  feedbackId: string;
+  senderRole: "user" | "admin";
+  message: string;
+  createdAt: string;
+}
+
+export interface UserFeedbackWithMessages {
+  id: string;
+  questionId: string;
+  examType: string | null;
+  issueWhere: string | null;
+  issueType: string | null;
+  suggestedAnswer: string | null;
+  disputedAnswer: string | null;
+  comment: string | null;
+  status: string;
+  adminReply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
+  messages: FeedbackMessage[];
+}
+
+export async function getUserFeedbacksWithMessages(): Promise<UserFeedbackWithMessages[]> {
+  const dbUser = await ensureDbUser();
+  if (!dbUser) return [];
+
+  const feedbackRows = await query(
+    `SELECT id, question_id, exam_type, issue_where, issue_type,
+            suggested_answer, disputed_answer, comment, status,
+            admin_reply, replied_at, created_at
+     FROM question_feedback
+     WHERE user_id = $1
+     ORDER BY created_at DESC`,
+    [dbUser.id]
+  );
+
+  if (feedbackRows.length === 0) return [];
+
+  const feedbackIds = feedbackRows.map((r: any) => r.id);
+  const msgRows = await query(
+    `SELECT id, feedback_id, sender_role, message, created_at
+     FROM feedback_messages
+     WHERE feedback_id = ANY($1::uuid[])
+     ORDER BY created_at ASC`,
+    [feedbackIds]
+  );
+
+  const msgMap = new Map<string, FeedbackMessage[]>();
+  for (const m of msgRows as any[]) {
+    const arr = msgMap.get(m.feedback_id) ?? [];
+    arr.push({
+      id: m.id,
+      feedbackId: m.feedback_id,
+      senderRole: m.sender_role,
+      message: m.message,
+      createdAt: m.created_at instanceof Date ? m.created_at.toISOString() : String(m.created_at),
+    });
+    msgMap.set(m.feedback_id, arr);
+  }
+
+  return feedbackRows.map((r: any) => ({
+    id: r.id,
+    questionId: r.question_id,
+    examType: r.exam_type ?? null,
+    issueWhere: r.issue_where ?? null,
+    issueType: r.issue_type ?? null,
+    suggestedAnswer: r.suggested_answer ?? null,
+    disputedAnswer: r.disputed_answer ?? null,
+    comment: r.comment ?? null,
+    status: r.status ?? "open",
+    adminReply: r.admin_reply ?? null,
+    repliedAt: r.replied_at instanceof Date ? r.replied_at.toISOString() : r.replied_at ? String(r.replied_at) : null,
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    messages: msgMap.get(r.id) ?? [],
+  }));
+}
+
+export async function sendFeedbackMessage(
+  feedbackId: string,
+  message: string
+): Promise<{ ok: boolean; error?: string; messageId?: string; createdAt?: string }> {
+  const dbUser = await ensureDbUser();
+  if (!dbUser) return { ok: false, error: "You must be signed in." };
+
+  const trimmed = message.trim();
+  if (!trimmed) return { ok: false, error: "Message cannot be empty." };
+  if (trimmed.length > 200) return { ok: false, error: "Message must be 200 characters or fewer." };
+
+  const ownership = await query(
+    `SELECT id FROM question_feedback WHERE id = $1 AND user_id = $2`,
+    [feedbackId, dbUser.id]
+  );
+  if (ownership.length === 0) return { ok: false, error: "Feedback not found." };
+
+  const result = await query(
+    `INSERT INTO feedback_messages (feedback_id, sender_role, message)
+     VALUES ($1, 'user', $2)
+     RETURNING id, created_at`,
+    [feedbackId, trimmed]
+  );
+  const row = result[0] as any;
+  return {
+    ok: true,
+    messageId: row.id,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  };
+}
+
+/* ============================================================================
  * Note Template Feedback — lets users report issues with clinical autofill
  * note templates. Saved into the `note_template_feedback` table.
  * ========================================================================== */

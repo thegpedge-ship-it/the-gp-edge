@@ -15,6 +15,8 @@ export interface QuestionFeedbackRow {
   comment: string | null;
   status: string;
   created_at: string;
+  admin_reply: string | null;
+  replied_at: string | null;
 }
 
 export interface LibraryFeedbackRow {
@@ -48,7 +50,9 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
          qf.disputed_answer,
          qf.comment,
          qf.status,
-         qf.created_at
+         qf.created_at,
+         qf.admin_reply,
+         qf.replied_at
        FROM question_feedback qf
        JOIN users u ON u.id = qf.user_id
        ORDER BY qf.created_at DESC
@@ -71,6 +75,8 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
       comment: r.comment ?? null,
       status: r.status ?? "open",
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      admin_reply: r.admin_reply ?? null,
+      replied_at: r.replied_at instanceof Date ? r.replied_at.toISOString() : r.replied_at ? String(r.replied_at) : null,
     })),
     total: countRows[0]?.total ?? 0,
   };
@@ -82,6 +88,70 @@ export async function updateFeedbackStatus(
 ): Promise<{ ok: boolean }> {
   await query(`UPDATE question_feedback SET status = $1 WHERE id = $2`, [status, feedbackId]);
   return { ok: true };
+}
+
+export async function saveAdminReply(
+  feedbackId: string,
+  reply: string
+): Promise<{ ok: boolean; error?: string }> {
+  const trimmed = reply.trim();
+  if (!trimmed) return { ok: false, error: "Reply cannot be empty." };
+  if (trimmed.length > 200) return { ok: false, error: "Reply must be 200 characters or fewer." };
+  await query(
+    `UPDATE question_feedback SET admin_reply = $1, replied_at = NOW() WHERE id = $2`,
+    [trimmed, feedbackId]
+  );
+  return { ok: true };
+}
+
+export interface AdminFeedbackMessage {
+  id: string;
+  feedbackId: string;
+  senderRole: "user" | "admin";
+  message: string;
+  createdAt: string;
+}
+
+export async function getFeedbackMessages(feedbackId: string): Promise<AdminFeedbackMessage[]> {
+  const rows = await query(
+    `SELECT id, feedback_id, sender_role, message, created_at
+     FROM feedback_messages
+     WHERE feedback_id = $1
+     ORDER BY created_at ASC`,
+    [feedbackId]
+  );
+  return rows.map((r: any) => ({
+    id: r.id,
+    feedbackId: r.feedback_id,
+    senderRole: r.sender_role,
+    message: r.message,
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  }));
+}
+
+export async function sendAdminFeedbackMessage(
+  feedbackId: string,
+  message: string
+): Promise<{ ok: boolean; error?: string; messageId?: string; createdAt?: string }> {
+  const trimmed = message.trim();
+  if (!trimmed) return { ok: false, error: "Message cannot be empty." };
+  if (trimmed.length > 200) return { ok: false, error: "Message must be 200 characters or fewer." };
+
+  const exists = await query(`SELECT id FROM question_feedback WHERE id = $1`, [feedbackId]);
+  if (exists.length === 0) return { ok: false, error: "Feedback not found." };
+
+  const result = await query(
+    `INSERT INTO feedback_messages (feedback_id, sender_role, message)
+     VALUES ($1, 'admin', $2)
+     RETURNING id, created_at`,
+    [feedbackId, trimmed]
+  );
+  const row = result[0] as any;
+  return {
+    ok: true,
+    messageId: row.id,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+  };
 }
 
 export interface NoteTemplateFeedbackRow {
