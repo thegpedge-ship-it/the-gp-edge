@@ -99,6 +99,9 @@ export default function ApproachesPage() {
     canArchiveItem,
     canRestoreItem,
     canToggleBilling,
+    canViewUnpublished,
+    canMoveToReview,
+    canPublishItem,
     isOperationsManager,
     isDrafter,
     isPeerReviewer,
@@ -112,6 +115,12 @@ export default function ApproachesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    if (!canViewUnpublished && statusFilter !== "published") {
+      setStatusFilter("published");
+    }
+  }, [canViewUnpublished, statusFilter]);
 
   // Union real home units from the DB (subjects table, via useTaxonomy) with whatever systems are
   // already used on existing cards and the static fallback list, so a newly created/imported home
@@ -565,9 +574,11 @@ export default function ApproachesPage() {
       const matchSearch = !q || c.title.toLowerCase().includes(q) || c.category.toLowerCase().includes(q) || c.system.toLowerCase().includes(q);
       const matchSystem = systemFilter === "all" || c.system === systemFilter;
       const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
-      return matchSearch && matchSystem && matchStatus;
+      // R12: view unpublished item content is denied to SUB and read-only viewer roles.
+      const matchVisibility = canViewUnpublished || c.status === "published";
+      return matchSearch && matchSystem && matchStatus && matchVisibility;
     });
-  }, [cards, searchQuery, systemFilter, statusFilter]);
+  }, [cards, searchQuery, systemFilter, statusFilter, canViewUnpublished]);
 
   // Multi-select bulk selection state for Archive view
   const [selectedApproachIds, setSelectedApproachIds] = useState<string[]>([]);
@@ -646,7 +657,8 @@ export default function ApproachesPage() {
   };
 
   async function handlePublishApproach(card: ApproachCard) {
-    if (!isSuperAdmin) return;
+    if (!canPublishItem) return;
+    if (isSuperAdmin ? (card.status !== "draft" && card.status !== "review") : card.status !== "review") return;
     const res = await saveApproachCardToDbAction({ ...card, status: "published" });
     if (!res.success) {
       alert(res.error || "Failed to publish approach card.");
@@ -656,6 +668,19 @@ export default function ApproachesPage() {
     setCards(updated);
     saveApproachCards(updated);
     addUserNotification("Approach Published", `"${card.title}" is now live.`, 1, "custom");
+  }
+
+  async function handleMoveApproachToReview(card: ApproachCard) {
+    if (!canMoveToReview || card.status !== "draft") return;
+    const res = await saveApproachCardToDbAction({ ...card, status: "review" });
+    if (!res.success) {
+      alert(res.error || "Failed to move approach card to review.");
+      return;
+    }
+    const updated = cards.map((c) => (c.id === card.id ? { ...c, status: "review" as const } : c));
+    setCards(updated);
+    saveApproachCards(updated);
+    addUserNotification("Approach Moved to Review", `"${card.title}" is now in review.`, 1, "custom");
   }
 
   async function handleRestoreApproach(card: ApproachCard) {
@@ -758,13 +783,17 @@ export default function ApproachesPage() {
         <CustomSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "Active Items" },
-            { value: "published", label: "Published" },
-            { value: "draft", label: "Draft" },
-            { value: "review", label: "In Review" },
-            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${cards.filter((c) => c.status === "archived").length})` }] : []),
-          ]}
+          options={
+            canViewUnpublished
+              ? [
+                  { value: "all", label: "Active Items" },
+                  { value: "published", label: "Published" },
+                  { value: "draft", label: "Draft" },
+                  { value: "review", label: "In Review" },
+                  ...(canRestoreItem ? [{ value: "archived", label: `Archived (${cards.filter((c) => c.status === "archived").length})` }] : []),
+                ]
+              : [{ value: "published", label: "Published" }]
+          }
           className="min-w-[160px]"
         />
       </div>
@@ -915,10 +944,20 @@ export default function ApproachesPage() {
                         <Lucide.Edit className="w-4 h-4" />
                       </Link>
                     )}
-                    {isSuperAdmin && (card.status === "draft" || card.status === "review") && (
+                    {canMoveToReview && card.status === "draft" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveApproachToReview(card); }}
+                        title="Move to Review (SA/CE Only)"
+                        className="px-2 py-1 rounded-lg text-amber-700 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      >
+                        <Lucide.FileSearch className="w-3.5 h-3.5" />
+                        Move to Review
+                      </button>
+                    )}
+                    {canPublishItem && (isSuperAdmin ? (card.status === "draft" || card.status === "review") : card.status === "review") && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handlePublishApproach(card); }}
-                        title="Publish (SA Only)"
+                        title={isSuperAdmin ? "Publish" : "Publish (only once card is In Review)"}
                         className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
                       >
                         <Lucide.CheckCircle2 className="w-3.5 h-3.5" />

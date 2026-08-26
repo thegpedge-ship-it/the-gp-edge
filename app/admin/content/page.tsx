@@ -39,6 +39,9 @@ export default function ContentPage() {
     canArchiveItem,
     canRestoreItem,
     canToggleBilling,
+    canViewUnpublished,
+    canMoveToReview,
+    canPublishItem,
     isOperationsManager,
     isDrafter,
     isPeerReviewer,
@@ -53,6 +56,12 @@ export default function ContentPage() {
   const [systemFilter, setSystemFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  useEffect(() => {
+    if (!canViewUnpublished && statusFilter !== "published") {
+      setStatusFilter("published");
+    }
+  }, [canViewUnpublished, statusFilter]);
   const [visibleCount, setVisibleCount] = useState(9);
 
   // Content Upload Modal Wizard
@@ -118,7 +127,9 @@ export default function ContentPage() {
     const matchSystem = systemFilter === "all" || c.system === systemFilter;
     const matchType = typeFilter === "all" || c.type === typeFilter;
     const matchStatus = statusFilter === "all" ? (c.status !== "archived") : (c.status === statusFilter);
-    return matchSearch && matchSystem && matchType && matchStatus;
+    // R12: view unpublished item content is denied to SUB and read-only viewer roles.
+    const matchVisibility = canViewUnpublished || c.status === "published";
+    return matchSearch && matchSystem && matchType && matchStatus && matchVisibility;
   });
 
   const sortedContent = useMemo(() => {
@@ -137,7 +148,7 @@ export default function ContentPage() {
   }, [sortedContent, visibleCount]);
 
   const updateStatus = async (id: string, newStatus: MedicalContent["status"]) => {
-    if (!canEditPostReview && !canEditDraft) return;
+    if (!canEditPostReview && !canEditDraft && !canMoveToReview && !canPublishItem) return;
     const ok = await updateMedicalContentItem(id, { status: newStatus });
     if (!ok) {
       alert("Failed to update status. Please try again.");
@@ -913,13 +924,17 @@ export default function ContentPage() {
         <CustomSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "Active Statuses" },
-            { value: "published", label: "Published" },
-            { value: "draft", label: "Draft" },
-            { value: "review", label: "In Review" },
-            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${content.filter((c) => c.status === "archived").length})` }] : []),
-          ]}
+          options={
+            canViewUnpublished
+              ? [
+                  { value: "all", label: "Active Statuses" },
+                  { value: "published", label: "Published" },
+                  { value: "draft", label: "Draft" },
+                  { value: "review", label: "In Review" },
+                  ...(canRestoreItem ? [{ value: "archived", label: `Archived (${content.filter((c) => c.status === "archived").length})` }] : []),
+                ]
+              : [{ value: "published", label: "Published" }]
+          }
           className="w-48"
         />
       </motion.div>
@@ -1064,7 +1079,21 @@ export default function ContentPage() {
                       <Lucide.Edit className="w-4 h-4" />
                     </Link>
                   )}
-                  {isSuperAdmin && (item.status === "draft" || item.status === "review") && (
+                  {canMoveToReview && item.status === "draft" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateStatus(item.id, "review");
+                        addUserNotification("Content Moved to Review", `"${item.name}" is now in review.`, 1, "custom");
+                      }}
+                      className="px-2 py-1 rounded-lg text-amber-700 bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
+                      title="Move to Review (SA/CE Only)"
+                    >
+                      <Lucide.FileSearch className="w-3.5 h-3.5" />
+                      Move to Review
+                    </button>
+                  )}
+                  {canPublishItem && (isSuperAdmin ? (item.status === "draft" || item.status === "review") : item.status === "review") && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1072,7 +1101,7 @@ export default function ContentPage() {
                         addUserNotification("Content Published", `"${item.name}" is now live.`, 1, "custom");
                       }}
                       className="px-2 py-1 rounded-lg text-emerald-700 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
-                      title="Publish (SA Only)"
+                      title={isSuperAdmin ? "Publish" : "Publish (only once item is In Review)"}
                     >
                       <Lucide.CheckCircle2 className="w-3.5 h-3.5" />
                       Publish

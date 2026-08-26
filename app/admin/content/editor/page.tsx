@@ -269,6 +269,9 @@ function ContentEditorContent() {
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [isSavingVersion, setIsSavingVersion] = useState(false);
   const previousHtmlRef = useRef<string>("");
+  // Tracks whether content has changed since the last history/version write,
+  // so history is only persisted once editing settles (not on every keystroke).
+  const historyDirtyRef = useRef<boolean>(false);
 
   // Multi-page support
   const [pages, setPages] = useState<string[]>([""]);  // Array of page HTML
@@ -1609,7 +1612,7 @@ function ContentEditorContent() {
         name: docTitle.trim(),
         system: selectedSystem,
         category: selectedCategory,
-        status: "published",
+        status: contentStatus,
         isFree,
         author,
         fullHtml: combinedHtml,
@@ -1620,44 +1623,12 @@ function ContentEditorContent() {
           return;
         }
 
-        // Auto-create history entry and version snapshot on any content change
+        // Mark that content has drifted from the last recorded history/version
+        // entry. The actual history + version write is deferred until editing
+        // settles (editor blur, explicit save, or unmount) so we don't hammer
+        // the DB with a full-document write on every 1s pause while typing.
         if (previousHtmlRef.current !== combinedHtml) {
-          const oldHtml = previousHtmlRef.current;
-          previousHtmlRef.current = combinedHtml;
-          const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
-
-          fetch(`/api/content-history/${id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              resource: "history",
-              entityType,
-              fieldName: "full_html",
-              changeType: "modified",
-              oldContent: oldHtml,
-              newContent: combinedHtml,
-              adminUserId: currentAdmin?.id,
-              adminUserName: currentAdmin?.name || author,
-            }),
-          }).catch(console.error);
-
-          fetch(`/api/content-history/${id}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              resource: "version",
-              entityType,
-              fullHtml: combinedHtml,
-              metadata: {
-                name: docTitle.trim(),
-                status: "published",
-                author,
-                tags,
-              },
-              createdBy: currentAdmin?.id,
-              createdByName: currentAdmin?.name || author,
-            }),
-          }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
+          historyDirtyRef.current = true;
         }
       }).catch(console.error);
 
@@ -1670,7 +1641,7 @@ function ContentEditorContent() {
             name: docTitle.trim(),
             system: selectedSystem,
             category: selectedCategory,
-            status: "published" as const,
+            status: contentStatus,
             isFree,
             lastUpdated: new Date().toISOString().split("T")[0],
             references: docReferences.length,
@@ -1683,7 +1654,7 @@ function ContentEditorContent() {
     }, 1000); // 1-second debounce
 
     return () => clearTimeout(timer);
-  }, [docTitle, selectedSystem, selectedCategory, isFree, docReferences, editTriggerCount, activePage]);
+  }, [docTitle, selectedSystem, selectedCategory, isFree, docReferences, editTriggerCount, activePage, contentStatus]);
 
   const handleOptimizePagination = () => {
     const updatedPages = saveCurrentPageToPages();
@@ -2798,99 +2769,6 @@ function ContentEditorContent() {
   };
 
 
-  const handleSave = (statusOverride?: "published" | "draft" | "review" | "archived") => {
-    if (!docTitle.trim()) {
-      alert("Please enter a content title.");
-      return;
-    }
-    const finalStatus: "published" | "draft" | "review" | "archived" = statusOverride || contentStatus;
-    if (statusOverride) setContentStatus(statusOverride);
-    // Save all pages (update active page first)
-    const allPages = saveCurrentPageToPages();
-    const combinedHtml = allPages.join("");
-
-    // Save to Neon via PATCH API
-    if (id && !String(id).startsWith("local")) {
-      updateMedicalContentItem(String(id), {
-        name: docTitle.trim(),
-        system: selectedSystem,
-        category: selectedCategory,
-        status: finalStatus,
-        author,
-        fullHtml: combinedHtml,
-      }).catch(console.error);
-    }
-
-    // Update cache
-    const list = getMedicalContent();
-    const updated = list.map((c) => {
-      if (String(c.id) === String(id)) {
-        return {
-          ...c,
-          name: docTitle.trim(),
-          system: selectedSystem,
-          category: selectedCategory,
-          status: finalStatus,
-          lastUpdated: new Date().toISOString().split("T")[0],
-          references: docReferences.length,
-        };
-      }
-      return c;
-    });
-    setMedicalContents(updated);
-    saveMedicalContent(updated);
-
-    addUserNotification(
-      "Content Saved",
-      `Saved changes to "${docTitle}".`,
-      1,
-      "custom"
-    );
-    setShowSaveToast(true);
-
-    if (id && !String(id).startsWith("local")) {
-      const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
-      if (previousHtmlRef.current !== combinedHtml) {
-        // Record edit history
-        fetch(`/api/content-history/${id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resource: "history",
-            entityType,
-            fieldName: "full_html",
-            changeType: "modified",
-            oldContent: previousHtmlRef.current || null,
-            newContent: combinedHtml,
-            adminUserId: currentAdmin?.id,
-            adminUserName: currentAdmin?.name || author,
-          }),
-        }).catch(console.error);
-
-        // Auto-save a version snapshot
-        fetch(`/api/content-history/${id}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            resource: "version",
-            entityType,
-            fullHtml: combinedHtml,
-            metadata: {
-              name: docTitle.trim(),
-              status: finalStatus,
-              author,
-              tags,
-            },
-            createdBy: currentAdmin?.id,
-            createdByName: currentAdmin?.name || author,
-          }),
-        }).then(() => loadHistoryAndVersions(String(id), entityType)).catch(console.error);
-
-        previousHtmlRef.current = combinedHtml;
-      }
-    }
-  };
-
   const loadHistoryAndVersions = useCallback(async (entityId: string, entityType: string = "medical_condition") => {
     if (!entityId || entityId.startsWith("local")) return;
     setIsHistoryLoading(true);
@@ -2943,6 +2821,133 @@ function ContentEditorContent() {
       setIsHistoryLoading(false);
     }
   }, [docTitle, contentStatus, author, currentAdmin]);
+
+  // Persist a history entry (before/after content) + a version snapshot.
+  // Called only when editing has actually settled — on explicit Save, on
+  // editor blur, or on unmount — never on every keystroke/1s pause, since
+  // each call writes the full document twice (history + version).
+  const flushHistoryAndVersion = useCallback((combinedHtml: string, finalStatus: string, opts?: { keepalive?: boolean }) => {
+    if (!id || String(id).startsWith("local")) return;
+    if (previousHtmlRef.current === combinedHtml) return;
+
+    const entityType = contentItem?.type === "Approach" ? "approach" : "medical_condition";
+    const oldHtml = previousHtmlRef.current || null;
+    previousHtmlRef.current = combinedHtml;
+    historyDirtyRef.current = false;
+
+    fetch(`/api/content-history/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: opts?.keepalive,
+      body: JSON.stringify({
+        resource: "history",
+        entityType,
+        fieldName: "full_html",
+        changeType: "modified",
+        oldContent: oldHtml,
+        newContent: combinedHtml,
+        adminUserId: currentAdmin?.id,
+        adminUserName: currentAdmin?.name || author,
+      }),
+    }).catch(console.error);
+
+    fetch(`/api/content-history/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: opts?.keepalive,
+      body: JSON.stringify({
+        resource: "version",
+        entityType,
+        fullHtml: combinedHtml,
+        metadata: {
+          name: docTitle.trim(),
+          status: finalStatus,
+          author,
+          tags,
+        },
+        createdBy: currentAdmin?.id,
+        createdByName: currentAdmin?.name || author,
+      }),
+    }).then(() => {
+      if (!opts?.keepalive) loadHistoryAndVersions(String(id), entityType);
+    }).catch(console.error);
+  }, [id, contentItem, currentAdmin, author, docTitle, tags, loadHistoryAndVersions]);
+
+  // Safety net: flush any pending history/version write if the admin leaves
+  // the page (tab close, navigation) without blurring the editor first.
+  // Kept behind a ref so the listener is registered once, not on every
+  // change to title/tags/status.
+  const flushOnLeaveRef = useRef<() => void>(() => {});
+  flushOnLeaveRef.current = () => {
+    if (!historyDirtyRef.current) return;
+    const allPages = saveCurrentPageToPages();
+    flushHistoryAndVersion(allPages.join(""), contentStatus, { keepalive: true });
+  };
+  useEffect(() => {
+    const handler = () => flushOnLeaveRef.current();
+    // Tab close / full page navigation
+    window.addEventListener("beforeunload", handler);
+    // Browser Back/Forward button (fires before the route change unmounts this page)
+    window.addEventListener("popstate", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      window.removeEventListener("popstate", handler);
+      handler(); // in-app navigation (Link, router.push) unmounts this component
+    };
+  }, []);
+
+  const handleSave = (statusOverride?: "published" | "draft" | "review" | "archived") => {
+    if (!docTitle.trim()) {
+      alert("Please enter a content title.");
+      return;
+    }
+    const finalStatus: "published" | "draft" | "review" | "archived" = statusOverride || contentStatus;
+    if (statusOverride) setContentStatus(statusOverride);
+    // Save all pages (update active page first)
+    const allPages = saveCurrentPageToPages();
+    const combinedHtml = allPages.join("");
+
+    // Save to Neon via PATCH API
+    if (id && !String(id).startsWith("local")) {
+      updateMedicalContentItem(String(id), {
+        name: docTitle.trim(),
+        system: selectedSystem,
+        category: selectedCategory,
+        status: finalStatus,
+        author,
+        fullHtml: combinedHtml,
+      }).catch(console.error);
+    }
+
+    // Update cache
+    const list = getMedicalContent();
+    const updated = list.map((c) => {
+      if (String(c.id) === String(id)) {
+        return {
+          ...c,
+          name: docTitle.trim(),
+          system: selectedSystem,
+          category: selectedCategory,
+          status: finalStatus,
+          lastUpdated: new Date().toISOString().split("T")[0],
+          references: docReferences.length,
+        };
+      }
+      return c;
+    });
+    setMedicalContents(updated);
+    saveMedicalContent(updated);
+
+    addUserNotification(
+      "Content Saved",
+      `Saved changes to "${docTitle}".`,
+      1,
+      "custom"
+    );
+    setShowSaveToast(true);
+
+    flushHistoryAndVersion(combinedHtml, finalStatus);
+  };
 
   const handleSaveVersion = async () => {
     if (!id || String(id).startsWith("local")) {
@@ -3969,7 +3974,7 @@ function ContentEditorContent() {
           {/* Top title line & auto-save indicators */}
           <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-xs font-semibold">
-              <Link href={contentItem?.type === "Approach" ? "/admin/approaches" : "/admin/content"} className="text-slate-400 hover:text-teal-600 transition-colors">
+              <Link href={contentItem?.type === "Approach" ? "/admin/approaches" : "/admin/content"} className="text-slate-400 hover:text-teal-600 transition-colors" onClick={() => flushOnLeaveRef.current()}>
                 {contentItem?.type === "Approach" ? "Approaches" : "Content"}
               </Link>
               <svg className="w-3.5 h-3.5 text-slate-350" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -4004,6 +4009,7 @@ function ContentEditorContent() {
               <Link
                 href={contentItem?.type === "Approach" ? "/admin/approaches" : "/admin/content"}
                 className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-teal-800 text-white hover:bg-teal-900 transition-all shadow-sm flex items-center gap-1.5 border-none cursor-pointer"
+                onClick={() => flushOnLeaveRef.current()}
               >
                 <Lucide.ArrowLeft className="w-3.5 h-3.5" />
                 <span>Back to {contentItem?.type === "Approach" ? "Approaches" : "Content"}</span>
@@ -4132,6 +4138,12 @@ function ContentEditorContent() {
                   suppressContentEditableWarning
                   onInput={() => { updateCounts(); setEditTriggerCount(prev => prev + 1); }}
                   onFocus={saveToHistory}
+                  onBlur={() => {
+                    if (!historyDirtyRef.current) return;
+                    const allPages = saveCurrentPageToPages();
+                    setPages(allPages);
+                    flushHistoryAndVersion(allPages.join(""), contentStatus);
+                  }}
                   onMouseUp={() => {
                     if (typeof window !== "undefined") {
                       const sel = window.getSelection();

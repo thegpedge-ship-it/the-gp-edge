@@ -301,6 +301,13 @@ export function useAdminRole() {
   const canArchiveItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
   // Restore an archived item: SA ✔, CE ✖, OM ✖, DR ✖, PR ✖, SUB ✖
   const canRestoreItem = isAccessAllowed && isSuperAdmin;
+  // Move a drafted item into the in-review stage: SA, CE only. PR/OM/custom roles never trigger this.
+  const canMoveToReview = isAccessAllowed && (isSuperAdmin || isClinicalEditor);
+  // Publish to production. SA can publish from draft or review; OM may publish only once an item
+  // has already reached "review" (checked against item.status at the call site). PR and any custom
+  // role never get this control — their review work is what makes an item eligible, not what
+  // publishes it.
+  const canPublishItem = isAccessAllowed && (isSuperAdmin || isOperationsManager);
 
   // 5. Review & Audit
   const canReviewItem = isAccessAllowed && (isSuperAdmin || isClinicalEditor || isPeerReviewer);
@@ -439,6 +446,8 @@ export function useAdminRole() {
     canAttachRefs,
     canArchiveItem,
     canRestoreItem,
+    canMoveToReview,
+    canPublishItem,
     canReviewItem,
     canAudit,
     canEditAuditLog,

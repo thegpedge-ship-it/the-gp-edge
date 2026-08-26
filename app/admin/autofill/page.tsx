@@ -55,11 +55,17 @@ const fieldTypes = ["Text Input", "Dropdown", "Checkbox", "Radio", "Textarea", "
 
 
 export default function AutofillPage() {
-  const { isReadOnly, canRestoreItem, canArchiveItem, currentAdmin } = useAdminRole();
+  const { isReadOnly, canRestoreItem, canArchiveItem, canEditDraft, canCreateItem, canViewUnpublished, currentAdmin } = useAdminRole();
   const router = useRouter();
   const [templates, setTemplates] = useState<AutofillTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (!canViewUnpublished && statusFilter !== "active") {
+      setStatusFilter("active");
+    }
+  }, [canViewUnpublished, statusFilter]);
 
   useEffect(() => {
     fetchAutofillTemplatesFromDbAction(canRestoreItem).then(setTemplates);
@@ -411,7 +417,9 @@ export default function AutofillPage() {
   const filtered = templates.filter((t) => {
     const matchSearch = !searchQuery || t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.system.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = statusFilter === "all" ? (t.status !== "archived") : (t.status === statusFilter);
-    return matchSearch && matchStatus;
+    // R12: view unpublished item content is denied to SUB and read-only viewer roles.
+    const matchVisibility = canViewUnpublished || t.status === "active";
+    return matchSearch && matchStatus && matchVisibility;
   });
 
   return (
@@ -421,9 +429,9 @@ export default function AutofillPage() {
         highlightedText="Templates"
         subtitle="Manage consultation autofill templates and form builders"
         actions={
-          <button 
+          <button
             onClick={() => {
-              if (isReadOnly) return;
+              if (isReadOnly || !canCreateItem) return;
               setEditingTemplateId(null);
               setNewName("");
               setNewSystem("Respiratory");
@@ -431,8 +439,8 @@ export default function AutofillPage() {
               setTempFields([]);
               setShowEditor(true);
             }}
-            disabled={isReadOnly}
-            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none ${isReadOnly ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+            disabled={isReadOnly || !canCreateItem}
+            className={`px-4 py-2.5 bg-teal-800 text-sm font-semibold text-white rounded-xl hover:bg-teal-900 transition-all shadow-sm flex items-center gap-2 shrink-0 border-none outline-none ${(isReadOnly || !canCreateItem) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <Lucide.Plus className="w-4 h-4" />
             Add Template
@@ -485,12 +493,16 @@ export default function AutofillPage() {
         <CustomSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={[
-            { value: "all", label: "Active Statuses" },
-            { value: "active", label: "Active" },
-            { value: "draft", label: "Draft" },
-            ...(canRestoreItem ? [{ value: "archived", label: `Archived (${templates.filter((t) => t.status === "archived").length})` }] : []),
-          ]}
+          options={
+            canViewUnpublished
+              ? [
+                  { value: "all", label: "Active Statuses" },
+                  { value: "active", label: "Active" },
+                  { value: "draft", label: "Draft" },
+                  ...(canRestoreItem ? [{ value: "archived", label: `Archived (${templates.filter((t) => t.status === "archived").length})` }] : []),
+                ]
+              : [{ value: "active", label: "Active" }]
+          }
           className="w-48"
         />
       </motion.div>
@@ -556,22 +568,26 @@ export default function AutofillPage() {
                     >
                       <Lucide.Eye className="w-3.5 h-3.5" />
                     </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleOpenEdit(template); }}
-                      disabled={isReadOnly}
-                      className={`p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
-                      title={isReadOnly ? "Viewers cannot edit templates" : "Edit Template Info"}
-                    >
-                      <Lucide.Edit className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; router.push(`/admin/autofill/${template.id}/editor`); }}
-                      disabled={isReadOnly}
-                      className={`p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
-                      title={isReadOnly ? "Viewers cannot edit templates" : "Template Editor"}
-                    >
-                      <Lucide.FileEdit className="w-3.5 h-3.5" />
-                    </button>
+                    {canEditDraft && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; handleOpenEdit(template); }}
+                        disabled={isReadOnly}
+                        className={`p-1 rounded-lg text-slate-400 hover:text-teal-800 hover:bg-teal-50/60 dark:hover:bg-teal-950/25 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                        title="Edit Template Info"
+                      >
+                        <Lucide.Edit className="w-4 h-4" />
+                      </button>
+                    )}
+                    {canEditDraft && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (isReadOnly) return; router.push(`/admin/autofill/${template.id}/editor`); }}
+                        disabled={isReadOnly}
+                        className={`p-1.5 rounded-lg text-slate-400 hover:text-teal-700 hover:bg-teal-50 dark:hover:bg-teal-950/30 transition-all cursor-pointer border-none bg-transparent ${isReadOnly ? "opacity-30 cursor-not-allowed" : ""}`}
+                        title="Template Editor"
+                      >
+                        <Lucide.FileEdit className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     {template.status === "archived" && canRestoreItem ? (
                       <div className="flex items-center gap-1">
                         <button
