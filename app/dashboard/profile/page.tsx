@@ -16,6 +16,7 @@ import Avatar from "@/components/ui/Avatar";
 import FadeIn from "@/components/ui/FadeIn";
 import PageCard from "@/components/ui/PageCard";
 import PageHeading from "@/components/ui/PageHeading";
+import ExportUserDataButton from "./ExportUserDataButton";
 
 // ─── Info row ────────────────────────────────────────────────────────────────────
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -348,6 +349,9 @@ export default async function ProfilePage() {
                       </div>
                       <ChevronRight size={16} className="text-slate-455 dark:text-slate-450 group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
                     </Link>
+
+                    {/* Download My Data / Export Data */}
+                    <ExportUserDataButton />
                   </div>
                 </div>
               </div>

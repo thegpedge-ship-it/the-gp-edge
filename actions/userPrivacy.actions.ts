@@ -83,3 +83,47 @@ export async function deleteSubscriberPerformanceDataOnRequestAction(
     return { success: false, error: err.message };
   }
 }
+
+/**
+ * 3. Export All User Data (Privacy / Australian Privacy Act / GDPR Compliance)
+ * Exports every table touched by the user / account-deletion cascade.
+ */
+import { ensureDbUser } from "@/lib/user";
+import { fetchUserDataForExport, UserDataExportPayload } from "@/lib/privacyData";
+
+export async function exportAllUserDataAction(): Promise<{
+  success: boolean;
+  data?: UserDataExportPayload;
+  error?: string;
+}> {
+  try {
+    const dbUser = await ensureDbUser();
+    if (!dbUser) {
+      return { success: false, error: "Unauthorized or user profile not found." };
+    }
+
+    const payload = await fetchUserDataForExport(dbUser.id);
+    if (!payload) {
+      return { success: false, error: "Failed to extract user data." };
+    }
+
+    await recordAuditLog({
+      adminUserId: dbUser.id,
+      action: "download_my_data_export",
+      category: "privacy_export",
+      entityType: "user_privacy_export",
+      entityId: dbUser.id,
+      metadata: {
+        userId: dbUser.id,
+        email: dbUser.email,
+        exportedAt: new Date().toISOString(),
+      },
+    });
+
+    return { success: true, data: payload };
+  } catch (err: any) {
+    console.error("Error exporting user data:", err);
+    return { success: false, error: err.message || "An unexpected error occurred." };
+  }
+}
+

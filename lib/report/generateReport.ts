@@ -8,6 +8,7 @@
 
 import type { ReportData } from "./types";
 import { donutChart, groupedBarChart, horizontalBarChart } from "./charts";
+import { getWatermarkLogoInfo, getLogoInfo } from "./watermark";
 
 /* RGB palette (jsPDF setColor takes r,g,b). */
 const C = {
@@ -69,6 +70,22 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
   doc.rect(0, 0, PAGE.w, 96, "F");
   setFill(C.emeraldDark);
   doc.rect(0, 96, PAGE.w, 3, "F");
+
+  // Logo in white badge card at top right corner
+  const logoInfo = await getLogoInfo();
+  if (logoInfo) {
+    const badgeSize = 48;
+    const badgeX = PAGE.w - PAGE.margin - badgeSize - 75; // Positioned next to score badge
+    const badgeY = 24;
+    setFill(C.white);
+    doc.roundedRect(badgeX, badgeY, badgeSize, badgeSize, 10, 10, "F");
+
+    const pad = 4;
+    const imgW = badgeSize - pad * 2;
+    const imgH = imgW / logoInfo.aspectRatio;
+    const imgY = badgeY + (badgeSize - imgH) / 2;
+    doc.addImage(logoInfo.dataUrl, "PNG", badgeX + pad, imgY, imgW, imgH);
+  }
 
   setText(C.white);
   doc.setFont("helvetica", "bold");
@@ -358,10 +375,22 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
     y += 12;
   });
 
-  /* ── Footer page numbers ────────────────────────────────────────────── */
+  /* ── Watermark & Footer page numbers ────────────────────────────────── */
+  const watermarkInfo = await getWatermarkLogoInfo();
   const pageCount = doc.getNumberOfPages();
+
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
+
+    // Watermark starting from page 2 (proportional, un-stretched)
+    if (p >= 2 && watermarkInfo) {
+      const wmW = 320;
+      const wmH = wmW / watermarkInfo.aspectRatio;
+      const wmX = (PAGE.w - wmW) / 2;
+      const wmY = (PAGE.h - wmH) / 2;
+      doc.addImage(watermarkInfo.dataUrl, "PNG", wmX, wmY, wmW, wmH);
+    }
+
     setText(C.slate400);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
@@ -371,3 +400,4 @@ export async function generateReportBlob(data: ReportData): Promise<Blob> {
 
   return doc.output("blob");
 }
+
