@@ -200,9 +200,16 @@ export default function QuestionFeedbackPage() {
                     <p className="text-sm text-slate-700 dark:text-slate-300 truncate">{(row.comment || "—").replace(/\n/g, " ")}</p>
                   </td>
                   <td className="px-3 py-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${STATUS_COLORS[row.status] || STATUS_COLORS.open}`}>
-                      {row.status.replace(/_/g, " ")}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${STATUS_COLORS[row.status] || STATUS_COLORS.open}`}>
+                        {row.status.replace(/_/g, " ")}
+                      </span>
+                      {row.has_user_message && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                          {row.thread_count} msg
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-3 whitespace-nowrap">
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{fmtDate(row.created_at)}</span>

@@ -17,6 +17,8 @@ export interface QuestionFeedbackRow {
   created_at: string;
   admin_reply: string | null;
   replied_at: string | null;
+  thread_count: number;
+  has_user_message: boolean;
 }
 
 export interface LibraryFeedbackRow {
@@ -52,10 +54,23 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
          qf.status,
          qf.created_at,
          qf.admin_reply,
-         qf.replied_at
+         qf.replied_at,
+         COALESCE(fm_agg.thread_count, 0)::int AS thread_count,
+         COALESCE(fm_agg.has_user_message, false) AS has_user_message
        FROM question_feedback qf
        JOIN users u ON u.id = qf.user_id
-       ORDER BY qf.created_at DESC
+       LEFT JOIN LATERAL (
+         SELECT
+           COUNT(*)::int AS thread_count,
+           BOOL_OR(fm.sender_role = 'user') AS has_user_message
+         FROM feedback_messages fm
+         WHERE fm.feedback_id = qf.id
+       ) fm_agg ON true
+       ORDER BY
+         CASE WHEN qf.status IN ('open','under_review') THEN 0 ELSE 1 END,
+         CASE WHEN COALESCE(fm_agg.has_user_message, false) THEN 0 ELSE 1 END,
+         CASE WHEN qf.admin_reply IS NOT NULL OR COALESCE(fm_agg.thread_count, 0) > 0 THEN 0 ELSE 1 END,
+         qf.created_at DESC
        LIMIT $1 OFFSET $2`,
       [pageSize, offset]
     ),
@@ -77,6 +92,8 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
       created_at: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
       admin_reply: r.admin_reply ?? null,
       replied_at: r.replied_at instanceof Date ? r.replied_at.toISOString() : r.replied_at ? String(r.replied_at) : null,
+      thread_count: r.thread_count ?? 0,
+      has_user_message: r.has_user_message ?? false,
     })),
     total: countRows[0]?.total ?? 0,
   };
