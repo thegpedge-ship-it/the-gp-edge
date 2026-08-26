@@ -273,9 +273,20 @@ export default function QueryExplorerModal({ adminUser, onClose, onOpenBulkEdit 
                 <input value={taskType} onChange={(e) => setTaskType(e.target.value)} placeholder="Task type" className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
                 <CustomSelect value={depthTier} onChange={setDepthTier} placeholder="Depth tier" options={[{ value: "", label: "Any depth" }, { value: "Core", label: "Core" }, { value: "Working", label: "Working" }, { value: "Awareness", label: "Awareness" }]} />
                 <CustomSelect value={volatilityTier} onChange={setVolatilityTier} placeholder="Volatility" options={[{ value: "", label: "Any volatility" }, { value: "Volatile", label: "Volatile" }, { value: "Standard", label: "Standard" }, { value: "Stable", label: "Stable" }]} />
-                <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
-                <input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Created from</label>
+                  <input type="date" value={createdFrom} onChange={(e) => setCreatedFrom(e.target.value)} title="Only items created on or after this date" className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Created to</label>
+                  <input type="date" value={createdTo} onChange={(e) => setCreatedTo(e.target.value)} title="Only items created on or before this date" className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
+                </div>
               </div>
+              {(createdFrom || createdTo) && preset !== "filter" && preset !== "keywordAll" && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                  Created-date range only applies to "Custom Filter / Recall" and "Keyword — All Item Types" — it's ignored by the current preset.
+                </p>
+              )}
               {(preset === "filter" || preset === "keywordAll") && (
                 <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Keyword" className="w-full px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900" />
               )}

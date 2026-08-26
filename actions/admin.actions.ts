@@ -1038,9 +1038,46 @@ export async function deleteNotificationFromDbAction(id: string): Promise<{ succ
  * exists, isn't deleted, and has forgot_password_enabled, returns its id so the client can route
  * the admin straight to the existing reset-password page (this app has no email/SMTP integration).
  */
+function isSuperAdminRow(row: any): boolean {
+  return (
+    row.role_id === 1 ||
+    row.username === "siddhant_super" ||
+    row.email === "admin@gpedge.com" ||
+    row.role === "Super Admin" ||
+    row.role_code === "SA" ||
+    row.role === "SA" ||
+    (row.name && (row.name.includes("Founder") || row.name.includes("Siddhant")))
+  );
+}
+
+async function ensurePasswordResetRequestsTable() {
+  await execute(`
+    CREATE TABLE IF NOT EXISTS admin_password_reset_requests (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      admin_user_id UUID NOT NULL,
+      admin_name TEXT,
+      admin_username TEXT,
+      admin_email TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ,
+      resolved_by UUID
+    );
+  `);
+}
+
+/**
+ * Non-SA admins cannot self-service a password reset (Section 3G): there is nobody above them to
+ * verify the request, so it must go through a human — the Super Admin. This records the request
+ * for the Super Admin to see and act on (setPasswordForResetRequestAction), rather than handing
+ * the requester a direct path to set their own new password.
+ *
+ * The Super Admin account is deliberately excluded: there is no one above SA to notify, so SA
+ * lockout is out of scope here and must be resolved out-of-band (e.g. direct DB access).
+ */
 export async function requestPasswordResetAction(
   identifier: string
-): Promise<{ success: boolean; userId?: string; name?: string; error?: string }> {
+): Promise<{ success: boolean; userId?: string; name?: string; error?: string; pendingApproval?: boolean }> {
   try {
     const trimmed = identifier.trim();
     if (!trimmed) {
@@ -1048,7 +1085,7 @@ export async function requestPasswordResetAction(
     }
 
     const row = await queryOne<any>(
-      `SELECT id, name, forgot_password_enabled
+      `SELECT id, name, username, email, role, role_id, role_code, forgot_password_enabled
          FROM admin_users
         WHERE (LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($1))
           AND deleted_at IS NULL
@@ -1062,11 +1099,116 @@ export async function requestPasswordResetAction(
     if (!row.forgot_password_enabled) {
       return { success: false, error: "Password reset is disabled for this account. Contact your Super Admin." };
     }
+    if (isSuperAdminRow(row)) {
+      return {
+        success: false,
+        error: "The Super Admin account cannot use self-service password reset — there is no higher authority to verify the request. Contact your hosting/database administrator directly.",
+      };
+    }
 
-    return { success: true, userId: row.id, name: row.name };
+    await ensurePasswordResetRequestsTable();
+    await execute(
+      `INSERT INTO admin_password_reset_requests (admin_user_id, admin_name, admin_username, admin_email, status)
+       VALUES ($1, $2, $3, $4, 'pending')`,
+      [row.id, row.name, row.username, row.email]
+    );
+
+    const { recordAuditLog } = await import("@/lib/relationalPermissions");
+    await recordAuditLog({
+      adminUserId: row.id,
+      action: "request_password_reset",
+      category: "security",
+      entityType: "admin_user",
+      entityId: row.id,
+      metadata: { requestedBy: row.name || row.email },
+    });
+
+    return { success: true, userId: row.id, name: row.name, pendingApproval: true };
   } catch (error: any) {
     console.error("Error requesting password reset:", error);
     return { success: false, error: error.message || "Failed to process the reset request." };
+  }
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  adminUserId: string;
+  adminName: string | null;
+  adminUsername: string | null;
+  adminEmail: string | null;
+  requestedAt: string;
+}
+
+/** Super Admin-only: the pending self-service password reset queue. */
+export async function getPendingPasswordResetRequestsAction(
+  isCallerSuperAdmin: boolean
+): Promise<PasswordResetRequest[]> {
+  if (!isCallerSuperAdmin) return [];
+  try {
+    await ensurePasswordResetRequestsTable();
+    const rows = await query<any>(
+      `SELECT id, admin_user_id, admin_name, admin_username, admin_email, requested_at
+         FROM admin_password_reset_requests
+        WHERE status = 'pending'
+        ORDER BY requested_at ASC`
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      adminUserId: r.admin_user_id,
+      adminName: r.admin_name,
+      adminUsername: r.admin_username,
+      adminEmail: r.admin_email,
+      requestedAt: r.requested_at instanceof Date ? r.requested_at.toISOString() : String(r.requested_at),
+    }));
+  } catch (error) {
+    console.error("Error fetching pending password reset requests:", error);
+    return [];
+  }
+}
+
+/** Super Admin sets a new password for the requesting admin and closes out the request. */
+export async function resolvePasswordResetRequestAction(params: {
+  requestId: string;
+  newPassword: string;
+  resolvingAdmin: { id: string; isSuperAdmin: boolean; name?: string; email?: string };
+}): Promise<{ success: boolean; error?: string }> {
+  if (!params.resolvingAdmin.isSuperAdmin) {
+    return { success: false, error: "Only the Super Admin can resolve password reset requests." };
+  }
+  try {
+    await ensurePasswordResetRequestsTable();
+    const request = await queryOne<any>(
+      `SELECT admin_user_id FROM admin_password_reset_requests WHERE id = $1 AND status = 'pending'`,
+      [params.requestId]
+    );
+    if (!request) {
+      return { success: false, error: "Request not found or already resolved." };
+    }
+
+    const ok = await resetAdminPasswordAction(request.admin_user_id, params.newPassword);
+    if (!ok) {
+      return { success: false, error: "Failed to set the new password." };
+    }
+
+    await execute(
+      `UPDATE admin_password_reset_requests SET status = 'resolved', resolved_at = NOW(), resolved_by = $1 WHERE id = $2`,
+      [params.resolvingAdmin.id, params.requestId]
+    );
+
+    const { recordAuditLog } = await import("@/lib/relationalPermissions");
+    await recordAuditLog({
+      adminUserId: params.resolvingAdmin.id,
+      action: "resolve_password_reset_request",
+      category: "security",
+      entityType: "admin_user",
+      entityId: request.admin_user_id,
+      metadata: { resolvedBy: params.resolvingAdmin.name || params.resolvingAdmin.email },
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error resolving password reset request:", error);
+    return { success: false, error: error.message || "Failed to resolve the request." };
   }
 }
 
@@ -1161,6 +1303,8 @@ export interface AuditLogEntry {
   id: string;
   adminName: string | null;
   adminEmail: string | null;
+  adminUsername: string | null;
+  adminRole: string | null;
   action: string;
   category: string | null;
   severity: "info" | "warning" | "critical";
@@ -1190,7 +1334,8 @@ export async function getAuditLogsAction(params: {
     const sinceDays = params.sinceDays ? Math.min(Math.max(params.sinceDays, 1), 365) : null;
     const rows = await query<any>(
       `SELECT l.id, l.action, l.category, l.severity, l.entity_type, l.entity_id, l.metadata, l.created_at,
-              u.name AS admin_name, u.email AS admin_email
+              u.name AS admin_name, u.email AS admin_email, u.username AS admin_username,
+              COALESCE(u.role, u.role_code) AS admin_role
          FROM audit_logs l
          LEFT JOIN admin_users u ON u.id = l.admin_user_id
         WHERE ($2::int IS NULL OR l.created_at >= NOW() - make_interval(days => $2::int))
@@ -1205,6 +1350,8 @@ export async function getAuditLogsAction(params: {
         id: String(r.id),
         adminName: r.admin_name || null,
         adminEmail: r.admin_email || null,
+        adminUsername: r.admin_username || null,
+        adminRole: r.admin_role || null,
         action: r.action,
         category: r.category || null,
         severity: (r.severity || "info") as AuditLogEntry["severity"],

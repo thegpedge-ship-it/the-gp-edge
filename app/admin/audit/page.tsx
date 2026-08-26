@@ -8,7 +8,16 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { addUserNotification } from "@/utils/notifications";
-import { saveAdminToDbAction, deleteAdminFromDbAction, getAdminsFromDbAction, getAuditLogsAction, AuditLogEntry } from "@/actions/admin.actions";
+import {
+  saveAdminToDbAction,
+  deleteAdminFromDbAction,
+  getAdminsFromDbAction,
+  getAuditLogsAction,
+  AuditLogEntry,
+  getPendingPasswordResetRequestsAction,
+  resolvePasswordResetRequestAction,
+  PasswordResetRequest,
+} from "@/actions/admin.actions";
 import {
   getCustomRolesAction,
   createCustomRoleAction,
@@ -172,6 +181,46 @@ export default function AuditPage() {
   useEffect(() => {
     loadCustomRoles();
   }, []);
+
+  /* Password reset requests — non-SA accounts can't self-reset (Section 3G), so the request
+     sits here for the Super Admin to set a new password. */
+  const [pendingResetRequests, setPendingResetRequests] = useState<PasswordResetRequest[]>([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState<string | null>(null);
+  const [resolvePasswordInput, setResolvePasswordInput] = useState("");
+  const [resolveError, setResolveError] = useState<string | null>(null);
+  const [resolveSaving, setResolveSaving] = useState(false);
+
+  const loadPendingResetRequests = async () => {
+    if (!isSuperAdmin) return;
+    const rows = await getPendingPasswordResetRequestsAction(true);
+    setPendingResetRequests(rows);
+  };
+
+  useEffect(() => {
+    loadPendingResetRequests();
+  }, [isSuperAdmin]);
+
+  const handleResolvePasswordReset = async (requestId: string) => {
+    if (resolvePasswordInput.length < 6) {
+      setResolveError("New password must be at least 6 characters.");
+      return;
+    }
+    setResolveSaving(true);
+    setResolveError(null);
+    const res = await resolvePasswordResetRequestAction({
+      requestId,
+      newPassword: resolvePasswordInput,
+      resolvingAdmin: { id: loggedInAdmin.id, isSuperAdmin, name: loggedInAdmin.name, email: loggedInAdmin.email },
+    });
+    setResolveSaving(false);
+    if (!res.success) {
+      setResolveError(res.error || "Failed to set the new password.");
+      return;
+    }
+    setResolvingRequestId(null);
+    setResolvePasswordInput("");
+    await loadPendingResetRequests();
+  };
 
   /* Activity log — Super Admin only, both server- and UI-gated */
   const [activityLogs, setActivityLogs] = useState<AuditLogEntry[]>([]);
@@ -903,6 +952,68 @@ export default function AuditPage() {
 
       {activeTab === "security" && (
         <>
+      {/* Password Reset Requests — Super Admin only. Non-SA accounts can't self-service a
+          password reset (there's no one above them to verify the request), so it lands here. */}
+      {isSuperAdmin && pendingResetRequests.length > 0 && (
+        <motion.div variants={itemVariants} className="bg-rose-50/60 dark:bg-rose-950/15 border border-rose-200/60 dark:border-rose-900/40 rounded-2xl overflow-hidden">
+          <div className="px-4 sm:px-6 py-3.5 border-b border-rose-200/40 dark:border-rose-900/30 flex items-center gap-2">
+            <Lucide.KeyRound className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+            <h3 className="text-sm font-bold text-rose-900 dark:text-rose-200">Password Reset Requests</h3>
+            <span className="text-[10px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full">{pendingResetRequests.length}</span>
+          </div>
+          <div className="divide-y divide-rose-200/40 dark:divide-rose-900/30">
+            {pendingResetRequests.map((r) => (
+              <div key={r.id} className="px-4 sm:px-6 py-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100">{r.adminName || "Unnamed admin"}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {r.adminUsername ? `@${r.adminUsername}` : ""}{r.adminUsername && r.adminEmail ? " · " : ""}{r.adminEmail}
+                    </p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Requested {new Date(r.requestedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                  </div>
+                  {resolvingRequestId === r.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        autoFocus
+                        value={resolvePasswordInput}
+                        onChange={(e) => setResolvePasswordInput(e.target.value)}
+                        placeholder="New password"
+                        className="px-3 py-2 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 w-40"
+                      />
+                      <button
+                        onClick={() => handleResolvePasswordReset(r.id)}
+                        disabled={resolveSaving}
+                        className="px-3 py-2 text-xs font-bold text-white bg-teal-700 hover:bg-teal-800 rounded-lg disabled:opacity-50 cursor-pointer"
+                      >
+                        {resolveSaving ? "Saving..." : "Set Password"}
+                      </button>
+                      <button
+                        onClick={() => { setResolvingRequestId(null); setResolvePasswordInput(""); setResolveError(null); }}
+                        className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg cursor-pointer border-none bg-transparent"
+                      >
+                        <Lucide.X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setResolvingRequestId(r.id); setResolvePasswordInput(""); setResolveError(null); }}
+                      className="px-3.5 py-2 text-xs font-bold text-rose-700 dark:text-rose-300 bg-white dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-all cursor-pointer shrink-0"
+                    >
+                      Set New Password
+                    </button>
+                  )}
+                </div>
+                {resolvingRequestId === r.id && resolveError && (
+                  <p className="text-[11px] text-rose-600 dark:text-rose-400 mt-2">{resolveError}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {/* Administrator Accounts */}
       <div className="space-y-6">
         <motion.div variants={itemVariants} className="bg-white/85 dark:bg-slate-900/95 backdrop-blur-md rounded-2xl border border-teal-200/20 dark:border-slate-800/80 shadow-md shadow-slate-200/10 dark:shadow-slate-950/40 overflow-hidden relative">
@@ -1217,8 +1328,16 @@ export default function AuditPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                          {log.adminName || log.adminEmail || "Unknown admin"}
+                          {log.adminName || log.adminUsername || log.adminEmail || (log.metadata && (log.metadata.changedBy || log.metadata.repliedBy || log.metadata.sentBy || log.metadata.author)) || "Unknown admin"}
                         </span>
+                        {log.adminRole && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-300 border border-teal-200/60 dark:border-teal-900/40">
+                            {log.adminRole}
+                          </span>
+                        )}
+                        {log.adminUsername && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">@{log.adminUsername}</span>
+                        )}
                         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${severityStyle}`}>
                           {log.severity}
                         </span>

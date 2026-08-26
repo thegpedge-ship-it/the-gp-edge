@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getNoteTemplateFeedbacks, updateNoteTemplateFeedbackStatus } from "@/app/admin/feedbacks/actions";
+import { getNoteTemplateFeedbacks, updateNoteTemplateFeedbackStatus, exportNoteTemplateFeedbacksCsvAction } from "@/app/admin/feedbacks/actions";
 import type { NoteTemplateFeedbackRow } from "@/app/admin/feedbacks/actions";
-import { X, Copy, Check } from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
+import { downloadCsv } from "@/lib/csvDownload";
+import { X, Copy, Check, Download } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -55,12 +57,25 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function NoteTemplateFeedbackPage() {
+  const { currentAdmin } = useAdminRole();
   const [rows, setRows] = useState<NoteTemplateFeedbackRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<NoteTemplateFeedbackRow | null>(null);
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const csv = await exportNoteTemplateFeedbacksCsvAction(currentAdmin);
+      downloadCsv(`note-template-feedback-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchPage = (p: number) => {
     setLoading(true);
@@ -86,7 +101,7 @@ export default function NoteTemplateFeedbackPage() {
     new Date(iso).toLocaleString("en-AU", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
   const handleStatusChange = async (row: NoteTemplateFeedbackRow, newStatus: string) => {
-    await updateNoteTemplateFeedbackStatus(row.id, newStatus as any);
+    await updateNoteTemplateFeedbackStatus(row.id, newStatus as any, currentAdmin);
     const updated = { ...row, status: newStatus };
     setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)));
     if (selected?.id === row.id) setSelected(updated);
@@ -94,7 +109,23 @@ export default function NoteTemplateFeedbackPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <AdminPageHeader title="Note Template" highlightedText="Feedback" subtitle="User-reported issues on clinical autofill note templates" variants={itemVariants} />
+      <AdminPageHeader
+        title="Note Template"
+        highlightedText="Feedback"
+        subtitle="User-reported issues on clinical autofill note templates"
+        variants={itemVariants}
+        actions={
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/50 rounded-xl hover:bg-teal-100 dark:hover:bg-teal-950/50 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
+        }
+      />
 
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

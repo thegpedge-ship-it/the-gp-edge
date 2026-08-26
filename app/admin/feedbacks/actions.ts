@@ -1,6 +1,27 @@
 "use server";
 
 import { query } from "@/lib/db";
+import { recordAuditLog } from "@/lib/relationalPermissions";
+
+interface AuditActor {
+  id?: string;
+  name?: string;
+  email?: string;
+}
+
+/** Escapes a single CSV field per RFC 4180 (wraps in quotes, doubles embedded quotes). */
+function csvField(value: unknown): string {
+  const str = value === null || value === undefined ? "" : String(value);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function toCsv(headers: string[], rows: (string | number | null | undefined)[][]): string {
+  const lines = [headers.map(csvField).join(",")];
+  for (const row of rows) {
+    lines.push(row.map(csvField).join(","));
+  }
+  return lines.join("\r\n");
+}
 
 export interface QuestionFeedbackRow {
   id: string;
@@ -105,15 +126,30 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
 
 export async function updateFeedbackStatus(
   feedbackId: string,
-  status: "open" | "under_review" | "accepted" | "rejected" | "resolved"
+  status: "open" | "under_review" | "accepted" | "rejected" | "resolved",
+  adminUser?: AuditActor
 ): Promise<{ ok: boolean }> {
+  const before = await query<{ status: string }>(`SELECT status FROM question_feedback WHERE id = $1`, [feedbackId]);
   await query(`UPDATE question_feedback SET status = $1 WHERE id = $2`, [status, feedbackId]);
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "update_feedback_status",
+    category: "feedback",
+    entityType: "question_feedback",
+    entityId: feedbackId,
+    metadata: {
+      fromStatus: before[0]?.status ?? null,
+      toStatus: status,
+      changedBy: adminUser?.name || adminUser?.email,
+    },
+  });
   return { ok: true };
 }
 
 export async function saveAdminReply(
   feedbackId: string,
-  reply: string
+  reply: string,
+  adminUser?: AuditActor
 ): Promise<{ ok: boolean; error?: string }> {
   const trimmed = reply.trim();
   if (!trimmed) return { ok: false, error: "Reply cannot be empty." };
@@ -122,6 +158,14 @@ export async function saveAdminReply(
     `UPDATE question_feedback SET admin_reply = $1, replied_at = NOW() WHERE id = $2`,
     [trimmed, feedbackId]
   );
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "reply_feedback",
+    category: "feedback",
+    entityType: "question_feedback",
+    entityId: feedbackId,
+    metadata: { reply: trimmed, repliedBy: adminUser?.name || adminUser?.email },
+  });
   return { ok: true };
 }
 
@@ -152,7 +196,8 @@ export async function getFeedbackMessages(feedbackId: string): Promise<AdminFeed
 
 export async function sendAdminFeedbackMessage(
   feedbackId: string,
-  message: string
+  message: string,
+  adminUser?: AuditActor
 ): Promise<{ ok: boolean; error?: string; messageId?: string; createdAt?: string }> {
   const trimmed = message.trim();
   if (!trimmed) return { ok: false, error: "Message cannot be empty." };
@@ -168,6 +213,16 @@ export async function sendAdminFeedbackMessage(
     [feedbackId, trimmed]
   );
   const row = result[0] as any;
+
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "send_feedback_message",
+    category: "feedback",
+    entityType: "question_feedback",
+    entityId: feedbackId,
+    metadata: { message: trimmed, sentBy: adminUser?.name || adminUser?.email },
+  });
+
   return {
     ok: true,
     messageId: row.id,
@@ -250,10 +305,155 @@ export async function getNoteTemplateFeedbacks(page: number = 1, pageSize: numbe
 
 export async function updateNoteTemplateFeedbackStatus(
   feedbackId: string,
-  status: "open" | "under_review" | "accepted" | "rejected" | "resolved"
+  status: "open" | "under_review" | "accepted" | "rejected" | "resolved",
+  adminUser?: AuditActor
 ): Promise<{ ok: boolean }> {
+  const before = await query<{ status: string }>(`SELECT status FROM note_template_feedback WHERE id = $1`, [feedbackId]);
   await query(`UPDATE note_template_feedback SET status = $1 WHERE id = $2`, [status, feedbackId]);
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "update_feedback_status",
+    category: "feedback",
+    entityType: "note_template_feedback",
+    entityId: feedbackId,
+    metadata: {
+      fromStatus: before[0]?.status ?? null,
+      toStatus: status,
+      changedBy: adminUser?.name || adminUser?.email,
+    },
+  });
   return { ok: true };
+}
+
+export async function exportQuestionFeedbacksCsvAction(adminUser?: AuditActor): Promise<string> {
+  const rows = await query<any>(
+    `SELECT
+       qf.id, qf.question_id, q.uqid AS question_uqid,
+       u.email AS user_email,
+       COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
+       COALESCE(qf.exam_type, q.exam_type_code) AS exam_type,
+       qf.issue_where, qf.issue_type, qf.suggested_answer, qf.disputed_answer,
+       qf.comment, qf.status, qf.created_at, qf.admin_reply, qf.replied_at
+     FROM question_feedback qf
+     JOIN users u ON u.id = qf.user_id
+     LEFT JOIN questions q ON q.id = qf.question_id
+     ORDER BY qf.created_at DESC`
+  );
+
+  const csv = toCsv(
+    ["ID", "Question ID", "Question Code", "Reporter Email", "Reporter Name", "Exam Type", "Issue Location", "Issue Type", "Suggested Answer", "Disputed Answer", "Comment", "Status", "Reported At", "Admin Reply", "Replied At"],
+    rows.map((r) => [
+      r.id,
+      r.question_id,
+      r.question_uqid ?? "",
+      r.user_email,
+      r.user_name,
+      r.exam_type ?? "",
+      r.issue_where ?? "",
+      r.issue_type ?? "",
+      r.suggested_answer ?? "",
+      r.disputed_answer ?? "",
+      r.comment ?? "",
+      r.status ?? "open",
+      r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      r.admin_reply ?? "",
+      r.replied_at instanceof Date ? r.replied_at.toISOString() : r.replied_at ? String(r.replied_at) : "",
+    ])
+  );
+
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "export_feedback_csv",
+    category: "feedback",
+    entityType: "question_feedback",
+    entityId: "bulk",
+    metadata: { rowCount: rows.length, exportedBy: adminUser?.name || adminUser?.email },
+  });
+
+  return csv;
+}
+
+export async function exportNoteTemplateFeedbacksCsvAction(adminUser?: AuditActor): Promise<string> {
+  const rows = await query<any>(
+    `SELECT
+       ntf.id, ntf.template_id, ntf.template_name, ntf.version_label,
+       u.email AS user_email,
+       COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
+       ntf.severity, ntf.whats_wrong, ntf.source, ntf.section_where, ntf.issue_type,
+       ntf.wrong_detail, ntf.software_name, ntf.status, ntf.created_at
+     FROM note_template_feedback ntf
+     JOIN users u ON u.id = ntf.user_id
+     ORDER BY ntf.created_at DESC`
+  );
+
+  const csv = toCsv(
+    ["ID", "Template ID", "Template Name", "Version", "Reporter Email", "Reporter Name", "Severity", "What's Wrong", "Source", "Section", "Issue Type", "Detail", "Software", "Status", "Reported At"],
+    rows.map((r) => [
+      r.id,
+      r.template_id,
+      r.template_name,
+      r.version_label ?? "",
+      r.user_email,
+      r.user_name,
+      r.severity,
+      r.whats_wrong,
+      r.source ?? "",
+      r.section_where,
+      r.issue_type,
+      r.wrong_detail ?? "",
+      r.software_name ?? "",
+      r.status ?? "open",
+      r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    ])
+  );
+
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "export_feedback_csv",
+    category: "feedback",
+    entityType: "note_template_feedback",
+    entityId: "bulk",
+    metadata: { rowCount: rows.length, exportedBy: adminUser?.name || adminUser?.email },
+  });
+
+  return csv;
+}
+
+export async function exportLibraryFeedbacksCsvAction(adminUser?: AuditActor): Promise<string> {
+  const rows = await query<any>(
+    `SELECT
+       mlf.id, mlf.condition_id, mlf.condition_name,
+       u.email AS user_email,
+       COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
+       mlf.feedback, mlf.created_at
+     FROM medical_library_feedback mlf
+     JOIN users u ON u.id = mlf.user_id
+     ORDER BY mlf.created_at DESC`
+  );
+
+  const csv = toCsv(
+    ["ID", "Condition ID", "Condition Name", "Reporter Email", "Reporter Name", "Feedback", "Reported At"],
+    rows.map((r) => [
+      r.id,
+      r.condition_id,
+      r.condition_name,
+      r.user_email,
+      r.user_name,
+      r.feedback,
+      r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+    ])
+  );
+
+  await recordAuditLog({
+    adminUserId: adminUser?.id,
+    action: "export_feedback_csv",
+    category: "feedback",
+    entityType: "library_feedback",
+    entityId: "bulk",
+    metadata: { rowCount: rows.length, exportedBy: adminUser?.name || adminUser?.email },
+  });
+
+  return csv;
 }
 
 export async function getLibraryFeedbacks(page: number = 1, pageSize: number = 50): Promise<{

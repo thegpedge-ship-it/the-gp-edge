@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
-import { getNotificationsFromDbAction, clearAdminSessionAction, SystemNotificationItem } from "@/actions/admin.actions";
+import { getNotificationsFromDbAction, clearAdminSessionAction, getPendingPasswordResetRequestsAction, SystemNotificationItem, PasswordResetRequest } from "@/actions/admin.actions";
 
 interface AdminTopbarProps {
   collapsed: boolean;
@@ -52,7 +52,7 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const { currentAdmin } = useAdminRole();
+  const { currentAdmin, isSuperAdmin } = useAdminRole();
   const initials =
     currentAdmin.name
       .replace(/[^a-zA-Z\s]/g, "")
@@ -92,6 +92,22 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
       .then((rows) => setNotifications(rows.slice(0, 5)))
       .finally(() => setNotificationsLoading(false));
   }, []);
+
+  // Non-SA accounts can't self-service a password reset — the Super Admin is the one who
+  // resolves those requests (from the Audit & Security page), so only SA polls for them here.
+  const [pendingResetRequests, setPendingResetRequests] = useState<PasswordResetRequest[]>([]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    const poll = () => {
+      getPendingPasswordResetRequestsAction(true)
+        .then(setPendingResetRequests)
+        .catch(() => {});
+    };
+    poll();
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
+  }, [isSuperAdmin]);
 
   const handleLogout = () => {
     if (currentAdmin.id) {
@@ -146,8 +162,14 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                 }`}
               >
                 <Lucide.Bell className="w-5 h-5" />
-                {notifications.length > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+                {pendingResetRequests.length > 0 ? (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 flex items-center justify-center text-[9px] font-bold text-white bg-rose-500 rounded-full ring-2 ring-white dark:ring-slate-900">
+                    {pendingResetRequests.length}
+                  </span>
+                ) : (
+                  notifications.length > 0 && (
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-slate-900" />
+                  )
                 )}
               </button>
 
@@ -166,6 +188,29 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
                         <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">{notifications.length} Recent</span>
                       )}
                     </div>
+                    {pendingResetRequests.length > 0 && (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800 border-b border-slate-100 dark:border-slate-800 bg-rose-50/40 dark:bg-rose-950/10">
+                        {pendingResetRequests.map((r) => (
+                          <div
+                            key={r.id}
+                            onClick={() => {
+                              setShowNotifications(false);
+                              router.push("/admin/audit");
+                            }}
+                            className="p-3.5 hover:bg-rose-50 dark:hover:bg-rose-950/20 cursor-pointer transition-all flex items-start gap-3"
+                          >
+                            <Lucide.KeyRound className="w-4 h-4 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">Password reset requested</p>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                                {r.adminName || r.adminUsername || r.adminEmail} needs a new password set
+                              </p>
+                              <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1">{timeAgo(r.requestedAt)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[280px] overflow-y-auto">
                       {notificationsLoading ? (
                         <div className="px-4 py-6 text-center text-xs text-slate-400">Loading...</div>

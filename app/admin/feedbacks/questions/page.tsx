@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getQuestionFeedbacks, updateFeedbackStatus, saveAdminReply, getFeedbackMessages, sendAdminFeedbackMessage } from "@/app/admin/feedbacks/actions";
+import { getQuestionFeedbacks, updateFeedbackStatus, saveAdminReply, getFeedbackMessages, sendAdminFeedbackMessage, exportQuestionFeedbacksCsvAction } from "@/app/admin/feedbacks/actions";
 import type { QuestionFeedbackRow, AdminFeedbackMessage } from "@/app/admin/feedbacks/actions";
-import { X, Copy, Check, Send } from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
+import { downloadCsv } from "@/lib/csvDownload";
+import { X, Copy, Check, Send, Download } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -55,6 +57,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function QuestionFeedbackPage() {
+  const { currentAdmin } = useAdminRole();
   const [rows, setRows] = useState<QuestionFeedbackRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -67,6 +70,18 @@ export default function QuestionFeedbackPage() {
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadReplyText, setThreadReplyText] = useState("");
   const [threadSending, setThreadSending] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const csv = await exportQuestionFeedbacksCsvAction(currentAdmin);
+      downloadCsv(`question-feedback-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const fetchPage = (p: number) => {
     setLoading(true);
@@ -108,7 +123,7 @@ export default function QuestionFeedbackPage() {
   const handleSaveReply = async () => {
     if (!selected || replySaving) return;
     setReplySaving(true);
-    const result = await saveAdminReply(selected.id, replyText);
+    const result = await saveAdminReply(selected.id, replyText, currentAdmin);
     setReplySaving(false);
     if (result.ok) {
       const updated = { ...selected, admin_reply: replyText.trim(), replied_at: new Date().toISOString() };
@@ -120,7 +135,7 @@ export default function QuestionFeedbackPage() {
   const handleSendThreadMessage = async () => {
     if (!selected || threadSending || !threadReplyText.trim()) return;
     setThreadSending(true);
-    const result = await sendAdminFeedbackMessage(selected.id, threadReplyText);
+    const result = await sendAdminFeedbackMessage(selected.id, threadReplyText, currentAdmin);
     setThreadSending(false);
     if (result.ok) {
       setThreadMessages((prev) => [
@@ -138,7 +153,7 @@ export default function QuestionFeedbackPage() {
   };
 
   const handleStatusChange = async (row: QuestionFeedbackRow, newStatus: string) => {
-    await updateFeedbackStatus(row.id, newStatus as any);
+    await updateFeedbackStatus(row.id, newStatus as any, currentAdmin);
     const updated = { ...row, status: newStatus };
     setRows((prev) => prev.map((r) => (r.id === row.id ? updated : r)));
     if (selected?.id === row.id) setSelected(updated);
@@ -146,7 +161,23 @@ export default function QuestionFeedbackPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <AdminPageHeader title="Question" highlightedText="Feedback" subtitle="User-reported issues and feedback on exam questions" variants={itemVariants} />
+      <AdminPageHeader
+        title="Question"
+        highlightedText="Feedback"
+        subtitle="User-reported issues and feedback on exam questions"
+        variants={itemVariants}
+        actions={
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/50 rounded-xl hover:bg-teal-100 dark:hover:bg-teal-950/50 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
+        }
+      />
 
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

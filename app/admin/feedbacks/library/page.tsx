@@ -3,9 +3,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { getLibraryFeedbacks } from "@/app/admin/feedbacks/actions";
+import { getLibraryFeedbacks, exportLibraryFeedbacksCsvAction } from "@/app/admin/feedbacks/actions";
 import type { LibraryFeedbackRow } from "@/app/admin/feedbacks/actions";
-import { X, Copy, Check } from "lucide-react";
+import { useAdminRole } from "@/hooks/useAdminRole";
+import { downloadCsv } from "@/lib/csvDownload";
+import { X, Copy, Check, Download } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -19,12 +21,25 @@ const itemVariants = {
 const PAGE_SIZE = 20;
 
 export default function LibraryFeedbackPage() {
+  const { currentAdmin } = useAdminRole();
   const [rows, setRows] = useState<LibraryFeedbackRow[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<LibraryFeedbackRow | null>(null);
   const [copied, setCopied] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportCsv = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const csv = await exportLibraryFeedbacksCsvAction(currentAdmin);
+      downloadCsv(`library-feedback-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -49,7 +64,23 @@ export default function LibraryFeedbackPage() {
 
   return (
     <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-      <AdminPageHeader title="Library" highlightedText="Feedback" subtitle="User-reported issues on medical library content" variants={itemVariants} />
+      <AdminPageHeader
+        title="Library"
+        highlightedText="Feedback"
+        subtitle="User-reported issues on medical library content"
+        variants={itemVariants}
+        actions={
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-900/50 rounded-xl hover:bg-teal-100 dark:hover:bg-teal-950/50 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
+        }
+      />
 
       <motion.div variants={itemVariants} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

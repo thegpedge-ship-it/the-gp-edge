@@ -85,6 +85,7 @@ export default function AdminLoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotRequestSubmitted, setForgotRequestSubmitted] = useState(false);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -182,11 +183,11 @@ export default function AdminLoginPage() {
         return;
       }
 
-      localStorage.setItem("gpedge_temp_reset_admin_id", result.userId);
-      setShowForgotModal(false);
-      setForgotEmail("");
+      // Non-SA accounts can't self-service a reset — the request now sits with the Super
+      // Admin, who sets the new password from the Users page. Show a confirmation instead
+      // of handing the requester a direct path to set their own password.
+      setForgotRequestSubmitted(true);
       setForgotSent(false);
-      router.push("/admin/reset-password");
     } catch (err) {
       setForgotError("An error occurred while verifying your account. Please try again.");
       setForgotSent(false);
@@ -257,7 +258,6 @@ export default function AdminLoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className={`w-full pl-10 pr-4 py-3 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                  placeholder="e.g. siddhant_super"
                 />
               </div>
             </div>
@@ -360,6 +360,8 @@ export default function AdminLoginPage() {
                   onClick={() => {
                     setShowForgotModal(false);
                     setForgotError(null);
+                    setForgotRequestSubmitted(false);
+                    setForgotEmail("");
                   }}
                   className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 border-none bg-transparent cursor-pointer"
                 >
@@ -367,52 +369,76 @@ export default function AdminLoginPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSendResetLink} className="space-y-4">
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Enter your administrator email address or username. If it matches an account with password reset enabled, you'll be taken straight to set a new password.
-                </p>
-
-                {forgotError && (
-                  <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-xs text-red-650 dark:text-red-400 rounded-xl flex gap-2 items-start leading-relaxed">
-                    <Lucide.AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{forgotError}</span>
+              {forgotRequestSubmitted ? (
+                <div className="space-y-4">
+                  <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 text-xs text-emerald-800 dark:text-emerald-400 rounded-xl flex gap-2 items-start leading-relaxed">
+                    <Lucide.CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <span>
+                      Request sent. Your Super Admin has been notified and will set a new password for your account — you'll be able to log in once that's done.
+                    </span>
                   </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
-                    Admin Email / Username
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={forgotEmail}
-                    onChange={(e) => setForgotEmail(e.target.value)}
-                    className={`w-full px-3.5 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
-                    placeholder="e.g. admin@gpedge.com"
-                  />
+                  <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-850">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotModal(false);
+                        setForgotRequestSubmitted(false);
+                        setForgotEmail("");
+                      }}
+                      className={`px-4 py-2.5 text-xs font-bold rounded-xl cursor-pointer ${themeBtnPrimary}`}
+                    >
+                      Done
+                    </button>
+                  </div>
                 </div>
+              ) : (
+                <form onSubmit={handleSendResetLink} className="space-y-4">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Enter your administrator email address or username. Your Super Admin will be notified and will set a new password for you — accounts other than Super Admin can't reset their own password directly.
+                  </p>
 
-                <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-850">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowForgotModal(false);
-                      setForgotError(null);
-                    }}
-                    className="px-3 py-2 text-xs font-semibold text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border-none bg-transparent cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={forgotSent}
-                    className={`px-4 py-2.5 text-xs font-bold rounded-xl cursor-pointer ${themeBtnPrimary}`}
-                  >
-                    {forgotSent ? "Verifying..." : "Continue"}
-                  </button>
-                </div>
-              </form>
+                  {forgotError && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30 text-xs text-red-650 dark:text-red-400 rounded-xl flex gap-2 items-start leading-relaxed">
+                      <Lucide.AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{forgotError}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">
+                      Admin Email / Username
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={forgotEmail}
+                      onChange={(e) => setForgotEmail(e.target.value)}
+                      className={`w-full px-3.5 py-2.5 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
+                      placeholder="e.g. admin@gpedge.com"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-850">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowForgotModal(false);
+                        setForgotError(null);
+                      }}
+                      className="px-3 py-2 text-xs font-semibold text-slate-450 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border-none bg-transparent cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={forgotSent}
+                      className={`px-4 py-2.5 text-xs font-bold rounded-xl cursor-pointer ${themeBtnPrimary}`}
+                    >
+                      {forgotSent ? "Sending..." : "Send Request"}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}
