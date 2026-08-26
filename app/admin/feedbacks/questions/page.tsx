@@ -179,7 +179,7 @@ export default function QuestionFeedbackPage() {
               ) : rows.map((row) => (
                 <tr key={row.id} onClick={() => handleSelect(row)} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer">
                   <td className="px-4 py-3">
-                    <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 truncate block max-w-full" title={row.question_id}>{row.question_id.slice(0, 10)}…</span>
+                    <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 bg-teal-50/50 dark:bg-teal-950/20 px-2 py-0.5 rounded border border-teal-200/30 truncate block max-w-full" title={row.question_id}>{row.question_uqid || `${row.question_id.slice(0, 10)}…`}</span>
                   </td>
                   <td className="px-3 py-3">
                     {row.exam_type && (
@@ -263,11 +263,14 @@ export default function QuestionFeedbackPage() {
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Question ID</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 break-all">{selected.question_id}</span>
-                      <button onClick={() => copyId(selected.question_id)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
+                      <span className="text-xs font-mono font-semibold text-teal-600 dark:text-teal-400 break-all">{selected.question_uqid || selected.question_id}</span>
+                      <button onClick={() => copyId(selected.question_uqid || selected.question_id)} className="p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer">
                         {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                       </button>
                     </div>
+                    {selected.question_uqid && (
+                      <span className="text-[10px] font-mono text-slate-400 dark:text-slate-600 break-all block mt-0.5">{selected.question_id}</span>
+                    )}
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">Reported By</span>

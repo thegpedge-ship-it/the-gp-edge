@@ -5,6 +5,7 @@ import { query } from "@/lib/db";
 export interface QuestionFeedbackRow {
   id: string;
   question_id: string;
+  question_uqid: string | null;
   user_email: string;
   user_name: string;
   exam_type: string | null;
@@ -43,9 +44,10 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
       `SELECT
          qf.id,
          qf.question_id,
+         q.uqid AS question_uqid,
          u.email AS user_email,
          COALESCE(TRIM(CONCAT(u.first_name, ' ', u.last_name)), u.email) AS user_name,
-         qf.exam_type,
+         COALESCE(qf.exam_type, q.exam_type_code) AS exam_type,
          qf.issue_where,
          qf.issue_type,
          qf.suggested_answer,
@@ -59,6 +61,7 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
          COALESCE(fm_agg.has_user_message, false) AS has_user_message
        FROM question_feedback qf
        JOIN users u ON u.id = qf.user_id
+       LEFT JOIN questions q ON q.id = qf.question_id
        LEFT JOIN LATERAL (
          SELECT
            COUNT(*)::int AS thread_count,
@@ -80,6 +83,7 @@ export async function getQuestionFeedbacks(page: number = 1, pageSize: number = 
     rows: dataRows.map((r: any) => ({
       id: r.id,
       question_id: r.question_id,
+      question_uqid: r.question_uqid ?? null,
       user_email: r.user_email,
       user_name: r.user_name,
       exam_type: r.exam_type ?? null,
