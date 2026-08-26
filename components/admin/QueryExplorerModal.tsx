@@ -239,9 +239,9 @@ export default function QueryExplorerModal({ adminUser, onClose, onOpenBulkEdit 
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><X className="w-4 h-4" /></button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5">
-          {/* Preset list */}
-          <div className="space-y-1">
+        <div className="flex-1 min-h-0 p-5 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-5 overflow-y-auto lg:overflow-hidden">
+          {/* Preset list — scrolls independently from the filter/results column on desktop */}
+          <div className="space-y-1 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             {PRESETS.map((p) => (
               <button
                 key={p.key}
@@ -263,8 +263,8 @@ export default function QueryExplorerModal({ adminUser, onClose, onOpenBulkEdit 
             ))}
           </div>
 
-          {/* Filter form + results */}
-          <div className="space-y-4">
+          {/* Filter form + results — scrolls independently from the preset list on desktop */}
+          <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
             <div className="p-4 rounded-xl bg-slate-50/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <CustomSelect value={examType} onChange={setExamType} placeholder="Bank" options={[{ value: "", label: "Any bank" }, { value: "AKT", label: "AKT" }, { value: "KFP", label: "KFP" }]} />
