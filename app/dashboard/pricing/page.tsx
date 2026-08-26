@@ -26,13 +26,13 @@ export const dynamic = "force-dynamic";
 const ALL_PLANS: Record<PlanId, PricingPlan> = {
   registrar_6mo: {
     id: "registrar_6mo",
-    name: "Registrar - 6 Month",
+    name: "6-Month Exam Prep Plan",
     tagline: "Full exam prep access for your placement",
     badge: null,
-    priceDisplay: "1,500",
+    priceDisplay: "880",
     priceNote: "One-time payment · 6 months access",
     billingType: "one-time",
-    amountAUD: 1500,
+    amountAUD: 880,
     highlight: false,
     features: [
       "Full AKT + KFP exam prep - unlimited questions",
@@ -47,18 +47,18 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
   },
   registrar_12mo: {
     id: "registrar_12mo",
-    name: "Registrar - 12 Month",
+    name: "12-Month Exam Prep Plan",
     tagline: "Best value - full year of exam prep",
     badge: "BEST VALUE",
-    priceDisplay: "2,500",
+    priceDisplay: "1,250",
     priceNote: "One-time payment · 12 months access",
     billingType: "one-time",
-    amountAUD: 2500,
+    amountAUD: 1250,
     highlight: true,
     features: [
       "Everything in the 6-Month plan",
       "12 months of uninterrupted access",
-      "Save $500 vs two 6-month purchases",
+      "Save $510 vs two 6-month purchases",
       "Priority support",
     ],
     cta: "Get 12-Month Access",
@@ -173,25 +173,10 @@ export default async function PricingPage() {
   const trainingStage = isFellow ? "FELLOW" : "REGISTRAR";
   const userRole = isFellow ? "FELLOW" : "REGISTRAR";
 
-  // Determine which plan IDs this user is allowed to see
-  const visiblePlanIds = getVisiblePlans(
-    userRole,
-    dbUser.has_purchased_registrar,
-    trainingStage
-  );
-
-  // Build ordered plan list for the client
+  // Build ordered plan list for the client (universally showing only 6-month and 12-month Exam Prep plans)
+  const visiblePlanIds: PlanId[] = ["registrar_6mo", "registrar_12mo"];
   const plans = visiblePlanIds.map((id) => {
     const plan = { ...ALL_PLANS[id] };
-    if (id === "post_registrar_upgrade" && isFellow && dbUser.has_purchased_registrar) {
-      plan.name = "Loyalty Monthly Plan";
-      plan.badge = "ALUMNI LOYALTY DISCOUNT (50% OFF)";
-      plan.strikeThroughPrice = "30";
-      plan.priceDisplay = "15";
-      plan.priceNote = "AUD / month · Special alumni rate";
-      plan.highlight = true;
-      plan.cta = "Get $15/mo Loyalty Rate";
-    }
     return plan;
   });
 

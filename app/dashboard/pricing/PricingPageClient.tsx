@@ -435,12 +435,8 @@ export default function PricingPageClient({
     String(trainingStage ?? "").toUpperCase() === "FELLOW" ||
     String(userRole ?? "").toUpperCase() === "FELLOW";
 
-  // STRICT RULE ENFORCEMENT:
-  // 1. FELLOW: Never show $1,500 (registrar_6mo) or $2,500 (registrar_12mo) packages under any circumstance.
-  // 2. REGISTRAR: Never show $30/mo (fellowship_monthly) or $300/yr (fellowship_yearly) subscriptions under any circumstance.
-  const sanitizedPlans = isFellow
-    ? plans.filter((p) => p.id !== "registrar_6mo" && p.id !== "registrar_12mo")
-    : plans.filter((p) => p.id !== "fellowship_monthly" && p.id !== "fellowship_yearly");
+  // Show all provided plans (universally show only the 6-month and 12-month Exam Prep plans)
+  const sanitizedPlans = plans;
 
   const orderedPlans = [...sanitizedPlans].sort((a, b) => a.amountAUD - b.amountAUD);
   
@@ -467,22 +463,13 @@ export default function PricingPageClient({
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            {isFellow ? "Post-Registrar & Fellow Plans" : "Registrar & Exam Prep Plans"}
+            Universal Exam Prep Plans
           </div>
 
           {/* Large Heading */}
           <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-slate-900 dark:text-slate-50 max-w-2xl mx-auto">
-            {isFellow ? (
-              <>
-                Fellowship &amp; <br />
-                Clinical Tools Plans
-              </>
-            ) : (
-              <>
-                Invest in your <br />
-                fellowship success
-              </>
-            )}
+            Invest in your <br />
+            fellowship success
           </h1>
         </section>
 
