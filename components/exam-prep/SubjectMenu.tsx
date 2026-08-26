@@ -239,9 +239,6 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
                     <span className={`text-[13px] truncate transition-colors flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                       {subject.name}
                     </span>
-                    {!selectedSubject && (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap ml-auto flex-shrink-0">{subject.questionCount} Qs</span>
-                    )}
                   </button>
                 );
               })}
@@ -305,9 +302,6 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
                         <span className={`text-[13px] truncate transition-colors flex-shrink min-w-0 ${isActive ? `font-bold ${theme.text}` : "font-normal text-slate-900 dark:text-slate-100"}`}>
                           {st.name}
                         </span>
-                        {!selectedSubtopic && (
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap ml-auto flex-shrink-0">{st.questionCount} Qs</span>
-                        )}
                       </button>
                     );
                   })}
@@ -346,17 +340,6 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
                     <QuizCard key={quiz.id} quiz={quiz} starting={startingId === quiz.id} onStart={handleStart} />
                   ))}
 
-                  {/* Subtopic summary */}
-                  <div className="mt-1 px-3 py-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/30">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-semibold text-slate-500 dark:text-slate-400">
-                        Total available: <span className="font-bold text-slate-700 dark:text-slate-200">{selectedSubtopic.questionCount} questions</span>
-                      </span>
-                      <span className={`font-bold ${theme.text}`}>
-                        {selectedSubject.name} &rsaquo; {selectedSubtopic.name}
-                      </span>
-                    </div>
-                  </div>
                 </motion.div>
               </AnimatePresence>
             )}
@@ -385,7 +368,6 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
                   >
                     <Chevron open={subjectOpen} />
                     <span className={`text-[14px] flex-1 min-w-0 truncate ${subjectOpen ? `font-bold ${theme.text}` : "font-semibold text-slate-900 dark:text-slate-100"}`}>{subject.name}</span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">{subject.questionCount} Qs</span>
                   </button>
 
                   <AnimatePresence initial={false}>
@@ -414,7 +396,6 @@ export default function SubjectMenu({ examMode = "AKT" }: { examMode?: "AKT" | "
                                   >
                                     <Chevron open={stOpen} />
                                     <span className={`text-[13px] flex-1 min-w-0 truncate ${stOpen ? `font-bold ${theme.text}` : "font-medium text-slate-700 dark:text-slate-200"}`}>{st.name}</span>
-                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 whitespace-nowrap flex-shrink-0">{st.questionCount} Qs</span>
                                   </button>
 
                                   <AnimatePresence initial={false}>
