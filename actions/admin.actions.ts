@@ -19,6 +19,7 @@ export interface CredentialUser {
   status?: "active" | "deactivated" | "suspended" | "trial" | "lapsed" | string;
   permissions?: string[];
   lastChanged?: string;
+  sessionToken?: string;
 }
 
 export async function isBcryptHash(str?: string): Promise<boolean> {
@@ -507,11 +508,60 @@ export async function verifyAdminCredentialsAction(
       row.password_hash = newHash;
     }
 
+    // Single-device enforcement: issuing a fresh session token here invalidates whatever
+    // session this account was previously using on another device — the previous device's
+    // stored token no longer matches, so its next check kicks it out. See checkAdminSessionAction.
+    const sessionToken = randomUUID();
+    try {
+      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_token TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;`);
+    } catch (e) {}
+    await execute(
+      `UPDATE admin_users SET active_session_token = $1, active_session_started_at = NOW() WHERE id = $2`,
+      [sessionToken, row.id]
+    );
+
     const user = mapRowToCredentialUser(row);
+    user.sessionToken = sessionToken;
     return { success: true, user };
   } catch (error: any) {
     console.error("Error verifying admin credentials:", error);
     return { success: false, error: error.message || "Authentication error." };
+  }
+}
+
+/**
+ * Single-device enforcement. The client polls this with the session token it received at
+ * login; if another device has since logged in as the same account, that login overwrote
+ * active_session_token, so this returns valid: false and the caller signs itself out.
+ */
+export async function checkAdminSessionAction(
+  adminId: string,
+  sessionToken: string
+): Promise<{ valid: boolean }> {
+  try {
+    if (!adminId || !sessionToken) return { valid: false };
+    try {
+      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_token TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;`);
+    } catch (e) {}
+    const row = await queryOne<{ active_session_token: string | null }>(
+      `SELECT active_session_token FROM admin_users WHERE id = $1 AND deleted_at IS NULL`,
+      [adminId]
+    );
+    return { valid: !!row && row.active_session_token === sessionToken };
+  } catch (error) {
+    console.error("Error checking admin session:", error);
+    // Fail open on infra errors so a DB hiccup doesn't mass-logout every admin session.
+    return { valid: true };
+  }
+}
+
+/** Clears the account's active session on explicit logout, freeing the device slot immediately. */
+export async function clearAdminSessionAction(adminId: string): Promise<void> {
+  try {
+    if (!adminId) return;
+    await execute(`UPDATE admin_users SET active_session_token = NULL WHERE id = $1`, [adminId]);
+  } catch (error) {
+    console.error("Error clearing admin session:", error);
   }
 }
 

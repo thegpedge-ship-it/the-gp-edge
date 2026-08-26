@@ -60,12 +60,22 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [signedInElsewhere, setSignedInElsewhere] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       if (searchParams.get("resetSuccess") === "true") {
         setResetSuccess(true);
+      }
+      if (searchParams.get("signedInElsewhere") === "true") {
+        setSignedInElsewhere(true);
+      }
+      const savedUsername = localStorage.getItem("gpedge_admin_remembered_username");
+      if (savedUsername) {
+        setUsername(savedUsername);
+        setRememberMe(true);
       }
     }
   }, []);
@@ -114,6 +124,12 @@ export default function AdminLoginPage() {
 
       const foundUser = result.user;
 
+      if (rememberMe) {
+        localStorage.setItem("gpedge_admin_remembered_username", username);
+      } else {
+        localStorage.removeItem("gpedge_admin_remembered_username");
+      }
+
       try {
         const dbAdmins = await getAdminsFromDbAction();
         if (dbAdmins && dbAdmins.length > 0) {
@@ -132,6 +148,9 @@ export default function AdminLoginPage() {
 
       localStorage.setItem("gpedge_admin_logged_in", "true");
       localStorage.setItem("gpedge_active_admin_id", foundUser.id);
+      if (foundUser.sessionToken) {
+        localStorage.setItem("gpedge_admin_session_token", foundUser.sessionToken);
+      }
 
       window.dispatchEvent(new Event("gpedge_admin_changed"));
       router.push("/admin/dashboard");
@@ -219,12 +238,21 @@ export default function AdminLoginPage() {
               </div>
             )}
 
+            {signedInElsewhere && (
+              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 text-xs text-amber-800 dark:text-amber-400 rounded-xl flex gap-2 items-start leading-relaxed animate-fade-in">
+                <Lucide.Laptop className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                <span>You were signed out because this account was signed in on another device. Each admin account can only be active on one device at a time.</span>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Username</label>
               <div className="relative">
                 <Lucide.User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-600" />
                 <input
                   type="text"
+                  name="username"
+                  autoComplete="username"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -249,6 +277,8 @@ export default function AdminLoginPage() {
                 <Lucide.Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-600" />
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -269,6 +299,16 @@ export default function AdminLoginPage() {
                 </button>
               </div>
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-3.5 h-3.5 rounded border-slate-300 dark:border-slate-700 accent-teal-600 dark:accent-teal-500 cursor-pointer"
+              />
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Remember my username</span>
+            </label>
 
             <button
               type="submit"

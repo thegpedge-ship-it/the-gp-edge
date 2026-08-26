@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
 import CustomSelect from "@/components/admin/CustomSelect";
 import { useAdminRole } from "@/hooks/useAdminRole";
-import { getNotificationsFromDbAction, SystemNotificationItem } from "@/actions/admin.actions";
+import { getNotificationsFromDbAction, clearAdminSessionAction, SystemNotificationItem } from "@/actions/admin.actions";
 
 interface AdminTopbarProps {
   collapsed: boolean;
@@ -94,7 +94,11 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
   }, []);
 
   const handleLogout = () => {
+    if (currentAdmin.id) {
+      clearAdminSessionAction(currentAdmin.id).catch(() => {});
+    }
     localStorage.removeItem("gpedge_admin_logged_in");
+    localStorage.removeItem("gpedge_admin_session_token");
     window.dispatchEvent(new Event("gpedge_admin_changed"));
     router.push("/admin/login");
     setShowProfile(false);

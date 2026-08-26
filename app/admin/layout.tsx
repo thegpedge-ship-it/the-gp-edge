@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminTopbar from "@/components/admin/AdminTopbar";
-import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, CredentialUser } from "@/actions/admin.actions";
+import { getAdminsFromDbAction, syncLocalAdminsWithDbAction, checkAdminSessionAction, CredentialUser } from "@/actions/admin.actions";
 import { resolveAdminSectionKey } from "@/lib/adminPermissionKeys";
 
 const FULL_PERMISSIONS = [
@@ -201,6 +201,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       }
     };
   }, []);
+
+  // Single-device enforcement: poll the account's active session token. If another device has
+  // since logged in as the same admin, the server-side token no longer matches this device's
+  // copy, and this device is signed out automatically.
+  useEffect(() => {
+    if (!isLoggedIn || !currentAdminId) return;
+
+    const checkSession = async () => {
+      const sessionToken = localStorage.getItem("gpedge_admin_session_token");
+      if (!sessionToken) return;
+      try {
+        const { valid } = await checkAdminSessionAction(currentAdminId, sessionToken);
+        if (!valid) {
+          localStorage.removeItem("gpedge_admin_logged_in");
+          localStorage.removeItem("gpedge_admin_session_token");
+          window.dispatchEvent(new Event("gpedge_admin_changed"));
+          router.push("/admin/login?signedInElsewhere=true");
+        }
+      } catch (e) {
+        // Fail open — a transient network/DB error should not sign the admin out.
+      }
+    };
+
+    checkSession();
+    const interval = setInterval(checkSession, 30000);
+    return () => clearInterval(interval);
+  }, [isLoggedIn, currentAdminId, router]);
 
   const sectionKeys = [
     "dashboard", "questions", "quizzes", "content", "approaches", "autofill",
