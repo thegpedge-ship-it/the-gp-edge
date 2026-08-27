@@ -2972,9 +2972,9 @@ export async function POST(req: NextRequest) {
     const fileName = file.name || "uploaded_file";
     const ext = fileName.split(".").pop()?.toLowerCase();
 
-    if (!["pdf", "docx", "doc", "png", "jpg", "jpeg", "webp"].includes(ext || "")) {
+    if (!["pdf", "docx", "doc", "txt", "png", "jpg", "jpeg", "webp"].includes(ext || "")) {
       return NextResponse.json(
-        { error: "Only PDF, DOC, DOCX, and image files (PNG, JPG, JPEG, WEBP) are supported." },
+        { error: "Only PDF, DOC, DOCX, TXT, and image files (PNG, JPG, JPEG, WEBP) are supported." },
         { status: 400 }
       );
     }
@@ -2998,6 +2998,8 @@ export async function POST(req: NextRequest) {
         rawText = await extractTextFromPdfBuffer(buffer);
       } else if (ext === "doc") {
         rawText = await extractTextAndImagesFromDocBuffer(buffer);
+      } else if (ext === "txt") {
+        rawText = buffer.toString("utf8").trim();
       } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
         rawText = await recognizeImageText(buffer, fileName);
       } else {

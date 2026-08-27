@@ -1680,7 +1680,7 @@ function TemplateEditorContent() {
                   onClick={() => { if (isReadOnly) return; docFileInputRef.current?.click(); }}
                   disabled={isReadOnly}
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:bg-slate-800 dark:text-slate-355 dark:border-slate-700 hover:border-teal-355 hover:text-teal-700 transition-all flex items-center gap-1.5 bg-white text-slate-500 shadow-sm cursor-pointer ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
-                  title={isReadOnly ? "Viewers cannot import documents" : "Import DOCX or PDF"}
+                  title={isReadOnly ? "Viewers cannot import documents" : "Import DOCX, PDF or TXT"}
                 >
                   <Lucide.Upload className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" />
                   <span>Import Document</span>
@@ -2422,7 +2422,7 @@ function TemplateEditorContent() {
       <input
         type="file"
         ref={docFileInputRef}
-        accept=".pdf,.docx"
+        accept=".pdf,.docx,.txt"
         className="hidden"
         onChange={(e) => {
           handleDocFileChange(e);

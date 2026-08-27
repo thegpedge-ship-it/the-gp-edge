@@ -554,7 +554,7 @@ export default function AutofillDetailPage() {
                         : "border-b-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
                     }`}
                   >
-                    Import from Document (PDF/DOCX)
+                    Import from Document (PDF/DOCX/TXT)
                   </button>
                 </div>
 
@@ -649,12 +649,12 @@ export default function AutofillDetailPage() {
                               type="file"
                               ref={fileInputRef}
                               onChange={handleFileChange}
-                              accept=".pdf,.docx"
+                              accept=".pdf,.docx,.txt"
                               multiple
                               className="hidden"
                             />
                             <Lucide.Upload className="w-8 h-8 text-slate-400 mb-1.5" />
-                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF or DOCX here</p>
+                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Drag & Drop Guideline PDF, DOCX or TXT here</p>
                             <p className="text-[10px] text-slate-400 mt-0.5">or click to choose files from directory (Max 10MB)</p>
                           </div>
                         </div>
