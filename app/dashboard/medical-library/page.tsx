@@ -31,6 +31,23 @@ function decodeHtmlEntities(str: string): string {
     .replace(/&#039;/g, "'");
 }
 
+/** Waits for every <img> inside an element to finish loading (or fail) before continuing —
+ *  needed before html2canvas snapshots a detached/off-screen container, since it would
+ *  otherwise capture watermark images that haven't painted yet. */
+function waitForImagesToLoad(el: HTMLElement): Promise<void[]> {
+  const images = Array.from(el.querySelectorAll("img"));
+  return Promise.all(
+    images.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          })
+    )
+  );
+}
+
 // ─── System helper utilities ──────────────────────────────────────────────────
 type SystemId = string;
 
@@ -1337,7 +1354,7 @@ function MedicalLibraryContent() {
         container.className = "print-area";
         container.innerHTML = `
           <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; overflow:hidden; z-index:0;">
-            <span style="opacity:0.05; transform:rotate(35deg); font-family: Arial, Helvetica, sans-serif; font-weight:900; font-size:96px; letter-spacing:0.05em; color:#0f172a; white-space:nowrap;">GP EDGE</span>
+            <img src="${window.location.origin}/assets/logo.png" style="opacity:0.06; width:60%; max-width:420px; object-fit:contain;" />
           </div>
           <div style="position:relative; z-index:1; font-family: Arial, Helvetica, sans-serif; color:#1e293b;">
             ${i === 0 ? `
@@ -1352,6 +1369,7 @@ function MedicalLibraryContent() {
         document.body.appendChild(container);
 
         try {
+          await waitForImagesToLoad(container);
           const canvas = await html2canvas(container, { scale: 1.5, useCORS: true, backgroundColor: "#ffffff" });
           const imgData = canvas.toDataURL("image/jpeg", 0.92);
           let renderW = PAGE_W;
@@ -2352,8 +2370,9 @@ function MedicalLibraryContent() {
                           }}
                         >
                           {/* Watermark */}
-                          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.03] rotate-[35deg] overflow-hidden">
-                            <span className="font-sans font-black text-8xl tracking-widest text-slate-900">GP EDGE</span>
+                          <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none opacity-[0.06] overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/assets/logo.png" alt="" className="w-2/3 max-w-md object-contain" />
                           </div>
 
                           {/* PDF Header */}
