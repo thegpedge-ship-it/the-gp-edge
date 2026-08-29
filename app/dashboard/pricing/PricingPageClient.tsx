@@ -509,67 +509,106 @@ export default function PricingPageClient({
           </div>
         </section>
 
-        {/* ── Section 3: Feature Comparison / What's Included Table ──────────── */}
-        <section className="w-full">
-          <div className="mb-6 text-left">
-            <h2 className="text-2xl md:text-3xl font-bold font-serif text-slate-900 dark:text-slate-50 mb-1">
-              What&apos;s included
+        {/* ── Section 3: What's Included Feature Grid ────────────────────────── */}
+        <section className="w-full mt-12 sm:mt-16 border-t border-slate-200/80 dark:border-slate-800/80 pt-12 sm:pt-16">
+          <div className="mb-8 text-center sm:text-left max-w-3xl">
+            <h2 className="text-2xl md:text-3xl font-bold font-serif text-slate-900 dark:text-slate-50 mb-2 leading-tight">
+              Built for GP Registrars: AKT &amp; KFP Exam Preparation
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm font-sans">
-              Access limits by module and tier
+            <p className="text-slate-650 dark:text-slate-400 text-xs sm:text-sm font-sans leading-relaxed">
+              A question bank for the RACGP written exams, built and maintained specifically for Australian general practice.
             </p>
+            <div className="mt-3.5 inline-block px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-955/30 text-emerald-800 dark:text-emerald-300 text-xs font-semibold border border-emerald-100 dark:border-emerald-900/30">
+              Start with 30 free questions (23 AKT &amp; 7 KFP) — no payment details required.
+            </div>
           </div>
 
-          {/* Comparison Table */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-            <table className="w-full text-xs md:text-sm text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800">
-                  <th className="w-[45%] py-4 px-6 text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 text-left">
-                    Module
-                  </th>
-                  <th className="w-[27.5%] py-4 px-6 text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 text-left">
-                    Free Tier
-                  </th>
-                  <th className="w-[27.5%] py-4 px-6 text-[10px] md:text-[11px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-955/30 text-left">
-                    Paid Plans
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {moduleRows.map((row, i) => {
-                  const isLast = i === moduleRows.length - 1;
-                  return (
-                    <tr
-                      key={row.page}
-                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors ${
-                        !isLast ? "border-b border-slate-100 dark:border-slate-800/60" : ""
-                      }`}
-                    >
-                      <td className="py-4 px-6 font-semibold text-slate-800 dark:text-slate-200 text-left">
-                        <span>{row.page}</span>
-                        {row.fullPaidOnly && (
-                          <span className="ml-2.5 inline-flex items-center px-2.5 py-0.5 rounded-xl bg-amber-100/90 dark:bg-amber-950/70 text-[10px] font-bold text-amber-900 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/60 shadow-[0_1px_4px_rgba(217,119,6,0.12)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] uppercase tracking-wider transition-all align-middle">
-                            Registrar only
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-slate-500 dark:text-slate-400 text-left">
-                        {row.free}
-                      </td>
-                      <td className="py-4 px-6 bg-emerald-50/30 dark:bg-emerald-955/10 text-emerald-700 dark:text-emerald-300 font-bold text-left">
-                        {row.paid}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {/* Grid Layout: 4 Compact Cards */}
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 max-w-7xl mx-auto">
+            {/* Card 1 */}
+            <div className="p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700/80 transition-all duration-200">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-50 font-sans">
+                  High-Yield Question Bank &amp; Rigorous Explanations
+                </h3>
+              </div>
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc leading-relaxed">
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">AKT Questions:</strong> Written in Single Best Answer format with 5–10 options, set in Australian general practice and pitched at exam-level difficulty.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">KFP Questions:</strong> Built in the current select-X format with realistic option pools designed to test clinical discrimination.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Deep Explanations:</strong> Explains why correct answers are right, why wrong options fail, and references exact guidelines (document, edition, section, cut-offs, and last review date).
+                </li>
+              </ul>
+            </div>
 
-          <p className="mt-4 text-xs text-slate-400 dark:text-slate-500 font-sans">
-            Free tier usage limits are lifetime quotas and do not refresh. Once exhausted, upgrading to a paid plan restores full access.
-          </p>
+            {/* Card 2 */}
+            <div className="p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700/80 transition-all duration-200">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-50 font-sans">
+                  Three Flexible Ways to Practise
+                </h3>
+              </div>
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc leading-relaxed">
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Build Your Own Quiz:</strong> Customise by curriculum units, topics, subtopics, length, difficulty, and timed/untimed modes.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Sit a Mock Exam:</strong> Full-length, hand-assembled mocks with weighted topic coverage and scoring calibrated to the real RACGP exam.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Adaptive Practice (Let the Platform Pick):</strong> Quizzes dynamically generated from your performance, targeting weak spots and unattempted topics.
+                </li>
+              </ul>
+            </div>
+
+            {/* Card 3 */}
+            <div className="p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700/80 transition-all duration-200">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-50 font-sans">
+                  Smart Readiness &amp; Study Tracking
+                </h3>
+              </div>
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc leading-relaxed">
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Finds Where You&apos;re Thin:</strong> Flags both poorly answered topics and topics you haven&apos;t attempted yet to prevent hidden preparation blind spots.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Prevents Over-Studying:</strong> Identifies mastered topics so you stop repeating what you already know.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Real-Time Readiness Score:</strong> Track preparation by unit and benchmark your readiness against peers.
+                </li>
+              </ul>
+            </div>
+
+            {/* Card 4 */}
+            <div className="p-5 rounded-2xl border border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700/80 transition-all duration-200">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-50 font-sans">
+                  Complete RACGP Curriculum Coverage
+                </h3>
+              </div>
+              <ul className="space-y-2.5 text-xs text-slate-600 dark:text-slate-400 pl-4 list-disc leading-relaxed">
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Proportional Weighting:</strong> Study time matches mark distribution—high-frequency GP conditions receive deeper question coverage.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Exam-Calibrated:</strong> Rebalanced continuously using published College exam performance reports.
+                </li>
+                <li>
+                  <strong className="text-slate-800 dark:text-slate-300 font-semibold">Continuous Updates:</strong> Questions updated weekly and refreshed whenever clinical guidelines change.
+                </li>
+              </ul>
+            </div>
+          </div>
         </section>
       </div>
     </>

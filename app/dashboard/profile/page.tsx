@@ -304,7 +304,7 @@ export default async function ProfilePage() {
                 hasCustomerProfile={Boolean(dbUser?.stripe_customer_id)}
                 cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
                 isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
-                showDownloadInvoice={false}
+                showDownloadInvoice={true}
                 showCancelSubscription={false}
                 activePlanName={accessInfo?.planName}
               />

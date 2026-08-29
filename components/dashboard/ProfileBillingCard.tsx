@@ -63,7 +63,7 @@ export default function ProfileBillingCard({
   }
 
   const planTitles: Record<string, string> = {
-    REGISTRAR: "Registrar Package (Full Exam Prep)",
+    REGISTRAR: "Exam Prep Plan",
     FELLOWSHIP: "Fellowship Plan",
     POST_REGISTRAR_UPGRADE: "Loyalty Monthly Plan ($15/mo)",
     FREE: "Free Tier",
