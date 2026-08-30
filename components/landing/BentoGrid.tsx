@@ -30,7 +30,7 @@ export default function BentoGrid() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
               </span>
-              ALL-IN-ONE PLATFORM
+              GP EXAM PREPARATION
             </span>
             <h2 className="font-sans text-3xl lg:text-[2.5rem] font-bold text-slate-900 dark:text-[#F8FAFC] tracking-[-0.02em]">
               Everything a GP needs

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ShieldCheck } from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
 
 const containerVariants = {
@@ -39,11 +39,11 @@ export default function Hero() {
         >
           {/* Main Content Column */}
           <div className="text-center flex flex-col items-center justify-center max-w-5xl lg:max-w-6xl mx-auto">
-            {/* Trusted Badge */}
+            {/* Positioning Badge */}
             <motion.div variants={itemVariants} className="mb-4 sm:mb-5">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-xl border border-emerald-200/80 dark:border-[rgba(90,200,176,0.3)] bg-emerald-50/90 dark:bg-[#151922] text-emerald-800 dark:text-emerald-300 font-sans text-xs md:text-sm font-semibold shadow-xs">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>Trusted by thousands of GP registrars</span>
+                <Stethoscope className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Built for GP registrars, designed for smarter preparation.</span>
               </div>
             </motion.div>
 
