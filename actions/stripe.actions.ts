@@ -96,49 +96,33 @@ export async function getLatestInvoicePdfAction(): Promise<{ url?: string; error
       return { error: "No billing history found for this account email." };
     }
 
-    // First Choice: Stripe Charges (Payment Receipts) guarantee showing amount paid.
-    const charges = await stripe.charges.list({
-      customer: customerId,
-      limit: 10,
-    });
-
-    const successfulCharge = charges.data.find(c => c.status === "succeeded" && c.receipt_url);
-    if (successfulCharge?.receipt_url) {
-      return { url: successfulCharge.receipt_url };
-    }
-
-    // Second Choice: Fallback to Invoices
+    // 1. Check for paid invoices
     const invoices = await stripe.invoices.list({
       customer: customerId,
       limit: 10,
     });
 
-    let invoiceToReturn = invoices.data.find(inv => inv.status === "paid" && (inv.invoice_pdf || inv.hosted_invoice_url));
+    let invoiceToReturn = invoices.data.find(
+      (inv) => inv.status === "paid" && (inv.hosted_invoice_url || inv.invoice_pdf)
+    );
 
-    if (!invoiceToReturn) {
-      // If an open/draft invoice is found for a completed payment, pay it on the fly
-      const openInvoice = invoices.data.find(inv => inv.status === "open" || inv.status === "draft");
-      if (openInvoice) {
-        try {
-          invoiceToReturn = await stripe.invoices.pay(openInvoice.id, {
-            paid_out_of_band: true,
-          });
-        } catch (err) {
-          console.warn("[getLatestInvoicePdfAction] Could not auto-pay open invoice:", err);
-        }
-      }
+    if (invoiceToReturn) {
+      // Return direct PDF if available, otherwise hosted invoice page
+      const invoiceUrl = invoiceToReturn.invoice_pdf || invoiceToReturn.hosted_invoice_url;
+      if (invoiceUrl) return { url: invoiceUrl };
     }
 
-    if (!invoiceToReturn) {
-      return { error: "No invoices or receipts found for this account." };
+    // 2. Fallback: Launch Stripe Customer Portal (contains native PDF download buttons)
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/profile`,
+    });
+
+    if (portalSession?.url) {
+      return { url: portalSession.url };
     }
 
-    const invoiceUrl = invoiceToReturn.invoice_pdf || invoiceToReturn.hosted_invoice_url;
-    if (!invoiceUrl) {
-      return { error: "Invoice PDF is not available yet." };
-    }
-
-    return { url: invoiceUrl };
+    return { error: "No invoices found for this account." };
   } catch (err) {
     console.error("[getLatestInvoicePdfAction] Error:", err);
     return { error: "Failed to fetch invoice. Please try again later." };
