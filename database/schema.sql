@@ -128,11 +128,23 @@ CREATE TABLE users (
     avatar_file_id   UUID REFERENCES files(id) ON DELETE SET NULL,
     -- profile (1:1 attributes kept inline — single-valued, fully dependent on user)
     role_title       TEXT,                  -- e.g. "GP Registrar — PGY3"
-    hospital         TEXT,
     location         TEXT,
-    bio              TEXT,
-    racgp_id         TEXT,                  -- professional registration no.
-    exam_target      TEXT,                  -- e.g. "AKT — Aug 2026"
+    exam_target      TEXT,                  -- legacy composite e.g. "AKT — Aug 2026"
+    -- Sign-up spec v1.0 fields
+    postgraduate_year      INTEGER,                  -- 1–10 (10 = "10+")
+    exam_target_code       TEXT,                      -- AKT | KFP | BOTH | NONE
+    terms_accepted_at      TIMESTAMPTZ,
+    terms_version          TEXT,
+    privacy_version        TEXT,
+    marketing_consent      BOOLEAN NOT NULL DEFAULT FALSE,
+    marketing_consent_at   TIMESTAMPTZ,
+    primary_medical_degree TEXT,                      -- AU | NZ | OVERSEAS
+    exam_history           TEXT[],
+    fellowship_status      TEXT,                      -- NO | FRACGP | FACRRM
+    country                TEXT,
+    state_territory        TEXT,
+    referral_source        TEXT,
+    referral_source_other  TEXT,
     status           account_status NOT NULL DEFAULT 'active',
     joined_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     last_active_at   TIMESTAMPTZ,

@@ -7,67 +7,104 @@ import { ensureDbUser } from "@/lib/user";
 
 export type OnboardingState = { error?: string };
 
-export type LiveExam = { code: string; name: string };
-
-/**
- * Exams currently live on the platform — i.e. exam types that have at least one
- * published, non-deleted question. Drives the onboarding "Exam Target" dropdown
- * so users can only pick an exam we actually have content for.
- */
-export async function getLiveExams(): Promise<LiveExam[]> {
-  return prisma.exam_types.findMany({
-    where: { questions: { some: { status: "published", deleted_at: null } } },
-    orderBy: { code: "asc" },
-    select: { code: true, name: true },
-  });
-}
-
-/**
- * Persist the onboarding form into the `users` table, then flag the Clerk
- * account as onboarded so the auth gate stops redirecting here.
- *
- * Returns `{ error }` to show inline on failure. On success it redirects to the
- * dashboard (the thrown NEXT_REDIRECT is handled by Next automatically, even
- * when this action is invoked from a client transition).
- */
 export async function completeOnboarding(
   formData: FormData,
 ): Promise<OnboardingState> {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
-  // Guarantee the DB row exists before we update it (handles Google OAuth users
-  // who reach onboarding without ever having hit the dashboard).
   const dbUser = await ensureDbUser();
   if (!dbUser) {
     return { error: "We couldn't load your account. Please refresh and try again." };
   }
 
-  // Trim each field; treat empty strings as NULL so the DB stays clean.
-  const value = (key: string) => {
+  const str = (key: string) => {
     const raw = formData.get(key);
     const trimmed = typeof raw === "string" ? raw.trim() : "";
     return trimmed.length > 0 ? trimmed : null;
   };
 
-  const role_title = value("role_title");
-  const training_stage_raw = value("training_stage");
-  const hospital = value("hospital");
-  const location = value("location");
-  const racgp_id = value("racgp_id");
-  const exam_target = value("exam_target");
-  const bio = value("bio");
+  // ── Step 1 (mandatory) ──────────────────────────────────────────────────
+  const postgraduate_year_raw = str("postgraduate_year");
+  const exam_target_code = str("exam_target_code");
 
-  const training_stage = (training_stage_raw === "FELLOW" ? "FELLOW" : training_stage_raw === "OTHER" ? "OTHER" : "REGISTRAR") as "REGISTRAR" | "FELLOW" | "OTHER";
-  const user_role = training_stage === "FELLOW" ? "FELLOW" : "REGISTRAR";
-
-  if (!role_title) {
-    return { error: "Please tell us your current training level or role." };
+  if (!postgraduate_year_raw || !exam_target_code) {
+    return { error: "Please complete all required fields." };
   }
+
+  const postgraduate_year = parseInt(postgraduate_year_raw, 10);
+  if (isNaN(postgraduate_year) || postgraduate_year < 1 || postgraduate_year > 10) {
+    return { error: "Invalid postgraduate year." };
+  }
+
+  const validTargets = ["AKT", "KFP", "BOTH", "NONE"];
+  if (!validTargets.includes(exam_target_code)) {
+    return { error: "Invalid exam target." };
+  }
+
+  const terms_accepted = str("terms_accepted") === "true";
+  if (!terms_accepted) {
+    return { error: "You must agree to the Terms of Service and Privacy Policy." };
+  }
+
+  const marketing_consent = str("marketing_consent") === "true";
+  const now = new Date();
+
+  // ── Step 2 (optional) ──────────────────────────────────────────────────
+  const primary_medical_degree = str("primary_medical_degree");
+  const fellowship_status = str("fellowship_status");
+  const country = str("country");
+  const state_territory = str("state_territory");
+  const referral_source = str("referral_source");
+  const referral_source_other = str("referral_source_other");
+
+  let exam_history: string[] = [];
+  const exam_history_raw = str("exam_history");
+  if (exam_history_raw) {
+    try {
+      exam_history = JSON.parse(exam_history_raw);
+    } catch {
+      exam_history = [];
+    }
+  }
+
+  // Derive training_stage and user_role from fellowship_status
+  const isFellow = fellowship_status === "FRACGP" || fellowship_status === "FACRRM";
+  const training_stage = isFellow ? "FELLOW" : "REGISTRAR";
+  const user_role = isFellow ? "FELLOW" : "REGISTRAR";
+
+  // Build the legacy exam_target string for backward compat with profile/settings
+  const targetLabels: Record<string, string> = {
+    AKT: "AKT",
+    KFP: "KFP",
+    BOTH: "AKT + KFP",
+    NONE: "Reference & CPD",
+  };
+  const exam_target = targetLabels[exam_target_code] || null;
+  const role_title = `PGY${postgraduate_year === 10 ? "10+" : postgraduate_year}`;
 
   await prisma.users.update({
     where: { clerk_user_id: userId },
-    data: { role_title, training_stage, user_role, hospital, location, racgp_id, exam_target, bio },
+    data: {
+      postgraduate_year,
+      exam_target_code,
+      terms_accepted_at: now,
+      terms_version: "1.0",
+      privacy_version: "1.0",
+      marketing_consent,
+      marketing_consent_at: marketing_consent ? now : null,
+      primary_medical_degree,
+      exam_history,
+      fellowship_status,
+      country,
+      state_territory,
+      referral_source,
+      referral_source_other,
+      training_stage,
+      user_role,
+      role_title,
+      exam_target,
+    },
   });
 
   const client = await clerkClient();

@@ -438,9 +438,9 @@ export default function Sidebar() {
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: 0 }}>
                     {profile.roleTitle || "GP Registrar"}
                   </p>
-                  {profile.hospital && (
+                  {profile.country && (
                     <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
-                      {profile.hospital}
+                      {profile.stateTerritory ? `${profile.stateTerritory}, ${profile.country}` : profile.country}
                     </p>
                   )}
                   <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>

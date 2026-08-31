@@ -1029,11 +1029,23 @@ model users {
   last_name                         String?
   avatar_file_id                    String?                    @db.Uuid
   role_title                        String?
-  hospital                          String?
   location                          String?
-  bio                               String?
-  racgp_id                          String?
   exam_target                       String?
+  // ── Sign-up spec v1.0 fields ────────────────────────────────────────────
+  postgraduate_year                 Int?
+  exam_target_code                  String?
+  terms_accepted_at                 DateTime?                  @db.Timestamptz(6)
+  terms_version                     String?
+  privacy_version                   String?
+  marketing_consent                 Boolean                    @default(false)
+  marketing_consent_at              DateTime?                  @db.Timestamptz(6)
+  primary_medical_degree            String?
+  exam_history                      String[]
+  fellowship_status                 String?
+  country                           String?
+  state_territory                   String?
+  referral_source                   String?
+  referral_source_other             String?
   status                            account_status             @default(active)
   joined_at                         DateTime                   @default(now()) @db.Timestamptz(6)
   last_active_at                    DateTime?                  @db.Timestamptz(6)

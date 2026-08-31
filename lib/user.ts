@@ -1,9 +1,9 @@
 // Server-side helpers for bridging a Clerk identity to our own `users` row.
 //
 // Clerk owns authentication and gives us only email + name (and, for Google
-// OAuth, an avatar URL). Everything else on the `users` table — role_title,
-// hospital, location, bio, racgp_id, exam_target — is collected from the
-// onboarding form and lives in our Neon Postgres database.
+// OAuth, an avatar URL). Everything else on the `users` table — postgraduate
+// year, exam target, terms acceptance, medical degree, fellowship status, etc.
+// — is collected from the onboarding form and lives in our Neon Postgres database.
 //
 // `onboardingComplete` is stored on the Clerk user's publicMetadata rather than
 // as a DB column, so the auth layer can gate access without a DB round-trip and
@@ -123,11 +123,14 @@ export function toDbProfile(dbUser: DbUserRow | null): DbProfile {
   if (!dbUser) return EMPTY_PROFILE;
   return {
     roleTitle: dbUser.role_title,
-    hospital: dbUser.hospital,
     location: dbUser.location,
-    bio: dbUser.bio,
-    racgpId: dbUser.racgp_id,
     examTarget: dbUser.exam_target,
+    postgraduateYear: dbUser.postgraduate_year,
+    examTargetCode: dbUser.exam_target_code,
+    primaryMedicalDegree: dbUser.primary_medical_degree,
+    fellowshipStatus: dbUser.fellowship_status,
+    country: dbUser.country,
+    stateTerritory: dbUser.state_territory,
     joinedAt: dbUser.joined_at ? dbUser.joined_at.toISOString() : null,
   };
 }

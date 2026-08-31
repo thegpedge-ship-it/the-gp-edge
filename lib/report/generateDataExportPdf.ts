@@ -174,6 +174,8 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
     ["4. Detailed Test Results", "Complete history of test attempts, scores, durations, and subject breakdowns."],
     ["5. User Written Content", "Cancellation feedback, error reports, support threads, and notes."],
     ["6. Saved & System Activity", "Saved templates, favorites, activity counts, and quota balances."],
+    ["7. System Activity & Quotas", "Active study days, activity events, notifications, and remaining quotas."],
+    ["8. Service Providers", "Data held by Clerk, Stripe, and Cloudflare on your behalf."],
   ];
 
   invRows.forEach(([title, desc]) => {
@@ -187,6 +189,22 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
     doc.text(desc, PAGE.margin + 160, y);
     y += 18;
   });
+
+  // SCOPE OF THIS REPORT
+  y += 4;
+  sectionHeading("Scope of This Report");
+  const joinDate = data.account.joinedAt
+    ? new Date(data.account.joinedAt).toLocaleDateString("en-AU", { day: "2-digit", month: "long", year: "numeric" })
+    : new Date(data.account.createdAt).toLocaleDateString("en-AU", { day: "2-digit", month: "long", year: "numeric" });
+  const exportDate = new Date(data.exportTimestamp).toLocaleDateString("en-AU", { day: "2-digit", month: "long", year: "numeric" });
+  writeWrapped(
+    `This report covers all personal data held by The GP Edge from ${joinDate} (account creation) through ${exportDate} (export date). Passwords are excluded from this export because The GP Edge never stores them; authentication is managed entirely by our identity provider (Clerk).`,
+    PAGE.margin,
+    CONTENT_W,
+    9.5,
+    C.slate700
+  );
+  y += 12;
 
   /* ════════════════════════════════════════════════════════════════════════
      PAGE 2+ — DETAILED SECTIONS
@@ -203,9 +221,10 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
     ["Email Address", data.account.email],
     ["Full Name", fullName],
     ["Role Title / Level", data.account.roleTitle || "—"],
-    ["Practice / Hospital", data.account.hospital || "—"],
-    ["Location", data.account.location || "—"],
-    ["RACGP Number", data.account.racgpId || "—"],
+    ["Postgraduate Year", data.account.postgraduateYear ? `PGY${data.account.postgraduateYear === 10 ? "10+" : data.account.postgraduateYear}` : "—"],
+    ["Country", data.account.country || "—"],
+    ["State / Territory", data.account.stateTerritory || "—"],
+    ["Fellowship Status", data.account.fellowshipStatus || "—"],
     ["Exam Target", data.account.examTarget || "—"],
     ["User Role Kind", data.account.userRole],
     ["Training Stage", data.account.trainingStage],
@@ -364,14 +383,14 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
   sectionHeading("5. User Written Text & Support Correspondence");
 
   // A. Cancellation Feedback
-  if (data.textAndCorrespondence.cancellationFeedbacks.length > 0) {
-    ensure(20);
-    setText(C.slate800);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9.5);
-    doc.text("Cancellation Feedback", PAGE.margin, y);
-    y += 12;
+  ensure(20);
+  setText(C.slate800);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9.5);
+  doc.text("Cancellation Feedback", PAGE.margin, y);
+  y += 12;
 
+  if (data.textAndCorrespondence.cancellationFeedbacks.length > 0) {
     data.textAndCorrespondence.cancellationFeedbacks.forEach((cf) => {
       writeWrapped(
         `[${new Date(cf.createdAt).toLocaleDateString("en-AU")}] Reason: ${cf.reason}${cf.feedback ? ` | Note: ${cf.feedback}` : ""}`,
@@ -382,8 +401,10 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
       );
       y += 2;
     });
-    y += 8;
+  } else {
+    writeWrapped("None recorded.", PAGE.margin + 6, CONTENT_W - 6, 9, C.slate500);
   }
+  y += 8;
 
   // B. Error Reports
   if (data.textAndCorrespondence.errorReports.length > 0) {
@@ -544,6 +565,65 @@ export async function generateDataExportPdfBlob(data: UserDataExportPayload): Pr
     writeWrapped(`• Remaining Free Quotas: ${q.freeQuestionsLeft} Questions, ${q.freeTemplatesLeft} Templates, ${q.freeTopicsLeft} Topics`, PAGE.margin + 6, CONTENT_W - 6, 9, C.emeraldDark, "bold");
     y += 10;
   }
+
+  // SECTION 8: INFORMATION HELD BY SERVICE PROVIDERS
+  sectionHeading("8. Information Held by Our Service Providers");
+
+  writeWrapped(
+    "In addition to the data held directly by The GP Edge (detailed above), the following third-party service providers hold personal data in connection with your account:",
+    PAGE.margin,
+    CONTENT_W,
+    9.5,
+    C.slate700
+  );
+  y += 8;
+
+  const providers: [string, string, string][] = [
+    [
+      "Clerk (clerk.com)",
+      "Authentication and identity management. Clerk holds your email address, name, profile image (if provided), login history, session tokens, multi-factor authentication settings, and OAuth/social-login identifiers. Clerk does not hold your password in plaintext.",
+      "Submit a request via Clerk's privacy portal at https://clerk.com/legal/privacy or contact privacy@clerk.com.",
+    ],
+    [
+      "Stripe (stripe.com)",
+      "Payment processing. Stripe holds your billing name, email address, payment card details (last 4 digits, expiry, card brand), billing address (if provided), transaction history, subscription status, invoices, and refund records.",
+      "Submit a request via Stripe's privacy centre at https://stripe.com/privacy-center/legal or email privacy@stripe.com.",
+    ],
+    [
+      "Cloudflare (cloudflare.com)",
+      "Content delivery, DDoS protection, and DNS. Cloudflare processes IP addresses, HTTP request metadata (user agent, request timestamps, URLs visited), and security-event logs. Cloudflare does not store account-level personal data beyond transient request logs.",
+      "Submit a request via Cloudflare's privacy page at https://www.cloudflare.com/privacypolicy/ or email privacyquestions@cloudflare.com.",
+    ],
+  ];
+
+  providers.forEach(([name, holds, howTo]) => {
+    ensure(48);
+    writeWrapped(name, PAGE.margin + 6, CONTENT_W - 6, 9.5, C.emeraldDark, "bold");
+    writeWrapped(`What they hold: ${holds}`, PAGE.margin + 6, CONTENT_W - 6, 8.5, C.slate700);
+    writeWrapped(`How to request your data: ${howTo}`, PAGE.margin + 6, CONTENT_W - 6, 8.5, C.slate500);
+    y += 8;
+  });
+
+  y += 8;
+
+  // CLOSING: CORRECTIONS & COMPLAINTS
+  sectionHeading("Corrections & Complaints");
+  writeWrapped(
+    "If anything in this report is inaccurate or out of date, please email admin@thegpedge.com.au to have it corrected.",
+    PAGE.margin,
+    CONTENT_W,
+    9.5,
+    C.slate700
+  );
+  y += 6;
+  writeWrapped(
+    "If you are unsatisfied with how your personal information has been handled, you have the right to lodge a complaint with the Office of the Australian Information Commissioner (OAIC). You can do so online at https://www.oaic.gov.au/privacy/privacy-complaints or by contacting the OAIC directly.",
+    PAGE.margin,
+    CONTENT_W,
+    9.5,
+    C.slate700
+  );
+  y += 12;
 
   /* ════════════════════════════════════════════════════════════════════════
      WATERMARK & PAGE NUMBERS (PAGE 2+)

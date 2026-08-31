@@ -11,8 +11,6 @@ import {
   Lock,
   LogOut,
   Trash2,
-  Calendar,
-  Info,
   Target,
   Camera,
   Upload,
@@ -34,21 +32,45 @@ import PasswordManager from "./PasswordManager";
 import DeleteAccountModal from "./DeleteAccountModal";
 import { updateProfileInfo } from "./actions";
 
-// Short label used when composing the stored "exam target" string.
-const EXAM_SHORT: Record<string, string> = {
-  AKT: "AKT",
-  KFP: "KFP",
-  Both: "AKT + KFP",
-  OSCE: "OSCE",
-};
+const EXAM_TARGET_OPTIONS = [
+  { value: "AKT", label: "AKT (Applied Knowledge Test)" },
+  { value: "KFP", label: "KFP (Key Feature Problem)" },
+  { value: "Both", label: "Both (AKT + KFP)" },
+  { value: "NONE", label: "Not currently sitting — reference & CPD" },
+];
 
-// "2026-08" → "Aug 2026" (for composing the exam target). Empty input → "".
-function monthLabel(value: string): string {
-  if (!value) return "";
-  const d = new Date(`${value}-01T00:00:00`);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-AU", { month: "short", year: "numeric" });
-}
+const PGY_OPTIONS = Array.from({ length: 10 }, (_, i) => ({
+  value: String(i + 1),
+  label: i === 9 ? "PGY10+" : `PGY${i + 1}`,
+}));
+
+const AU_STATES = [
+  { value: "", label: "Select state…" },
+  { value: "NSW", label: "NSW" },
+  { value: "VIC", label: "VIC" },
+  { value: "QLD", label: "QLD" },
+  { value: "SA", label: "SA" },
+  { value: "WA", label: "WA" },
+  { value: "TAS", label: "TAS" },
+  { value: "NT", label: "NT" },
+  { value: "ACT", label: "ACT" },
+];
+
+const COUNTRIES = [
+  "Australia", "New Zealand", "Afghanistan", "Albania", "Algeria", "Argentina",
+  "Austria", "Bangladesh", "Belgium", "Brazil", "Cambodia", "Canada", "Chile",
+  "China", "Colombia", "Croatia", "Czech Republic", "Denmark", "Egypt",
+  "Ethiopia", "Fiji", "Finland", "France", "Germany", "Ghana", "Greece",
+  "Hong Kong", "Hungary", "India", "Indonesia", "Iran", "Iraq", "Ireland",
+  "Israel", "Italy", "Jamaica", "Japan", "Jordan", "Kenya", "Kuwait",
+  "Lebanon", "Libya", "Malaysia", "Maldives", "Mexico", "Morocco", "Myanmar",
+  "Nepal", "Netherlands", "Nigeria", "Norway", "Oman", "Pakistan", "Papua New Guinea",
+  "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia",
+  "Samoa", "Saudi Arabia", "Singapore", "South Africa", "South Korea",
+  "Spain", "Sri Lanka", "Sweden", "Switzerland", "Syria", "Taiwan",
+  "Thailand", "Tonga", "Turkey", "UAE", "Uganda", "Ukraine",
+  "United Kingdom", "United States", "Vietnam", "Zimbabwe", "Other",
+].map((c) => ({ value: c, label: c }));
 
 // Inline save feedback shown next to a card's Save button.
 function SaveStatus({ status }: { status: { type: "ok" | "err"; text: string } | null }) {
@@ -213,8 +235,9 @@ export default function SettingsClient({
   const [accountStatus, setAccountStatus] = useState<SaveState>(null);
   const [savingExam, setSavingExam] = useState(false);
   const [examStatus, setExamStatus] = useState<SaveState>(null);
+  const [selectedCountry, setSelectedCountry] = useState(profile.country || "Australia");
 
-  // ── Account Information: name → Clerk, practice location → our DB ─────────
+  // ── Account Information: name → Clerk, country/state → our DB ─────────
   async function handleSaveAccount(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setAccountStatus(null);
@@ -222,26 +245,17 @@ export default function SettingsClient({
     const fd = new FormData(e.currentTarget);
     const firstName = String(fd.get("first-name") ?? "").trim();
     const lastName = String(fd.get("last-name") ?? "").trim();
-    const practice = String(fd.get("practice-location") ?? "").trim();
-
-    // Practice location is one field; split "Hospital, City" → hospital + location.
-    let hospital: string | null = null;
-    let location: string | null = null;
-    if (practice) {
-      const i = practice.indexOf(",");
-      if (i === -1) {
-        hospital = practice;
-      } else {
-        hospital = practice.slice(0, i).trim() || null;
-        location = practice.slice(i + 1).trim() || null;
-      }
-    }
+    const country = String(fd.get("country") ?? "").trim();
+    const stateTerritory = country === "Australia" ? String(fd.get("state-territory") ?? "").trim() : "";
 
     try {
       if (user && (firstName !== (user.firstName ?? "") || lastName !== (user.lastName ?? ""))) {
         await user.update({ firstName, lastName });
       }
-      const res = await updateProfileInfo({ hospital, location });
+      const res = await updateProfileInfo({
+        country: country || null,
+        stateTerritory: stateTerritory || null,
+      });
       if (!res.ok) throw new Error(res.error);
       setAccountStatus({ type: "ok", text: "Saved." });
     } catch (err: unknown) {
@@ -252,24 +266,31 @@ export default function SettingsClient({
     }
   }
 
-  // ── Exam Preparation: compose exam target + training level into our DB ────
+  // ── Exam Preparation: save PGY + exam target code into our DB ────
   async function handleSaveExam(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setExamStatus(null);
     setSavingExam(true);
     const fd = new FormData(e.currentTarget);
     const targetExam = String(fd.get("target-exam") ?? "");
-    const examDate = String(fd.get("exam-date") ?? "");
-    const trainingLevel = String(fd.get("training-level") ?? "").trim();
+    const pgyStr = String(fd.get("training-level") ?? "");
+    const pgy = parseInt(pgyStr, 10);
 
-    const short = EXAM_SHORT[targetExam] ?? targetExam;
-    const when = monthLabel(examDate);
-    const examTarget = [short, when].filter(Boolean).join(" — ");
+    const targetLabels: Record<string, string> = {
+      AKT: "AKT",
+      KFP: "KFP",
+      Both: "AKT + KFP",
+      NONE: "Reference & CPD",
+    };
+    const examTarget = targetLabels[targetExam] || null;
+    const roleTitle = !isNaN(pgy) ? `PGY${pgy === 10 ? "10+" : pgy}` : null;
 
     try {
       const res = await updateProfileInfo({
-        examTarget: examTarget || null,
-        roleTitle: trainingLevel || null,
+        examTargetCode: targetExam || null,
+        examTarget,
+        roleTitle,
+        postgraduateYear: !isNaN(pgy) ? pgy : null,
       });
       if (!res.ok) throw new Error(res.error);
       setExamStatus({ type: "ok", text: "Preferences saved." });
@@ -372,7 +393,18 @@ export default function SettingsClient({
                   {/* Password manager */}
                   <PasswordManager />
 
-                  <div><FieldLabel htmlFor="practice-location">Practice Location</FieldLabel><TextInput id="practice-location" defaultValue={[profile.hospital, profile.location].filter(Boolean).join(", ")} placeholder="e.g. Royal North Shore Hospital, Sydney NSW" /></div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <FieldLabel htmlFor="country">Country</FieldLabel>
+                      <SelectInput id="country" defaultValue={profile.country || "Australia"} options={COUNTRIES} />
+                    </div>
+                    {selectedCountry === "Australia" && (
+                      <div>
+                        <FieldLabel htmlFor="state-territory">State or Territory</FieldLabel>
+                        <SelectInput id="state-territory" defaultValue={profile.stateTerritory || ""} options={AU_STATES} />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4">
@@ -395,66 +427,12 @@ export default function SettingsClient({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <FieldLabel htmlFor="target-exam">Target Exam</FieldLabel>
-                    <SelectInput id="target-exam" defaultValue="AKT" options={[
-                      { value: "AKT", label: "AKT (Applied Knowledge Test)" },
-                      { value: "KFP", label: "KFP (Key Feature Problem)" },
-                      { value: "Both", label: "AKT + KFP Combined" },
-                      { value: "OSCE", label: "OSCE" },
-                    ]} />
-                  </div>
-                  <div><FieldLabel htmlFor="exam-date">Exam Date</FieldLabel><TextInput id="exam-date" type="month" defaultValue="2026-08" onClick={(e) => { if (e.currentTarget.showPicker) e.currentTarget.showPicker(); }} /></div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <FieldLabel htmlFor="study-hours">Daily Study Goal</FieldLabel>
-                    <SelectInput id="study-hours" defaultValue="3" options={[
-                      { value: "1", label: "1 hour" }, { value: "2", label: "2 hours" },
-                      { value: "3", label: "3 hours" }, { value: "4", label: "4 hours" },
-                      { value: "5", label: "5+ hours" },
-                    ]} />
+                    <SelectInput id="target-exam" defaultValue={profile.examTargetCode || "AKT"} options={EXAM_TARGET_OPTIONS} />
                   </div>
                   <div>
-                    <FieldLabel htmlFor="weak-areas">Focus Areas</FieldLabel>
-                    <SelectInput id="weak-areas" defaultValue="auto" options={[
-                      { value: "auto", label: "Auto-detect weak areas" },
-                      { value: "cardiology", label: "Cardiology" },
-                      { value: "respiratory", label: "Respiratory" },
-                      { value: "gastro", label: "Gastroenterology" },
-                      { value: "endo", label: "Endocrinology" },
-                    ]} />
+                    <FieldLabel htmlFor="training-level">Postgraduate Year</FieldLabel>
+                    <SelectInput id="training-level" defaultValue={profile.postgraduateYear ? String(profile.postgraduateYear) : "3"} options={PGY_OPTIONS} />
                   </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div>
-                    <FieldLabel htmlFor="training-level">Training Level</FieldLabel>
-                    <SelectInput id="training-level" defaultValue="GPY3" options={[
-                      { value: "GPY1", label: "GPY1" },
-                      { value: "GPY2", label: "GPY2" },
-                      { value: "GPY3", label: "GPY3" },
-                      { value: "GPY4", label: "GPY4" },
-                      { value: "GPY5", label: "GPY5" },
-                      { value: "GPY6", label: "GPY6" },
-                      { value: "GPY7", label: "GPY7" },
-                      { value: "GPY8", label: "GPY8" },
-                      { value: "GPY9", label: "GPY9" },
-                      { value: "GPY10", label: "GPY10" },
-                      { value: "GPY11", label: "GPY11" },
-                      { value: "GPY12", label: "GPY12" },
-                      { value: "GPY13", label: "GPY13" },
-                      { value: "GPY14", label: "GPY14" },
-                      { value: "GPY15", label: "GPY15" },
-                      { value: "GPY16", label: "GPY16" },
-                      { value: "GPY17", label: "GPY17" },
-                      { value: "GPY18", label: "GPY18" },
-                      { value: "GPY19", label: "GPY19" },
-                      { value: "GPY20", label: "GPY20" },
-                    ]} />
-                  </div>
-                  <div><FieldLabel htmlFor="supervisor">Training Supervisor</FieldLabel><TextInput id="supervisor" placeholder="e.g. Dr. James Miller" /></div>
-                </div>
-                <div className="flex items-start gap-2.5 bg-teal-50/70 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/40 rounded-xl p-3">
-                  <Info size={14} className="text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-[11px] text-teal-800 dark:text-teal-300 leading-relaxed">Target exam and training level are saved to your profile. Study goal, focus areas and supervisor are coming soon.</p>
                 </div>
                 <div className="flex items-center justify-end gap-3 pt-2">
                   <SaveStatus status={examStatus} />

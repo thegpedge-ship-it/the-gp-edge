@@ -9,7 +9,7 @@ import { deleteOwnAccountData } from "./actions";
 
 // Exactly what's destroyed — shown strictly before anything happens.
 const LOSS_ITEMS = [
-  "Your profile & credentials — name, hospital, RACGP number and exam targets",
+  "Your profile & credentials — name, postgraduate year, exam targets and preferences",
   "Your entire study history — every quiz, mock exam attempt and score",
   "All performance analytics — streaks, subject mastery and progress",
   "Every earned badge and achievement",

@@ -46,14 +46,28 @@ export default async function ProfilePage() {
 
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";
-  const hospital = dbUser?.hospital || "—";
-  const location = dbUser?.location || "—";
-  const racgpId = dbUser?.racgp_id || "—";
   const examTarget = dbUser?.exam_target || "Not set";
-  const practiceLocation =
-    dbUser?.hospital && dbUser?.location
-      ? `${dbUser.hospital}, ${dbUser.location}`
-      : dbUser?.hospital || dbUser?.location || "—";
+  const pgyLabel = dbUser?.postgraduate_year
+    ? `PGY${dbUser.postgraduate_year === 10 ? "10+" : dbUser.postgraduate_year}`
+    : "—";
+  const fellowshipLabel = dbUser?.fellowship_status === "FRACGP"
+    ? "FRACGP"
+    : dbUser?.fellowship_status === "FACRRM"
+      ? "FACRRM"
+      : dbUser?.fellowship_status === "NO"
+        ? "Not yet"
+        : "—";
+  const locationLabel =
+    dbUser?.country === "Australia" && dbUser?.state_territory
+      ? `${dbUser.state_territory}, Australia`
+      : dbUser?.country || "—";
+  const degreeOrigin = dbUser?.primary_medical_degree === "AU"
+    ? "Australia"
+    : dbUser?.primary_medical_degree === "NZ"
+      ? "New Zealand"
+      : dbUser?.primary_medical_degree === "OVERSEAS"
+        ? "Overseas"
+        : "—";
 
   return (
     <div className="flex flex-col gap-6 pb-6">
@@ -110,11 +124,11 @@ export default async function ProfilePage() {
                   <div className="flex flex-col gap-1 mt-2.5 font-sans text-xs text-slate-500 dark:text-slate-400">
                     <span className="text-teal-600 dark:text-teal-400 font-semibold flex items-center justify-center gap-1">
                       <GraduationCap size={12} className="text-teal-600 dark:text-teal-400" />
-                      {roleTitle}
+                      {pgyLabel} · {roleTitle}
                     </span>
                     <span className="flex items-center justify-center gap-1">
                       <MapPin size={12} className="text-slate-400" />
-                      {hospital}
+                      {locationLabel}
                     </span>
                     <span className="flex items-center justify-center gap-1">
                       <BookOpen size={12} className="text-slate-400" />
@@ -140,7 +154,7 @@ export default async function ProfilePage() {
                 <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800/85 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Location:</span>
-                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[150px]">{location}</span>
+                    <span className="font-sans text-xs font-semibold text-slate-700 dark:text-slate-350 truncate max-w-[150px]">{locationLabel}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="font-sans text-xs font-semibold tracking-wider uppercase text-slate-500 dark:text-slate-400">Target Track:</span>
@@ -186,9 +200,9 @@ export default async function ProfilePage() {
                 </div>
 
                 <div className="flex-1 flex flex-col justify-around">
-                  <DetailRow label="RACGP Number" value={racgpId} />
-                  <DetailRow label="Training Level" value={roleTitle} />
-                  <DetailRow label="Practice Location" value={practiceLocation} />
+                  <DetailRow label="Postgraduate Year" value={pgyLabel} />
+                  <DetailRow label="Fellowship Status" value={fellowshipLabel} />
+                  <DetailRow label="Medical Degree" value={degreeOrigin} />
                 </div>
               </div>
             </PageCard>

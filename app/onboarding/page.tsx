@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser, isOnboarded } from "@/lib/user";
-import { getLiveExams } from "./actions";
 import OnboardingForm from "./OnboardingForm";
 
 export const metadata: Metadata = {
@@ -14,26 +13,25 @@ export default async function OnboardingPage() {
   const clerkUser = await currentUser();
   if (!clerkUser) redirect("/sign-in");
 
-  // Already onboarded — nothing to collect.
   if (isOnboarded(clerkUser)) redirect("/dashboard");
 
-  // Make sure the DB row exists and pre-fill anything already saved (e.g. if the
-  // user started onboarding earlier and came back).
-  const [dbUser, liveExams] = await Promise.all([ensureDbUser(), getLiveExams()]);
+  const dbUser = await ensureDbUser();
 
   return (
     <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-20">
       <OnboardingForm
         firstName={clerkUser.firstName}
-        exams={liveExams}
         defaults={{
-          role_title: dbUser?.role_title ?? "",
-          training_stage: (dbUser as any)?.training_stage ?? "REGISTRAR",
-          hospital: dbUser?.hospital ?? "",
-          location: dbUser?.location ?? "",
-          racgp_id: dbUser?.racgp_id ?? "",
-          exam_target: dbUser?.exam_target ?? "",
-          bio: dbUser?.bio ?? "",
+          postgraduate_year: dbUser?.postgraduate_year ?? null,
+          exam_target_code: dbUser?.exam_target_code ?? "",
+          terms_accepted_at: dbUser?.terms_accepted_at?.toISOString() ?? null,
+          primary_medical_degree: dbUser?.primary_medical_degree ?? "",
+          exam_history: dbUser?.exam_history ?? [],
+          fellowship_status: dbUser?.fellowship_status ?? "",
+          country: dbUser?.country ?? "Australia",
+          state_territory: dbUser?.state_territory ?? "",
+          referral_source: dbUser?.referral_source ?? "",
+          referral_source_other: dbUser?.referral_source_other ?? "",
         }}
       />
     </main>

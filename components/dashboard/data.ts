@@ -3,17 +3,15 @@ export const user = {
   lastName: "Chen",
   initials: "SC",
   role: "GP Registrar — PGY3",
-  hospital: "Royal North Shore",
-  location: "Sydney, NSW",
-  examTarget: "AKT — Aug 2026",
+  country: "Australia",
+  stateTerritory: "NSW",
+  examTarget: "AKT",
   lastSyncedMin: 2,
   rank: 142,
   totalUsers: 8420,
   joinedLabel: "Joined Jan 2026",
-  bio: "RACGP Candidate · PGY3 · Royal North Shore",
   contact: {
     email: "s.chen@gpedge.au",
-    racgpId: "RACGP-89241",
   },
 };
 

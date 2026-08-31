@@ -10,10 +10,12 @@ export interface UserDataExportPayload {
     firstName: string | null;
     lastName: string | null;
     roleTitle: string | null;
-    hospital: string | null;
     location: string | null;
-    racgpId: string | null;
     examTarget: string | null;
+    postgraduateYear: number | null;
+    country: string | null;
+    stateTerritory: string | null;
+    fellowshipStatus: string | null;
     userRole: string;
     trainingStage: string;
     status: string;
@@ -324,10 +326,12 @@ export async function fetchUserDataForExport(userId: string): Promise<UserDataEx
       firstName: dbUser.first_name,
       lastName: dbUser.last_name,
       roleTitle: dbUser.role_title,
-      hospital: dbUser.hospital,
       location: dbUser.location,
-      racgpId: dbUser.racgp_id,
       examTarget: dbUser.exam_target,
+      postgraduateYear: dbUser.postgraduate_year,
+      country: dbUser.country,
+      stateTerritory: dbUser.state_territory,
+      fellowshipStatus: dbUser.fellowship_status,
       userRole: dbUser.user_role,
       trainingStage: dbUser.training_stage,
       status: dbUser.status,
