@@ -16,6 +16,39 @@ import { auth } from "@clerk/nextjs/server";
 import prisma from "@/lib/prisma";
 import { stripe, REGISTRAR_PRICE_IDS } from "@/lib/stripe";
 
+function getBaseUrl(req: Request): string {
+  // 1. Check origin header from browser request
+  const origin = req.headers.get("origin");
+  if (origin && origin !== "null") {
+    return origin;
+  }
+
+  // 2. Check host header + forwarded protocol
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  if (host) {
+    const proto =
+      req.headers.get("x-forwarded-proto") ||
+      (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+    return `${proto}://${host}`;
+  }
+
+  // 3. Fallback to NEXT_PUBLIC_APP_URL environment variable
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL.trim();
+    if (!appUrl.startsWith("http://") && !appUrl.startsWith("https://")) {
+      appUrl = `https://${appUrl}`;
+    }
+    return appUrl;
+  }
+
+  // 4. Fallback to VERCEL_URL environment variable
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "http://localhost:3000";
+}
+
 export async function POST(req: Request) {
   try {
     // ── Auth ──────────────────────────────────────────────────────────────────
@@ -61,7 +94,7 @@ export async function POST(req: Request) {
     const mode = isOneTimePayment ? "payment" : "subscription";
 
     // ── Build success / cancel URLs ───────────────────────────────────────────
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const baseUrl = getBaseUrl(req);
     const successUrl = `${baseUrl}/dashboard/pricing?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = `${baseUrl}/dashboard/pricing?canceled=true`;
 

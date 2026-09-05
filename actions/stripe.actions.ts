@@ -1,9 +1,43 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
+import { headers } from "next/headers";
 import { stripe } from "@/lib/stripe";
 import prisma from "@/lib/prisma";
 import { ensureDbUser } from "@/lib/user";
+
+async function getBaseUrl(): Promise<string> {
+  try {
+    const headerList = await headers();
+    const origin = headerList.get("origin");
+    if (origin && origin !== "null") {
+      return origin;
+    }
+    const host = headerList.get("x-forwarded-host") || headerList.get("host");
+    if (host) {
+      const proto =
+        headerList.get("x-forwarded-proto") ||
+        (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+      return `${proto}://${host}`;
+    }
+  } catch (e) {
+    // Ignore error if called outside request context
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    let appUrl = process.env.NEXT_PUBLIC_APP_URL.trim();
+    if (!appUrl.startsWith("http://") && !appUrl.startsWith("https://")) {
+      appUrl = `https://${appUrl}`;
+    }
+    return appUrl;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return "http://localhost:3000";
+}
 
 async function getOrFetchStripeCustomerId(dbUser: { id: string; stripe_customer_id: string | null; email: string }): Promise<string | null> {
   if (dbUser.stripe_customer_id) return dbUser.stripe_customer_id;
@@ -39,8 +73,7 @@ export async function createBillingPortalSessionAction(): Promise<{ url?: string
       return { error: "No billing history found for this account email." };
     }
 
-    const host = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || "http://localhost:3000";
-    const baseUrl = host.startsWith("http") ? host : `https://${host}`;
+    const baseUrl = await getBaseUrl();
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
@@ -113,9 +146,10 @@ export async function getLatestInvoicePdfAction(): Promise<{ url?: string; error
     }
 
     // 2. Fallback: Launch Stripe Customer Portal (contains native PDF download buttons)
+    const baseUrl = await getBaseUrl();
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/dashboard/profile`,
+      return_url: `${baseUrl}/dashboard/profile`,
     });
 
     if (portalSession?.url) {
