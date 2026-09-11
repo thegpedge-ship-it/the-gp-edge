@@ -11,7 +11,10 @@ export const pool =
   new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    // 5 was too tight to let bulk operations (e.g. question import) run per-item work
+    // concurrently instead of one round trip at a time — bumped to give that headroom
+    // without approaching Neon's connection ceiling.
+    max: 10,
   });
 
 if (process.env.NODE_ENV !== "production") {

@@ -248,8 +248,15 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
     const results: { text: string; dbId: string; uqid?: string }[] = [];
     const errors: { text: string; error: string }[] = [];
 
-    for (const q of questionsList) {
-      if (!q.text || !q.text.trim()) continue;
+    // Process questions with bounded concurrency instead of one at a time. Each question does
+    // 8-15 sequential DB round trips (lookups, upsert, audit/event log, options, tags), so a
+    // plain for-loop serializes ALL of that across the whole chunk — the dominant cost of a
+    // large import. The Maps above (subjectMap/subtopicMap/tagMap) are safe to share across
+    // concurrent workers: a lookup miss just means two workers race an `INSERT ... ON CONFLICT`,
+    // which Postgres resolves atomically and both sides read back the correct row id.
+    const IMPORT_CONCURRENCY = 8;
+    const processQuestion = async (q: any): Promise<void> => {
+      if (!q.text || !q.text.trim()) return;
 
       // Isolate each question so one bad row (a constraint violation, a malformed field) can't
       // silently fail the entire chunk it was imported in — every other question in the batch
@@ -610,23 +617,21 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
             ? q.correctIndices
             : [q.correctIndex ?? 0]
         );
-        for (let i = 0; i < q.options.length; i++) {
-          const distractorRationale = q.distractorRationales?.[i] || null;
-          await execute(
-            `INSERT INTO question_options (question_id, label, position, is_correct, distractor_rationale)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (question_id, position)
-             DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct,
-                           distractor_rationale = EXCLUDED.distractor_rationale`,
-            [
-              questionId,
-              q.options[i] || `Option ${String.fromCharCode(65 + i)}`,
-              i + 1,
-              correctSet.has(i),
-              distractorRationale,
-            ]
-          );
-        }
+        // One multi-row upsert instead of one round trip per option — for a 4-5 option question
+        // this alone turns 4-5 sequential awaits into 1.
+        const optionLabels = q.options.map((o: string, i: number) => o || `Option ${String.fromCharCode(65 + i)}`);
+        const optionPositions = q.options.map((_: string, i: number) => i + 1);
+        const optionCorrect = q.options.map((_: string, i: number) => correctSet.has(i));
+        const optionDistractors = q.options.map((_: string, i: number) => q.distractorRationales?.[i] || null);
+        await execute(
+          `INSERT INTO question_options (question_id, label, position, is_correct, distractor_rationale)
+           SELECT $1, l, p, c, d
+             FROM UNNEST($2::text[], $3::int[], $4::boolean[], $5::text[]) AS t(l, p, c, d)
+           ON CONFLICT (question_id, position)
+           DO UPDATE SET label = EXCLUDED.label, is_correct = EXCLUDED.is_correct,
+                         distractor_rationale = EXCLUDED.distractor_rationale`,
+          [questionId, optionLabels, optionPositions, optionCorrect, optionDistractors]
+        );
       }
 
       // Replace tags — scoped to 'general' so it never touches clinicalConcepts tags below
@@ -638,21 +643,24 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         );
 
         const seen = new Set<string>();
-        for (const tagName of q.tags) {
-          const cleanTagName = tagName.trim();
-          const tagKey = cleanTagName.toLowerCase();
-          if (!cleanTagName || seen.has(tagKey)) continue;
-          seen.add(tagKey);
-
-          const tagId = await getOrCreateTag(cleanTagName);
-          if (tagId) {
-            await execute(
-              `INSERT INTO question_tags (question_id, tag_id)
-               VALUES ($1, $2)
-               ON CONFLICT (question_id, tag_id) DO NOTHING`,
-              [questionId, tagId]
-            );
-          }
+        const cleanTagNames = (q.tags as string[])
+          .map(t => t.trim())
+          .filter(t => {
+            const key = t.toLowerCase();
+            if (!t || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        // Resolve tag ids in parallel (cache hits return instantly; only genuinely new tags
+        // hit the DB), then attach them all in one multi-row insert instead of one per tag.
+        const tagIds = (await Promise.all(cleanTagNames.map(name => getOrCreateTag(name)))).filter(Boolean) as string[];
+        if (tagIds.length > 0) {
+          await execute(
+            `INSERT INTO question_tags (question_id, tag_id)
+             SELECT $1, t FROM UNNEST($2::uuid[]) AS t
+             ON CONFLICT (question_id, tag_id) DO NOTHING`,
+            [questionId, tagIds]
+          );
         }
       }
 
@@ -665,21 +673,24 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           [questionId]
         );
         const seenConcepts = new Set<string>();
-        for (const conceptName of q.clinicalConcepts) {
-          const cleanConcept = String(conceptName).trim();
-          const conceptKey = cleanConcept.toLowerCase();
-          if (!cleanConcept || seenConcepts.has(conceptKey)) continue;
-          seenConcepts.add(conceptKey);
-
-          const conceptTagId = await getOrCreateTag(cleanConcept, "clinical_concept");
-          if (conceptTagId) {
-            await execute(
-              `INSERT INTO question_tags (question_id, tag_id)
-               VALUES ($1, $2)
-               ON CONFLICT (question_id, tag_id) DO NOTHING`,
-              [questionId, conceptTagId]
-            );
-          }
+        const cleanConcepts = (q.clinicalConcepts as any[])
+          .map(c => String(c).trim())
+          .filter(c => {
+            const key = c.toLowerCase();
+            if (!c || seenConcepts.has(key)) return false;
+            seenConcepts.add(key);
+            return true;
+          });
+        const conceptTagIds = (
+          await Promise.all(cleanConcepts.map(name => getOrCreateTag(name, "clinical_concept")))
+        ).filter(Boolean) as string[];
+        if (conceptTagIds.length > 0) {
+          await execute(
+            `INSERT INTO question_tags (question_id, tag_id)
+             SELECT $1, t FROM UNNEST($2::uuid[]) AS t
+             ON CONFLICT (question_id, tag_id) DO NOTHING`,
+            [questionId, conceptTagIds]
+          );
         }
       }
 
@@ -741,7 +752,17 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         console.error("Error importing question:", q.text?.slice(0, 80), qErr);
         errors.push({ text: q.text, error: qErr.message || "Failed to import this question." });
       }
-    }
+    };
+
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(IMPORT_CONCURRENCY, questionsList.length) }, async () => {
+      while (cursor < questionsList.length) {
+        const q = questionsList[cursor++];
+        await processQuestion(q);
+      }
+    });
+    await Promise.all(workers);
+
     return { success: true, results, errors: errors.length > 0 ? errors : undefined };
   } catch (error: any) {
     console.error("Error importing questions:", error);
