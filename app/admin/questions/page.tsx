@@ -966,12 +966,13 @@ export default function QuestionsPage() {
       // can create new ones without colliding), so a small chunk size doesn't just mean more
       // round-trips for the questions themselves — it means paying that whole reference-data
       // fetch again for every few questions. At 1000 questions, a chunk size of 5 was 200 calls
-      // (200x that setup cost); 20 cuts it to 50 calls (4x fewer). Kept moderate rather than much
-      // larger since each question inside a chunk still does several sequential DB round-trips of
-      // its own (an unrelated, deeper cost this doesn't touch) — a bigger chunk means a longer
-      // single server-action call, and this project doesn't declare a custom execution-time limit
-      // for it, so this stays inside a typical serverless default rather than risking a timeout.
-      const chunkSize = 20;
+      // (200x that setup cost); a fixed size of 20 cuts it to 50 calls (4x fewer) for a large
+      // import. But updatePublishProgress only fires once per completed CHUNK, not per question —
+      // so a fixed size of 20 meant a small import (e.g. 10 questions) went into a single chunk and
+      // showed 0% for its entire duration before jumping straight to 100%, reading as stuck rather
+      // than progressing. Scale the chunk size down for small batches (roughly 5 chunks' worth of
+      // visible progress ticks) while still capping at 20 for the large-import setup-cost win.
+      const chunkSize = Math.max(1, Math.min(20, Math.ceil(uploadedNewQs.length / 5)));
       const allResults: any[] = [];
       const allErrors: { text: string; error: string }[] = [];
       for (let i = 0; i < uploadedNewQs.length; i += chunkSize) {

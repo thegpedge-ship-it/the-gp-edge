@@ -823,6 +823,16 @@ export async function deleteQuestionAction(idOrText: string, adminUser?: Permiss
       if (found) targetId = found.id;
     }
 
+    // `id` is a uuid column; comparing it against a plain string parameter throws "operator does
+    // not exist: uuid = text" (Postgres won't implicitly cast a bound text param to uuid) — it's
+    // not conditional on whether idOrText looks like a UUID, since the whole WHERE expression is
+    // type-checked before either side of the OR is evaluated. targetId is already resolved above
+    // (either idOrText itself, or the real id looked up by stem), so match on that alone instead of
+    // re-testing the original idOrText against both columns in one (invalid) expression.
+    if (!uuidRegex.test(targetId)) {
+      return { success: false, error: "Question not found." };
+    }
+
     if (adminUser) {
       const check = await evaluateRelationalPermission({
         user: adminUser,
@@ -835,7 +845,7 @@ export async function deleteQuestionAction(idOrText: string, adminUser?: Permiss
     }
 
     // NO HARD DELETE: Soft-archive by setting deleted_at = NOW()
-    await execute(`UPDATE questions SET deleted_at = NOW() WHERE id = $1 OR stem = $1`, [idOrText]);
+    await execute(`UPDATE questions SET deleted_at = NOW() WHERE id = $1::uuid`, [targetId]);
 
     if (uuidRegex.test(idOrText)) {
       await recordAuditLog({
