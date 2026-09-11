@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { FileText, Clock, Lock, Unlock, Trophy, ArrowRight, X } from "lucide-react";
@@ -164,6 +165,11 @@ export default function MockTestsModal({
   const [startingId, setStartingId] = useState<string | null>(null);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeMockName, setUpgradeMockName] = useState<string | undefined>();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Free items sorted first, then available, then completed, then locked.
   const rank = (t: UiMockTest) => {
@@ -210,101 +216,106 @@ export default function MockTestsModal({
     setUpgradeModalOpen(true);
   };
 
+  if (!mounted) return null;
+
   return (
     <>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-
-            {/* Panel */}
+      {createPortal(
+        <AnimatePresence>
+          {open && (
             <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Mock Tests"
-              className="relative w-[95vw] lg:w-[76vw] max-w-[1240px] h-[88vh] flex flex-col glass-strong rounded-3xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Header */}
-              <div className="relative flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+              {/* Backdrop */}
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-                <div className="flex items-center gap-3">
-                  <h3 className="font-serif text-xl sm:text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-                    Mock Tests
-                  </h3>
-                  {tests.length > 0 && (
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-400">
-                      {tests.length}
-                    </span>
-                  )}
+              {/* Panel */}
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Mock Tests"
+                className="relative w-[95vw] lg:w-[76vw] max-w-[1240px] h-[85vh] max-h-[800px] flex flex-col glass-strong rounded-3xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {/* Header */}
+                <div className="relative flex items-center justify-between px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-200/70 dark:border-slate-700/40 flex-shrink-0">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
+
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-serif text-xl sm:text-2xl md:text-[1.75rem] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+                      Mock Tests
+                    </h3>
+                    {tests.length > 0 && (
+                      <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-400">
+                        {tests.length}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" strokeWidth={2} />
+                  </button>
                 </div>
 
-                <button
-                  onClick={onClose}
-                  aria-label="Close"
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                {/* Subheading strip */}
+                <div className="px-5 pt-3 sm:px-7 sm:pt-4 flex-shrink-0">
+                  <p className="text-[12px] sm:text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
+                    Full AKT simulations under real exam conditions. Free sample tests are available to all users.
+                  </p>
+                </div>
+
+                {/* Cards grid */}
+                <div
+                  className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-4 py-4 sm:px-7 sm:py-5"
+                  style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
                 >
-                  <X className="w-5 h-5" strokeWidth={2} />
-                </button>
-              </div>
-
-              {/* Subheading strip */}
-              <div className="px-5 pt-3 sm:px-7 sm:pt-4 flex-shrink-0">
-                <p className="text-[12px] sm:text-[13px] text-slate-500 dark:text-slate-400 leading-snug">
-                  Full AKT simulations under real exam conditions. Free sample tests are available to all users.
-                </p>
-              </div>
-
-              {/* Cards grid */}
-              <div
-                className="flex-1 min-h-0 overflow-y-auto scrollbar-hide scroll-smooth will-change-scroll px-4 py-4 sm:px-7 sm:py-5"
-                style={{ WebkitOverflowScrolling: "touch", transform: "translateZ(0)" }}
-              >
-                {tests.length === 0 && loading ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-                    <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500/25 border-t-emerald-500 animate-spin" />
-                    <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Loading mock tests…</p>
-                  </div>
-                ) : tests.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center gap-3">
-                    <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
-                      <FileText size={24} strokeWidth={2} />
+                  {tests.length === 0 && loading ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                      <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500/25 border-t-emerald-500 animate-spin" />
+                      <p className="text-[13px] font-medium text-slate-500 dark:text-slate-400">Loading mock tests…</p>
                     </div>
-                    <p className="text-[15px] font-bold text-slate-600 dark:text-slate-300">No mock tests yet</p>
-                    <p className="text-[12px] text-slate-400 dark:text-slate-500 max-w-[320px]">
-                      Full AKT simulations will appear here once they&rsquo;re published.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 max-w-[1100px] mx-auto">
-                    {orderedTests.map((test) => (
-                      <TestCard
-                        key={test.id}
-                        test={test}
-                        starting={startingId === test.id}
-                        isRegistrarActive={isRegistrarActive}
-                        onStart={handleStart}
-                        onLockedClick={handleLockedClick}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+                  ) : tests.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center gap-3">
+                      <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20 dark:text-emerald-400">
+                        <FileText size={24} strokeWidth={2} />
+                      </div>
+                      <p className="text-[15px] font-bold text-slate-600 dark:text-slate-300">No mock tests yet</p>
+                      <p className="text-[12px] text-slate-400 dark:text-slate-500 max-w-[320px]">
+                        Full AKT simulations will appear here once they&rsquo;re published.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 max-w-[1100px] mx-auto">
+                      {orderedTests.map((test) => (
+                        <TestCard
+                          key={test.id}
+                          test={test}
+                          starting={startingId === test.id}
+                          isRegistrarActive={isRegistrarActive}
+                          onStart={handleStart}
+                          onLockedClick={handleLockedClick}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Upgrade Modal */}
       <UpgradeModal
