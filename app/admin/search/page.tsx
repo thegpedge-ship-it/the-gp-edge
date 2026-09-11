@@ -175,19 +175,33 @@ export default function SearchPage() {
     return res;
   };
 
+  // Keep counts and lists live rather than frozen at whatever they were when this page happened to
+  // mount — e.g. importing a batch of questions on the Question Bank page shouldn't require a manual
+  // reload here to see the new total. Refetches on mount, on an interval, and when the tab regains
+  // focus (covers "I switched away, imported elsewhere, switched back" without a stale wait).
+  // Same 30s-poll pattern already used for live-ish data elsewhere in the admin panel (session
+  // checks in app/admin/layout.tsx, pending requests in AdminTopbar) — this app has no
+  // WebSocket/SSE infrastructure, so polling is the established way to approximate realtime here.
   useEffect(() => {
     let isMounted = true;
-    fetchQuestions(true).then((qs) => { if (isMounted) setQuestions(qs); });
-    fetchAdminUsersFromDb().then((users) => { if (isMounted) setUsersList(users); });
-    fetchMedicalContent(true).then((content) => { if (isMounted) setContentList(content); });
-    getApproachCardsFromDbAction(true).then((approaches) => { if (isMounted) setApproachesList(approaches); });
-    fetchAutofillTemplatesFromDbAction(true).then((templates) => { if (isMounted) setAutofillList(templates); });
+    const loadAll = () => {
+      fetchQuestions(true).then((qs) => { if (isMounted) setQuestions(qs); });
+      fetchAdminUsersFromDb().then((users) => { if (isMounted) setUsersList(users); });
+      fetchMedicalContent(true).then((content) => { if (isMounted) setContentList(content); });
+      getApproachCardsFromDbAction(true).then((approaches) => { if (isMounted) setApproachesList(approaches); });
+      fetchAutofillTemplatesFromDbAction(true).then((templates) => { if (isMounted) setAutofillList(templates); });
+      loadTaxonomyTopics();
+    };
 
-    // Fetch all unified topics and titles from PostgreSQL
-    loadTaxonomyTopics();
+    loadAll();
+    const interval = setInterval(loadAll, 30000);
+    const onFocus = () => loadAll();
+    window.addEventListener("focus", onFocus);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
