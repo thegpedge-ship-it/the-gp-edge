@@ -103,6 +103,27 @@ async function recordQuestionEvent(params: {
  * If a question with the exact same stem exists it updates it,
  * otherwise it creates a new row.
  */
+/**
+ * Allocates the next batch number for today (e.g. "2026-09-11-batch-03"). Call this ONCE per
+ * import session on the client, before chunking the questions for importQuestionsAction, and pass
+ * the same value as every question's batchId — importQuestionsAction itself is called once per
+ * chunk, so computing "the next batch number" independently inside each call (or relying on its
+ * old static "-batch-01" fallback) would either give every chunk of one import a different batch
+ * number, or silently merge every document imported on the same day under one shared batch label.
+ */
+export async function getNextBatchIdAction(): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  const prefix = `${today}-batch-`;
+  const existing = await queryOne<{ max_num: number | null }>(
+    `SELECT MAX(CAST(SUBSTRING(batch_id FROM LENGTH($1) + 1) AS INTEGER)) AS max_num
+       FROM questions
+      WHERE batch_id LIKE $2 AND SUBSTRING(batch_id FROM LENGTH($1) + 1) ~ '^\\d+$'`,
+    [prefix, `${prefix}%`]
+  );
+  const nextNum = (existing?.max_num || 0) + 1;
+  return `${prefix}${String(nextNum).padStart(2, "0")}`;
+}
+
 export async function importQuestionsAction(questionsList: any[], adminUser?: PermissionUser) {
   try {
     await ensureQuestionExtendedColumns();
@@ -676,11 +697,19 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
       // Denormalize the taxonomy topic record onto the question row (Section C —
       // these columns existed but were never populated before this feature).
       if (topicReg.success) {
-        const taxTopic = await queryOne<any>(
-          `SELECT depth, topic_type, group_code, cross_refs, cross_cutting_tags, taxonomy_version
-             FROM taxonomy_topics WHERE code = $1`,
-          [topicReg.topicCode]
-        );
+        // taxonomy_topics is only created lazily by syncMasterTaxonomyAction (an admin-triggered
+        // one-time setup step) — registerOrUpdateTopicWithCodeAction above already tolerates the
+        // table not existing yet (it swallows the same lookup's error internally), so this needs
+        // the same tolerance: a missing table here just means no denormalized taxonomy metadata
+        // to enrich this question with yet, not a reason to fail the whole import.
+        let taxTopic: any = null;
+        try {
+          taxTopic = await queryOne<any>(
+            `SELECT depth, topic_type, group_code, cross_refs, cross_cutting_tags, taxonomy_version
+               FROM taxonomy_topics WHERE code = $1`,
+            [topicReg.topicCode]
+          );
+        } catch {}
         await execute(
           `UPDATE questions
              SET topic_code = $1, home_unit = $2, group_code = $3,

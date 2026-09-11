@@ -28,7 +28,7 @@ import { addUserNotification } from "@/utils/notifications";
 import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
 import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
-import { importQuestionsAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
+import { importQuestionsAction, getNextBatchIdAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
 import QuestionHistoryPanel from "@/components/admin/QuestionHistoryPanel";
 import QueryExplorerModal from "@/components/admin/QueryExplorerModal";
 import BulkQuestionEditModal from "@/components/admin/BulkQuestionEditModal";
@@ -863,6 +863,17 @@ export default function QuestionsPage() {
         );
       }
       
+      // One batch number for this whole import session — fetched once here, not left to each
+      // chunk's importQuestionsAction call to invent its own (which would either give one document's
+      // worth of questions several different batch numbers, or silently merge every document
+      // imported on the same calendar day under one shared "batch-01" label).
+      let sharedBatchId: string | undefined;
+      try {
+        sharedBatchId = await getNextBatchIdAction();
+      } catch (err) {
+        console.error("Failed to allocate a batch number, falling back to per-question default:", err);
+      }
+
       let nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 2855;
       const newQs = finalImportList.map((q: any) => {
         const cleanedTags = q.tags
@@ -879,7 +890,8 @@ export default function QuestionsPage() {
           kfpCorrectCount: correctCount,
           correctIndices: q.correctIndices || [q.correctIndex || 0],
           tags: cleanedTags.length > 0 ? cleanedTags : ["General"],
-          status: (q.status === "published" || q.status === "in_review") ? q.status : ("draft" as const)
+          status: (q.status === "published" || q.status === "in_review") ? q.status : ("draft" as const),
+          batchId: q.batchId || sharedBatchId,
         };
         return newQ;
       });
@@ -898,19 +910,29 @@ export default function QuestionsPage() {
         setUploadedFileName(`Importing question ${count} of ${totalCount} (${pct}%)...`);
       };
 
-      // 1. Process image uploads if present
-      const uploadedNewQs: typeof newQs = [];
-      for (const q of newQs) {
-        let updatedQ = q;
-        if (q.image && q.image.startsWith("data:image/")) {
-          try {
-            const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
-            updatedQ = { ...q, image: fileUrl };
-          } catch (err) {
-            console.error("Client image upload failed:", err);
-          }
-        }
-        uploadedNewQs.push(updatedQ);
+      // 1. Process image uploads if present — run up to IMAGE_UPLOAD_CONCURRENCY at once instead of
+      // one at a time. A single-file R2 upload's wall-clock cost is almost entirely network latency,
+      // not local CPU/bandwidth, so awaiting them sequentially in a for-loop meant a batch of (say)
+      // 50 images paid 50x that latency back-to-back for no reason — this cuts it to roughly
+      // (count / concurrency) round-trips instead.
+      const IMAGE_UPLOAD_CONCURRENCY = 8;
+      const uploadedNewQs: typeof newQs = new Array(newQs.length);
+      for (let batchStart = 0; batchStart < newQs.length; batchStart += IMAGE_UPLOAD_CONCURRENCY) {
+        const batch = newQs.slice(batchStart, batchStart + IMAGE_UPLOAD_CONCURRENCY);
+        const uploaded = await Promise.all(
+          batch.map(async (q: any) => {
+            if (q.image && q.image.startsWith("data:image/")) {
+              try {
+                const fileUrl = await uploadBase64ImageToR2(q.image, "extracted_question_image.jpg");
+                return { ...q, image: fileUrl };
+              } catch (err) {
+                console.error("Client image upload failed:", err);
+              }
+            }
+            return q;
+          })
+        );
+        uploaded.forEach((q, i) => { uploadedNewQs[batchStart + i] = q; });
       }
 
       // Update state locally
@@ -919,8 +941,17 @@ export default function QuestionsPage() {
       );
       setQuestions([...uploadedNewQs, ...filteredExisting]);
 
-      // 2. Import questions to DB in chunks of 5 to report precise per-question progress
-      const chunkSize = 5;
+      // 2. Import questions to DB in chunks. importQuestionsAction re-fetches every exam type,
+      // subject, subtopic and tag in the database at the start of EACH call (needed so a batch
+      // can create new ones without colliding), so a small chunk size doesn't just mean more
+      // round-trips for the questions themselves — it means paying that whole reference-data
+      // fetch again for every few questions. At 1000 questions, a chunk size of 5 was 200 calls
+      // (200x that setup cost); 20 cuts it to 50 calls (4x fewer). Kept moderate rather than much
+      // larger since each question inside a chunk still does several sequential DB round-trips of
+      // its own (an unrelated, deeper cost this doesn't touch) — a bigger chunk means a longer
+      // single server-action call, and this project doesn't declare a custom execution-time limit
+      // for it, so this stays inside a typical serverless default rather than risking a timeout.
+      const chunkSize = 20;
       const allResults: any[] = [];
       const allErrors: { text: string; error: string }[] = [];
       for (let i = 0; i < uploadedNewQs.length; i += chunkSize) {
@@ -2695,32 +2726,45 @@ export default function QuestionsPage() {
 
                 {uploadState === "uploading" && (
                   <div className="space-y-3">
-                    {/* Overall progress header — the percentage badge and bar-fill width below are real
-                        upload/pipeline-stage checkpoints (25/55/99/100), not a simulated climb. Once the
-                        quick pre-pass reports a total, the status line switches from a generic message to
-                        an honest "N questions found" count instead of implying live per-question progress
-                        we don't actually have. */}
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold px-0.5">
-                        <span className="text-slate-800 dark:text-slate-200 truncate max-w-[420px]">
-                          {uploadedFileName.startsWith("Publishing") ? uploadedFileName : `Processing ${uploadedFileName}`}
-                        </span>
-                        <span className="text-teal-600 dark:text-teal-400 font-mono font-bold text-xs">{uploadProgress}%</span>
-                      </div>
-                      <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300 rounded-full ${uploadProgress < 100 ? "animate-pulse" : ""}`}
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                        {uploadedFileName.startsWith("Publishing")
-                          ? "Saving questions and diagnostic options to database..."
-                          : batchFiles.length === 1 && typeof batchFiles[0]?.totalFound === "number"
-                          ? `Total size: ${uploadedFileSize} · ${batchFiles[0].totalFound} question${batchFiles[0].totalFound === 1 ? "" : "s"} found — extracting details...`
-                          : `Total size: ${uploadedFileSize} · Scanning document...`}
-                      </p>
-                    </div>
+                    {/* Overall progress header. This panel is reused for two different phases that share
+                        the same uploadedFileName/uploadProgress state: extracting from the source file
+                        (uploadedFileName is the actual file name) and importing the parsed questions into
+                        the database (uploadedFileName is already a complete status sentence set by
+                        proceedWithImport, e.g. "Importing 10 questions to Drafts..."). Only the extraction
+                        phase's file name needs the "Processing " prefix — prefixing an already-complete
+                        import-phase sentence produced a garbled "Processing Importing 10 questions...".
+                        The percentage and bar-fill width are real pipeline-stage checkpoints during
+                        extraction (25/55/99/100) and real per-chunk progress during import — never a
+                        simulated climb — but only the extraction phase's total is a genuine estimate
+                        rather than an exact count, so only that phase pulses. */}
+                    {(() => {
+                      const isImportPhase = uploadedFileName.startsWith("Importing") || uploadedFileName.startsWith("Publishing");
+                      return (
+                        <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm space-y-2">
+                          <div className="flex items-center justify-between text-xs font-bold px-0.5">
+                            <span className="text-slate-800 dark:text-slate-200 truncate max-w-[420px]">
+                              {isImportPhase ? uploadedFileName : `Processing ${uploadedFileName}`}
+                            </span>
+                            <span className="text-teal-600 dark:text-teal-400 font-mono font-bold text-xs">{uploadProgress}%</span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300 rounded-full ${!isImportPhase && uploadProgress < 100 ? "animate-pulse" : ""}`}
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                            {uploadedFileName.startsWith("Publishing")
+                              ? "Saving questions and diagnostic options to database..."
+                              : uploadedFileName.startsWith("Importing")
+                              ? "Writing each question to the database..."
+                              : batchFiles.length === 1 && typeof batchFiles[0]?.totalFound === "number"
+                              ? `Total size: ${uploadedFileSize} · ${batchFiles[0].totalFound} question${batchFiles[0].totalFound === 1 ? "" : "s"} found — extracting details...`
+                              : `Total size: ${uploadedFileSize} · Scanning document...`}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     {/* Per-file status list */}
                     {batchFiles.length > 1 && (
