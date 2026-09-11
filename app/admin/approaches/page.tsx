@@ -112,6 +112,7 @@ export default function ApproachesPage() {
   const { units: taxonomyUnits } = useTaxonomy();
   const router = useRouter();
   const [cards, setCards] = useState<ApproachCard[]>([]);
+  const [confirmAction, setConfirmAction] = useState<{ type: "archive" | "permanent_delete"; card: ApproachCard } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [systemFilter, setSystemFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -698,7 +699,6 @@ export default function ApproachesPage() {
 
   async function handlePermanentDeleteApproach(card: ApproachCard) {
     if (!canRestoreItem) return;
-    if (!confirm(`Are you sure you want to PERMANENTLY delete "${card.title}"? This action CANNOT be undone.`)) return;
     const res = await permanentlyDeleteApproachCardAction(card.id, currentAdmin);
     if (!res.success) {
       alert(res.error || "Failed to permanently delete approach card.");
@@ -712,7 +712,6 @@ export default function ApproachesPage() {
 
   async function deleteCard(id: string) {
     if (!canArchiveItem) return;
-    if (!confirm("Archive this approach card? Item will be hidden from production and retained in audit log.")) return;
     const updated = cards.map(c => c.id === id ? { ...c, status: "archived" as const } : c);
     setCards(updated);
     const targetCard = cards.find(c => c.id === id);
@@ -726,7 +725,7 @@ export default function ApproachesPage() {
     <div className="flex flex-col gap-6 pb-10">
       <AdminPageHeader
         title="Clinical Approaches"
-        subtitle={`Create and manage structured clinical approach cards displayed in the medical library · ${cards.length} items`}
+        subtitle={`Create and manage structured clinical approach cards displayed in the medical library · ${filtered.length} of ${cards.length} items shown`}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <button
@@ -975,7 +974,7 @@ export default function ApproachesPage() {
                           Restore
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handlePermanentDeleteApproach(card); }}
+                          onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: "permanent_delete", card }); }}
                           title="Permanently Delete (IRREVERSIBLE)"
                           className="px-2 py-1 rounded-lg text-red-700 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 transition-all cursor-pointer border-none flex items-center justify-center gap-1 text-xs font-bold"
                         >
@@ -986,7 +985,7 @@ export default function ApproachesPage() {
                     )}
                     {canArchiveItem && card.status !== "archived" && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); deleteCard(card.id); }}
+                        onClick={(e) => { e.stopPropagation(); setConfirmAction({ type: "archive", card }); }}
                         title="Archive Card"
                         className="p-1 rounded-lg text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all cursor-pointer border-none bg-transparent flex items-center justify-center"
                       >
@@ -1412,6 +1411,88 @@ export default function ApproachesPage() {
                       className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md disabled:opacity-50 transition-all cursor-pointer ${meta.confirmBtn}`}
                     >
                       {bulkProgress ? "Working…" : meta.confirmLabel}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
+
+      {/* Single-card archive / permanent-delete confirmation — replaces the native window.confirm()
+          popup with a modal matching this page's own bulk-action confirm styling above. */}
+      <AnimatePresence>
+        {confirmAction && (() => {
+          const meta = confirmAction.type === "archive"
+            ? {
+                Icon: Lucide.Archive,
+                title: "Archive This Approach Card?",
+                description: "It will be hidden from production and retained in the audit log. You can restore it later from the \"Archived\" status filter.",
+                confirmLabel: "Archive Card",
+                iconWrap: "bg-amber-50 dark:bg-amber-950/40 border border-amber-100 dark:border-amber-900/40 text-amber-600 dark:text-amber-400",
+                confirmBtn: "bg-amber-600 hover:bg-amber-700 shadow-amber-600/20",
+                danger: false,
+              }
+            : {
+                Icon: Lucide.Trash2,
+                title: "Permanently Delete This Approach Card?",
+                description: "This action cannot be undone — the card will be purged from the database entirely, not just hidden.",
+                confirmLabel: "Delete Permanently",
+                iconWrap: "bg-rose-50 dark:bg-rose-950/40 border border-rose-100 dark:border-rose-900/40 text-rose-600 dark:text-rose-400",
+                confirmBtn: "bg-rose-600 hover:bg-rose-700 shadow-rose-600/20",
+                danger: true,
+              };
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm"
+                onClick={() => setConfirmAction(null)}
+              />
+              <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: 16 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: 16 }}
+                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                  className="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden p-6 text-center"
+                >
+                  <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${meta.iconWrap}`}>
+                    <meta.Icon className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{meta.title}</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                    <strong className="text-slate-700 dark:text-slate-300">"{confirmAction.card.title}"</strong>
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">{meta.description}</p>
+                  {meta.danger && (
+                    <div className="mt-3 p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 border border-rose-100 dark:border-rose-900/30">
+                      <p className="font-semibold">⚠️ Danger Zone</p>
+                    </div>
+                  )}
+                  <div className="mt-6 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmAction(null)}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { type, card } = confirmAction;
+                        setConfirmAction(null);
+                        if (type === "archive") deleteCard(card.id);
+                        else handlePermanentDeleteApproach(card);
+                      }}
+                      className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all cursor-pointer ${meta.confirmBtn}`}
+                    >
+                      {meta.confirmLabel}
                     </button>
                   </div>
                 </motion.div>

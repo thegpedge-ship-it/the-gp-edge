@@ -26,7 +26,11 @@ function mapRowToApproachCard(row: any): ApproachCard {
     subtitle: extra.subtitle || "",
     system: extra.system || "Cardiology",
     category: row.category || "",
-    status: (row.deleted_at !== null && row.deleted_at !== undefined) ? "archived" : (row.status === "archived" ? "published" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft"),
+    // A row can be "archived" two ways: soft-deleted (deleted_at set) or workflow-archived
+    // (status column itself is 'archived', deleted_at still null). Both must map to "archived"
+    // here — this previously mapped the second case to "published" instead, so an explicitly
+    // archived approach card (not soft-deleted) still displayed, and behaved, as published.
+    status: (row.deleted_at !== null && row.deleted_at !== undefined) ? "archived" : row.status === "archived" ? "archived" : row.status === "published" ? "published" : row.status === "review" ? "review" : "draft",
     lastUpdated: row.updated_at
       ? new Date(row.updated_at).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" })
       : new Date().toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }),
