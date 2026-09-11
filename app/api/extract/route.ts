@@ -1721,80 +1721,84 @@ function styleHtmlCallouts(html: string): string {
 
 
 function styleHtmlTables(html: string): string {
-  return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match: string, tableBody: string) => {
-    let styledBody = tableBody;
-    
-    // Style <th> header cells (always green header background, white text)
-    styledBody = styledBody.replace(/<th([^>]*)>([\s\S]*?)<\/th>/gi, (m: string, attrs: string, cellContent: string) => {
-      const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
-      return `<th ${cleanAttrs} style="text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;">${cellContent.trim()}</th>`;
-    });
-    
-    // If no TH, promote first row's TD cells to TH (header)
-    if (!tableBody.toLowerCase().includes("<th")) {
-      let isFirstRow = true;
-      styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
-        if (isFirstRow) {
-          isFirstRow = false;
-          const headerContent = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (_tdMatch: string, tdAttrs: string, tdContent: string) => {
-            const cleanAttrs = tdAttrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
-            return `<th ${cleanAttrs} style="text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;">${tdContent.trim()}</th>`;
-          });
-          return `<tr ${trAttrs.trim()}>${headerContent}</tr>`;
-        }
-        return trMatch;
+  const HEADER_TH_STYLE = "text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;";
+
+  const styleDataCell = (tag: "td" | "th", attrs: string, content: string): string => {
+    const textColor = "#334155";
+    let preservedStyle = "";
+    const styleMatch = attrs.match(/style=["']([^"']*)['"]/i);
+    if (styleMatch && styleMatch[1]) {
+      const kept = styleMatch[1].split(";").filter((decl: string) => {
+        const prop = decl.split(":")[0].trim().toLowerCase();
+        return prop === "width" || prop === "min-width" || prop === "max-width" || prop === "vertical-align";
       });
+      preservedStyle = kept.join(";");
     }
-    
-    // Style data rows — enforce clean white rows
-    styledBody = styledBody.replace(/<tr([^>]*)>([\s\S]*?)<\/tr>/gi, (trMatch: string, trAttrs: string, trContent: string) => {
-      if (trContent.toLowerCase().includes("<th")) {
-        return trMatch; // skip header rows
+    const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
+    const finalStyle = [
+      preservedStyle,
+      "padding:0.75rem 1rem",
+      "font-size:0.825rem",
+      "border:1px solid #e2e8f0",
+      "background-color:#ffffff",
+      `color:${textColor}`,
+      "word-break:break-word",
+      "white-space:normal",
+    ].filter(Boolean).join(";");
+    // Emit as <td> regardless of the source tag — a <th> outside the true header row is a
+    // row-header (e.g. the step name in an examination-steps table), which is a value cell for
+    // styling purposes, not a column header.
+    return `<td ${cleanAttrs} style="${finalStyle}">${content.trim()}</td>`;
+  };
+
+  return html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match: string, tableBody: string) => {
+    const rows = tableBody.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+
+    // The true header row is the first row that contains a <th> — UNLESS a <td>-only row appears
+    // before any <th> row, in which case there's no header row to find at all. Some source
+    // documents mark every row's first cell as <th> too (a row-header pattern) — treating every
+    // <th> as a header regardless of position previously painted that whole first column green on
+    // every row, when the rest of that row's cells (the actual values) were correctly white.
+    let headerRowIndex = -1;
+    for (let i = 0; i < rows.length; i++) {
+      if (/<th[^>]*>/i.test(rows[i])) { headerRowIndex = i; break; }
+      if (/<td[^>]*>/i.test(rows[i])) break;
+    }
+
+    // If no row uses <th> at all, promote the first row's <td> cells to header styling instead.
+    if (headerRowIndex === -1 && rows.length > 0) headerRowIndex = 0;
+
+    const styledRows = rows.map((row, i) => {
+      const trAttrsMatch = row.match(/^<tr([^>]*)>/i);
+      const trAttrs = (trAttrsMatch ? trAttrsMatch[1].replace(/\bstyle=["']([^"']*)['"]/gi, "").trim() : "") + ' style="page-break-inside:avoid;"';
+      const trContent = row.replace(/^<tr[^>]*>/i, "").replace(/<\/tr>$/i, "");
+
+      if (i === headerRowIndex) {
+        const styledCells = trContent.replace(/<(?:th|td)([^>]*)>([\s\S]*?)<\/(?:th|td)>/gi, (_m: string, attrs: string, content: string) => {
+          const cleanAttrs = attrs.replace(/\bstyle=["']([^"']*)['"]/gi, "").replace(/\bbgcolor=["']([^"']*)['"]/gi, "").trim();
+          return `<th ${cleanAttrs} style="${HEADER_TH_STYLE}">${content.trim()}</th>`;
+        });
+        return `<tr ${trAttrs}>${styledCells}</tr>`;
       }
-      
-      const bg = "#ffffff"; // Always white background for data cells
-      
-      let cellIndex = 0;
-      const styledCells = trContent.replace(/<td([^>]*)>([\s\S]*?)<\/td>/gi, (_tdMatch: string, tdAttrs: string, tdContent: string) => {
-        const textColor = "#334155";
-        cellIndex++;
-        
-        let preservedStyle = "";
-        const styleMatch = tdAttrs.match(/style=["']([^"']*)['"]/i);
-        if (styleMatch && styleMatch[1]) {
-          const kept = styleMatch[1].split(";").filter((decl: string) => {
-            const prop = decl.split(":")[0].trim().toLowerCase();
-            return prop === "width" || prop === "min-width" || prop === "max-width" || prop === "vertical-align";
-          });
-          preservedStyle = kept.join(";");
-        }
-        
-        const cleanAttrs = tdAttrs
-          .replace(/\bstyle=["']([^"']*)['"]/gi, "")
-          .replace(/\bbgcolor=["']([^"']*)['"]/gi, "")
-          .trim();
-        
-        const finalStyle = [
-          preservedStyle,
-          "padding:0.75rem 1rem",
-          "font-size:0.825rem",
-          "border:1px solid #e2e8f0",
-          `background-color:${bg}`,
-          `color:${textColor}`,
-          "word-break:break-word",
-          "white-space:normal",
-        ].filter(Boolean).join(";");
-        
-        return `<td ${cleanAttrs} style="${finalStyle}">${tdContent.trim()}</td>`;
-      });
-      
-      return `<tr ${trAttrs.trim()}>${styledCells}</tr>`;
+
+      const styledCells = trContent.replace(/<(td|th)([^>]*)>([\s\S]*?)<\/(?:td|th)>/gi, (_m: string, tag: string, attrs: string, content: string) =>
+        styleDataCell(tag.toLowerCase() as "td" | "th", attrs, content)
+      );
+      return `<tr ${trAttrs}>${styledCells}</tr>`;
     });
-    
+
+    // Large tables (e.g. a 9-row examination-steps table) can run well past one printed page —
+    // repeating the header row on each new page (a plain <thead>, which browsers/print engines
+    // handle natively) and letting rows break across pages instead of forcing the whole table to
+    // stay together keeps a split table readable instead of truncating or overflowing a page.
+    const headerRowHtml = headerRowIndex >= 0 ? styledRows[headerRowIndex] : "";
+    const bodyRowsHtml = styledRows.filter((_, i) => i !== headerRowIndex).join("");
+
     return `
       <div style="overflow-x:auto;max-width:100%;border:1px solid #cbd5e1;border-radius:0.75rem;margin-bottom:1.25rem;background-color:#ffffff;">
-        <table style="width:100%;min-width:400px;border-collapse:collapse;text-align:left;">
-          ${styledBody}
+        <table style="width:100%;min-width:400px;border-collapse:collapse;text-align:left;page-break-inside:auto;">
+          ${headerRowHtml ? `<thead style="display:table-header-group;">${headerRowHtml}</thead>` : ""}
+          <tbody>${bodyRowsHtml}</tbody>
         </table>
       </div>
     `;
