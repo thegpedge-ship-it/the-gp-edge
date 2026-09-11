@@ -31,27 +31,6 @@ interface CredentialUser {
   mustResetPassword?: boolean;
 }
 
-const FALLBACK_USERS: CredentialUser[] = [
-  {
-    id: "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-    name: "Siddhant Udavant",
-    username: "siddhant_super",
-    role: "Super Admin",
-    email: "admin@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "super123",
-  },
-  {
-    id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101",
-    name: "Arun Mehta",
-    username: "arun_admin",
-    role: "Admin",
-    email: "content@gpedge.com",
-    forgotPasswordEnabled: true,
-    password: "admin123",
-  },
-];
-
 export default function AdminLoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -97,17 +76,6 @@ export default function AdminLoginPage() {
     }
   }, [router]);
 
-  useEffect(() => {
-    syncLocalAdminsWithDbAction(FALLBACK_USERS)
-      .then((dbAdmins) => {
-        if (dbAdmins && dbAdmins.length > 0) {
-          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
-        }
-      })
-      .catch((err) => {
-        console.warn("Failed to sync local admins with DB:", err);
-      });
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -3,6 +3,7 @@
 import { query, queryOne, execute } from "@/lib/db";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
 
 export interface CredentialUser {
   id: string;
@@ -104,7 +105,7 @@ function mapRowToCredentialUser(row: any): CredentialUser {
     name: row.name,
     username: row.username,
     email: row.email,
-    password: row.password_hash,
+    password: undefined, // Never expose password hash to client bundles
     role: roleTitle,
     roles,
     forgotPasswordEnabled: row.forgot_password_enabled ?? true,
@@ -118,12 +119,6 @@ function mapRowToCredentialUser(row: any): CredentialUser {
 
 export async function getAdminsFromDbAction(): Promise<CredentialUser[]> {
   try {
-    // Ensure the custom-role columns exist before joining against them (idempotent, matches the
-    // ensure-columns pattern already used below for admin_users.role/role_code).
-    try {
-      await execute(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false; ALTER TABLE roles ADD COLUMN IF NOT EXISTS can_view_pii BOOLEAN DEFAULT false;`);
-    } catch (e) {}
-
     const rows = await query<any>(
       `SELECT u.*, r.name AS custom_role_name,
               ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
@@ -172,11 +167,6 @@ export async function saveAdminToDbAction(user: CredentialUser): Promise<{ succe
         [key, label]
       );
     }
-
-    // Ensure role and role_code columns exist
-    try {
-      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role_code TEXT;`);
-    } catch (e) {}
 
     // Upsert admin user
     await execute(
@@ -295,20 +285,6 @@ export async function inviteAccountAction(params: {
 
     const invitationToken = `inv-${randomUUID()}`;
     const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 days expiry
-
-    await execute(`
-      CREATE TABLE IF NOT EXISTS admin_invitations (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        email TEXT NOT NULL,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        invitation_token TEXT NOT NULL UNIQUE,
-        invited_by TEXT NOT NULL,
-        expires_at TIMESTAMPTZ NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
 
     await execute(
       `INSERT INTO admin_invitations (email, name, role, invitation_token, invited_by, expires_at, status, created_at)
@@ -512,9 +488,6 @@ export async function verifyAdminCredentialsAction(
     // session this account was previously using on another device — the previous device's
     // stored token no longer matches, so its next check kicks it out. See checkAdminSessionAction.
     const sessionToken = randomUUID();
-    try {
-      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_token TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;`);
-    } catch (e) {}
     await execute(
       `UPDATE admin_users SET active_session_token = $1, active_session_started_at = NOW() WHERE id = $2`,
       [sessionToken, row.id]
@@ -522,6 +495,20 @@ export async function verifyAdminCredentialsAction(
 
     const user = mapRowToCredentialUser(row);
     user.sessionToken = sessionToken;
+
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set("gpedge_admin_session", `${row.id}:${sessionToken}`, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+    } catch (cookieErr) {
+      // Ignore if called in non-request context
+    }
+
     return { success: true, user };
   } catch (error: any) {
     console.error("Error verifying admin credentials:", error);
@@ -540,17 +527,13 @@ export async function checkAdminSessionAction(
 ): Promise<{ valid: boolean }> {
   try {
     if (!adminId || !sessionToken) return { valid: false };
-    try {
-      await execute(`ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_token TEXT; ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active_session_started_at TIMESTAMPTZ;`);
-    } catch (e) {}
     const row = await queryOne<{ active_session_token: string | null }>(
-      `SELECT active_session_token FROM admin_users WHERE id = $1 AND deleted_at IS NULL`,
+      `SELECT active_session_token FROM admin_users WHERE id = $1 AND deleted_at IS NULL AND status = 'active'`,
       [adminId]
     );
     return { valid: !!row && row.active_session_token === sessionToken };
   } catch (error) {
     console.error("Error checking admin session:", error);
-    // Fail open on infra errors so a DB hiccup doesn't mass-logout every admin session.
     return { valid: true };
   }
 }
@@ -558,10 +541,105 @@ export async function checkAdminSessionAction(
 /** Clears the account's active session on explicit logout, freeing the device slot immediately. */
 export async function clearAdminSessionAction(adminId: string): Promise<void> {
   try {
-    if (!adminId) return;
-    await execute(`UPDATE admin_users SET active_session_token = NULL WHERE id = $1`, [adminId]);
+    if (adminId) {
+      await execute(`UPDATE admin_users SET active_session_token = NULL WHERE id = $1`, [adminId]);
+    }
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("gpedge_admin_session");
+    } catch {}
   } catch (error) {
     console.error("Error clearing admin session:", error);
+  }
+}
+
+/**
+ * Server-side helper: securely authenticates and resolves the admin user context
+ * from the HTTP-only cookie, Authorization header, or custom request headers.
+ */
+export async function getAuthenticatedAdmin(req?: Request): Promise<{
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  roles: string[];
+  status: string;
+  permissions: string[];
+} | null> {
+  try {
+    let adminId: string | null = null;
+    let sessionToken: string | null = null;
+
+    // 1. Check HTTP-only cookie
+    try {
+      const cookieStore = await cookies();
+      const cookieVal = cookieStore.get("gpedge_admin_session")?.value;
+      if (cookieVal && cookieVal.includes(":")) {
+        const parts = cookieVal.split(":");
+        adminId = parts[0];
+        sessionToken = parts.slice(1).join(":");
+      }
+    } catch {}
+
+    // 2. Check request headers if req provided
+    if ((!adminId || !sessionToken) && req) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        if (token.includes(":")) {
+          const parts = token.split(":");
+          adminId = parts[0];
+          sessionToken = parts.slice(1).join(":");
+        } else {
+          sessionToken = token;
+        }
+      }
+      if (!adminId) adminId = req.headers.get("x-admin-id");
+      if (!sessionToken) sessionToken = req.headers.get("x-admin-session-token");
+    }
+
+    if (!sessionToken) return null;
+
+    let row: any = null;
+    if (adminId) {
+      row = await queryOne<any>(
+        `SELECT u.*, r.name AS custom_role_name,
+                ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
+           FROM admin_users u
+           LEFT JOIN admin_user_permissions p ON p.admin_user_id = u.id
+           LEFT JOIN roles r ON r.code = u.role_code AND r.is_custom = true
+          WHERE u.id = $1 AND u.active_session_token = $2 AND u.deleted_at IS NULL AND u.status = 'active'
+          GROUP BY u.id, r.name`,
+        [adminId, sessionToken]
+      );
+    } else {
+      row = await queryOne<any>(
+        `SELECT u.*, r.name AS custom_role_name,
+                ARRAY_REMOVE(ARRAY_AGG(p.permission_key) FILTER (WHERE p.granted = true), NULL) AS permissions
+           FROM admin_users u
+           LEFT JOIN admin_user_permissions p ON p.admin_user_id = u.id
+           LEFT JOIN roles r ON r.code = u.role_code AND r.is_custom = true
+          WHERE u.active_session_token = $1 AND u.deleted_at IS NULL AND u.status = 'active'
+          GROUP BY u.id, r.name`,
+        [sessionToken]
+      );
+    }
+
+    if (!row) return null;
+
+    const credUser = mapRowToCredentialUser(row);
+    return {
+      id: credUser.id,
+      name: credUser.name,
+      email: credUser.email,
+      role: credUser.role,
+      roles: credUser.roles || [credUser.role],
+      status: credUser.status || "active",
+      permissions: credUser.permissions || [],
+    };
+  } catch (error) {
+    console.error("Error in getAuthenticatedAdmin:", error);
+    return null;
   }
 }
 
@@ -625,12 +703,6 @@ export interface RealAdminUser {
 
 export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
   try {
-    // Ensure the admin-role assignment columns exist (idempotent, matches the
-    // ensure-columns pattern used above for admin_users.role/role_code).
-    try {
-      await execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[];`);
-    } catch (e) {}
-
     const rows = await query<any>(
       `SELECT
          u.id,
@@ -729,12 +801,6 @@ export async function updateUserRoleInDbAction(
   newRole: "SA" | "CE" | "OM" | "DR" | "PR" | "SUB"
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const roleInfo = ROLE_DEFINITIONS[newRole] || ROLE_DEFINITIONS.SUB;
-
-    try {
-      await execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT; ALTER TABLE users ADD COLUMN IF NOT EXISTS roles TEXT[];`);
-    } catch (e) {}
-
     await execute(
       `UPDATE users
           SET role = $1,
@@ -753,15 +819,6 @@ export async function updateUserRoleInDbAction(
 
 export async function toggleUserStatusInDbAction(userId: string, newStatus: "active" | "suspended" | "deactivated" | "trial" | "lapsed" | string): Promise<{ success: boolean; error?: string }> {
   try {
-    // The account_status enum only ships with active/suspended/deleted — extend it with the
-    // statuses this admin UI actually offers (idempotent, mirrors the ensure-columns pattern
-    // used elsewhere in this file).
-    for (const value of ["deactivated", "trial", "lapsed"]) {
-      try {
-        await execute(`ALTER TYPE account_status ADD VALUE IF NOT EXISTS '${value}'`);
-      } catch (e) {}
-    }
-
     await execute(
       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2`,
       [newStatus, userId]
@@ -841,21 +898,6 @@ export async function getNotificationAudienceMetricsAction(): Promise<AudienceMe
   }
 }
 
-async function ensureNotificationsTable() {
-  await execute(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      type VARCHAR(50) NOT NULL,
-      title VARCHAR(255) NOT NULL,
-      message TEXT,
-      payload JSONB,
-      created_by UUID,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await execute(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMPTZ`);
-}
-
 async function dispatchDueScheduledNotifications() {
   const due = await query<{ id: string; payload: any; target: string }>(`
     SELECT id, payload, (payload->>'target') as target
@@ -891,7 +933,6 @@ async function dispatchDueScheduledNotifications() {
 
 export async function getNotificationsFromDbAction(): Promise<SystemNotificationItem[]> {
   try {
-    await ensureNotificationsTable();
     await dispatchDueScheduledNotifications();
 
     const rows = await query<any>(`
@@ -961,8 +1002,6 @@ export async function createNotificationInDbAction(data: {
   scheduledAt?: string;
 }): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    await ensureNotificationsTable();
-
     const isImmediate = data.schedule === "Send Now";
     if (!isImmediate && !data.scheduledAt) {
       return { success: false, error: "Please choose a date and time to schedule this notification." };
@@ -1050,22 +1089,6 @@ function isSuperAdminRow(row: any): boolean {
   );
 }
 
-async function ensurePasswordResetRequestsTable() {
-  await execute(`
-    CREATE TABLE IF NOT EXISTS admin_password_reset_requests (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      admin_user_id UUID NOT NULL,
-      admin_name TEXT,
-      admin_username TEXT,
-      admin_email TEXT,
-      status TEXT NOT NULL DEFAULT 'pending',
-      requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      resolved_at TIMESTAMPTZ,
-      resolved_by UUID
-    );
-  `);
-}
-
 /**
  * Non-SA admins cannot self-service a password reset (Section 3G): there is nobody above them to
  * verify the request, so it must go through a human — the Super Admin. This records the request
@@ -1106,7 +1129,6 @@ export async function requestPasswordResetAction(
       };
     }
 
-    await ensurePasswordResetRequestsTable();
     await execute(
       `INSERT INTO admin_password_reset_requests (admin_user_id, admin_name, admin_username, admin_email, status)
        VALUES ($1, $2, $3, $4, 'pending')`,
@@ -1145,7 +1167,6 @@ export async function getPendingPasswordResetRequestsAction(
 ): Promise<PasswordResetRequest[]> {
   if (!isCallerSuperAdmin) return [];
   try {
-    await ensurePasswordResetRequestsTable();
     const rows = await query<any>(
       `SELECT id, admin_user_id, admin_name, admin_username, admin_email, requested_at
          FROM admin_password_reset_requests
@@ -1176,7 +1197,6 @@ export async function resolvePasswordResetRequestAction(params: {
     return { success: false, error: "Only the Super Admin can resolve password reset requests." };
   }
   try {
-    await ensurePasswordResetRequestsTable();
     const request = await queryOne<any>(
       `SELECT admin_user_id FROM admin_password_reset_requests WHERE id = $1 AND status = 'pending'`,
       [params.requestId]

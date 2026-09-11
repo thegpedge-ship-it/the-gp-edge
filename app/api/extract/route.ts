@@ -9,6 +9,7 @@ import { execFileSync } from "child_process";
 import crypto from "crypto";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import Tesseract from "tesseract.js";
+import { getAuthenticatedAdmin } from "@/actions/admin.actions";
 
 // Next.js App Router route segment config — allow large uploads (images in DOCX/PDF)
 export const maxDuration = 60; // seconds
@@ -3163,6 +3164,11 @@ export async function POST(req: NextRequest) {
   let tempPath: string | null = null;
 
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string | null;

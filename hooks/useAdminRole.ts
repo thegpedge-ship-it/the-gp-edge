@@ -110,7 +110,6 @@ export function useAdminRole() {
               forgotPasswordEnabled: true,
               oauthEnabled: true,
               mfaEnabled: true,
-              password: "super123",
             },
             {
               id: "b5a452ef-09c3-4d2b-aa58-bf8827f8a101",
@@ -123,7 +122,6 @@ export function useAdminRole() {
               forgotPasswordEnabled: true,
               oauthEnabled: false,
               mfaEnabled: false,
-              password: "admin123",
             },
             {
               id: "d7c92b23-1c32-4f8a-9a99-8cb142646202",
@@ -136,7 +134,6 @@ export function useAdminRole() {
               forgotPasswordEnabled: true,
               oauthEnabled: false,
               mfaEnabled: false,
-              password: "ops123",
             },
           ];
           localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(defaultCreds));

@@ -6,28 +6,6 @@ import { CUSTOM_ROLE_RESOURCES, CustomRoleResource, PermissionMatrix, CustomRole
 
 const emptyMatrix = emptyCustomRoleMatrix;
 
-/** Idempotently ensures the columns/rows a custom role needs actually exist. */
-async function ensureCustomRoleSchema(): Promise<void> {
-  await execute(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false;`);
-  await execute(`ALTER TABLE roles ADD COLUMN IF NOT EXISTS can_view_pii BOOLEAN DEFAULT false;`);
-  // The roles table originally shipped with CHECK constraints locking code/name to exactly the 3
-  // legacy seed rows (super_admin/admin/user) — that table is otherwise unused anywhere in the
-  // app, so drop those constraints to allow arbitrary custom role codes/names.
-  await execute(`ALTER TABLE roles DROP CONSTRAINT IF EXISTS roles_code_check;`);
-  await execute(`ALTER TABLE roles DROP CONSTRAINT IF EXISTS roles_name_check;`);
-
-  for (const resource of CUSTOM_ROLE_RESOURCES) {
-    await execute(
-      `INSERT INTO permissions (key, label) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
-      [`${resource}.read`, `${resource} (read)`]
-    );
-    await execute(
-      `INSERT INTO permissions (key, label) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
-      [`${resource}.edit`, `${resource} (edit)`]
-    );
-  }
-}
-
 function slugifyRoleCode(name: string, existingCodes: Set<string>): string {
   const base = name
     .trim()
@@ -47,8 +25,6 @@ function slugifyRoleCode(name: string, existingCodes: Set<string>): string {
 
 export async function getCustomRolesAction(): Promise<{ success: boolean; roles: CustomRole[]; error?: string }> {
   try {
-    await ensureCustomRoleSchema();
-
     const roleRows = await query<{ id: number; code: string; name: string; description: string | null; can_view_pii: boolean }>(
       `SELECT id, code, name, description, can_view_pii FROM roles WHERE is_custom = true ORDER BY name ASC`
     );
@@ -96,8 +72,6 @@ export async function getCustomRoleByCodeAction(
   code: string
 ): Promise<{ success: boolean; role?: CustomRole; error?: string }> {
   try {
-    await ensureCustomRoleSchema();
-
     const row = await queryOne<{ id: number; code: string; name: string; description: string | null; can_view_pii: boolean }>(
       `SELECT id, code, name, description, can_view_pii FROM roles WHERE is_custom = true AND code = $1 LIMIT 1`,
       [code]
@@ -164,7 +138,6 @@ export async function createCustomRoleAction(
   adminUser?: PermissionUser
 ): Promise<{ success: boolean; role?: CustomRole; error?: string }> {
   try {
-    await ensureCustomRoleSchema();
 
     const cleanName = params.name.trim();
     if (!cleanName) return { success: false, error: "Role name is required" };
@@ -207,8 +180,6 @@ export async function updateCustomRoleAction(
   adminUser?: PermissionUser
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await ensureCustomRoleSchema();
-
     const existing = await queryOne<{ id: number; code: string; is_custom: boolean }>(
       `SELECT id, code, is_custom FROM roles WHERE id = $1`,
       [roleId]

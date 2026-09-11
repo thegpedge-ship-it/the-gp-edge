@@ -172,26 +172,6 @@ export async function saveDraftRubricAction(params: {
         );
       }
     } else {
-      // Create table if not exists safely
-      await execute(`
-        CREATE TABLE IF NOT EXISTS item_reviews (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          item_id TEXT NOT NULL,
-          item_type TEXT NOT NULL,
-          reviewer_id TEXT NOT NULL,
-          reviewer_name TEXT,
-          status TEXT NOT NULL DEFAULT 'draft',
-          outcome TEXT,
-          rubric_version INT NOT NULL DEFAULT 1,
-          rubric_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-          is_correction BOOLEAN NOT NULL DEFAULT FALSE,
-          original_review_id UUID,
-          submitted_at TIMESTAMPTZ,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
       const inserted = await queryOne<{ id: string }>(
         `INSERT INTO item_reviews
           (item_id, item_type, reviewer_id, reviewer_name, status, outcome, rubric_version, rubric_data, created_at, updated_at)

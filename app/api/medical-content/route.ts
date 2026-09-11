@@ -3,6 +3,7 @@ import { query, queryOne, execute } from "@/lib/db";
 import { sanitizeHtml } from "@/utils/sanitizeHtml";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
 import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
+import { getAuthenticatedAdmin } from "@/actions/admin.actions";
 
 // Increase body size limit to handle large HTML payloads with embedded images
 export const maxDuration = 60;
@@ -75,16 +76,22 @@ export async function GET(req: NextRequest) {
 // POST /api/medical-content — create a new condition
 export async function POST(req: NextRequest) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
-    const { name, system, category, type, status, author, isFree, is_free, tags, topic, references, fullHtml, sections, pdfUrl, pdfSize, adminUser } = body;
+    const { name, system, category, type, status, author, isFree, is_free, tags, topic, references, fullHtml, sections, pdfUrl, pdfSize } = body;
     const isFreeVal = Boolean(isFree ?? is_free ?? false);
 
     const userContext: PermissionUser = {
-      id: adminUser?.id || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00",
-      name: adminUser?.name || author || "Super Admin",
-      role: adminUser?.role || "Super Admin",
-      roles: adminUser?.roles && adminUser.roles.length > 0 ? adminUser.roles : ["SA"],
-      status: adminUser?.status || "active",
+      id: admin.id,
+      name: admin.name,
+      role: admin.role,
+      roles: admin.roles,
+      permissions: admin.permissions,
+      status: admin.status,
     };
 
     // Server-side relational permission check

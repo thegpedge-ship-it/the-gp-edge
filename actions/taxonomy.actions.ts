@@ -32,76 +32,12 @@ export interface MasterTopic {
  */
 export async function syncMasterTaxonomyAction(adminUser?: PermissionUser) {
   try {
-    // 1. Ensure DB tables exist
-    await execute(`
-      CREATE TABLE IF NOT EXISTS taxonomy_units (
-        code VARCHAR(20) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        kind VARCHAR(50) DEFAULT 'owner',
-        groups JSONB,
-        display_order INT DEFAULT 0,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    await execute(`
-      CREATE TABLE IF NOT EXISTS taxonomy_topics (
-        code VARCHAR(20) PRIMARY KEY,
-        label VARCHAR(500) NOT NULL,
-        topic_type VARCHAR(100) NOT NULL,
-        home_unit VARCHAR(20) NOT NULL,
-        group_code VARCHAR(50),
-        cross_refs JSONB DEFAULT '[]'::jsonb,
-        variants JSONB DEFAULT '[]'::jsonb,
-        depth VARCHAR(50) DEFAULT 'Core',
-        status VARCHAR(50) DEFAULT 'active',
-        merged_into JSONB DEFAULT '[]'::jsonb,
-        cross_cutting_tags JSONB DEFAULT '[]'::jsonb,
-        taxonomy_version VARCHAR(20) DEFAULT '1.1',
-        created_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `);
-
-    await execute(`CREATE INDEX IF NOT EXISTS idx_taxonomy_topics_home_unit ON taxonomy_topics(home_unit);`);
-    await execute(`CREATE INDEX IF NOT EXISTS idx_taxonomy_topics_depth ON taxonomy_topics(depth);`);
-    await execute(`CREATE INDEX IF NOT EXISTS idx_taxonomy_topics_status ON taxonomy_topics(status);`);
-
-    // 2. Add classification columns to questions, medical_conditions, autofill_templates if absent
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS topic_code VARCHAR(20);`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS home_unit VARCHAR(20);`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS group_code VARCHAR(50);`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS cross_ref_units JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS depth_tier VARCHAR(50);`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS cross_cutting_tags JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS topic_type VARCHAR(100);`);
-    await execute(`ALTER TABLE questions ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT '1.1';`);
-
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS topic_code VARCHAR(20);`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS home_unit VARCHAR(20);`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS group_code VARCHAR(50);`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS cross_ref_units JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS depth_tier VARCHAR(50);`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS cross_cutting_tags JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS topic_type VARCHAR(100);`);
-    await execute(`ALTER TABLE medical_conditions ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT '1.1';`);
-
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS topic_code VARCHAR(20);`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS home_unit VARCHAR(20);`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS group_code VARCHAR(50);`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS cross_ref_units JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS depth_tier VARCHAR(50);`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS cross_cutting_tags JSONB DEFAULT '[]'::jsonb;`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS topic_type VARCHAR(100);`);
-    await execute(`ALTER TABLE autofill_templates ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT '1.1';`);
-
-    // 3. Accept taxonomy data as parameter, or count from DB if not provided
+    // 1. Accept taxonomy data as parameter, or count from DB if not provided
     const units: MasterUnit[] = [];
     const topics: MasterTopic[] = [];
     const version = "1.1";
 
-    // If no inline data provided, just ensure tables exist and return DB counts
+    // Just query DB counts
     const dbUnitsCount = await queryOne<{ count: string }>(`SELECT COUNT(*)::text as count FROM taxonomy_units`);
     const dbTopicsCount = await queryOne<{ count: string }>(`SELECT COUNT(*)::text as count FROM taxonomy_topics`);
 
@@ -534,36 +470,6 @@ export async function importMasterTaxonomyFileAction(
 }> {
   const errors: { code: string; error: string }[] = [];
   let unitsImported = 0, unitsSkipped = 0, topicsImported = 0, topicsSkipped = 0;
-
-  await execute(`
-    CREATE TABLE IF NOT EXISTS taxonomy_units (
-      code VARCHAR(20) PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      kind VARCHAR(50) DEFAULT 'owner',
-      groups JSONB,
-      display_order INT DEFAULT 0,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-  await execute(`
-    CREATE TABLE IF NOT EXISTS taxonomy_topics (
-      code VARCHAR(20) PRIMARY KEY,
-      label VARCHAR(500) NOT NULL,
-      topic_type VARCHAR(100) NOT NULL,
-      home_unit VARCHAR(20) NOT NULL,
-      group_code VARCHAR(50),
-      cross_refs JSONB DEFAULT '[]'::jsonb,
-      variants JSONB DEFAULT '[]'::jsonb,
-      depth VARCHAR(50) DEFAULT 'Core',
-      status VARCHAR(50) DEFAULT 'active',
-      merged_into JSONB DEFAULT '[]'::jsonb,
-      cross_cutting_tags JSONB DEFAULT '[]'::jsonb,
-      taxonomy_version VARCHAR(20) DEFAULT '1.1',
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
 
   const existingUnits = mode === "skip-existing"
     ? new Set((await query<{ code: string }>(`SELECT code FROM taxonomy_units`)).map((r) => r.code))

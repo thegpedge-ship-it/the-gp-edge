@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { ensureQuestionExtendedColumns } from "@/actions/question.actions";
 
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
@@ -14,7 +13,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   // ── DB fetch ──────────────────────────────────────────────────────────────
   try {
-    await ensureQuestionExtendedColumns();
     const includeArchived = req.nextUrl.searchParams.get("includeArchived") === "true";
     const uqidFilter = req.nextUrl.searchParams.get("uqid");
     const searchParam = req.nextUrl.searchParams.get("search");

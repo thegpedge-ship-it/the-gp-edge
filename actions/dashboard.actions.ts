@@ -52,34 +52,51 @@ export interface MonthlyStats {
 
 export async function getDashboardDataAction(): Promise<DashboardStats> {
   try {
-    // 1. Question Bank Size
-    const questionsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM questions");
-    const questionBankSize = parseInt(questionsResult?.count || "0", 10);
-
-    // 2. Autofill Templates
-    const autofillResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM autofill_templates");
-    const autofillTemplatesCount = parseInt(autofillResult?.count || "0", 10);
-
-    // 3. Total Users
-    const usersResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users");
-    const totalUsers = parseInt(usersResult?.count || "0", 10);
-
-    // 4. Test Attempts
-    const attemptsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM test_attempts");
-    const testAttemptsCount = parseInt(attemptsResult?.count || "0", 10);
-
-    // 5. Total Revenue
-    const revenueResult = await queryOne<{ sum: string }>("SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded'");
-    const totalRevenue = parseFloat(revenueResult?.sum || "0");
-
-    // 6. Active Subscriptions
-    const activeSubsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'");
-    const activeSubscriptions = parseInt(activeSubsResult?.count || "0", 10);
-
-    // 7. Monthly Recurring Revenue (MRR)
-    let mrr = 0;
-    try {
-      const mrrResult = await queryOne<{ sum: string }>(
+    const [
+      questionsResult,
+      autofillResult,
+      usersResult,
+      attemptsResult,
+      revenueResult,
+      activeSubsResult,
+      mrrResult,
+      newUsersResult,
+      pendingRefundsResult,
+      draftQuestionsResult,
+      draftQuizzesResult,
+      suspendedUsersResult,
+      canceledSubsResult,
+      totalSubsResult,
+      plansBreakdownResult,
+      questionStatusResult,
+      lastAuditResult,
+      dauResult,
+      mauResult,
+      revCurrResult,
+      revPrevResult,
+      mrrNewResult,
+      mauCurrResult,
+      mauPrevResult,
+      newUsersCurrResult,
+      newUsersPrevResult,
+      attemptsCurrResult,
+      attemptsPrevResult,
+      questionsNewResult
+    ] = await Promise.all([
+      // 1. Question Bank Size
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM questions"),
+      // 2. Autofill Templates
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM autofill_templates"),
+      // 3. Total Users
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users"),
+      // 4. Test Attempts
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM test_attempts"),
+      // 5. Total Revenue
+      queryOne<{ sum: string }>("SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded'"),
+      // 6. Active Subscriptions
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active'"),
+      // 7. Monthly Recurring Revenue (MRR)
+      queryOne<{ sum: string }>(
         `SELECT SUM(
           CASE 
             WHEN s.cycle = 'annual' THEN p.price_annual / 12.0
@@ -89,45 +106,25 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
          FROM subscriptions s 
          JOIN plans p ON s.plan_id = p.id 
          WHERE s.status = 'active'`
-      );
-      mrr = Math.round(parseFloat(mrrResult?.sum || "0") * 100) / 100;
-    } catch {
-      mrr = 0;
-    }
-
-    // 8. New Users Last 30 Days
-    const newUsersResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
-    );
-    const newUsers30d = parseInt(newUsersResult?.count || "0", 10);
-
-    // 9. Pending Refunds
-    const pendingRefundsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM refunds WHERE status = 'pending'");
-    const pendingRefundsCount = parseInt(pendingRefundsResult?.count || "0", 10);
-
-    // 10. Draft Questions (Flagged / Awaiting verification)
-    const draftQuestionsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM questions WHERE status = 'draft'");
-    const draftQuestionsCount = parseInt(draftQuestionsResult?.count || "0", 10);
-
-    // 11. Draft Quizzes (Educator modules waiting approval)
-    const draftQuizzesResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM quizzes WHERE status = 'draft'");
-    const draftQuizzesCount = parseInt(draftQuizzesResult?.count || "0", 10);
-
-    // 12. Suspended / Awaiting review users
-    const suspendedUsersResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users WHERE status = 'suspended'");
-    const suspendedUsersCount = parseInt(suspendedUsersResult?.count || "0", 10);
-
-    // 13. Churn Rate calculation
-    const canceledSubsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'canceled'");
-    const canceledCount = parseInt(canceledSubsResult?.count || "0", 10);
-    const totalSubsResult = await queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions");
-    const totalCount = parseInt(totalSubsResult?.count || "0", 10);
-    const churnRate = totalCount > 0 ? (canceledCount * 100.0) / totalCount : 0;
-
-    // 14. Plan Distribution breakdown
-    let planDistribution: PlanBreakdown[] = [];
-    try {
-      const plansBreakdownResult = await query<any>(`
+      ).catch(() => null),
+      // 8. New Users Last 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 9. Pending Refunds
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM refunds WHERE status = 'pending'"),
+      // 10. Draft Questions (Flagged / Awaiting verification)
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM questions WHERE status = 'draft'"),
+      // 11. Draft Quizzes (Educator modules waiting approval)
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM quizzes WHERE status = 'draft'"),
+      // 12. Suspended / Awaiting review users
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users WHERE status = 'suspended'"),
+      // 13. Canceled Subscriptions (for Churn)
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'canceled'"),
+      // 14. Total Subscriptions (for Churn)
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions"),
+      // 15. Plan Distribution breakdown
+      query<any>(`
         SELECT p.name, COUNT(*) as count, SUM(
           CASE 
             WHEN s.cycle = 'annual' THEN p.price_annual / 12.0
@@ -138,110 +135,138 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
         JOIN plans p ON s.plan_id = p.id
         WHERE s.status = 'active'
         GROUP BY p.name
-      `);
-      if (plansBreakdownResult.length > 0) {
-        const totalActive = plansBreakdownResult.reduce((sum, row) => sum + parseInt(row.count), 0);
-        planDistribution = plansBreakdownResult.map((row) => {
-          const count = parseInt(row.count);
-          const mrrImpact = parseFloat(row.mrr_impact || "0");
-          const pct = totalActive > 0 ? Math.round((count * 100) / totalActive) : 0;
-          return {
-            name: row.name,
-            count,
-            share: `${pct}%`,
-            mrrImpact,
-            pct,
-            color: row.name.toLowerCase().includes("annual") 
-              ? "bg-teal-700 dark:bg-teal-600" 
-              : row.name.toLowerCase().includes("monthly") 
-              ? "bg-emerald-600 dark:bg-emerald-500" 
-              : "bg-teal-500 dark:bg-teal-400"
-          };
-        });
-      }
-    } catch {
-      planDistribution = [];
+      `).catch(() => []),
+      // 16. Question Status breakdown
+      query<{ status: string; count: string }>(
+        "SELECT status, COUNT(*) as count FROM questions GROUP BY status"
+      ),
+      // 17. Last action processed from audit logs
+      queryOne<{ created_at: string }>(
+        "SELECT created_at FROM audit_logs ORDER BY created_at DESC LIMIT 1"
+      ),
+      // 18. DAU
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '1 day'"
+      ),
+      // 19. MAU
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 20. Revenue Current 30 Days
+      queryOne<{ sum: string }>(
+        "SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 21. Revenue Previous 30 Days
+      queryOne<{ sum: string }>(
+        "SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
+      ),
+      // 22. New Active Subscriptions 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active' AND created_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 23. MAU Current 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 24. MAU Previous 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '60 days' AND last_active_at < NOW() - INTERVAL '30 days'"
+      ),
+      // 25. New Users Current 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 26. New Users Previous 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
+      ),
+      // 27. Test Attempts Current 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '30 days'"
+      ),
+      // 28. Test Attempts Previous 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '60 days' AND started_at < NOW() - INTERVAL '30 days'"
+      ),
+      // 29. Questions Added 30 Days
+      queryOne<{ count: string }>(
+        "SELECT COUNT(*) as count FROM questions WHERE created_at >= NOW() - INTERVAL '30 days'"
+      )
+    ]);
+
+    const questionBankSize = parseInt(questionsResult?.count || "0", 10);
+    const autofillTemplatesCount = parseInt(autofillResult?.count || "0", 10);
+    const totalUsers = parseInt(usersResult?.count || "0", 10);
+    const testAttemptsCount = parseInt(attemptsResult?.count || "0", 10);
+    const totalRevenue = parseFloat(revenueResult?.sum || "0");
+    const activeSubscriptions = parseInt(activeSubsResult?.count || "0", 10);
+
+    let mrr = 0;
+    if (mrrResult?.sum) {
+      mrr = Math.round(parseFloat(mrrResult.sum) * 100) / 100;
     }
 
-    // 15. Question Status breakdown
-    const questionStatusResult = await query<{ status: string; count: string }>(
-      "SELECT status, COUNT(*) as count FROM questions GROUP BY status"
-    );
-    const questionStatusDistribution = questionStatusResult.map(row => ({
+    const newUsers30d = parseInt(newUsersResult?.count || "0", 10);
+    const pendingRefundsCount = parseInt(pendingRefundsResult?.count || "0", 10);
+    const draftQuestionsCount = parseInt(draftQuestionsResult?.count || "0", 10);
+    const draftQuizzesCount = parseInt(draftQuizzesResult?.count || "0", 10);
+    const suspendedUsersCount = parseInt(suspendedUsersResult?.count || "0", 10);
+
+    const canceledCount = parseInt(canceledSubsResult?.count || "0", 10);
+    const totalCount = parseInt(totalSubsResult?.count || "0", 10);
+    const churnRate = totalCount > 0 ? (canceledCount * 100.0) / totalCount : 0;
+
+    let planDistribution: PlanBreakdown[] = [];
+    if (Array.isArray(plansBreakdownResult) && plansBreakdownResult.length > 0) {
+      const totalActive = plansBreakdownResult.reduce((sum, row) => sum + parseInt(row.count), 0);
+      planDistribution = plansBreakdownResult.map((row) => {
+        const count = parseInt(row.count);
+        const mrrImpact = parseFloat(row.mrr_impact || "0");
+        const pct = totalActive > 0 ? Math.round((count * 100) / totalActive) : 0;
+        return {
+          name: row.name,
+          count,
+          share: `${pct}%`,
+          mrrImpact,
+          pct,
+          color: row.name.toLowerCase().includes("annual") 
+            ? "bg-teal-700 dark:bg-teal-600" 
+            : row.name.toLowerCase().includes("monthly") 
+            ? "bg-emerald-600 dark:bg-emerald-500" 
+            : "bg-teal-500 dark:bg-teal-400"
+        };
+      });
+    }
+
+    const questionStatusDistribution = (questionStatusResult || []).map(row => ({
       status: row.status,
       count: parseInt(row.count, 10)
     }));
 
-    // 16. Last action processed from audit logs
-    const lastAuditResult = await queryOne<{ created_at: string }>(
-      "SELECT created_at FROM audit_logs ORDER BY created_at DESC LIMIT 1"
-    );
     const lastActionTime = lastAuditResult?.created_at ? new Date(lastAuditResult.created_at).toISOString() : null;
-
-    // 17. DAU and MAU
-    const dauResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '1 day'"
-    );
     const dauCount = parseInt(dauResult?.count || "0", 10);
-
-    const mauResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
-    );
     const mauCount = parseInt(mauResult?.count || "0", 10);
-
-    // Session duration estimate (average is 12m if attempts exist, else 0)
     const avgSessionMinutes = testAttemptsCount > 0 ? 12 : 0;
 
-    // 18. Comparison calculations (current 30 days vs previous 30 days)
-    const revCurrResult = await queryOne<{ sum: string }>(
-      "SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '30 days'"
-    );
-    const revPrevResult = await queryOne<{ sum: string }>(
-      "SELECT SUM(amount) as sum FROM payments WHERE status = 'succeeded' AND created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
-    );
     const revCurr = parseFloat(revCurrResult?.sum || "0");
     const revPrev = parseFloat(revPrevResult?.sum || "0");
     const revenueChange = revPrev > 0 ? ((revCurr - revPrev) * 100) / revPrev : 0;
 
-    const mrrNewResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM subscriptions WHERE status = 'active' AND created_at >= NOW() - INTERVAL '30 days'"
-    );
     const mrrNewCount = parseInt(mrrNewResult?.count || "0", 10);
     const mrrChange = activeSubscriptions > 0 ? (mrrNewCount * 100.0) / activeSubscriptions : 0;
 
-    const mauCurrResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
-    );
-    const mauPrevResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '60 days' AND last_active_at < NOW() - INTERVAL '30 days'"
-    );
     const mauCurr = parseInt(mauCurrResult?.count || "0", 10);
     const mauPrev = parseInt(mauPrevResult?.count || "0", 10);
     const mauChange = mauPrev > 0 ? ((mauCurr - mauPrev) * 100) / mauPrev : 0;
 
-    const newUsersCurrResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
-    );
-    const newUsersPrevResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
-    );
     const newUsersCurr = parseInt(newUsersCurrResult?.count || "0", 10);
     const newUsersPrev = parseInt(newUsersPrevResult?.count || "0", 10);
     const newUsersChange = newUsersPrev > 0 ? ((newUsersCurr - newUsersPrev) * 100) / newUsersPrev : 0;
 
-    const attemptsCurrResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '30 days'"
-    );
-    const attemptsPrevResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM test_attempts WHERE started_at >= NOW() - INTERVAL '60 days' AND started_at < NOW() - INTERVAL '30 days'"
-    );
     const attemptsCurr = parseInt(attemptsCurrResult?.count || "0", 10);
     const attemptsPrev = parseInt(attemptsPrevResult?.count || "0", 10);
     const attemptsChange = attemptsPrev > 0 ? ((attemptsCurr - attemptsPrev) * 100) / attemptsPrev : 0;
 
-    const questionsNewResult = await queryOne<{ count: string }>(
-      "SELECT COUNT(*) as count FROM questions WHERE created_at >= NOW() - INTERVAL '30 days'"
-    );
     const questionsNewCount = parseInt(questionsNewResult?.count || "0", 10);
     const questionBankChange = questionBankSize > 0 ? (questionsNewCount * 100.0) / questionBankSize : 0;
 

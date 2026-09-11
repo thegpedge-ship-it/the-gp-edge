@@ -5,49 +5,11 @@ import { recordAuditLog } from "@/lib/relationalPermissions";
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
-let tablesInitialized = false;
-async function ensureTablesExist() {
-  if (tablesInitialized) return;
-  try {
-    await execute(`
-      DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'edit_change_type') THEN
-          CREATE TYPE edit_change_type AS ENUM ('added','deleted','modified','status_change','meta_change','restored');
-        END IF;
-      END $$;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-      CREATE TABLE IF NOT EXISTS content_edit_history (
-        id              BIGSERIAL PRIMARY KEY,
-        entity_id       TEXT NOT NULL,
-        entity_type     TEXT NOT NULL,
-        field_name      TEXT NOT NULL,
-        change_type     edit_change_type NOT NULL,
-        old_content     TEXT,
-        new_content     TEXT,
-        admin_user_id   TEXT,
-        admin_user_name TEXT,
-        session_id      TEXT,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-
-      CREATE TABLE IF NOT EXISTS content_versions (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        entity_id       TEXT NOT NULL,
-        entity_type     TEXT NOT NULL,
-        version_number  INT NOT NULL,
-        label           TEXT,
-        full_html       TEXT,
-        metadata        JSONB,
-        created_by      TEXT,
-        created_by_name TEXT,
-        restored_from   UUID,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-    tablesInitialized = true;
-  } catch (e) {
-    console.error("Auto-init content history tables error:", e);
-  }
+function isValidUuid(id: string | null | undefined): boolean {
+  if (!id || typeof id !== "string") return false;
+  return UUID_REGEX.test(id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,8 +24,11 @@ export async function GET(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
-    await ensureTablesExist();
     const { entityId } = await params;
+    if (!isValidUuid(entityId)) {
+      return NextResponse.json({ error: "Invalid entity ID" }, { status: 400 });
+    }
+
     const { searchParams } = req.nextUrl;
     const entityType = searchParams.get("type") || "medical_condition";
     const limit = Math.min(Number(searchParams.get("limit") || 50), 200);
@@ -147,7 +112,7 @@ export async function GET(
     });
   } catch (err: any) {
     console.error("GET /api/content-history error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -160,8 +125,11 @@ export async function POST(
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   try {
-    await ensureTablesExist();
     const { entityId } = await params;
+    if (!isValidUuid(entityId)) {
+      return NextResponse.json({ error: "Invalid entity ID" }, { status: 400 });
+    }
+
     const body = await req.json();
     const { resource = "history" } = body;
 
@@ -180,7 +148,7 @@ export async function POST(
 
       if (!fieldName || !changeType) {
         return NextResponse.json(
-          { success: false, error: "fieldName and changeType are required" },
+          { error: "fieldName and changeType are required" },
           { status: 400 }
         );
       }
@@ -275,9 +243,9 @@ export async function POST(
     if (resource === "restore") {
       const { versionId, adminUserId, adminUserName, entityType = "medical_condition" } = body;
 
-      if (!versionId) {
+      if (!isValidUuid(versionId)) {
         return NextResponse.json(
-          { success: false, error: "versionId is required" },
+          { error: "Invalid version ID" },
           { status: 400 }
         );
       }
@@ -290,7 +258,7 @@ export async function POST(
 
       if (!version) {
         return NextResponse.json(
-          { success: false, error: "Version not found" },
+          { error: "Version not found" },
           { status: 404 }
         );
       }
@@ -402,12 +370,12 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: false, error: `Unknown resource: ${resource}` },
+      { error: `Unknown resource: ${resource}` },
       { status: 400 }
     );
   } catch (err: any) {
     console.error("POST /api/content-history error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
@@ -422,11 +390,15 @@ export async function PATCH(
 ) {
   try {
     const { entityId } = await params;
+    if (!isValidUuid(entityId)) {
+      return NextResponse.json({ error: "Invalid entity ID" }, { status: 400 });
+    }
+
     const { searchParams } = req.nextUrl;
     const versionId = searchParams.get("versionId");
 
-    if (!versionId) {
-      return NextResponse.json({ success: false, error: "versionId required" }, { status: 400 });
+    if (!isValidUuid(versionId)) {
+      return NextResponse.json({ error: "Invalid version ID" }, { status: 400 });
     }
 
     const version = await queryOne<any>(
@@ -436,7 +408,7 @@ export async function PATCH(
     );
 
     if (!version) {
-      return NextResponse.json({ success: false, error: "Version not found" }, { status: 404 });
+      return NextResponse.json({ error: "Version not found" }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -453,6 +425,6 @@ export async function PATCH(
     });
   } catch (err: any) {
     console.error("PATCH /api/content-history error:", err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

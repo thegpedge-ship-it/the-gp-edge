@@ -411,22 +411,21 @@ export default function TestPage() {
     if (!plan) return;
     let cancelled = false;
     setTimeLeft(config.durationMinutes * 60);
-    getQuestionsByIds(plan.questionIds).then((qs) => {
+    Promise.all([
+      getQuestionsByIds(plan.questionIds),
+      getUserFeedbackForQuestions(plan.questionIds),
+    ]).then(([qs, feedbacks]) => {
       if (!cancelled) {
         setQuestions(qs);
         startedAtRef.current = new Date().toISOString();
+        const map = new Map<string, UserQuestionFeedback[]>();
+        for (const fb of feedbacks) {
+          const arr = map.get(fb.questionId) ?? [];
+          arr.push(fb);
+          map.set(fb.questionId, arr);
+        }
+        setUserFeedbacks(map);
         setLoading(false);
-        getUserFeedbackForQuestions(plan.questionIds).then((feedbacks) => {
-          if (!cancelled) {
-            const map = new Map<string, UserQuestionFeedback[]>();
-            for (const fb of feedbacks) {
-              const arr = map.get(fb.questionId) ?? [];
-              arr.push(fb);
-              map.set(fb.questionId, arr);
-            }
-            setUserFeedbacks(map);
-          }
-        });
       }
     });
     return () => {

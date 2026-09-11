@@ -68,16 +68,6 @@ export async function configureAuditParamsAction(params: {
       return { success: false, error: "Sampling rate must be between 0% and 100%." };
     }
 
-    await execute(`
-      CREATE TABLE IF NOT EXISTS audit_settings (
-        id INT PRIMARY KEY DEFAULT 1,
-        sampling_rate_standard INT NOT NULL DEFAULT 15,
-        cadence TEXT NOT NULL DEFAULT 'quarterly',
-        updated_by TEXT,
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
     await execute(
       `INSERT INTO audit_settings (id, sampling_rate_standard, cadence, updated_by, updated_at)
        VALUES (1, $1, $2, $3, NOW())
@@ -235,37 +225,6 @@ export async function raiseAuditFindingAction(params: {
     if (!findingText || findingText.trim().length < 5) {
       return { success: false, error: "Finding description text is required." };
     }
-
-    // Ensure tables exist
-    await execute(`
-      CREATE TABLE IF NOT EXISTS audit_findings (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        item_id TEXT NOT NULL,
-        item_type TEXT NOT NULL,
-        auditor_id TEXT NOT NULL,
-        auditor_name TEXT,
-        severity TEXT NOT NULL DEFAULT 'medium',
-        finding_text TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'open',
-        closed_by TEXT,
-        closed_at TIMESTAMPTZ,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
-    await execute(`
-      CREATE TABLE IF NOT EXISTS unified_tasks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        origin_type TEXT NOT NULL,
-        linked_entity_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        assigned_to TEXT,
-        due_date TIMESTAMPTZ NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending',
-        payment_liability_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
 
     // Insert Audit Finding Record
     const insertedFinding = await queryOne<{ id: string }>(

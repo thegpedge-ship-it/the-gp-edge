@@ -67,26 +67,6 @@ export async function assignTaskAction(params: {
     const offeredAt = new Date();
     const takeUpDeadline = new Date(offeredAt.getTime() + 5 * 24 * 60 * 60 * 1000);
 
-    await execute(`
-      CREATE TABLE IF NOT EXISTS pipeline_tasks (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        item_id TEXT NOT NULL,
-        item_type TEXT NOT NULL,
-        task_type TEXT NOT NULL,
-        assigned_to TEXT NOT NULL,
-        assigned_to_name TEXT,
-        status TEXT NOT NULL DEFAULT 'offered',
-        offered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        take_up_deadline TIMESTAMPTZ NOT NULL,
-        rate_card_version_at_acceptance INT,
-        payment_liability_amount NUMERIC(10, 2) DEFAULT 0.00,
-        is_payable BOOLEAN NOT NULL DEFAULT TRUE,
-        rework_type TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
     const inserted = await queryOne<{ id: string }>(
       `INSERT INTO pipeline_tasks
         (item_id, item_type, task_type, assigned_to, assigned_to_name, status, offered_at, take_up_deadline, created_at, updated_at)

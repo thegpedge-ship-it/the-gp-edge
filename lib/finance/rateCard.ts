@@ -33,7 +33,7 @@ export interface RateCardVersion {
 }
 
 // Canonical Default Baseline Rate Card Versions
-const DEFAULT_RATE_CARDS: RateCardVersion[] = [
+export const DEFAULT_RATE_CARDS: RateCardVersion[] = [
   {
     version: 1,
     effectiveFrom: "2026-01-01T00:00:00Z",
@@ -64,40 +64,6 @@ const DEFAULT_RATE_CARDS: RateCardVersion[] = [
 ];
 
 /**
- * Initializes rate cards table in PostgreSQL if not already created.
- */
-export async function initRateCardsTable(): Promise<void> {
-  try {
-    await execute(`
-      CREATE TABLE IF NOT EXISTS rate_card_versions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        version INT NOT NULL UNIQUE,
-        effective_from TIMESTAMPTZ NOT NULL,
-        effective_to TIMESTAMPTZ,
-        rates JSONB NOT NULL,
-        created_by TEXT,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-
-    const count = await queryOne<{ count: string }>(
-      `SELECT count(*) as count FROM rate_card_versions`
-    );
-    if (count && parseInt(count.count, 10) === 0) {
-      for (const rc of DEFAULT_RATE_CARDS) {
-        await execute(
-          `INSERT INTO rate_card_versions (version, effective_from, effective_to, rates, created_by, created_at)
-           VALUES ($1, $2, $3, $4::jsonb, 'system', NOW())`,
-          [rc.version, rc.effectiveFrom, rc.effectiveTo || null, JSON.stringify(rc.rates)]
-        );
-      }
-    }
-  } catch (err) {
-    console.error("[initRateCardsTable] Error:", err);
-  }
-}
-
-/**
  * Rate resolution happens in exactly ONE function, taking:
  * (taskType, contentType, acceptanceDate, contributor).
  *
@@ -110,8 +76,6 @@ export async function resolveRate(
   acceptanceDate: Date | string,
   contributor?: string | PermissionUser
 ): Promise<{ rate: number; version: number; effectiveFrom: string }> {
-  await initRateCardsTable();
-
   const accDate = typeof acceptanceDate === "string" ? new Date(acceptanceDate) : acceptanceDate;
   const accIso = accDate.toISOString();
 

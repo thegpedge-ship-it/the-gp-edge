@@ -27,36 +27,6 @@ export interface ItemErrorReport {
 }
 
 /**
- * Initializes item_error_reports table.
- */
-async function initErrorReportsTable(): Promise<void> {
-  try {
-    await execute(`
-      CREATE TABLE IF NOT EXISTS item_error_reports (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        item_id TEXT NOT NULL,
-        item_type TEXT NOT NULL,
-        reporter_user_id TEXT NOT NULL,
-        reporter_name TEXT,
-        reporter_email TEXT,
-        error_category TEXT NOT NULL,
-        description TEXT NOT NULL,
-        context_snapshot JSONB DEFAULT '{}'::jsonb,
-        status TEXT NOT NULL DEFAULT 'open',
-        triage_outcome TEXT,
-        triaged_by TEXT,
-        triaged_at TIMESTAMPTZ,
-        reporter_notified BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-  } catch (err) {
-    console.error("[initErrorReportsTable] Error:", err);
-  }
-}
-
-/**
  * 1. Submit Item Error Report
  * Submittable from the item itself by any user with automatic context snapshot.
  * Creates a remediation task in the single queue.
@@ -75,8 +45,6 @@ export async function submitItemErrorReportAction(params: {
     if (!description || description.trim().length < 5) {
       return { success: false, error: "Please provide a detailed error description (minimum 5 characters)." };
     }
-
-    await initErrorReportsTable();
 
     const inserted = await queryOne<{ id: string }>(
       `INSERT INTO item_error_reports
@@ -145,8 +113,6 @@ export async function triageErrorReportAction(params: {
     if (!check.allowed) {
       return { success: false, error: check.reason };
     }
-
-    await initErrorReportsTable();
 
     const report = await queryOne<any>(
       `SELECT * FROM item_error_reports WHERE id = $1`,

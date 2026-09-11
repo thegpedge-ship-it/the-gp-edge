@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, query, execute } from "@/lib/db";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
-
+import { getAuthenticatedAdmin } from "@/actions/admin.actions";
 
 export const maxDuration = 60;
 export const dynamic = "force-dynamic";
@@ -77,9 +77,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
-    const { status, author, adminUser } = body;
+    const { status } = body;
 
     const row = await queryOne<any>(
       `SELECT mc.id, mc.author, mc.status FROM medical_conditions mc WHERE mc.id = $1 AND mc.kind = 'Approach'`,
@@ -90,10 +95,12 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Approach not found" }, { status: 404 });
     }
 
-    const userContext: PermissionUser = adminUser || {
-      id: "admin-system",
-      name: author || "GP Edge Admin",
-      role: "Admin",
+    const userContext: PermissionUser = {
+      id: admin.id,
+      name: admin.name,
+      role: admin.role,
+      roles: admin.roles,
+      permissions: admin.permissions,
     };
 
     const isReview = status === "published" || status === "review";
@@ -136,19 +143,19 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    let adminUser: PermissionUser | undefined;
-    try {
-      const body = await req.json();
-      adminUser = body?.adminUser;
-    } catch {
-      // Body may be empty
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const userContext: PermissionUser = adminUser || {
-      id: "admin-system",
-      name: "GP Edge Admin",
-      role: "Admin",
+    const { id } = await params;
+
+    const userContext: PermissionUser = {
+      id: admin.id,
+      name: admin.name,
+      role: admin.role,
+      roles: admin.roles,
+      permissions: admin.permissions,
     };
 
     const permCheck = await evaluateRelationalPermission({
@@ -181,4 +188,5 @@ export async function DELETE(
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+
 

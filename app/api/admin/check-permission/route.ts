@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { evaluateRelationalPermission, PermissionUser, Capability, PermissionTargetItem } from "@/lib/relationalPermissions";
+import { getAuthenticatedAdmin } from "@/actions/admin.actions";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,11 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ success: false, allowed: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       user,

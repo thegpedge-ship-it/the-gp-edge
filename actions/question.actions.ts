@@ -17,56 +17,9 @@ export type { BulkQuestionFilters } from "@/lib/questionQueryFilters";
  * column (used to scope the clinicalConcepts picker) and the append-only `question_events` log.
  * Idempotent — safe to call on every write, same pattern as the taxonomy column migration.
  */
-export async function ensureQuestionExtendedColumns() {
-  await execute(`
-    ALTER TABLE questions
-      ADD COLUMN IF NOT EXISTS task_type TEXT,
-      ADD COLUMN IF NOT EXISTS patient_context JSONB,
-      ADD COLUMN IF NOT EXISTS key_drugs_mentioned JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS source_refs JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS wiki_page_id TEXT,
-      ADD COLUMN IF NOT EXISTS wiki_version TEXT,
-      ADD COLUMN IF NOT EXISTS supplemental_sources_used JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS key_rests_on_supplemental BOOLEAN DEFAULT false,
-      ADD COLUMN IF NOT EXISTS volatility_tier TEXT,
-      ADD COLUMN IF NOT EXISTS testable_point TEXT,
-      ADD COLUMN IF NOT EXISTS expected_pass_rate NUMERIC,
-      ADD COLUMN IF NOT EXISTS date_last_reviewed TIMESTAMPTZ,
-      ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES admin_users(id),
-      ADD COLUMN IF NOT EXISTS signed_off_by UUID REFERENCES admin_users(id)
-  `);
-  // Taxonomy denormalization columns — normally added by taxonomy.actions.ts's
-  // syncMasterTaxonomyAction(), but that hasn't necessarily run on every environment.
-  // Repeating the ALTER here (idempotent) guarantees the columns this feature reads/writes
-  // actually exist regardless of whether that sync has been triggered.
-  await execute(`
-    ALTER TABLE questions
-      ADD COLUMN IF NOT EXISTS topic_code VARCHAR(20),
-      ADD COLUMN IF NOT EXISTS home_unit VARCHAR(20),
-      ADD COLUMN IF NOT EXISTS group_code VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS cross_ref_units JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS depth_tier VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS cross_cutting_tags JSONB DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS topic_type VARCHAR(100),
-      ADD COLUMN IF NOT EXISTS taxonomy_version VARCHAR(20) DEFAULT '1.1'
-  `);
-  await execute(`ALTER TABLE tags ADD COLUMN IF NOT EXISTS tag_category TEXT DEFAULT 'general'`);
-  await execute(`
-    CREATE TABLE IF NOT EXISTS question_events (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-      event_type TEXT NOT NULL,
-      actor_type TEXT NOT NULL DEFAULT 'human',
-      actor_id UUID,
-      actor_name TEXT,
-      fields_changed JSONB,
-      from_status TEXT,
-      to_status TEXT,
-      note TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-  await execute(`CREATE INDEX IF NOT EXISTS idx_question_events_question ON question_events(question_id)`);
+export async function ensureQuestionExtendedColumns(): Promise<void> {
+  // Schema columns and question_events table are managed via database migrations.
+  return;
 }
 
 async function recordQuestionEvent(params: {

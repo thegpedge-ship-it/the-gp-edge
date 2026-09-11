@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { getAuthenticatedAdmin } from "@/actions/admin.actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -17,8 +18,13 @@ type QuizSessionRow = {
   is_stuck: boolean;
 };
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
+    const admin = await getAuthenticatedAdmin(req);
+    if (!admin) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const rows = await query<QuizSessionRow>(`
       WITH answered AS (
         SELECT

@@ -6,7 +6,7 @@ import {
   evaluateRelationalPermission,
   recordAuditLog,
 } from "@/lib/relationalPermissions";
-import { resolveRate, TaskType, ContentType, RateCardVersion, initRateCardsTable } from "@/lib/finance/rateCard";
+import { resolveRate, TaskType, ContentType, RateCardVersion } from "@/lib/finance/rateCard";
 
 export interface StatementLineItem {
   id?: string;
@@ -48,40 +48,6 @@ export interface ContributorStatement {
 }
 
 /**
- * Initializes statements table in PostgreSQL.
- */
-async function initStatementsTables(): Promise<void> {
-  try {
-    await execute(`
-      CREATE TABLE IF NOT EXISTS contributor_statements (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        statement_number TEXT NOT NULL UNIQUE,
-        contributor_id TEXT NOT NULL,
-        contributor_name TEXT NOT NULL,
-        contributor_email TEXT,
-        contributor_abn TEXT,
-        is_credit_only BOOLEAN NOT NULL DEFAULT FALSE,
-        period_start TIMESTAMPTZ NOT NULL,
-        period_end TIMESTAMPTZ NOT NULL,
-        issue_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        total_items_count INT NOT NULL DEFAULT 0,
-        total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-        is_paid BOOLEAN NOT NULL DEFAULT FALSE,
-        paid_at TIMESTAMPTZ,
-        payment_reference TEXT,
-        is_adjustment BOOLEAN NOT NULL DEFAULT FALSE,
-        adjustment_to_statement_id UUID,
-        adjustment_reason TEXT,
-        line_items JSONB NOT NULL DEFAULT '[]'::jsonb,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-  } catch (err) {
-    console.error("[initStatementsTables] Error:", err);
-  }
-}
-
-/**
  * 1. View Rate Cards
  * Clinical Editor is BLIND to cost (strictly forbidden).
  */
@@ -100,7 +66,6 @@ export async function getRateCardsAction(adminUser: PermissionUser): Promise<{
       return { success: false, error: check.reason };
     }
 
-    await initRateCardsTable();
     const rows = await query<any>(
       `SELECT version, effective_from, effective_to, rates, created_by, created_at
          FROM rate_card_versions
@@ -143,8 +108,6 @@ export async function createOrAmendRateCardAction(params: {
     if (!check.allowed) {
       return { success: false, error: check.reason };
     }
-
-    await initRateCardsTable();
 
     // Close previous active rate card version
     const effFromDate = new Date(effectiveFrom);
@@ -213,8 +176,6 @@ export async function generateMonthlyStatementsAction(params: {
     if (!check.allowed) {
       return { success: false, error: check.reason };
     }
-
-    await initStatementsTables();
 
     const periodStart = new Date(Date.UTC(periodYear, periodMonth - 1, 1, 0, 0, 0));
     const periodEnd = new Date(Date.UTC(periodYear, periodMonth, 0, 23, 59, 59));
@@ -357,8 +318,6 @@ export async function getStatementsAction(adminUser: PermissionUser): Promise<{
       };
     }
 
-    await initStatementsTables();
-
     const isGlobalOps = roles.includes("SA") || roles.includes("OM") || adminUser.role === "Super Admin" || adminUser.role === "Operations Manager";
 
     let rows: any[] = [];
@@ -425,8 +384,6 @@ export async function markStatementPaidAction(params: {
       return { success: false, error: check.reason };
     }
 
-    await initStatementsTables();
-
     await execute(
       `UPDATE contributor_statements
           SET is_paid = TRUE,
@@ -476,8 +433,6 @@ export async function getProgrammeCostMetricsAction(adminUser: PermissionUser): 
     if (!check.allowed) {
       return { success: false, error: check.reason };
     }
-
-    await initStatementsTables();
 
     const row = await queryOne<any>(
       `SELECT
