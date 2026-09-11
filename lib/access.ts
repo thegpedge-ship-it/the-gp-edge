@@ -473,3 +473,22 @@ export function getVisiblePlans(
   }
   return ["registrar_6mo", "registrar_12mo"];
 }
+
+/**
+ * Convert full UserAccessInfo into plain JSON-serializable SerializedUserAccess
+ * suitable for passing across RSC server-to-client boundary.
+ */
+export function serializeUserAccess(access: UserAccessInfo | null | undefined) {
+  if (!access) return null;
+  return {
+    userId: access.userId,
+    accessLevel: access.accessLevel,
+    trainingStage: access.trainingStage,
+    hasPaidAccess: access.hasPaidAccess,
+    isRegistrarActive: access.isRegistrarActive,
+    hasPurchasedRegistrar: access.hasPurchasedRegistrar,
+    cancelAtPeriodEnd: access.cancelAtPeriodEnd,
+    currentPeriodEnd: access.currentPeriodEnd ? access.currentPeriodEnd.toISOString() : null,
+  };
+}
+

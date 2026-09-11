@@ -1,4 +1,5 @@
 import { ensureDbUser, toDbProfile } from "@/lib/user";
+import { getUserAccess, serializeUserAccess } from "@/lib/access";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +10,17 @@ export const dynamic = "force-dynamic";
    in one view. */
 export default async function ExamPrepLayout({ children }: { children: React.ReactNode }) {
   const dbUser = await ensureDbUser();
+  const accessInfo = dbUser ? await getUserAccess(dbUser) : null;
 
   return (
-    <DashboardShell profile={toDbProfile(dbUser)} showSidebar className="!min-h-0 px-6 sm:px-8 pt-6 sm:pt-8 pb-0">
+    <DashboardShell
+      profile={toDbProfile(dbUser)}
+      initialAccess={serializeUserAccess(accessInfo)}
+      showSidebar
+      className="!min-h-0 px-6 sm:px-8 pt-6 sm:pt-8 pb-0"
+    >
       {children}
     </DashboardShell>
   );
 }
+

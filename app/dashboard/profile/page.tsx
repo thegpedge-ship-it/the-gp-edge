@@ -38,11 +38,12 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 export default async function ProfilePage() {
   const user = await currentUser();
   const dbUser = await ensureDbUser();
-  const accessInfo = dbUser?.id ? await getUserAccess(dbUser.id) : null;
-  const profileData = await getProfileData();
+  const accessInfo = dbUser ? await getUserAccess(dbUser) : null;
+  const profileData = await getProfileData(dbUser);
   const { stats, examPaths } = profileData;
   const completeness =
     profileData.completeness ?? { quizzesCompleted: 0, quizzesTotal: 0, quizzesPercent: 0 };
+
 
   // Onboarding-collected fields, with neutral fallbacks for anything left blank.
   const roleTitle = dbUser?.role_title || "GP Registrar";

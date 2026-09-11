@@ -13,6 +13,8 @@ import {
 } from "@/contexts/SidebarContext";
 import { ProfileProvider, EMPTY_PROFILE, type DbProfile } from "@/contexts/ProfileContext";
 import { MaintenanceProvider } from "@/contexts/MaintenanceContext";
+import { UserAccessProvider } from "@/contexts/UserAccessContext";
+import type { SerializedUserAccess } from "@/actions/access.actions";
 import UserMaintenanceGuard from "@/components/dashboard/UserMaintenanceGuard";
 
 /**
@@ -88,6 +90,7 @@ export default function DashboardShell({
   hideSidebar = false,
   showSidebar = false,
   profile = EMPTY_PROFILE,
+  initialAccess,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -95,16 +98,20 @@ export default function DashboardShell({
   hideSidebar?: boolean;
   showSidebar?: boolean;
   profile?: DbProfile;
+  initialAccess?: SerializedUserAccess | null;
 }) {
   return (
     <MaintenanceProvider>
-      <ProfileProvider value={profile}>
-        <SidebarProvider hasDrawer={!hideSidebar && showSidebar}>
-          <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
-            {children}
-          </DashboardInner>
-        </SidebarProvider>
-      </ProfileProvider>
+      <UserAccessProvider initialAccess={initialAccess}>
+        <ProfileProvider value={profile}>
+          <SidebarProvider hasDrawer={!hideSidebar && showSidebar}>
+            <DashboardInner className={className} bgClassName={bgClassName} hideSidebar={hideSidebar} showSidebar={showSidebar}>
+              {children}
+            </DashboardInner>
+          </SidebarProvider>
+        </ProfileProvider>
+      </UserAccessProvider>
     </MaintenanceProvider>
   );
 }
+

@@ -101,15 +101,17 @@ function badgeImage(code: string, objectKey: string | null | undefined): string 
  *   The Clerk-dependent user lookup happens OUTSIDE unstable_cache (dynamic
  *   APIs can't run inside it); only the pure per-user DB assembly is cached.
  * ========================================================================== */
-export async function getProfileData(): Promise<ProfileData> {
-  const dbUser = await ensureDbUser();
-  if (!dbUser) return emptyProfile();
+export async function getProfileData(
+  existingDbUser?: { id: string; exam_target?: string | null } | null
+): Promise<ProfileData> {
+  const dbUser = existingDbUser !== undefined ? existingDbUser : await ensureDbUser();
+  if (!dbUser?.id) return emptyProfile();
   return loadCachedProfileData(dbUser.id, dbUser.exam_target ?? "");
 }
 
 // Bump when the ProfileData shape changes so pre-existing cache entries (which
 // may lack newer fields like `completeness`) can never be served.
-const PROFILE_CACHE_VERSION = "v5";
+const PROFILE_CACHE_VERSION = "v6";
 
 function loadCachedProfileData(userId: string, examTarget: string): Promise<ProfileData> {
   return unstable_cache(
@@ -136,10 +138,8 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     examTypes,
     mocksByType,
     userMockAttempts,
-    earnedBadges,
     quizzesByType,
     userQuizAttempts,
-    totalQuizCount,
     distinctUserQuizzesCompleted,
   ] = await Promise.all([
     // Running rollup: streak / overall accuracy / lifetime attempt count.
@@ -175,22 +175,6 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
       },
     }),
 
-    // Earned achievements, oldest → newest, with image (uploaded file or code).
-    prisma.user_badges.findMany({
-      where: { user_id: userId },
-      orderBy: { earned_at: "asc" },
-      select: {
-        earned_at: true,
-        badges: {
-          select: {
-            code: true,
-            name: true,
-            files: { select: { object_key: true } },
-          },
-        },
-      },
-    }),
-
     // Quizzes per exam type (denominator)
     prisma.quizzes.groupBy({
       by: ["exam_type_code"],
@@ -214,9 +198,6 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
       },
     }),
 
-    // Total active admin quizzes count
-    prisma.quizzes.count({ where: { deleted_at: null } }),
-
     // Distinct quizzes completed
     prisma.test_attempts.groupBy({
       by: ["quiz_id"],
@@ -238,6 +219,9 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     { key: "attempts", label: "Quiz Attempts", value: withCommas(summary?.total_attempts ?? 0) },
     { key: "mocks", label: "Mock Exams", value: String(totalMocks) },
   ];
+
+  // Total active admin quizzes derived directly from quizzesByType groupBy
+  const totalQuizCount = quizzesByType.reduce((sum, r) => sum + r._count._all, 0);
 
   /* ── EXAM PATHS (readiness & progress per exam track) ───────────────────── */
   const availMocksByType = new Map(mocksByType.map((r) => [r.exam_type_code, r._count._all]));
@@ -338,17 +322,7 @@ async function computeProfileData(userId: string, examTarget: string): Promise<P
     quizzesPercent: totalQuizCount > 0 ? Math.min(100, Math.max(0, Math.round((quizzesCompleted / totalQuizCount) * 100))) : 0,
   };
 
-  /* ── BADGES (earned achievements) ───────────────────────────────────────── */
-  const badges: ProfileBadge[] = earnedBadges
-    .filter((ub) => ub.badges)
-    .map((ub) => ({
-      key: ub.badges!.code,
-      name: ub.badges!.name,
-      earned: ub.earned_at.toLocaleDateString("en-AU", { day: "2-digit", month: "short" }),
-      img: badgeImage(ub.badges!.code, ub.badges!.files?.object_key),
-    }));
-
-  return { stats, examPaths, completeness, badges };
+  return { stats, examPaths, completeness, badges: [] };
 }
 
 /* ─── Zero-state for signed-out / not-yet-provisioned users ──────────────── */
@@ -365,3 +339,4 @@ function emptyProfile(): ProfileData {
     badges: [],
   };
 }
+

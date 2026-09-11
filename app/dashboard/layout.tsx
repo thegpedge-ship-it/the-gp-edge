@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@clerk/nextjs/server";
 import { ensureDbUser, isOnboarded, toDbProfile } from "@/lib/user";
-import { getUserAccess } from "@/lib/access";
+import { getUserAccess, serializeUserAccess } from "@/lib/access";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import RoleReevaluationModal from "@/components/RoleReevaluationModal";
 
@@ -52,9 +52,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <>
       {isRegistrarExpired && <RoleReevaluationModal open={true} />}
-      <DashboardShell profile={toDbProfile(dbUser)} showSidebar>
+      <DashboardShell
+        profile={toDbProfile(dbUser)}
+        initialAccess={serializeUserAccess(accessInfo)}
+        showSidebar
+      >
         {children}
       </DashboardShell>
     </>
   );
 }
+

@@ -256,13 +256,9 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
   }[]
 > {
   try {
-    // Auto-migrate any legacy KFT codes to KFP
-    await execute(`UPDATE quizzes SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
-    await execute(`UPDATE mock_tests SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
-    await execute(`UPDATE questions SET exam_type_code = 'KFP' WHERE exam_type_code = 'KFT'`).catch(() => {});
-
     const [dbQuizzes, attemptStats, mockTests] = await Promise.all([
       prisma.quizzes.findMany({
+
         where: includeArchived
           ? {}
           : {
@@ -280,12 +276,19 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
       query<{
         quiz_id: string | null;
         mock_test_id: string | null;
-        title_snapshot: string | null;
-        score_percent: string | null;
+        title_key: string | null;
+        attempts_count: string;
+        total_score: string;
       }>(
-        `SELECT quiz_id, mock_test_id, title_snapshot, score_percent
-           FROM test_attempts
-          WHERE status = 'completed' OR score_percent IS NOT NULL`
+        `SELECT 
+           quiz_id, 
+           mock_test_id, 
+           LOWER(TRIM(COALESCE(title_snapshot, ''))) as title_key,
+           COUNT(*)::text as attempts_count,
+           COALESCE(SUM(COALESCE(score_percent::numeric, 0)), 0)::text as total_score
+         FROM test_attempts
+        WHERE status = 'completed' OR score_percent IS NOT NULL
+        GROUP BY quiz_id, mock_test_id, LOWER(TRIM(COALESCE(title_snapshot, '')))`
       ),
       query<{ id: string; name: string }>(
         `SELECT id, name FROM mock_tests WHERE deleted_at IS NULL`
@@ -307,19 +310,21 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
         const qNameLower = q.name.trim().toLowerCase();
         const mockId = mockNameToId.get(qNameLower);
 
-        const matchedAttempts = attemptStats.filter(
-          (ta) =>
-            ta.quiz_id === q.id ||
-            (mockId && ta.mock_test_id === mockId) ||
-            (ta.title_snapshot && ta.title_snapshot.trim().toLowerCase() === qNameLower)
-        );
+        let attemptsCount = 0;
+        let sumScore = 0;
 
-        const totalScore = matchedAttempts.reduce(
-          (acc: number, curr) => acc + Number(curr.score_percent || 0),
-          0
-        );
-        const avgScore =
-          matchedAttempts.length > 0 ? Math.round(totalScore / matchedAttempts.length) : 0;
+        for (const stat of attemptStats) {
+          const matchesQuizId = stat.quiz_id === q.id;
+          const matchesMockId = Boolean(mockId && stat.mock_test_id === mockId);
+          const matchesTitle = Boolean(stat.title_key && stat.title_key === qNameLower);
+
+          if (matchesQuizId || matchesMockId || matchesTitle) {
+            attemptsCount += Number(stat.attempts_count);
+            sumScore += Number(stat.total_score);
+          }
+        }
+
+        const avgScore = attemptsCount > 0 ? Math.round(sumScore / attemptsCount) : 0;
 
         const isDeleted = q.deleted_at !== null && q.deleted_at !== undefined;
         // Preserve the real status; only mark as archived if explicitly deleted/archived
@@ -335,7 +340,7 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
           questionCount: q.quiz_questions.length,
           timeLimit: q.time_limit_min ?? 60,
           passingScore: q.passing_score ?? 65,
-          attempts: matchedAttempts.length,
+          attempts: attemptsCount,
           avgScore,
           status: status as any,
           examType: ((q.exam_type_code as string)?.toUpperCase() === "KFP" ? "KFP" : (q.exam_type_code ?? "AKT")) as any,
@@ -351,6 +356,7 @@ export async function fetchQuizzesFromDbAction(includeArchived: boolean = false)
   }
   return DEFAULT_QUIZZES as any;
 }
+
 
 /**
  * Deletes a quiz from both quizzes and mock_tests tables.
@@ -533,16 +539,20 @@ export async function fetchQuizByDbIdAction(dbId: string): Promise<{
       ),
     ]);
 
-    const attemptsRows = await query<{ score_percent: string | null }>(
-      `SELECT score_percent FROM test_attempts 
-        WHERE (quiz_id = $1 OR ($2::uuid IS NOT NULL AND mock_test_id = $2) OR LOWER(TRIM(title_snapshot)) = LOWER(TRIM($3)))
-          AND (status = 'completed' OR score_percent IS NOT NULL)`,
+    const attemptsResult = await queryOne<{ attempts_count: string; total_score: string }>(
+      `SELECT 
+         COUNT(*)::text as attempts_count,
+         COALESCE(SUM(COALESCE(score_percent::numeric, 0)), 0)::text as total_score
+       FROM test_attempts 
+      WHERE (quiz_id = $1 OR ($2::uuid IS NOT NULL AND mock_test_id = $2) OR LOWER(TRIM(title_snapshot)) = LOWER(TRIM($3)))
+        AND (status = 'completed' OR score_percent IS NOT NULL)`,
       [dbId, mock?.id || null, quiz.name]
     );
 
-    const attemptsCount = attemptsRows.length;
-    const totalScore = attemptsRows.reduce((acc, curr) => acc + Number(curr.score_percent || 0), 0);
+    const attemptsCount = Number(attemptsResult?.attempts_count || 0);
+    const totalScore = Number(attemptsResult?.total_score || 0);
     const avgScore = attemptsCount > 0 ? Math.round(totalScore / attemptsCount) : 0;
+
 
     return {
       name: quiz.name,

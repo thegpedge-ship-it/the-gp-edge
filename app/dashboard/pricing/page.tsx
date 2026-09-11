@@ -12,10 +12,9 @@
  *   Rule 4: FELLOW   + has_purchased=false   → $30/mo & $300/yr Fellowship plans
  */
 
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import prisma from "@/lib/prisma";
-import { getVisiblePlans, getUserAccess, type PlanId } from "@/lib/access";
+import { ensureDbUser } from "@/lib/user";
+import { getUserAccess, type PlanId } from "@/lib/access";
 import PricingPageClient, { type PricingPlan } from "./PricingPageClient";
 
 // Force a fresh DB read — subscription expiry must be evaluated live.
@@ -126,43 +125,10 @@ const ALL_PLANS: Record<PlanId, PricingPlan> = {
 // ─── Page (Server Component) ──────────────────────────────────────────────────
 
 export default async function PricingPage() {
-  // Auth
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) redirect("/sign-in");
+  const dbUser = await ensureDbUser();
+  if (!dbUser) redirect("/sign-in");
 
-  // Fetch user role + purchase history from DB
-  let dbUser: any = null;
-  try {
-    dbUser = await prisma.users.findUnique({
-      where: { clerk_user_id: clerkUserId },
-      select: {
-        id: true,
-        user_role: true,
-        training_stage: true,
-        role_title: true,
-        has_purchased_registrar: true,
-        subscriptions: {
-          select: { access_level: true, status: true, access_expires_at: true, cancel_at: true, stripe_price_id: true },
-        },
-      },
-    });
-  } catch (err) {
-    console.warn("[PricingPage] training_stage fallback triggered:", err);
-    dbUser = await prisma.users.findUnique({
-      where: { clerk_user_id: clerkUserId },
-      select: {
-        id: true,
-        user_role: true,
-        role_title: true,
-        has_purchased_registrar: true,
-        subscriptions: {
-          select: { access_level: true, status: true, access_expires_at: true, cancel_at: true, stripe_price_id: true },
-        },
-      },
-    });
-  }
-
-  if (!dbUser) redirect("/onboarding");
+  const accessInfo = await getUserAccess(dbUser);
 
   const isFellow =
     String(dbUser.training_stage ?? "").toUpperCase() === "FELLOW" ||
@@ -171,7 +137,6 @@ export default async function PricingPage() {
     String(dbUser.role_title ?? "").toLowerCase().includes("post-reg");
 
   const trainingStage = isFellow ? "FELLOW" : "REGISTRAR";
-  const userRole = isFellow ? "FELLOW" : "REGISTRAR";
 
   // Build ordered plan list for the client (universally showing only 6-month and 12-month Exam Prep plans)
   const visiblePlanIds: PlanId[] = ["registrar_6mo", "registrar_12mo"];
@@ -180,29 +145,8 @@ export default async function PricingPage() {
     return plan;
   });
 
-  // Determine if the user already has an active, non-expired subscription.
-  // NOTE: We check both status AND access_expires_at here because getUserAccess
-  // auto-expires rows on the next authenticated request — but this page does its
-  // own inline query. Checking access_expires_at ensures correct behavior even
-  // if the auto-expiry hasn't run yet (e.g. very first load after manual DB edit).
-  const now = new Date();
-  const activeSub = Array.isArray(dbUser.subscriptions)
-    ? dbUser.subscriptions.find(
-        (s: { status: string; access_level: string; access_expires_at: Date | null; cancel_at: Date | null; stripe_price_id: string | null }) =>
-          (s.status === "active" || s.status === "trialing") &&
-          s.access_expires_at != null &&
-          new Date(s.access_expires_at) > now
-      ) ?? null
-    : null;
-
   const currentAccessLevel =
-    activeSub
-      ? (activeSub.access_level as string)
-      : dbUser.has_purchased_registrar
-      ? "REGISTRAR"
-      : "FREE";
-
-  const accessInfo = await getUserAccess(dbUser.id);
+    accessInfo?.accessLevel ?? (dbUser.has_purchased_registrar ? "REGISTRAR" : "FREE");
 
   return (
     <PricingPageClient
@@ -210,12 +154,13 @@ export default async function PricingPage() {
       userRole={dbUser.user_role}
       trainingStage={trainingStage}
       currentAccessLevel={currentAccessLevel}
-      accessExpiresAt={activeSub?.access_expires_at?.toISOString() ?? null}
-      cancelAtPeriodEnd={activeSub?.cancel_at != null}
-      activePriceId={activeSub?.stripe_price_id ?? null}
-      hasPaidAccess={currentAccessLevel !== "FREE" || dbUser.has_purchased_registrar}
-      hasPurchasedRegistrar={dbUser.has_purchased_registrar}
+      accessExpiresAt={accessInfo?.currentPeriodEnd ? new Date(accessInfo.currentPeriodEnd).toISOString() : null}
+      cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
+      activePriceId={accessInfo?.activePriceId ?? null}
+      hasPaidAccess={accessInfo?.hasPaidAccess ?? (currentAccessLevel !== "FREE" || Boolean(dbUser.has_purchased_registrar))}
+      hasPurchasedRegistrar={Boolean(dbUser.has_purchased_registrar)}
       activePlanName={accessInfo?.planName ?? null}
     />
   );
 }
+

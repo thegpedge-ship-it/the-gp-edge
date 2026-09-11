@@ -1,18 +1,8 @@
-/**
- * hooks/useUserAccess.ts
- *
- * Client-side hook that resolves the signed-in user's access tier once on mount.
- * Uses the getUserAccessAction Server Action — never calls Prisma/DB directly.
- *
- * Returns a stable, memoized shape so all dashboard pages share the result
- * without redundant round-trips (each page instance still fetches independently,
- * but the hook itself only fires once per mount).
- */
-
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { getUserAccessAction, type SerializedUserAccess } from "@/actions/access.actions";
+import { useUserAccessContext, type UserAccessContextValue } from "@/contexts/UserAccessContext";
 
 export interface UserAccessState {
   /** True while the initial fetch is in flight. */
@@ -45,6 +35,17 @@ export interface UserAccessState {
 }
 
 export function useUserAccess(): UserAccessState {
+  const context = useUserAccessContext();
+
+  // If provided by UserAccessProvider (e.g. within DashboardShell), use the context directly
+  if (context) {
+    return context;
+  }
+
+  return useStandaloneUserAccess();
+}
+
+function useStandaloneUserAccess(): UserAccessState {
   const [loading, setLoading] = useState(true);
   const [access, setAccess] = useState<SerializedUserAccess | null>(null);
 
@@ -82,4 +83,5 @@ export function useUserAccess(): UserAccessState {
     refresh: fetchAccess,
   };
 }
+
 
