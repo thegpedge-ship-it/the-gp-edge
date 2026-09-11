@@ -1426,9 +1426,20 @@ export default function SearchPage() {
                   </div>
 
                   <div>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">
-                      {q.stem || q.text}
-                    </p>
+                    {(() => {
+                      // `text` is the combined "stem + leadIn" string when a separate `stem` field
+                      // isn't set — showing it verbatim here duplicated the leadIn sentence (once in
+                      // this line, once again in the "↳" line below it).
+                      let stemDisplay = q.stem || q.text || "";
+                      if (!q.stem && q.leadIn && stemDisplay.trim().endsWith(q.leadIn.trim())) {
+                        stemDisplay = stemDisplay.slice(0, stemDisplay.lastIndexOf(q.leadIn.trim())).replace(/\n+$/, "").trim();
+                      }
+                      return (
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 line-clamp-2">
+                          {stemDisplay}
+                        </p>
+                      );
+                    })()}
                     {q.leadIn && (
                       <p className="text-xs font-medium text-teal-800 dark:text-teal-300 mt-1 italic">
                         ↳ {q.leadIn}

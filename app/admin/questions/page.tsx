@@ -842,6 +842,18 @@ export default function QuestionsPage() {
     }, 1200);
   };
 
+  // When a question has no separate `stem` field, `text` is the combined "stem + leadIn" string
+  // (see the "Combine stem + leadIn into text for backward compat" save logic below). Anywhere the
+  // stem and leadIn are then shown/edited as two separate fields, using that combined `text` as the
+  // stem verbatim duplicates the leadIn sentence — once inside the stem, once in its own field.
+  const stemWithoutLeadIn = (q: { stem?: string; text?: string; leadIn?: string }): string => {
+    let stem = q.stem || q.text || "";
+    if (!q.stem && q.leadIn && stem.trim().endsWith(q.leadIn.trim())) {
+      stem = stem.slice(0, stem.lastIndexOf(q.leadIn.trim())).replace(/\n+$/, "").trim();
+    }
+    return stem;
+  };
+
   const normalizeQuestionText = (text: string | undefined): string => {
     if (!text) return "";
     return text
@@ -1478,7 +1490,7 @@ export default function QuestionsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setNewStem(q.stem || q.text || "");
+                          setNewStem(stemWithoutLeadIn(q));
                           setNewLeadIn(q.leadIn || "");
                           setNewQuestionText(q.text);
                           setNewQuestionOptions([...q.options]);
@@ -1634,7 +1646,7 @@ export default function QuestionsPage() {
                       onClick={() => {
                         const q = previewQuestion;
                         setPreviewQuestion(null);
-                        setNewStem(q.stem || q.text || "");
+                        setNewStem(stemWithoutLeadIn(q));
                         setNewLeadIn(q.leadIn || "");
                         setNewQuestionText(q.text);
                         setNewQuestionOptions([...q.options]);
@@ -1674,17 +1686,29 @@ export default function QuestionsPage() {
                   </div>
                 </div>
 
-                {/* Question Stem / Narrative */}
-                <div className="mb-5 space-y-3">
-                  <div className="text-base font-medium leading-relaxed font-sans text-slate-800 dark:text-slate-100 whitespace-pre-line">
-                    {previewQuestion.stem || previewQuestion.text}
-                  </div>
-                  {previewQuestion.leadIn && (
-                    <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border-l-4 border-teal-600 rounded-r-xl text-sm font-semibold text-teal-950 dark:text-teal-200">
-                      {previewQuestion.leadIn}
+                {/* Question Stem / Narrative — when a separate `stem` field isn't set, this falls
+                    back to `text`, which is the combined "stem + leadIn" string (see the "Combine
+                    stem + leadIn into text for backward compat" save logic above). Left as-is, that
+                    put the leadIn sentence in the narrative paragraph AND in the highlighted callout
+                    below it. Strip the leadIn suffix from that fallback so it only appears once. */}
+                {(() => {
+                  const leadIn = previewQuestion.leadIn;
+                  const stemDisplay = stemWithoutLeadIn(previewQuestion);
+                  return (
+                    <div className="mb-5 space-y-3">
+                      {stemDisplay && (
+                        <div className="text-base font-medium leading-relaxed font-sans text-slate-800 dark:text-slate-100 whitespace-pre-line">
+                          {stemDisplay}
+                        </div>
+                      )}
+                      {leadIn && (
+                        <div className="p-3 bg-teal-50/50 dark:bg-teal-950/20 border-l-4 border-teal-600 rounded-r-xl text-sm font-semibold text-teal-950 dark:text-teal-200">
+                          {leadIn}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Question Image */}
                 {previewQuestion.image && (
@@ -2911,7 +2935,7 @@ export default function QuestionsPage() {
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Stem (Clinical Case Narrative)</label>
                                   <textarea
                                     rows={4}
-                                    value={q.stem || q.text || ""}
+                                    value={stemWithoutLeadIn(q)}
                                     onChange={(e) => {
                                       const newStem = e.target.value;
                                       handleUpdateExtractedQuestion(qidx, "stem", newStem);
