@@ -364,7 +364,27 @@ export default function QuestionsPage() {
       (q.difficulty && q.difficulty.toLowerCase().includes(searchLower));
 
     return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty && matchBatch;
-  });
+  })
+    // Display in UQID sequence (grouped by exam type, then ascending number) rather than whatever
+    // order the underlying `questions` array happens to be in — that array mixes the initial fetch
+    // order with freshly-imported questions PREPENDED to the front, so without an explicit sort the
+    // list reads as scrambled (e.g. KFP-000012, KFP-000004, KFP-000011, KFP-000001, ...) even though
+    // each UQID number is itself assigned correctly. Questions without a UQID yet sort to the end,
+    // keeping their relative order (stable sort).
+    .sort((a, b) => {
+      const parseUqid = (uqid?: string): [string, number] | null => {
+        if (!uqid) return null;
+        const m = uqid.match(/^([A-Z]+)-0*(\d+)$/i);
+        return m ? [m[1].toUpperCase(), parseInt(m[2], 10)] : null;
+      };
+      const pa = parseUqid(a.uqid);
+      const pb = parseUqid(b.uqid);
+      if (!pa && !pb) return 0;
+      if (!pa) return 1;
+      if (!pb) return -1;
+      if (pa[0] !== pb[0]) return pa[0].localeCompare(pb[0]);
+      return pa[1] - pb[1];
+    });
 
   const availableBatchIds = Array.from(new Set(questions.map((q) => q.batchId).filter(Boolean))) as string[];
 
