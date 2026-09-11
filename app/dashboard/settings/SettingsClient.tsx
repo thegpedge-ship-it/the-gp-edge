@@ -304,22 +304,22 @@ export default function SettingsClient({
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6">
+    <div className="flex flex-col gap-6 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6 mt-10 sm:mt-14 lg:mt-16">
       <FadeIn delay={0}>
-        <div className="pt-2 sm:pt-4">
+        <div>
           <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
             Settings
           </h1>
         </div>
       </FadeIn>
 
-      {/* ══ TWO-COLUMN GRID — Left column: Account Info, Right column: Exam Prep & Security ══ */}
+      {/* ══ TWO-COLUMN GRID — Left column: Account Info, Right column: Exam Prep, Security & Billing ══ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
 
         {/* ── Left column ──────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col h-full">
           <FadeIn delay={0.04} className="h-full">
-            <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs flex flex-col h-full overflow-hidden">
+            <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs overflow-hidden h-full flex flex-col justify-between">
               <CardHeader icon={<User size={15} />} title="Account Information" subtitle="Login & personal details" />
               <form className="px-5 pb-5 pt-0 space-y-4 flex-1 flex flex-col justify-between" onSubmit={handleSaveAccount}>
                 <div className="space-y-4">
@@ -418,7 +418,7 @@ export default function SettingsClient({
         </div>
 
         {/* ── Right column ─────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-6 lg:h-full justify-between">
+        <div className="flex flex-col gap-6 h-full justify-between">
 
           {/* ── Exam Preparation ──────────────────────────────────────────── */}
           <FadeIn delay={0.08} className="relative z-20">
@@ -444,10 +444,10 @@ export default function SettingsClient({
           </FadeIn>
 
           {/* ── Security & Account ────────────────────────────────────────── */}
-          <FadeIn delay={0.10} className="flex-1 flex flex-col">
-            <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs flex flex-col flex-1 h-full">
+          <FadeIn delay={0.10}>
+            <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
               <CardHeader icon={<Lock size={15} />} title="Security & Account" subtitle="Password & account actions" />
-              <div className="px-5 py-4 flex-1 flex flex-col justify-between gap-4">
+              <div className="px-5 py-4 space-y-4">
                 {/* Actions */}
                 <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800/80 rounded-xl overflow-hidden">
                   {[
@@ -466,7 +466,7 @@ export default function SettingsClient({
                 </div>
 
                 {/* Danger Zone */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/40 dark:bg-rose-950/20 mt-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-rose-100 dark:border-rose-950/40 bg-rose-50/40 dark:bg-rose-950/20">
                   <div className="flex gap-3 items-start">
                     <span className="w-8 h-8 rounded-lg bg-rose-100/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/40 flex items-center justify-center flex-shrink-0 text-rose-600 dark:text-rose-400">
                       <Trash2 size={15} />
@@ -489,27 +489,27 @@ export default function SettingsClient({
             </PageCard>
           </FadeIn>
 
+          {/* ── Billing & Subscription ──────────────────────────────────────── */}
+          <FadeIn delay={0.12} className="flex-1 flex flex-col">
+            <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs flex-1 flex flex-col justify-between">
+              <ProfileBillingCard
+                compact={true}
+                accessLevel={accessInfo?.accessLevel ?? "FREE"}
+                hasPaidAccess={accessInfo?.hasPaidAccess ?? false}
+                isRegistrarActive={accessInfo?.isRegistrarActive ?? false}
+                accessExpiresAt={accessInfo?.currentPeriodEnd ?? null}
+                hasCustomerProfile={hasCustomerProfile}
+                cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
+                isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
+                showDownloadInvoice={true}
+                showCancelSubscription={true}
+                activePlanName={accessInfo?.planName}
+              />
+            </PageCard>
+          </FadeIn>
+
         </div>{/* /Right column */}
       </div>
-
-      {/* ── Billing & Subscription ──────────────────────────────────────── */}
-      <FadeIn delay={0.12}>
-        <PageCard className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xs">
-          <ProfileBillingCard
-            compact={true}
-            accessLevel={accessInfo?.accessLevel ?? "FREE"}
-            hasPaidAccess={accessInfo?.hasPaidAccess ?? false}
-            isRegistrarActive={accessInfo?.isRegistrarActive ?? false}
-            accessExpiresAt={accessInfo?.currentPeriodEnd ?? null}
-            hasCustomerProfile={hasCustomerProfile}
-            cancelAtPeriodEnd={accessInfo?.cancelAtPeriodEnd ?? false}
-            isRecurring={accessInfo?.accessLevel === "FELLOWSHIP" || accessInfo?.accessLevel === "POST_REGISTRAR_UPGRADE"}
-            showDownloadInvoice={true}
-            showCancelSubscription={true}
-            activePlanName={accessInfo?.planName}
-          />
-        </PageCard>
-      </FadeIn>
 
       <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-2">
         Your data is private, encrypted, and never shared.{" "}
