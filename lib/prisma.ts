@@ -11,6 +11,7 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+
 function createPrismaClient(): PrismaClient {
   // pg-connection-string warns that sslmode=require (and prefer/verify-ca) is
   // currently treated as verify-full but will adopt weaker libpq semantics in a
