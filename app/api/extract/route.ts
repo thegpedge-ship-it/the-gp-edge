@@ -1721,7 +1721,10 @@ function styleHtmlCallouts(html: string): string {
 
 
 function styleHtmlTables(html: string): string {
-  const HEADER_TH_STYLE = "text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;word-break:break-word;";
+  // overflow-wrap (not word-break) so a cell only breaks mid-word as a last resort when a single
+  // word genuinely can't fit — word-break:break-word snaps to letter-level breaks far more eagerly,
+  // which is what turned "Cerebellar" into "lar" wrapping alone on a line once columns got narrow.
+  const HEADER_TH_STYLE = "text-align:left;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;padding:0.75rem 1rem;background-color:#16a34a;border:1px solid #cbd5e1;color:#ffffff;white-space:normal;overflow-wrap:break-word;";
 
   const styleDataCell = (tag: "td" | "th", attrs: string, content: string): string => {
     const textColor = "#334155";
@@ -1742,7 +1745,7 @@ function styleHtmlTables(html: string): string {
       "border:1px solid #e2e8f0",
       "background-color:#ffffff",
       `color:${textColor}`,
-      "word-break:break-word",
+      "overflow-wrap:break-word",
       "white-space:normal",
     ].filter(Boolean).join(";");
     // Emit as <td> regardless of the source tag — a <th> outside the true header row is a
@@ -1795,7 +1798,13 @@ function styleHtmlTables(html: string): string {
     const bodyRowsHtml = styledRows.filter((_, i) => i !== headerRowIndex).join("");
 
     return `
-      <div style="overflow-x:auto;max-width:100%;border:1px solid #cbd5e1;border-radius:0.75rem;margin-bottom:1.25rem;background-color:#ffffff;">
+      <!-- No overflow-x:auto here on purpose: a scrollable container is treated as a single
+           non-fragmentable block by print/PDF engines, so a table that doesn't fit in the space
+           left on the current page gets deferred wholesale to the next one — leaving a mostly
+           blank page behind it — instead of the header/rows flowing naturally across the break.
+           Cells already wrap (overflow-wrap:break-word + white-space:normal), so a scrollbar isn't
+           needed for the normal case; a genuinely very wide table just extends past the border. -->
+      <div style="max-width:100%;border:1px solid #cbd5e1;border-radius:0.75rem;margin-bottom:1.25rem;background-color:#ffffff;">
         <table style="width:100%;min-width:400px;border-collapse:collapse;text-align:left;page-break-inside:auto;">
           ${headerRowHtml ? `<thead style="display:table-header-group;">${headerRowHtml}</thead>` : ""}
           <tbody>${bodyRowsHtml}</tbody>
