@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { buildCustomQuestionSet } from "@/app/exam-prep/actions";
@@ -93,6 +94,12 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
   }, [open, examMode]);
 
   // Close on Escape
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -187,12 +194,13 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
     router.push(buildInstructionsUrl("custom"));
   };
 
-  return (
-    <>
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -201,12 +209,12 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
           {/* Backdrop */}
           <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
 
-          {/* Panel — 60% width · 80% height */}
+          {/* Panel */}
           <motion.div
             role="dialog"
             aria-modal="true"
             aria-label="Create Your Own Quiz"
-            className="relative w-[92vw] lg:w-[60vw] h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
+            className="relative w-[92vw] lg:w-[60vw] max-w-[1000px] h-[85vh] max-h-[800px] flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-700/40 shadow-2xl overflow-hidden"
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 12 }}
@@ -512,7 +520,7 @@ export default function CreateQuizModal({ open, onClose, examMode = "AKT" }: { o
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
-    </>
+    </AnimatePresence>,
+    document.body
   );
 }
