@@ -253,7 +253,7 @@ export default function ApproachesPage() {
       id: `approach-upload-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 9)}`,
       name: file.name,
       size: (file.size / (1024 * 1024)).toFixed(2) + " MB",
-      progress: 5,
+      progress: 0,
       status: "uploading",
     }));
 
@@ -270,20 +270,11 @@ export default function ApproachesPage() {
   };
 
   const runApproachExtraction = async (id: string, file: File) => {
-    let currentProgress = 5;
-    const progressTimer = setInterval(() => {
-      currentProgress += Math.random() * 8 + 2;
-      if (currentProgress >= 90) {
-        clearInterval(progressTimer);
-        currentProgress = 90;
-      }
-      setApproachUploadQueue((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, progress: Math.min(95, Math.round(currentProgress)) } : item
-        )
-      );
-    }, 200);
-
+    // One document produces exactly one approach card — there's no "N of M found" sub-count to
+    // report the way a multi-question document import has, so a numeric percentage here could only
+    // ever be fake. Rather than simulate one with random jitter, show a real indeterminate state
+    // (pulsing, no invented number) while the single extract request is in flight, then jump
+    // straight to 100% on completion — honest either way, since that's genuinely all we know.
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -294,7 +285,6 @@ export default function ApproachesPage() {
         body: formData,
       });
 
-      clearInterval(progressTimer);
       const result = await res.json();
 
       if (result.success && result.type === "approach" && result.card) {
@@ -339,7 +329,6 @@ export default function ApproachesPage() {
         );
       }
     } catch (err: any) {
-      clearInterval(progressTimer);
       setApproachUploadQueue((prev) =>
         prev.map((item) =>
           item.id === id
@@ -1230,12 +1219,15 @@ export default function ApproachesPage() {
 
                             {item.status === "uploading" && (
                               <div className="space-y-1">
+                                {/* One document yields exactly one approach card — there's no real
+                                    sub-count to report here, so this shows an honest indeterminate
+                                    (pulsing, no invented percentage) state instead of a simulated
+                                    climb, then jumps to 100% once the single extract call resolves. */}
                                 <div className="flex items-center justify-between text-[10px] text-slate-405 dark:text-slate-400">
                                   <span className="font-sans">Extracting clinical approach...</span>
-                                  <span className="font-mono text-teal-600 dark:text-teal-400">{item.progress}%</span>
                                 </div>
                                 <div className="h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                                  <div className="h-full bg-teal-600 transition-all duration-300" style={{ width: `${item.progress}%` }} />
+                                  <div className="h-full w-2/5 bg-teal-600 rounded-full animate-pulse" />
                                 </div>
                               </div>
                             )}
