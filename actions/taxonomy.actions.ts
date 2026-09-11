@@ -898,7 +898,11 @@ export async function registerOrUpdateTopicWithCodeAction(params: {
           finalTopicCode,
           cleanLabel,
           topicTypeVal,
-          cleanUnit,
+          // taxonomy_topics.home_unit is VARCHAR(20) NOT NULL, unlike subjects.slug (unrestricted) —
+          // cleanUnit itself stays full-length for that use (truncating it there risks two distinct
+          // long topic labels colliding on the same shortened slug); only truncate the copy written
+          // here, where the column itself imposes the limit.
+          cleanUnit.slice(0, 20),
           params.depth || "Core",
           JSON.stringify(variantsArr),
           JSON.stringify(allTags),

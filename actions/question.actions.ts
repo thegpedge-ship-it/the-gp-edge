@@ -717,8 +717,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
                  topic_type = $7, taxonomy_version = $8
            WHERE id = $9`,
           [
-            topicReg.topicCode,
-            topicReg.homeUnit,
+            // home_unit is VARCHAR(20); topicReg.homeUnit is a slugified Topic label with no length
+            // cap of its own (e.g. "Allergy / Emergency Medicine" -> "allergy-emergency-medicine",
+            // 26 chars), so a long/multi-word topic overflowed the column and failed the whole
+            // question import (and cascaded to the rest of that chunk). Truncating here is a safe
+            // degrade — this column is denormalized display data, not the source of truth (that's
+            // subjects.slug, which is unrestricted).
+            topicReg.topicCode?.slice(0, 20) ?? null,
+            topicReg.homeUnit?.slice(0, 20) ?? null,
             taxTopic?.group_code || null,
             JSON.stringify(taxTopic?.cross_refs || []),
             q.depthTier || taxTopic?.depth || null,
