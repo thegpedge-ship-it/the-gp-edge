@@ -1962,6 +1962,10 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   // branding headers like "Synapse Clinical Catalogue Template", so they never leak into the
   // saved overview/body content.
   cleanHeaderHtml = cleanHeaderHtml.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (match, content) => {
+    // An image-only paragraph (no caption text) also strips to "" here — that's real content
+    // (e.g. an illustrative image placed under the title, before the first numbered section),
+    // not blank filler, and must never be swept away by the "empty paragraph" check below.
+    if (content.includes("<img")) return match;
     const plain = content.replace(/<[^>]+>/g, "").trim().toLowerCase();
     if (
       plain.startsWith("title:") ||
@@ -1993,6 +1997,16 @@ function parseHtmlToCatalog(html: string, fileName: string): ExtractedCatalog {
   }
   if (!hasAnySection && cleanHeaderHtml) {
     overviewContent = cleanHeaderHtml;
+  } else {
+    // An image sitting before the first heading (e.g. right under the title) is real content, not
+    // metadata — a common document layout places an illustrative image there. Unlike stray
+    // Title:/System:/etc. text (deliberately excluded so it doesn't leak into the overview), an
+    // image has nowhere else to attach, so carry it into the Overview section. Only needed here —
+    // the fallback branch above already uses the full cleanHeaderHtml (images included).
+    const headerImages = (cleanHeaderHtml.match(/<img[^>]*>/gi) || []).join("");
+    if (headerImages) {
+      overviewContent = headerImages + overviewContent;
+    }
   }
   
   catalog.sections.overview = formatSectionHtml(overviewContent);
