@@ -443,9 +443,7 @@ export default function Sidebar() {
                       {profile.stateTerritory ? `${profile.stateTerritory}, ${profile.country}` : profile.country}
                     </p>
                   )}
-                  <p className="font-sans text-sm font-medium text-slate-600 dark:text-slate-400" style={{ margin: "2px 0 0" }}>
-                    Rank <strong className="font-semibold text-slate-900 dark:text-slate-100">#{localUser.rank}</strong> of {localUser.totalUsers.toLocaleString()}
-                  </p>
+
                   {profile.examTarget && (
                     <div className="bg-teal-50 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/30 group-hover:border-teal-300 dark:group-hover:border-teal-800 whitespace-nowrap transition-colors duration-150" style={{
                       marginTop: 10,
