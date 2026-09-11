@@ -1321,12 +1321,21 @@ function markHtmlHeaders(html: string): string {
   marked = marked.replace(tagPattern, (match: string, tag: string, innerContent: string) => {
     // Never treat a paragraph containing an image as a section header
     if (innerContent.includes('<img')) return match;
-    
+
     const plainText = innerContent.replace(/<[^>]+>/g, "").trim();
-    
+
     // Only treat short text as potential section headers (not long paragraphs)
     if (plainText.length > 80) return match;
-    
+
+    // A section keyword merely APPEARING in the text isn't enough — placeholder body content like
+    // "[Enter Overview / Definition Here]" or "[Enter Pathophysiology details here]" contains the
+    // section's own name and would otherwise match too, turning the real content paragraph into a
+    // second, duplicate [SECTION_SPLIT] marker and silently deleting whatever it actually said.
+    // Real headings in this template are always fully bold; unbolded placeholder/body text is not —
+    // require the whole paragraph to be one bold run (an h1-h6 tag counts as a heading either way).
+    const isBold = tag.toLowerCase() !== "p" || /^<strong>[\s\S]*<\/strong>$/i.test(innerContent.trim());
+    if (!isBold) return match;
+
     for (const sec of sections) {
       if (sec.regex.test(plainText)) {
         return `[SECTION_SPLIT: ${sec.key}]`;
@@ -1804,9 +1813,49 @@ function styleHtmlImages(html: string): string {
   });
 }
 
+/**
+ * Splits a catalog section's HTML (as produced by parseHtmlToCatalog/formatSectionHtml — <p>/<li>
+ * blocks) into an array of plain-text blocks, one per paragraph or list item. Used to populate the
+ * Approach card's structured array fields (steps/keyPoints/redFlags/references) directly from the
+ * document's actual numbered sections (Overview, Diagnosis, When to Refer, Resources, ...) instead
+ * of a separate, less reliable heuristic that scans for wording like "Key Points:"/"Step 1:" the
+ * numbered-section template doesn't use.
+ */
+function extractPlainTextBlocks(html: string): string[] {
+  if (!html) return [];
+  const blocks: string[] = [];
+  const regex = /<(?:p|li)[^>]*>([\s\S]*?)<\/(?:p|li)>/gi;
+  let m: RegExpExecArray | null;
+  const decodeAndClean = (raw: string) =>
+    raw
+      .replace(/<[^>]+>/g, "")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  // A sub-heading that lives inside the section (e.g. a "DIAGNOSTIC REFERENCE & KEY POINTS" callout
+  // box within the Diagnosis section) isn't itself a content block — drop bare, all-caps/title-case
+  // short lines with no sentence punctuation, which is what a heading looks like versus real content.
+  const looksLikeSubheading = (text: string) => text.length < 60 && !/[.!?,]/.test(text) && text === text.toUpperCase() && /[A-Z]/.test(text);
+
+  while ((m = regex.exec(html)) !== null) {
+    const text = decodeAndClean(m[1]);
+    if (text && !looksLikeSubheading(text)) blocks.push(text);
+  }
+  if (blocks.length === 0) {
+    const text = decodeAndClean(html);
+    if (text) blocks.push(text);
+  }
+  return blocks;
+}
+
 function formatSectionHtml(html: string): string {
   if (!html) return "";
-  
+
   let formatted = html;
   
   // Remove any leading heading tags that are just section headers (e.g. "1. Overview" or "1. OVERVIEW")
@@ -3373,8 +3422,55 @@ export async function POST(req: NextRequest) {
       
       if (currentStep) steps.push(currentStep);
 
-      if (steps.length === 0) {
-        steps.push({
+      // ── Section-aware catalog parse (same numbered-heading parser used for medical content) ──
+      // The line-by-line heuristic above only recognizes wording like "Key Points:"/"Step 1:"/
+      // "References:" — real approach documents (e.g. the "Synapse Clinical Catalogue Template",
+      // numbered "1. Overview" .. "9. Resources") don't use that wording at all, so it left
+      // overview/steps/keyPoints/redFlags/references empty or full of unrelated table/heading text.
+      // parseHtmlToCatalog already correctly splits by those numbered headings elsewhere in this
+      // route (for the read-only fullHtml view) — reuse it here as the primary source for the
+      // *editable* fields too, falling back to the heuristic result above only when a document
+      // genuinely doesn't use the numbered-section format (so older/simpler approach docs still work).
+      let approachCatalogHtml = "";
+      try {
+        approachCatalogHtml = ext === "docx" ? await extractHtmlFromDocxBuffer(buffer) : convertPlainTextToHtml(rawText);
+      } catch (catalogHtmlErr) {
+        console.warn("Approach catalog HTML build failed (non-fatal):", catalogHtmlErr);
+      }
+      const approachCatalog = approachCatalogHtml ? parseHtmlToCatalog(approachCatalogHtml, fileName) : null;
+
+      const catalogOverviewBlocks = approachCatalog
+        ? [
+            ...extractPlainTextBlocks(approachCatalog.sections.overview),
+            ...extractPlainTextBlocks(approachCatalog.sections.pathophysiology),
+            ...extractPlainTextBlocks(approachCatalog.sections.clinicalFeatures),
+          ]
+        : [];
+      const catalogKeyPoints = approachCatalog ? extractPlainTextBlocks(approachCatalog.sections.diagnosis) : [];
+      const catalogManagementBlocks = approachCatalog
+        ? [...extractPlainTextBlocks(approachCatalog.sections.management), ...extractPlainTextBlocks(approachCatalog.sections.complications)]
+        : [];
+      const catalogRedFlags = approachCatalog ? extractPlainTextBlocks(approachCatalog.sections.whenToRefer) : [];
+      const catalogReferences = approachCatalog ? extractPlainTextBlocks(approachCatalog.sections.resources) : [];
+
+      const finalOverview = catalogOverviewBlocks.length > 0 ? catalogOverviewBlocks.join(" ") : overview;
+      const finalKeyPoints = catalogKeyPoints.length > 0 ? catalogKeyPoints : keyPoints;
+      const finalRedFlags = catalogRedFlags.length > 0 ? catalogRedFlags : redFlags;
+      const finalReferences = catalogReferences.length > 0
+        ? catalogReferences.map((text, i) => ({ id: i + 1, text }))
+        : references;
+      const finalSteps = catalogManagementBlocks.length > 0
+        ? [{
+            id: crypto.randomUUID(),
+            title: "Management",
+            description: catalogManagementBlocks.join(" "),
+            type: "action",
+            checklistItems: [] as string[],
+          }]
+        : steps;
+
+      if (finalSteps.length === 0) {
+        finalSteps.push({
           id: crypto.randomUUID(),
           title: "Initial Assessment",
           description: "Assess patient history and present symptoms.",
@@ -3389,16 +3485,11 @@ export async function POST(req: NextRequest) {
       // rendered correctly in the approach viewer just like in medical content.
       let approachFullHtml = "";
       try {
-        if (ext === "docx") {
-          const rawHtml = await extractHtmlFromDocxBuffer(buffer);
-          approachFullHtml = polishDocxHtml(rawHtml);
-        } else {
-          // PDF / DOC: convert the already-extracted raw text to HTML then run
-          // the full catalog pipeline so callouts are detected and styled.
-          const approachCatalogHtml = convertPlainTextToHtml(rawText);
-          const approachCatalog = parseHtmlToCatalog(approachCatalogHtml, fileName);
-          approachFullHtml = generateCatalogHtml(approachCatalog, system, category);
-        }
+        approachFullHtml = ext === "docx" && approachCatalogHtml
+          ? polishDocxHtml(approachCatalogHtml)
+          : approachCatalog
+          ? generateCatalogHtml(approachCatalog, system, category)
+          : "";
         // Upload any embedded base64 images to R2 (keeps stored JSON small)
         approachFullHtml = await uploadBase64ImagesToR2(approachFullHtml);
       } catch (htmlErr) {
@@ -3410,17 +3501,17 @@ export async function POST(req: NextRequest) {
         type: "approach",
         card: {
           title,
-          subtitle: overview.substring(0, 120) + (overview.length > 120 ? "..." : ""),
+          subtitle: finalOverview.substring(0, 120) + (finalOverview.length > 120 ? "..." : ""),
           system,
           category,
           topic,
           tags,
           status: "draft",
-          overview,
-          steps,
-          keyPoints: keyPoints.length > 0 ? keyPoints : ["Patient education & follow-up"],
-          redFlags: redFlags.length > 0 ? redFlags : ["Immediate referral if red flags present"],
-          references: references.length > 0 ? references : [{ id: 1, text: "GP Reference Guide" }],
+          overview: finalOverview,
+          steps: finalSteps,
+          keyPoints: finalKeyPoints.length > 0 ? finalKeyPoints : ["Patient education & follow-up"],
+          redFlags: finalRedFlags.length > 0 ? finalRedFlags : ["Immediate referral if red flags present"],
+          references: finalReferences.length > 0 ? finalReferences : [{ id: 1, text: "GP Reference Guide" }],
           fullHtml: approachFullHtml,
         },
         fileName
