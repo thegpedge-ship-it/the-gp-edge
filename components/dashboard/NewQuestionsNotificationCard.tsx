@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import {
   getUserNotifications,
   dismissUserNotification,
@@ -94,14 +95,14 @@ export default function NewQuestionsNotificationCard() {
             >
               Dismiss
             </button>
-            <a
+            <Link
               href="/dashboard/exam-prep"
               onClick={handleDismiss}
               className="px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-xs font-extrabold text-white rounded-full transition-all shadow-md shadow-teal-500/25 flex items-center gap-1.5 active:scale-[0.97]"
             >
               Start Practice
               <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
         </div>
 

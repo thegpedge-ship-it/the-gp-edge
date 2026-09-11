@@ -139,10 +139,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       attempts,
       mastery,
       subjectQCounts,
-      mbsRaw,
-      conditionCount,
-      savedTemplates,
-      bookmarks,
       nextMock,
       mockBreakdown,
       activeVisits,
@@ -209,40 +205,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           return [];
         }),
 
-      // 5. MBS items count (raw query for speed)
-      prisma
-        .$queryRaw<{ count: number }[]>`SELECT COUNT(*)::int as count FROM mbs_items`
-        .then((r) => Number(r[0]?.count ?? 0))
-        .catch((err) => {
-          console.error("[Dashboard] Error fetching MBS items count:", err);
-          return 0;
-        }),
-
-      // 6. Medical conditions count
-      prisma.medical_conditions
-        .count({ where: { deleted_at: null } })
-        .catch((err) => {
-          console.error("[Dashboard] Error fetching medical conditions count:", err);
-          return 0;
-        }),
-
-      // 7. User saved templates count
-      prisma.user_saved_templates
-        .count({ where: { user_id: dbUser.id } })
-        .catch((err) => {
-          console.error("[Dashboard] Error fetching saved templates count:", err);
-          return 0;
-        }),
-
-      // 8. User question bookmarks count
-      prisma.user_question_bookmarks
-        .count({ where: { user_id: dbUser.id } })
-        .catch((err) => {
-          console.error("[Dashboard] Error fetching question bookmarks count:", err);
-          return 0;
-        }),
-
-      // 9. Soonest upcoming mock for countdown
+      // 5. Soonest upcoming mock for countdown
       prisma.mock_tests
         .findFirst({
           where: { deleted_at: null, unlock_at: { gt: now } },
@@ -254,7 +217,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           return null;
         }),
 
-      // 10. Completed mock-test attempts with per-subject tallies
+      // 6. Completed mock-test attempts with per-subject tallies
       prisma.test_attempts
         .findMany({
           where: {
@@ -283,7 +246,7 @@ export async function getDashboardData(): Promise<DashboardData> {
           return [];
         }),
 
-      // 11. Days the user visited the platform
+      // 7. Days the user visited the platform
       prisma.user_active_days
         .findMany({
           where: { user_id: dbUser.id, active_date: { gte: startOfDay(yearAgo) } },
@@ -295,8 +258,6 @@ export async function getDashboardData(): Promise<DashboardData> {
         }),
     ]);
 
-    const mbsCount = mbsRaw;
-
     return buildData({
       dbUser,
       now,
@@ -304,10 +265,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       attempts,
       mastery,
       subjectQCounts,
-      mbsCount,
-      conditionCount,
-      savedTemplates,
-      bookmarks,
       nextMock,
       mockBreakdown,
       activeVisits,
@@ -341,10 +298,6 @@ type BuildArgs = {
     subjects: { id: string; name: string } | null;
   }[];
   subjectQCounts: { subject_id: string | null; _count: { _all: number } }[];
-  mbsCount: number;
-  conditionCount: number;
-  savedTemplates: number;
-  bookmarks: number;
   nextMock: {
     name: string;
     unlock_at: Date | null;
@@ -631,11 +584,11 @@ function buildData(a: BuildArgs): DashboardData {
   }
 
   /* ── QUICK ACCESS BADGES ──────────────────────────────────────────────────
-   * Library sizes (whole platform) + this user's saved counts. */
+   * Library shortcuts and direct tool access badges. */
   const quickAccess: DashQuickAccess[] = [
-    { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald", badge: `${withCommas(a.mbsCount)} items` },
-    { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet", badge: `${a.savedTemplates} saved` },
-    { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan", badge: `${withCommas(a.conditionCount)} entries` },
+    { key: "mbs", title: "MBS Explorer", caption: "Search billing items", accent: "emerald", badge: "Billing Guide" },
+    { key: "autofills", title: "Clinical Autofills", caption: "Templates & macros", accent: "violet", badge: "Templates" },
+    { key: "conditions", title: "Conditions Library", caption: "Reference & guidelines", accent: "cyan", badge: "Guidelines" },
   ];
 
   return {

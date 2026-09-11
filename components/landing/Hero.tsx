@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Stethoscope } from "lucide-react";
 import { useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -188,7 +189,7 @@ export default function Hero() {
                   transform: translateY(0);
                 }
               `}</style>
-              <a href="/signup" className="btn-start-free-new">
+              <Link href="/sign-up" className="btn-start-free-new">
                 Start for free
                 <svg fill="currentColor" viewBox="0 0 24 24" className="btn-start-free-icon">
                   <path
@@ -197,7 +198,7 @@ export default function Hero() {
                     fillRule="evenodd"
                   />
                 </svg>
-              </a>
+              </Link>
               <a href="#tools" className="btn-explore">
                 Explore tools
               </a>

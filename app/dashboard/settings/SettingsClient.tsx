@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useProfile } from "@/contexts/ProfileContext";
 import {
@@ -512,7 +513,7 @@ export default function SettingsClient({
 
       <p className="text-center text-xs text-slate-400 dark:text-slate-500 mt-2">
         Your data is private, encrypted, and never shared.{" "}
-        <a href="#" className="text-teal-600 dark:text-teal-400 hover:underline underline-offset-2 transition-colors">Privacy Policy</a>
+        <Link href="/privacy-policy" className="text-teal-600 dark:text-teal-400 hover:underline underline-offset-2 transition-colors">Privacy Policy</Link>
       </p>
 
       <DeleteAccountModal open={deleteOpen} onClose={() => setDeleteOpen(false)} />

@@ -39,17 +39,33 @@ function sanitizeSettings(data: any): MaintenanceSettings {
   };
 }
 
-export function MaintenanceProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<MaintenanceSettings>(DEFAULT_MAINTENANCE_SETTINGS);
-  const [loading, setLoading] = useState(true);
+let cachedSettings: MaintenanceSettings | null = null;
+let lastFetchTimestamp = 0;
+const CACHE_TTL_MS = 60_000; // 60 seconds in-memory client cache
 
-  const refreshMaintenance = useCallback(async () => {
+export function MaintenanceProvider({ children }: { children: React.ReactNode }) {
+  const [settings, setSettings] = useState<MaintenanceSettings>(
+    cachedSettings || DEFAULT_MAINTENANCE_SETTINGS
+  );
+  const [loading, setLoading] = useState(cachedSettings == null);
+
+  const refreshMaintenance = useCallback(async (force = false) => {
+    // If not forced and cache is younger than 60s, reuse cached settings without network request
+    if (!force && cachedSettings && Date.now() - lastFetchTimestamp < CACHE_TTL_MS) {
+      setSettings(cachedSettings);
+      setLoading(false);
+      return;
+    }
+
     try {
       const res = await fetch("/api/settings/maintenance", { cache: "no-store" });
       if (res.ok) {
         const json = await res.json();
         if (json && json.success && json.settings) {
-          setSettings(sanitizeSettings(json.settings));
+          const sanitized = sanitizeSettings(json.settings);
+          cachedSettings = sanitized;
+          lastFetchTimestamp = Date.now();
+          setSettings(sanitized);
         }
       }
     } catch (err) {
@@ -64,7 +80,10 @@ export function MaintenanceProvider({ children }: { children: React.ReactNode })
   }, [refreshMaintenance]);
 
   const updateSettingsLocally = useCallback((newSettings: MaintenanceSettings) => {
-    setSettings(sanitizeSettings(newSettings));
+    const sanitized = sanitizeSettings(newSettings);
+    cachedSettings = sanitized;
+    lastFetchTimestamp = Date.now();
+    setSettings(sanitized);
   }, []);
 
   const activeSettings = settings || DEFAULT_MAINTENANCE_SETTINGS;
@@ -84,18 +103,29 @@ export function MaintenanceProvider({ children }: { children: React.ReactNode })
     return activeSettings.globalMessage || DEFAULT_MAINTENANCE_SETTINGS.globalMessage;
   }, [activeSettings]);
 
+  const contextValue = React.useMemo<MaintenanceContextType>(
+    () => ({
+      settings: activeSettings,
+      loading,
+      isGlobalMaintenance,
+      isModuleInMaintenance,
+      getModuleMessage,
+      refreshMaintenance: () => refreshMaintenance(true),
+      updateSettingsLocally,
+    }),
+    [
+      activeSettings,
+      loading,
+      isGlobalMaintenance,
+      isModuleInMaintenance,
+      getModuleMessage,
+      refreshMaintenance,
+      updateSettingsLocally,
+    ]
+  );
+
   return (
-    <MaintenanceContext.Provider
-      value={{
-        settings: activeSettings,
-        loading,
-        isGlobalMaintenance,
-        isModuleInMaintenance,
-        getModuleMessage,
-        refreshMaintenance,
-        updateSettingsLocally,
-      }}
-    >
+    <MaintenanceContext.Provider value={contextValue}>
       {children}
     </MaintenanceContext.Provider>
   );

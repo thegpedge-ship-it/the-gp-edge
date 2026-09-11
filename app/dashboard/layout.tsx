@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!isOnboarded(clerkUser)) redirect("/onboarding");
 
   const dbUser = await ensureDbUser();
-  const accessInfo = dbUser?.id ? await getUserAccess(dbUser.id) : null;
+  const accessInfo = dbUser ? await getUserAccess(dbUser) : null;
 
   // Determine if we need to prompt the user to re-evaluate their career stage.
   // Conditions (ALL must be true):

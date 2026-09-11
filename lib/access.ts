@@ -54,74 +54,98 @@ export interface UserAccessInfo {
   purchasedPackageType: string | null;
 }
 
+export type DbUserAccessInput = {
+  id: string;
+  clerk_user_id?: string | null;
+  email?: string | null;
+  user_role: string;
+  training_stage?: string | null;
+  has_purchased_registrar?: boolean | null;
+  role_reevaluated?: boolean | null;
+  free_questions_left?: number | null;
+  free_templates_left?: number | null;
+  free_topics_left?: number | null;
+  [key: string]: unknown;
+};
+
 // ─── Core access resolver ─────────────────────────────────────────────────────
 
 /**
  * Fetch all access-control data for a user in a single DB call.
+ * Accepts either a user ID string or an already-loaded DB user record to avoid redundant queries.
  * Returns null if the user does not exist.
  */
-export const getUserAccess = cache(async (userId: string): Promise<UserAccessInfo | null> => {
+export const getUserAccess = cache(async (userOrId: string | DbUserAccessInput | null | undefined): Promise<UserAccessInfo | null> => {
   // Opt out of all caching — access expiry must be evaluated against live DB data.
   // This prevents Next.js from serving stale access decisions from its data cache.
   unstable_noStore();
 
-  if (!userId) return null;
+  if (!userOrId) return null;
+
+  const isObject = typeof userOrId === "object" && userOrId !== null;
+  const lookupId = isObject ? (userOrId.id || userOrId.clerk_user_id || userOrId.email) : userOrId;
+
+  if (!lookupId) return null;
 
   // 0. Fast path: serve from the signed access cookie when it is fresh and the
-  //    subscription has not expired — this avoids the two DB queries below on the
+  //    subscription has not expired — this avoids the DB queries below on the
   //    vast majority of authenticated requests. See lib/access-cookie.ts.
-  const cached = await readAccessCookie(userId);
+  const cached = await readAccessCookie(lookupId);
   if (cached) return cached;
 
-  // 1. Fetch user by internal Postgres ID, Clerk ID, or Email address
-  let user: any = null;
-  try {
-    user = await prisma.users.findFirst({
-      where: {
-        OR: [
-          { id: userId },
-          { clerk_user_id: userId },
-          { email: userId },
-        ],
-      },
-      select: {
-        id: true,
-        clerk_user_id: true,
-        email: true,
-        user_role: true,
-        training_stage: true,
-        has_purchased_registrar: true,
-        role_reevaluated: true,
-        free_questions_left: true,
-        free_templates_left: true,
-        free_topics_left: true,
-      },
-    });
-  } catch (err) {
-    console.warn("[getUserAccess] training_stage / role_reevaluated column fallback triggered:", err);
-    user = await prisma.users.findFirst({
-      where: {
-        OR: [
-          { id: userId },
-          { clerk_user_id: userId },
-          { email: userId },
-        ],
-      },
-      select: {
-        id: true,
-        clerk_user_id: true,
-        email: true,
-        user_role: true,
-        has_purchased_registrar: true,
-        free_questions_left: true,
-        free_templates_left: true,
-        free_topics_left: true,
-      },
-    });
+  // 1. Fetch user by internal Postgres ID, Clerk ID, or Email address (or reuse already-loaded user object)
+  let user: DbUserAccessInput | null = null;
+  if (isObject && userOrId.id && userOrId.user_role !== undefined) {
+    user = userOrId;
+  } else {
+    try {
+      user = await prisma.users.findFirst({
+        where: {
+          OR: [
+            { id: lookupId },
+            { clerk_user_id: lookupId },
+            { email: lookupId },
+          ],
+        },
+        select: {
+          id: true,
+          clerk_user_id: true,
+          email: true,
+          user_role: true,
+          training_stage: true,
+          has_purchased_registrar: true,
+          role_reevaluated: true,
+          free_questions_left: true,
+          free_templates_left: true,
+          free_topics_left: true,
+        },
+      });
+    } catch (err) {
+      console.warn("[getUserAccess] training_stage / role_reevaluated column fallback triggered:", err);
+      user = await prisma.users.findFirst({
+        where: {
+          OR: [
+            { id: lookupId },
+            { clerk_user_id: lookupId },
+            { email: lookupId },
+          ],
+        },
+        select: {
+          id: true,
+          clerk_user_id: true,
+          email: true,
+          user_role: true,
+          has_purchased_registrar: true,
+          free_questions_left: true,
+          free_templates_left: true,
+          free_topics_left: true,
+        },
+      });
+    }
   }
 
   if (!user) {
-    console.log(`[getUserAccess] No user found matching ID/ClerkID/Email: "${userId}"`);
+    console.log(`[getUserAccess] No user found matching ID/ClerkID/Email: "${lookupId}"`);
     return null;
   }
 
@@ -287,14 +311,14 @@ export const getUserAccess = cache(async (userId: string): Promise<UserAccessInf
     userId: user.id,
     userRole: user.user_role as UserRole,
     trainingStage: stage,
-    hasPurchasedRegistrar: user.has_purchased_registrar,
+    hasPurchasedRegistrar: Boolean(user.has_purchased_registrar),
     roleReevaluated: user.role_reevaluated ?? false,
     accessLevel,
     isRegistrarActive,
     hasPaidAccess,
-    freeQuestionsLeft: user.free_questions_left,
-    freeTemplatesLeft: user.free_templates_left,
-    freeTopicsLeft: user.free_topics_left,
+    freeQuestionsLeft: Number(user.free_questions_left ?? 0),
+    freeTemplatesLeft: Number(user.free_templates_left ?? 0),
+    freeTopicsLeft: Number(user.free_topics_left ?? 0),
     cancelAtPeriodEnd: activeSub?.cancel_at != null,
     currentPeriodEnd: activeSub?.current_period_end ?? null,
     activePriceId: activeSub?.stripe_price_id ?? null,

@@ -29,6 +29,11 @@ const ROUTE_MODULE_MAP: Record<string, { id: string; name: string }> = {
   "/dashboard":                  { id: "user_dashboard",    name: "User Dashboard" },
 };
 
+// Pre-sorted outside component render so deeper routes match before shallower ones
+const SORTED_ROUTE_ENTRIES = Object.entries(ROUTE_MODULE_MAP).sort(
+  ([a], [b]) => b.length - a.length
+);
+
 export default function UserMaintenanceGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { settings, isGlobalMaintenance, isModuleInMaintenance, getModuleMessage, refreshMaintenance } = useMaintenanceMode();
@@ -47,12 +52,7 @@ export default function UserMaintenanceGuard({ children }: { children: React.Rea
 
   // 2. Selective Module Maintenance — block only matching routes
   if (pathname) {
-    // Sort entries so deeper routes match before shallower ones (e.g. /dashboard/billing before /dashboard)
-    const sortedEntries = Object.entries(ROUTE_MODULE_MAP).sort(
-      ([a], [b]) => b.length - a.length
-    );
-
-    for (const [routePrefix, modInfo] of sortedEntries) {
+    for (const [routePrefix, modInfo] of SORTED_ROUTE_ENTRIES) {
       if (pathname === routePrefix || pathname.startsWith(routePrefix + "/")) {
         if (isModuleInMaintenance(modInfo.id)) {
           return (
