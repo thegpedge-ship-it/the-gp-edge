@@ -3,9 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import * as Lucide from "lucide-react";
-import DiffViewer, { diffStats } from "./DiffViewer";
 import VersionPreviewModal, { VersionInfo } from "./VersionPreviewModal";
-import EditDiffModal from "./EditDiffModal";
 
 // ─── Themed inline select ────────────────────────────────────────────────────
 function ThemeSelect({
@@ -243,24 +241,13 @@ function getCommitSha(id: string): string {
 // History Entry Row (Git Commit Style)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HistoryRow({
-  entry,
-  onInspect,
-}: {
-  entry: EditHistoryEntry;
-  onInspect: (entry: EditHistoryEntry) => void;
-}) {
+function HistoryRow({ entry }: { entry: EditHistoryEntry }) {
   const config = CHANGE_TYPE_CONFIG[entry.changeType] ?? CHANGE_TYPE_CONFIG.modified;
   const Icon = config.icon;
-  const commitSha = getCommitSha(entry.id);
 
-  const hasContent = entry.oldContent !== null || entry.newContent !== null;
-  const isContentChange = entry.fieldName === "full_html";
-
-  const stats = isContentChange && hasContent
-    ? diffStats(entry.oldContent ?? "", entry.newContent ?? "")
-    : null;
-
+  // Attribution only — who edited what field, and when. The actual before/after content is
+  // intentionally not shown or inspectable here; it's preserved via the separate Versions system
+  // (see the "versions" tab / onSaveVersion), not exposed as a diff on every individual edit.
   return (
     <div className="relative group">
       {/* Git commit branch node */}
@@ -268,10 +255,7 @@ function HistoryRow({
         <div className={`w-2.5 h-2.5 rounded-full ${config.dotClass} ring-2 ring-white dark:ring-slate-900 shadow-xs flex items-center justify-center`} />
       </div>
 
-      <div
-        onClick={() => hasContent && onInspect(entry)}
-        className="ml-6 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-teal-500/60 dark:hover:border-teal-500/60 bg-white dark:bg-slate-900/80 p-2.5 transition-all cursor-pointer shadow-2xs hover:shadow-md group/card"
-      >
+      <div className="ml-6 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900/80 p-2.5 shadow-2xs">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {/* User avatar */}
@@ -286,9 +270,6 @@ function HistoryRow({
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate max-w-[100px]">
                   {entry.adminUserName}
-                </span>
-                <span className="font-mono text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 px-1 py-0.2 rounded border border-slate-200/60 dark:border-slate-700">
-                  {commitSha}
                 </span>
                 <span className={`inline-flex items-center gap-0.5 text-[8.5px] font-bold px-1.5 py-0.2 rounded-full border ${config.badgeClass}`}>
                   <Icon className="w-2.5 h-2.5" />
@@ -306,36 +287,6 @@ function HistoryRow({
               {formatExactTime(entry.createdAt)}
             </span>
           </div>
-        </div>
-
-        {/* Change summary stats & Commit Diff Trigger */}
-        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/80 text-[10px]">
-          <div className="flex items-center gap-1.5 font-mono">
-            {stats ? (
-              <>
-                {stats.added > 0 && (
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded text-[9px]">
-                    +{stats.added}
-                  </span>
-                )}
-                {stats.removed > 0 && (
-                  <span className="font-bold text-rose-500 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded text-[9px]">
-                    −{stats.removed}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-slate-400 text-[9.5px] truncate max-w-[120px] font-sans">
-                {entry.newContent ? `Updated ${fieldLabel(entry.fieldName)}` : "Modified"}
-              </span>
-            )}
-          </div>
-
-          {hasContent && (
-            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-teal-600 dark:text-teal-400 group-hover/card:text-teal-700 dark:group-hover/card:text-teal-300">
-              <Lucide.GitCommit className="w-2.5 h-2.5" /> View Diff
-            </span>
-          )}
         </div>
       </div>
     </div>
@@ -421,7 +372,6 @@ export default function EditHistorySidebar({
   const [activeTab, setActiveTab] = useState<"history" | "versions">("history");
   const [selectedVersion, setSelectedVersion] = useState<VersionInfo | null>(null);
   const [showVersionModal, setShowVersionModal] = useState(false);
-  const [selectedEditEntry, setSelectedEditEntry] = useState<EditHistoryEntry | null>(null);
   const [filterUser, setFilterUser] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
@@ -557,7 +507,7 @@ export default function EditHistorySidebar({
                       </span>
                     </div>
                     {entries.map((entry) => (
-                      <HistoryRow key={entry.id} entry={entry} onInspect={(e) => setSelectedEditEntry(e)} />
+                      <HistoryRow key={entry.id} entry={entry} />
                     ))}
                   </div>
                 ))}
@@ -618,13 +568,6 @@ export default function EditHistorySidebar({
         currentHtml={currentHtml}
         onRestore={handleRestoreVersion}
         adminUserName={adminUserName}
-      />
-
-      {/* Edit Diff Modal (Before & After inspect popup) */}
-      <EditDiffModal
-        isOpen={!!selectedEditEntry}
-        onClose={() => setSelectedEditEntry(null)}
-        entry={selectedEditEntry}
       />
     </>
   );
