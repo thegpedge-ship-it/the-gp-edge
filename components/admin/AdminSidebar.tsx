@@ -423,9 +423,6 @@ export default function AdminSidebar({
                   <p className="font-sans text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider" style={{ margin: 0 }}>
                     {currentAdmin.role}
                   </p>
-                  <p className="font-sans text-xs font-medium text-slate-400 dark:text-slate-500" style={{ margin: "2px 0 0" }}>
-                    {currentAdmin.email}
-                  </p>
                 </div>
               </div>
 
