@@ -90,7 +90,7 @@ export default function AdminLoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const loggedIn = localStorage.getItem("gpedge_admin_logged_in") === "true";
+      const loggedIn = sessionStorage.getItem("gpedge_admin_logged_in") === "true";
       if (loggedIn) {
         router.push("/admin/dashboard");
       }
@@ -147,10 +147,10 @@ export default function AdminLoginPage() {
         return;
       }
 
-      localStorage.setItem("gpedge_admin_logged_in", "true");
+      sessionStorage.setItem("gpedge_admin_logged_in", "true");
       localStorage.setItem("gpedge_active_admin_id", foundUser.id);
       if (foundUser.sessionToken) {
-        localStorage.setItem("gpedge_admin_session_token", foundUser.sessionToken);
+        sessionStorage.setItem("gpedge_admin_session_token", foundUser.sessionToken);
       }
 
       window.dispatchEvent(new Event("gpedge_admin_changed"));

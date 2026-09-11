@@ -3035,18 +3035,33 @@ export default function QuestionsPage() {
                                   />
                                 </div>
 
-                                {/* Distractor Rationales */}
+                                {/* Distractor Rationales — one line per option, prefixed with its letter (e.g.
+                                    "A) ...") so the correct-answer slots (blank in the underlying array) show
+                                    up as a labelled empty line instead of an unlabeled gap, and so editing
+                                    doesn't silently desync from the option it's meant to belong to. */}
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Distractor Rationales (Why incorrect options are wrong)</label>
                                   <textarea
-                                    rows={3}
-                                    value={Array.isArray(q.distractorRationales) ? q.distractorRationales.join("\n") : (q.distractorRationales || "")}
+                                    rows={Math.max(3, (q.options || []).length)}
+                                    value={(q.options || []).map((_: string, i: number) => {
+                                      const letter = String.fromCharCode(65 + i);
+                                      const text = Array.isArray(q.distractorRationales) ? (q.distractorRationales[i] || "") : "";
+                                      return `${letter}) ${text}`;
+                                    }).join("\n")}
                                     onChange={(e) => {
-                                      const lines = e.target.value.split("\n");
-                                      handleUpdateExtractedQuestion(qidx, "distractorRationales", lines);
+                                      const optionCount = (q.options || []).length;
+                                      const newArr: string[] = new Array(optionCount).fill("");
+                                      e.target.value.split("\n").forEach((line) => {
+                                        const m = line.match(/^([A-J])\)\s?(.*)$/);
+                                        if (m) {
+                                          const idx = m[1].charCodeAt(0) - 65;
+                                          if (idx >= 0 && idx < optionCount) newArr[idx] = m[2];
+                                        }
+                                      });
+                                      handleUpdateExtractedQuestion(qidx, "distractorRationales", newArr);
                                     }}
                                     className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[80px]`}
-                                    placeholder="Option A: Incorrect because...&#10;Option B: Incorrect because..."
+                                    placeholder="A) Incorrect because...&#10;B) Incorrect because..."
                                   />
                                 </div>
 

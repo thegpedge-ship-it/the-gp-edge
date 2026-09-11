@@ -50,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
-      const loggedIn = localStorage.getItem("gpedge_admin_logged_in") === "true";
+      const loggedIn = sessionStorage.getItem("gpedge_admin_logged_in") === "true";
       setCurrentAdminId(stored);
       setIsLoggedIn(loggedIn);
       setLoading(false);
@@ -161,7 +161,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const handleAdminChanged = () => {
         const val = localStorage.getItem("gpedge_active_admin_id") || "e8e3d09a-41e7-4f65-8bda-6bc2b77c5c00";
-        const log = localStorage.getItem("gpedge_admin_logged_in") === "true";
+        const log = sessionStorage.getItem("gpedge_admin_logged_in") === "true";
         setCurrentAdminId(val);
         setIsLoggedIn(log);
         updateProfile(val);
@@ -209,13 +209,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!isLoggedIn || !currentAdminId) return;
 
     const checkSession = async () => {
-      const sessionToken = localStorage.getItem("gpedge_admin_session_token");
+      const sessionToken = sessionStorage.getItem("gpedge_admin_session_token");
       if (!sessionToken) return;
       try {
         const { valid } = await checkAdminSessionAction(currentAdminId, sessionToken);
         if (!valid) {
-          localStorage.removeItem("gpedge_admin_logged_in");
-          localStorage.removeItem("gpedge_admin_session_token");
+          sessionStorage.removeItem("gpedge_admin_logged_in");
+          sessionStorage.removeItem("gpedge_admin_session_token");
           window.dispatchEvent(new Event("gpedge_admin_changed"));
           router.push("/admin/login?signedInElsewhere=true");
         }
@@ -302,10 +302,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isAuthPage = pathname === "/admin/login" || pathname === "/admin/reset-password";
   const showLoading = loading || (!isLoggedIn && !isAuthPage);
+  // Don't paint the authenticated shell (sidebar/topbar, with its admin identity) until the
+  // auth check has actually resolved to "logged in" — otherwise a fresh, unauthenticated visit
+  // flashes the dashboard chrome before the redirect-to-login effect kicks in.
+  const showShell = !isAuthPage && !showLoading;
 
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 relative overflow-x-clip font-sans admin-layout">
-        {!isAuthPage && (
+        {showShell && (
           <>
             {/* Backdrop for mobile sidebar */}
             <AnimatePresence>
@@ -337,9 +341,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Main content area */}
         <main
-          className={isAuthPage ? "min-h-screen" : `admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}`}
+          className={showShell ? `admin-main-content pt-14 min-h-screen relative ${isExpanded ? "expanded" : "collapsed"}` : "min-h-screen"}
         >
-          <div className={isAuthPage ? "" : "p-6 lg:p-8"}>
+          <div className={showShell ? "p-6 lg:p-8" : ""}>
             {showLoading ? (
               <div className="min-h-[60vh] flex items-center justify-center font-sans">
                 <div className="flex flex-col items-center gap-3">

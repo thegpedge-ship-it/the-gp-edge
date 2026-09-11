@@ -113,8 +113,8 @@ export default function AdminTopbar({ collapsed, onMenuClick }: AdminTopbarProps
     if (currentAdmin.id) {
       clearAdminSessionAction(currentAdmin.id).catch(() => {});
     }
-    localStorage.removeItem("gpedge_admin_logged_in");
-    localStorage.removeItem("gpedge_admin_session_token");
+    sessionStorage.removeItem("gpedge_admin_logged_in");
+    sessionStorage.removeItem("gpedge_admin_session_token");
     window.dispatchEvent(new Event("gpedge_admin_changed"));
     router.push("/admin/login");
     setShowProfile(false);

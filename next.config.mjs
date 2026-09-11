@@ -10,6 +10,13 @@ const nextConfig = {
 
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "pdfkit", "tesseract.js"],
 
+  // Next.js 16 logs every Server Action's raw arguments to the dev terminal by default
+  // (logging.serverFunctions defaults to true) — that meant plaintext passwords from
+  // verifyAdminCredentialsAction/etc. were showing up in the terminal. Turn it off.
+  logging: {
+    serverFunctions: false,
+  },
+
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
     serverActions: {

@@ -451,11 +451,24 @@ function insertImageIntoBlock(blockText: string, dataUrl: string): string {
 function isMetadataLine(line: string): boolean {
   const clean = line.trim().replace(/^[*#•◦●○■▪▫·\-\u2013\u2014–—\d\.\)\s]+/u, "").toLowerCase();
   return (
-    /^(?:correct\s*answer|correct\s*option|correct|answer|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
+    // "Correct Answers"/"Correct Options" must allow the plural "s" — without it, a look-ahead
+    // consumption loop (e.g. the multi-line Tags reader) fails to recognize "Correct Answers: A, B, F"
+    // as a section boundary and swallows the entire Stem/Lead-in/Options/Correct-Answers/Limit block
+    // into whatever field it was reading, leaving the question body empty.
+    /^(?:correct\s*answers?|correct\s*options?|correct|answers?|answer\s*key)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:topic|category|subject|domain|specialty|system)s?\s*[:\-\=\–\—]/i.test(clean) ||
     /^sub[- ]?(?:topics?|category|categories?|section)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:diffculty|difficulty|difficulty\s*level|level|grade|tier|exam\s*type|exam|test)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:tags?|keywords?|labels?)\s*[:\-\=\–\—]/i.test(clean) ||
+    // Structural section headers (stem/lead-in/options/limit/knowledge bank/clinical pearl) —
+    // previously missing here entirely, so a look-ahead loop stopped only at a rationale/distractor
+    // header (or ran off the end of the block), consuming every one of these sections as raw content.
+    /^(?:stem|clinical\s*vignette|vignette|scenario)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:lead\s*[-]?\s*in|prompt|question\s*prompt|question\s*text)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^options?\s*[:\-\=\–\—]/i.test(clean) ||
+    /^(?:limit|max\s*selections?|allowed\s*selections?|selection\s*limit|correct\s*count)\s*[:\-\=\–\—]/i.test(clean) ||
+    /^knowledge\s*bank\s*[:\-\=\–\—]/i.test(clean) ||
+    /^clinical\s*pearl\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:rationale|high\s*-?\s*yield\s*rationale|explanation|explaination|explanations|answer\s*&\s*explanation|answer\s*&\s*rationale|answer\s*explanation|detailed\s*explanation|detailed\s*rationale|clinical\s*rationale|why\s*correct|why\s*this\s*option|discussion|reasoning|feedback|solution|key\s*takeaway|key\s*point)\s*[:\-\=\–\—]/i.test(clean) ||
     /^(?:distractor\s*rationales?|distractor\s*explanations?|distractors?|incorrect\s*options?|incorrect\s*rationales?|why\s*(?:each\s*|other\s*)?distractor\s*(?:is|are)?\s*(?:wrong|incorrect|false)|why\s*(?:other\s*|incorrect\s*)?options?\s*(?:are|is)?\s*(?:wrong|incorrect|false)|option\s*rationales?)\s*[:\-\=\–\—]/i.test(clean)
   );
@@ -476,9 +489,17 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
     if (!line) continue;
 
     const startsWithBulletGlyph = /^[•◦●○■▪▫·]\s*/.test(line);
-    const isNewEntryHeader =
-      startsWithBulletGlyph ||
-      /^(?:[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|[A-J][\.\):\-](?!\s*[a-z])\s*(?:Incorrect|Wrong|False)?|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
+    // Split into a case-insensitive keyword check and a case-SENSITIVE letter-prefix check.
+    // The letter form ("C) Some rationale...") must stay case-sensitive: the (?!\s*[a-z])
+    // guard exists to reject a mid-sentence match like "e.g. ..." -- but under a blanket /i flag
+    // that guard's own [a-z] also matches uppercase, so it rejected every real "C) Capitalized
+    // text..." rationale line too (virtually all of them), collapsing every distractor rationale
+    // into one merged blob instead of one entry per option.
+    const startsWithKeywordHeader =
+      /^(?:[\s•◦●○■▪▫·\*\-–—]+\s*)?(?:(?:Option|Choice)\s*[A-J]|Why\s+(?:Option\s*)?[A-J]\s+is\s+(?:incorrect|wrong|false)|Distractor\s*[A-J])\b/i.test(line);
+    const startsWithLetterHeader =
+      /^(?:[\s•◦●○■▪▫·\*\-–—]+\s*)?[A-J][\.\):\-](?!\s*[a-z])\s*(?:Incorrect|Wrong|False)?\b/.test(line);
+    const isNewEntryHeader = startsWithBulletGlyph || startsWithKeywordHeader || startsWithLetterHeader;
 
     if (isNewEntryHeader && current) {
       entries.push(current.trim());
@@ -509,13 +530,29 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
   const filledSlots = new Set<number>();
   for (const entry of entries) {
     const cleanEntry = entry.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
-    const letterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|(?:^|\n)\s*([A-J])[\.\):\-](?!\s*[a-z])|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\–\—]?\s*(.*)$/i);
+    // Keyword forms ("Option C: ...", "Why D is wrong: ...") stay case-insensitive; the bare
+    // letter form ("C) ...") must stay case-sensitive, or the (?!\s*[a-z]) guard against
+    // mid-sentence false positives (e.g. "e.g.") also rejects every real "C) Capitalized text..."
+    // rationale under the shared /i flag, since [a-z] there matches uppercase too. The two forms
+    // have different capture-group layouts, so each is unpacked on its own rather than sharing indices.
+    // [\s\S]* instead of the dotAll flag (unavailable at this project's ES2017 TS target) so a
+    // wrapped second line ("...transfer in a patient with\nsuspected ACS.") is still captured as
+    // content instead of the match failing to reach end-of-string and the whole entry falling
+    // through to the raw, unstripped positional fallback below.
+    const keywordLetterMatch = cleanEntry.match(/^(?:(?:Option|Choice)\s*([A-J])|Why\s+(?:Option\s*)?([A-J])\s+is\s+(?:incorrect|wrong|false)|Distractor\s*([A-J]))\s*[:\-\=\u2013\u2014]?\s*([\s\S]*)$/i);
+    const bareLetterMatch = !keywordLetterMatch
+      ? cleanEntry.match(/^(?:^|\n)\s*([A-J])[\.\):\-](?!\s*[a-z])\s*[:\-\=\u2013\u2014]?\s*([\s\S]*)$/)
+      : null;
+    const letterMatch = keywordLetterMatch || bareLetterMatch;
 
     if (letterMatch) {
-      const letter = (letterMatch[1] || letterMatch[2] || letterMatch[3] || letterMatch[4]).toUpperCase();
+      const letter = keywordLetterMatch
+        ? (keywordLetterMatch[1] || keywordLetterMatch[2] || keywordLetterMatch[3]).toUpperCase()
+        : bareLetterMatch![1].toUpperCase();
       const idx = letter.charCodeAt(0) - 65;
       if (idx >= 0 && idx < options.length) {
-        let content = letterMatch[5]?.trim() || cleanEntry;
+        const rawContent = keywordLetterMatch ? keywordLetterMatch[4] : bareLetterMatch![2];
+        let content = rawContent?.trim() || cleanEntry;
         if (!content) content = cleanEntry;
         content = content.replace(/^[\s•◦●○■▪▫·\*\-\u2013\u2014–—]+\s*/, "");
         result[idx] = content;
@@ -523,7 +560,7 @@ function formatDistractorRationales(rawLines: string[], options: string[], corre
         continue;
       }
     }
-    unmatchedEntries.push(cleanEntry);
+    unmatchedEntries.push(cleanEntry);unmatchedEntries.push(cleanEntry);
   }
 
   const correctSet = new Set(correctIndices);
@@ -2146,22 +2183,39 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
     });
     
     const html = htmlResult.value || "";
-    const matches = html.match(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi) || [];
-    for (const m of matches) {
+    const rawImgMatches = html.match(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi) || [];
+    const allImageUrls: string[] = [];
+    for (const m of rawImgMatches) {
       const srcMatch = m.match(/src=["'](data:[^"']+)["']/i);
       if (srcMatch && srcMatch[1]) {
-        imageUrls.push(srcMatch[1]);
+        allImageUrls.push(srcMatch[1]);
       }
     }
 
-    // Preserve bold runs as ... markers (instead of stripping them like the other
-    // inline tags) so downstream parsing can tell which sentence was bold in the source document —
+    // A page header/footer/watermark logo gets embedded once per page in the docx, so the exact
+    // same image data recurs verbatim multiple times across the document -- unlike a genuine
+    // clinical image, which only ever appears once (attached to its one question). Treat any
+    // image data that repeats as decorative background, not question content, so it doesn't get
+    // reassigned across every question whose stem happens to match the image-keyword heuristic.
+    const occurrenceCounts = new Map<string, number>();
+    for (const url of allImageUrls) {
+      occurrenceCounts.set(url, (occurrenceCounts.get(url) || 0) + 1);
+    }
+    const decorativeUrls = new Set(
+      [...occurrenceCounts.entries()].filter(([, count]) => count > 1).map(([url]) => url)
+    );
+    for (const url of allImageUrls) {
+      if (!decorativeUrls.has(url)) imageUrls.push(url);
+    }
+
+    // Preserve bold runs as BOLD_START...BOLD_END markers (instead of stripping them like the other
+    // inline tags) so downstream parsing can tell which sentence was bold in the source document --
     // e.g. the lead-in question sentence is conventionally bolded after a plain-text stem paragraph.
     htmlText = html
       .replace(/<(strong|b)\b[^>]*>/gi, "")
       .replace(/<\/(strong|b)>/gi, "")
       .replace(/<\/?(em|i|u|span|a)\b[^>]*>/gi, "")
-      .replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, "\n[IMAGE: $1]\n")
+      .replace(/<img\s+[^>]*src=["'](data:[^"']+)["'][^>]*>/gi, (_m, src) => (decorativeUrls.has(src) ? "" : `\n[IMAGE: ${src}]\n`))
       .replace(/<[^>]+>/g, "\n");
   } catch (e) {
     console.warn("Mammoth image extraction warning:", e);
@@ -2184,7 +2238,12 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
       .replace(/\u00A0/g, " ")
       .replace(/&nbsp;/gi, " ");
 
-    if (imageUrls.length > 0) {
+    // The HTML-conversion path (htmlText, used whenever bold markers are present) already embeds
+    // each image inline at its real position via the <img> replace above — that's the correct
+    // placement. Only run the keyword-guessing heuristic below when the chosen text came from the
+    // image-free plain-text path instead; otherwise this re-inserted every image a second time
+    // (via a guess, no less), leaving each one doubled and some copies attached to the wrong question.
+    if (imageUrls.length > 0 && !cleanText.includes("[IMAGE:")) {
       cleanText = associateImagesWithText(cleanText, imageUrls);
     }
     return cleanText.trim();
@@ -2205,8 +2264,28 @@ async function extractTextAndImagesFromDocxBuffer(buffer: Buffer): Promise<strin
 function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AKT"): any[] {
   const questions: any[] = [];
   
+  // Word templates conventionally bold each field label ("Question 1:", "Stem:", "Topic:", ...).
+  // The docx extractor wraps bold runs in ... markers so a downstream heuristic can spot
+  // an unlabelled bold lead-in sentence \u2014 but that leaves  sitting at the very start of every
+  // bolded header line, which breaks every ^-anchored header regex in this parser (block splitting,
+  // Stem/Options/Correct-Answers detection, etc.), collapsing the whole document into one block.
+  // Unwrap the markers only when they wrap a *recognized field label*, leaving any other bold run
+  // (e.g. a genuinely unlabelled bold lead-in sentence) marked for that fallback to still use.
+  const HEADER_LABEL_KEYWORDS =
+    "Question\\s*#?\\s*\\d+|Q\\.?\\s*#?\\s*\\d+|Item\\s*#?\\s*\\d+|Case\\s*#?\\s*\\d+|Scenario|MCQ\\s*#?\\s*\\d+|Task\\s*#?\\s*\\d+|Station\\s*#?\\s*\\d+|" +
+    "Exam\\s*Type|Exam\\s*Format|Format|Test\\s*Type|" +
+    "Topic|Category|Subject|Domain|Specialty|System|Sub[- ]?[Tt]opics?|Sub[- ]?[Cc]ategor(?:y|ies)|Sub[- ]?[Ss]ection|" +
+    "Difficulty|Difficulty\\s*Level|Level|Grade|Tier|Tags?|Keywords?|Labels?|" +
+    "Stem|Clinical\\s*Vignette|Vignette|Lead\\s*-?\\s*in|Prompt|Question\\s*Prompt|Question\\s*Text|Options?|" +
+    "Correct\\s*Answers?|Correct\\s*Options?|Correct|Answers?|Answer\\s*Key|" +
+    "Limit|Max\\s*Selections?|Allowed\\s*Selections?|Selection\\s*Limit|Correct\\s*Count|" +
+    "Why\\s*Correct|Master\\s*Rationale|Correct\\s*Rationale|Distractor\\s*Rationales?|Distractors?|Incorrect\\s*Options?|" +
+    "Knowledge\\s*Bank|Clinical\\s*Pearl";
+  const unwrapBoldHeaderLabels = (input: string) =>
+    input.replace(new RegExp(`\\u0001\\s*(${HEADER_LABEL_KEYWORDS})([^\\u0002]*)\\u0002`, "gi"), "$1$2");
+
   // Normalize line endings, BOM, zero-width characters, and non-breaking spaces (\u00A0)
-  const normalizedText = text
+  const normalizedText = unwrapBoldHeaderLabels(text)
     .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F\u180E\u202F\u205F\u3000]/g, "")
     .replace(/\u00A0/g, " ")
     .replace(/&nbsp;/gi, " ")
@@ -2296,6 +2375,7 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
       rawBlocks = fallbackBlocks;
     }
   }
+
 
   // ── STEP 2: Parse each block for stem / options / metadata ───────────────
   for (const blockLines of rawBlocks) {
@@ -2607,12 +2687,38 @@ function parseTextToQuestions(text: string, defaultExamType: "AKT" | "KFP" = "AK
 
       // ── Option lines (A. B. C. D. or A), (A), [A], 1. 2. 3. 4.) ─────────────────
       const optionMatch = cleanLine.match(/^\s*(?:\[([A-J])\]|\(?([A-J])[\.\/):\-]|([A-J])\)|(?:\(?(\d{1,2})[\.\):\-]))\s*(.+)$/i);
-      if (optionMatch) {
+      // The bare-numeric alternative ("1.", "2)", etc.) is meant for documents that number their
+      // options instead of lettering them — but a decimal value inside the stem (a lab ratio like
+      // "0.58.", a dose, a page reference) matches it just as well. Only trust a numeric-only match
+      // once we're already inside (or past) the options section; before that, treat it as ordinary
+      // stem/lead-in content so it can't hijack parsingState mid-vignette.
+      const isNumericOnlyMatch = !!optionMatch && !optionMatch[1] && !optionMatch[2] && !optionMatch[3] && !!optionMatch[4];
+      const stillBeforeOptionsSection = parsingState === "stem" || parsingState === "leadIn" || parsingState === "question";
+      if (optionMatch && !(isNumericOnlyMatch && stillBeforeOptionsSection)) {
         const letterRaw = (optionMatch[1] || optionMatch[2] || optionMatch[3] || "").toUpperCase();
         const numIndex = optionMatch[4] ? parseInt(optionMatch[4], 10) - 1 : -1;
         const letter = letterRaw || (numIndex >= 0 ? String.fromCharCode(65 + numIndex) : "A");
         const optText = optionMatch[5].trim();
-        
+
+        // Once we've moved past the initial options list (a "Distractor Rationales:", "Why Correct:",
+        // "Knowledge Bank:", "Clinical Pearl:" or other post-options header already switched the state),
+        // a lettered line like "C) Serial troponin testing is important..." is a distractor-rationale
+        // callout referencing option C, not a brand-new option. Without this check it fell through to
+        // the generic "new option" branch below, got appended to `options`, and reset parsingState back
+        // to "options" — corrupting the option list and misrouting every remaining line in the block.
+        const pastOptionsSection =
+          options.length > 0 &&
+          parsingState !== "options" &&
+          parsingState !== "question" &&
+          parsingState !== "stem" &&
+          parsingState !== "leadIn";
+        if (pastOptionsSection) {
+          parsingState = "distractors";
+          parsingRationale = false;
+          distractorLines.push(line.trim());
+          continue;
+        }
+
         // If options are already parsed (>= 2 options) and line explicitly indicates distractor explanation, switch to distractor state
         const isDistractorExp = options.length >= 2 && /^(?:is\s+)?(?:incorrect|wrong|false|not\s+indicated|not\s+recommended)\b/i.test(optText);
         if (isDistractorExp) {

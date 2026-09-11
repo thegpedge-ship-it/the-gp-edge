@@ -120,7 +120,8 @@ export default function AdminSidebar({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("gpedge_admin_logged_in");
+    sessionStorage.removeItem("gpedge_admin_logged_in");
+    sessionStorage.removeItem("gpedge_admin_session_token");
     window.dispatchEvent(new Event("gpedge_admin_changed"));
     router.push("/admin/login");
     if (onMobileClose) onMobileClose();
