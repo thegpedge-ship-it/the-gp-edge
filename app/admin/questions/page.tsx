@@ -227,7 +227,7 @@ export default function QuestionsPage() {
   const [extractionLog, setExtractionLog] = useState("");
   const [extractedQuestions, setExtractedQuestions] = useState<any[]>([]);
   const [overwriteDuplicates, setOverwriteDuplicates] = useState(true);
-  const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string }[]>([]);
+  const [batchFiles, setBatchFiles] = useState<{ id: string; name: string; size: string; progress: number; status: "idle" | "uploading" | "extracting" | "success" | "error"; error?: string; totalFound?: number }[]>([]);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const [showDownloadDropdown, setShowDownloadDropdown] = useState(false);
   const downloadDropdownRef = useRef<HTMLDivElement>(null);
@@ -676,6 +676,7 @@ export default function QuestionsPage() {
       progress: number;
       status: "idle" | "uploading" | "extracting" | "success" | "error";
       error?: string;
+      totalFound?: number;
     }[] = fileList.map((f, i) => ({
       id: `file-${Date.now()}-${i}`,
       name: f.name,
@@ -708,34 +709,48 @@ export default function QuestionsPage() {
       fileList.map(async (file, idx) => {
         updateBatchFile(idx, { status: "uploading", progress: 10 });
 
-        // Ease toward the 98% cap — larger steps early, decelerating as it approaches the cap —
-        // instead of random jitter, so the bar reads as smooth, deliberate progress rather than
-        // noisy jumps. Tick rate matches the bar's CSS transition duration (300ms) so each step
-        // has time to fully animate before the next one fires.
-        let currentProgress = 10;
-        const progressTimer = setInterval(() => {
-          const remaining = 98 - currentProgress;
-          currentProgress += Math.max(remaining * 0.12, 0.4);
-          if (currentProgress > 98) currentProgress = 98;
-          updateBatchFile(idx, { progress: Math.round(currentProgress) });
-        }, 300);
-
         try {
-          const formData = new FormData();
-          formData.append("file", file);
-          formData.append("type", "question");
-          formData.append("examType", uploadExamType);
-          formData.append("examFormat", uploadExamType);
+          const baseFormData = () => {
+            const fd = new FormData();
+            fd.append("file", file);
+            fd.append("type", "question");
+            fd.append("examType", uploadExamType);
+            fd.append("examFormat", uploadExamType);
+            return fd;
+          };
+
+          // Fast pre-pass: get a real "N questions found" total from the server before running the
+          // full extraction, so the bar reflects an actual count instead of a simulated percentage
+          // climbing toward a made-up cap. Only worth doing for docx/doc — its quick pass is genuinely
+          // cheap (mammoth's plain-text extractor, no image decoding). A PDF's "text-only" pass still
+          // has to run the very same subprocess that also does image extraction (they're not separable
+          // there), so adding it would double a PDF's total extraction time for a nice-to-have count —
+          // skip it for PDFs and images and just show a generic "scanning" message for those instead.
+          const ext = file.name.split(".").pop()?.toLowerCase() || "";
+          const canCheapCount = ext === "docx" || ext === "doc";
+          updateBatchFile(idx, { status: "uploading", progress: 25 });
+          if (canCheapCount) {
+            try {
+              const countFormData = baseFormData();
+              countFormData.append("countOnly", "true");
+              const countRes = await fetch("/api/extract", { method: "POST", body: countFormData });
+              const countResult = await countRes.json();
+              if (countResult?.success && typeof countResult.total === "number") {
+                updateBatchFile(idx, { totalFound: countResult.total });
+              }
+            } catch {
+              // Count is best-effort; proceed to full extraction regardless.
+            }
+          }
 
           // Keep current progress but update status to extracting
-          updateBatchFile(idx, { status: "extracting" });
+          updateBatchFile(idx, { status: "extracting", progress: 55 });
 
           const res = await fetch("/api/extract", {
             method: "POST",
-            body: formData,
+            body: baseFormData(),
           });
 
-          clearInterval(progressTimer);
           updateBatchFile(idx, { progress: 99 });
 
           const result = await res.json();
@@ -765,7 +780,6 @@ export default function QuestionsPage() {
             });
           }
         } catch (err: any) {
-          clearInterval(progressTimer);
           updateBatchFile(idx, { status: "error", progress: 100, error: err.message });
         }
       })
@@ -2681,7 +2695,11 @@ export default function QuestionsPage() {
 
                 {uploadState === "uploading" && (
                   <div className="space-y-3">
-                    {/* Overall progress header */}
+                    {/* Overall progress header — the percentage badge and bar-fill width below are real
+                        upload/pipeline-stage checkpoints (25/55/99/100), not a simulated climb. Once the
+                        quick pre-pass reports a total, the status line switches from a generic message to
+                        an honest "N questions found" count instead of implying live per-question progress
+                        we don't actually have. */}
                     <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-5 bg-slate-50/50 dark:bg-slate-800/20 shadow-sm space-y-2">
                       <div className="flex items-center justify-between text-xs font-bold px-0.5">
                         <span className="text-slate-800 dark:text-slate-200 truncate max-w-[420px]">
@@ -2690,12 +2708,17 @@ export default function QuestionsPage() {
                         <span className="text-teal-600 dark:text-teal-400 font-mono font-bold text-xs">{uploadProgress}%</span>
                       </div>
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300 rounded-full" style={{ width: `${uploadProgress}%` }} />
+                        <div
+                          className={`h-full bg-teal-600 dark:bg-teal-400 transition-all duration-300 rounded-full ${uploadProgress < 100 ? "animate-pulse" : ""}`}
+                          style={{ width: `${uploadProgress}%` }}
+                        />
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
                         {uploadedFileName.startsWith("Publishing")
                           ? "Saving questions and diagnostic options to database..."
-                          : `Total size: ${uploadedFileSize} · Extracting questions from document stream...`}
+                          : batchFiles.length === 1 && typeof batchFiles[0]?.totalFound === "number"
+                          ? `Total size: ${uploadedFileSize} · ${batchFiles[0].totalFound} question${batchFiles[0].totalFound === 1 ? "" : "s"} found — extracting details...`
+                          : `Total size: ${uploadedFileSize} · Scanning document...`}
                       </p>
                     </div>
 
@@ -2718,7 +2741,11 @@ export default function QuestionsPage() {
                             )}
                             <div className="flex-1 min-w-0">
                               <span className="font-semibold text-slate-700 dark:text-slate-300 truncate block">{bf.name}</span>
-                              {bf.error && <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>}
+                              {bf.error ? (
+                                <span className="text-red-500 text-[10px] truncate block">{bf.error}</span>
+                              ) : typeof bf.totalFound === "number" && bf.status !== "success" ? (
+                                <span className="text-slate-400 text-[10px] truncate block">{bf.totalFound} question{bf.totalFound === 1 ? "" : "s"} found</span>
+                              ) : null}
                             </div>
                             <span className="text-[10px] text-slate-400 shrink-0">{bf.size}</span>
                             <span className={`text-[10px] font-mono w-8 text-right shrink-0 ${
@@ -3035,19 +3062,23 @@ export default function QuestionsPage() {
                                   />
                                 </div>
 
-                                {/* Distractor Rationales — one line per option, prefixed with its letter (e.g.
-                                    "A) ...") so the correct-answer slots (blank in the underlying array) show
-                                    up as a labelled empty line instead of an unlabeled gap, and so editing
-                                    doesn't silently desync from the option it's meant to belong to. */}
+                                {/* Distractor Rationales — one line per INCORRECT option only, prefixed with
+                                    its letter (e.g. "C) ...") so each line's option is unambiguous and editing
+                                    doesn't silently desync from the option it's meant to belong to. Correct
+                                    answers are excluded — a "why incorrect options are wrong" list has nothing
+                                    to say about the ones that are right, and showing them as unlabeled blank
+                                    lines was confusing (looked like missing content, not an intentional skip). */}
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Distractor Rationales (Why incorrect options are wrong)</label>
                                   <textarea
-                                    rows={Math.max(3, (q.options || []).length)}
+                                    rows={Math.max(3, (q.options || []).length - (q.correctIndices || [q.correctIndex || 0]).length)}
                                     value={(q.options || []).map((_: string, i: number) => {
                                       const letter = String.fromCharCode(65 + i);
                                       const text = Array.isArray(q.distractorRationales) ? (q.distractorRationales[i] || "") : "";
-                                      return `${letter}) ${text}`;
-                                    }).join("\n")}
+                                      return { letter, text, isCorrect: (q.correctIndices || [q.correctIndex || 0]).includes(i) };
+                                    }).filter((o: { isCorrect: boolean }) => !o.isCorrect)
+                                      .map((o: { letter: string; text: string }) => `${o.letter}) ${o.text}`)
+                                      .join("\n")}
                                     onChange={(e) => {
                                       const optionCount = (q.options || []).length;
                                       const newArr: string[] = new Array(optionCount).fill("");
@@ -3061,7 +3092,7 @@ export default function QuestionsPage() {
                                       handleUpdateExtractedQuestion(qidx, "distractorRationales", newArr);
                                     }}
                                     className={`w-full px-3 py-2 text-xs rounded-xl transition-all resize-y dark:text-slate-100 ${themeInput} min-h-[80px]`}
-                                    placeholder="A) Incorrect because...&#10;B) Incorrect because..."
+                                    placeholder="C) Incorrect because...&#10;D) Incorrect because..."
                                   />
                                 </div>
 

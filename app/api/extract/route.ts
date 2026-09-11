@@ -826,13 +826,14 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
         console.log(`PDF extracted via subprocess: ${subResult.pages.length} pages, ${allImageUrls.length} images`);
 
         if (allImageUrls.length > 0) {
-          // If the text looks like a question bank, use the specialized regex association
-          // to pair images with specific question numbers/options.
-          const isQuestionText = isQuestionBankText(combinedText);
-          if (isQuestionText) {
-            return associateImagesWithText(combinedText, allImageUrls);
-          }
-          // Otherwise, use page-aware catalog association (no question-bank heuristic needed)
+          // Each image here already carries the real PDF page it came from (subResult.images'
+          // pageNumber, mapped into pageImageMap above) — a genuine position, not a guess. Placing
+          // it at the end of that same page's text keeps it with whichever question actually spans
+          // that page, which is far more reliable than the isQuestionBankText keyword-matching
+          // heuristic previously used here: that heuristic had no idea which question an image
+          // belonged to and just handed each image to the next block that merely *mentioned* a
+          // clinical-sounding word, which is why images kept landing on the first few questions
+          // regardless of where they were actually inserted in the source document.
           return associateCatalogImagesWithText(pageTexts, pageImageMap);
         }
         return combinedText;
@@ -883,17 +884,36 @@ async function extractTextAndImagesFromPdfBuffer(buffer: Buffer): Promise<string
     if (combinedText.length > 20) {
       console.log(`PDF extracted via in-process PDFParse: ${textResult.pages.length} pages, ${allImageUrls.length} images`);
       if (allImageUrls.length > 0) {
-        const isQuestionText = isQuestionBankText(combinedText);
-        if (isQuestionText) {
-          return associateImagesWithText(combinedText, allImageUrls);
-        }
-        // For catalogs, distribute images evenly across pages
+        // Rebuild the per-page image map from imageResult's real per-page image lists (rather than
+        // spreading allImageUrls evenly, which throws that position away) whenever PDFParse actually
+        // reported images per page — only fall back to an even spread for images recovered via
+        // binary carving, which carries no page information at all. See Strategy 1's comment above
+        // for why page-based placement replaced the old question-bank keyword-guessing heuristic.
         const pageTexts = textResult.pages.map((p: any) => p.text || "");
         const pageImageMap: string[][] = pageTexts.map(() => []);
-        allImageUrls.forEach((url, i) => {
-          const pgIdx = Math.floor((i / allImageUrls.length) * pageImageMap.length);
-          pageImageMap[pgIdx].push(url);
-        });
+        const hasPerPageImages = imageResult.pages.some((p: any) => p.images && p.images.length > 0);
+        if (hasPerPageImages) {
+          imageResult.pages.forEach((page: any, pgIdx: number) => {
+            if (pgIdx >= pageImageMap.length) return;
+            for (const img of page.images || []) {
+              let dataUrl = img.dataUrl;
+              if (!dataUrl && img.data && img.data.length > 0) {
+                const bytes = img.data;
+                let mime = "image/png";
+                if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) mime = "image/png";
+                else if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) mime = "image/jpeg";
+                else if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) mime = "image/gif";
+                dataUrl = `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`;
+              }
+              if (dataUrl && dataUrl.length >= 4000) pageImageMap[pgIdx].push(dataUrl);
+            }
+          });
+        } else {
+          allImageUrls.forEach((url, i) => {
+            const pgIdx = Math.floor((i / allImageUrls.length) * pageImageMap.length);
+            pageImageMap[pgIdx].push(url);
+          });
+        }
         return associateCatalogImagesWithText(pageTexts, pageImageMap);
       }
       return combinedText;
@@ -3170,6 +3190,38 @@ export async function POST(req: NextRequest) {
       const examFormatParam = (formData.get("examType") as string | null) || (formData.get("examFormat") as string | null) || "AKT";
       const targetExamFormat: "AKT" | "KFP" = examFormatParam.toUpperCase().includes("KFP") ? "KFP" : "AKT";
 
+      // Fast pre-pass so the client can show a real "N questions found" total while the (slower,
+      // image-carrying) full extraction below is still running — the admin panel calls this first
+      // with countOnly=true, using the plain-text-only extractors (no image decode/carving) since
+      // only a question count is needed here, not the final structured questions.
+      const countOnly = formData.get("countOnly") === "true";
+      if (countOnly) {
+        let quickText = "";
+        if (ext === "pdf") {
+          quickText = await extractTextFromPdfBuffer(buffer);
+        } else if (ext === "doc") {
+          try {
+            const WordExtractor = require("word-extractor");
+            quickText = (await new WordExtractor().extract(buffer)).getBody() || "";
+          } catch {
+            quickText = await extractTextFromPdfBuffer(buffer);
+          }
+        } else if (["png", "jpg", "jpeg", "webp"].includes(ext || "")) {
+          quickText = await recognizeImageText(buffer, fileName);
+        } else {
+          quickText = await extractTextFromDocxBuffer(buffer);
+        }
+
+        const quickCount = parseTextToQuestions(quickText, targetExamFormat).length;
+
+        if (tempPath && fs.existsSync(tempPath)) {
+          try { fs.unlinkSync(tempPath); } catch {}
+          tempPath = null;
+        }
+
+        return NextResponse.json({ success: true, type: "question_count", total: quickCount, fileName });
+      }
+
       let rawText = "";
       if (ext === "pdf") {
         rawText = await extractTextAndImagesFromPdfBuffer(buffer);
@@ -3180,7 +3232,7 @@ export async function POST(req: NextRequest) {
       } else {
         rawText = await extractTextAndImagesFromDocxBuffer(buffer);
       }
-      
+
       const questions = parseTextToQuestions(rawText, targetExamFormat);
 
       // ── Debug: log first 3000 chars and question count to server console ──
