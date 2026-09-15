@@ -201,8 +201,14 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
     const results: { text: string; dbId: string; uqid?: string }[] = [];
     const errors: { text: string; error: string }[] = [];
 
-    for (const q of questionsList) {
-      if (!q.text || !q.text.trim()) continue;
+    // Process every question in the chunk concurrently instead of one at a time — each question's
+    // handful of sequential round trips (sequence allocation, question upsert, options, tags, topic
+    // registration) was the actual bottleneck, not the chunking itself. The shared pg pool (max: 5)
+    // naturally caps how many run at once, queuing the rest, so this can't open more connections
+    // than the pool allows — it just keeps all of them busy instead of leaving 4 idle while one
+    // question's writes complete.
+    await Promise.all(questionsList.map(async (q) => {
+      if (!q.text || !q.text.trim()) return;
 
       // Isolate each question so one bad row (a constraint violation, a malformed field) can't
       // silently fail the entire chunk it was imported in — every other question in the batch
@@ -694,7 +700,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         console.error("Error importing question:", q.text?.slice(0, 80), qErr);
         errors.push({ text: q.text, error: qErr.message || "Failed to import this question." });
       }
-    }
+    }));
     return { success: true, results, errors: errors.length > 0 ? errors : undefined };
   } catch (error: any) {
     console.error("Error importing questions:", error);

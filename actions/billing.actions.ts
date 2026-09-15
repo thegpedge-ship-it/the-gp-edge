@@ -80,7 +80,7 @@ export async function getAdminBillingDataAction(): Promise<BillingPageData> {
         FROM subscriptions s
         JOIN plans p ON s.plan_id = p.id
         JOIN users u ON s.user_id = u.id
-       WHERE u.deleted_at IS NULL
+       WHERE u.deleted_at IS NULL AND u.email NOT ILIKE '%demo%'
        ORDER BY s.created_at DESC
     `);
 
@@ -138,7 +138,7 @@ export async function getAdminBillingDataAction(): Promise<BillingPageData> {
              u.email, u.first_name, u.last_name
         FROM payments p
         JOIN users u ON p.user_id = u.id
-       WHERE p.status = 'failed' AND u.deleted_at IS NULL
+       WHERE p.status = 'failed' AND u.deleted_at IS NULL AND u.email NOT ILIKE '%demo%'
        ORDER BY p.created_at DESC
     `);
 
@@ -166,7 +166,7 @@ export async function getAdminBillingDataAction(): Promise<BillingPageData> {
         FROM refunds r
         JOIN payments p ON r.payment_id = p.id
         JOIN users u ON p.user_id = u.id
-       WHERE u.deleted_at IS NULL
+       WHERE u.deleted_at IS NULL AND u.email NOT ILIKE '%demo%'
        ORDER BY r.created_at DESC
     `);
 
@@ -298,6 +298,7 @@ export async function getAdminBillingDataAction(): Promise<BillingPageData> {
              u.email, u.first_name, u.last_name
         FROM cancellation_feedback cf
         JOIN users u ON cf.user_id = u.id
+       WHERE u.email NOT ILIKE '%demo%'
        ORDER BY cf.created_at DESC
     `);
 

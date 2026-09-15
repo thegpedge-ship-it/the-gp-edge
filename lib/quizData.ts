@@ -108,6 +108,10 @@ export interface Question {
   dateLastReviewed?: string;
   reviewedBy?: string;
   signedOffBy?: string;
+
+  /** When this row was first inserted — used to sort the admin list newest-first. */
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type QuestionBankItem = Question;

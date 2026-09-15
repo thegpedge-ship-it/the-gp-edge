@@ -86,14 +86,14 @@ export async function GET(req: NextRequest) {
          q.date_last_reviewed     AS "dateLastReviewed",
          q.reviewed_by            AS "reviewedBy",
          q.signed_off_by          AS "signedOffBy",
-         q.created_at,
-         q.updated_at
+         q.created_at            AS "createdAt",
+         q.updated_at            AS "updatedAt"
        FROM questions q
        LEFT JOIN subjects  s  ON s.id  = q.subject_id
        LEFT JOIN subtopics st ON st.id = q.subtopic_id
        LEFT JOIN files     f  ON f.id  = q.image_file_id
        ${whereClause}
-       ORDER BY q.created_at DESC`
+       ORDER BY GREATEST(q.created_at, q.updated_at) DESC`
       , params
     );
 

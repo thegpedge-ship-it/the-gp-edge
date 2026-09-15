@@ -88,7 +88,7 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
       // 2. Autofill Templates
       queryOne<{ count: string }>("SELECT COUNT(*) as count FROM autofill_templates"),
       // 3. Total Users
-      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users"),
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users WHERE email NOT ILIKE '%demo%'"),
       // 4. Test Attempts
       queryOne<{ count: string }>("SELECT COUNT(*) as count FROM test_attempts"),
       // 5. Total Revenue
@@ -109,7 +109,7 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
       ).catch(() => null),
       // 8. New Users Last 30 Days
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 9. Pending Refunds
       queryOne<{ count: string }>("SELECT COUNT(*) as count FROM refunds WHERE status = 'pending'"),
@@ -118,7 +118,7 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
       // 11. Draft Quizzes (Educator modules waiting approval)
       queryOne<{ count: string }>("SELECT COUNT(*) as count FROM quizzes WHERE status = 'draft'"),
       // 12. Suspended / Awaiting review users
-      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users WHERE status = 'suspended'"),
+      queryOne<{ count: string }>("SELECT COUNT(*) as count FROM users WHERE status = 'suspended' AND email NOT ILIKE '%demo%'"),
       // 13. Canceled Subscriptions (for Churn)
       queryOne<{ count: string }>("SELECT COUNT(*) as count FROM subscriptions WHERE status = 'canceled'"),
       // 14. Total Subscriptions (for Churn)
@@ -146,11 +146,11 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
       ),
       // 18. DAU
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '1 day'"
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '1 day' AND email NOT ILIKE '%demo%'"
       ),
       // 19. MAU
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 20. Revenue Current 30 Days
       queryOne<{ sum: string }>(
@@ -166,19 +166,19 @@ export async function getDashboardDataAction(): Promise<DashboardStats> {
       ),
       // 23. MAU Current 30 Days
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 24. MAU Previous 30 Days
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '60 days' AND last_active_at < NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE last_active_at >= NOW() - INTERVAL '60 days' AND last_active_at < NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 25. New Users Current 30 Days
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 26. New Users Previous 30 Days
       queryOne<{ count: string }>(
-        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*) as count FROM users WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days' AND email NOT ILIKE '%demo%'"
       ),
       // 27. Test Attempts Current 30 Days
       queryOne<{ count: string }>(
@@ -343,7 +343,7 @@ export async function getMonthlyAnalyticsAction(): Promise<MonthlyStats[]> {
       )
       SELECT 
         m.month_name as month,
-        (SELECT COUNT(*) FROM users u WHERE u.created_at <= m.month_start + INTERVAL '1 month') as total_users,
+        (SELECT COUNT(*) FROM users u WHERE u.created_at <= m.month_start + INTERVAL '1 month' AND u.email NOT ILIKE '%demo%') as total_users,
         (SELECT COUNT(*) FROM test_attempts ta WHERE ta.started_at >= m.month_start AND ta.started_at < m.month_start + INTERVAL '1 month') as attempts,
         (SELECT COUNT(*) FROM subscriptions s WHERE s.status = 'active' AND s.created_at <= m.month_start + INTERVAL '1 month') as subscribers
       FROM months m

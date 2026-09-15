@@ -365,13 +365,25 @@ export default function QuestionsPage() {
 
     return matchSearch && matchStatus && matchExamType && matchTopic && matchDifficulty && matchBatch;
   })
-    // Display in UQID sequence (grouped by exam type, then ascending number) rather than whatever
-    // order the underlying `questions` array happens to be in — that array mixes the initial fetch
-    // order with freshly-imported questions PREPENDED to the front, so without an explicit sort the
-    // list reads as scrambled (e.g. KFP-000012, KFP-000004, KFP-000011, KFP-000001, ...) even though
-    // each UQID number is itself assigned correctly. Questions without a UQID yet sort to the end,
-    // keeping their relative order (stable sort).
+    // Most-recently-touched first — a brand new import AND an overwrite/edit of an existing question
+    // should both surface at the top, so this uses whichever of createdAt/updatedAt is newer rather
+    // than createdAt alone (an edit only bumps updated_at; created_at never changes). Freshly-imported
+    // or freshly-edited questions are PREPENDED to the local `questions` array before the server
+    // round-trip resolves their real timestamps, so a missing value sorts as "now" (Infinity) rather
+    // than falling to the bottom — otherwise the row would flash at the top and jump away once state
+    // updated. Falls back to UQID order (grouped by exam type, then ascending number) when timestamps
+    // tie or are both missing, so the list still reads coherently for rows predating timestamp tracking.
     .sort((a, b) => {
+      const latest = (q: typeof a) => {
+        const c = q.createdAt ? new Date(q.createdAt).getTime() : null;
+        const u = q.updatedAt ? new Date(q.updatedAt).getTime() : null;
+        if (c === null && u === null) return Infinity;
+        return Math.max(c ?? -Infinity, u ?? -Infinity);
+      };
+      const ta = latest(a);
+      const tb = latest(b);
+      if (ta !== tb) return tb - ta;
+
       const parseUqid = (uqid?: string): [string, number] | null => {
         if (!uqid) return null;
         const m = uqid.match(/^([A-Z]+)-0*(\d+)$/i);
@@ -626,7 +638,9 @@ export default function QuestionsPage() {
       let updatedQ: any = null;
       const updated = questions.map((q) => {
         if (q.id === editingQuestion.id) {
-          updatedQ = { ...q, ...baseQuestion };
+          // Bump updatedAt locally so the newest-first sort reflects this edit immediately,
+          // instead of waiting for a refetch to pick up the server's real updated_at.
+          updatedQ = { ...q, ...baseQuestion, updatedAt: new Date().toISOString() };
           return updatedQ;
         }
         return q;

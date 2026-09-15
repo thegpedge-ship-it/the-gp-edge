@@ -11,7 +11,12 @@ export const pool =
   new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    // DATABASE_URL points at Neon's pgbouncer pooler (the "-pooler" host), which is built to
+    // hand out many more backend connections than a direct connection would tolerate — 5 was
+    // needlessly conservative and throttled question-import concurrency (importQuestionsAction
+    // now processes a chunk's questions in parallel via Promise.all) down to 5-at-a-time
+    // regardless of chunk size.
+    max: 20,
   });
 
 if (process.env.NODE_ENV !== "production") {

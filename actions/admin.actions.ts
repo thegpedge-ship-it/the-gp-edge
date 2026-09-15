@@ -721,6 +721,7 @@ export async function getRealUsersFromDbAction(): Promise<RealAdminUser[]> {
        FROM users u
        LEFT JOIN subscriptions s ON s.user_id = u.id AND s.status IN ('active', 'trialing')
        WHERE u.deleted_at IS NULL
+         AND u.email NOT ILIKE '%demo%'
        ORDER BY u.created_at DESC`
     );
 
