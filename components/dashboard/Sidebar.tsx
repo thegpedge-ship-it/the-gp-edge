@@ -44,7 +44,6 @@ import { user as localUser } from "./data";
 import { useUser, SignOutButton } from "@clerk/nextjs";
 import { useProfile } from "@/contexts/ProfileContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { formatJoined } from "@/lib/format";
 import { useSidebar, SIDEBAR_TOP_PX } from "@/contexts/SidebarContext";
 
 // ─── Internal layout constants ────────────────────────────────────────────────
@@ -539,11 +538,7 @@ export default function Sidebar() {
                 </button>
               </SignOutButton>
 
-              {/* Footer */}
-              <div className="text-center pt-1">
-                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0 mb-0.5">{formatJoined(profile.joinedAt)}</p>
-                <p className="font-sans text-xs font-normal text-slate-400 dark:text-slate-500 m-0">Synced {localUser.lastSyncedMin}m ago</p>
-              </div>
+
 
             </div>
           </div>

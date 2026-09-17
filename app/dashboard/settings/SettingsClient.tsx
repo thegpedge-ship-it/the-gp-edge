@@ -304,13 +304,9 @@ export default function SettingsClient({
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-12 max-w-7xl mx-auto w-full px-4 sm:px-6 mt-10 sm:mt-14 lg:mt-16">
+    <div className="flex flex-col gap-6 pb-12 w-full">
       <FadeIn delay={0}>
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
-            Settings
-          </h1>
-        </div>
+        <PageHeading title="Settings" />
       </FadeIn>
 
       {/* ══ TWO-COLUMN GRID — Left column: Account Info, Right column: Exam Prep, Security & Billing ══ */}
