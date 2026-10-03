@@ -1,9 +1,17 @@
 "use server";
 
-import { query, queryOne, execute } from "@/lib/db";
+import { query, queryOne, execute, warmDbPool } from "@/lib/db";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
+
+/**
+ * Pre-warms the database connection pool so subsequent actions (e.g. login)
+ * execute on an established socket without the ~3.5s cold TLS connection penalty.
+ */
+export async function warmAdminDbAction(): Promise<void> {
+  await warmDbPool();
+}
 
 export interface CredentialUser {
   id: string;

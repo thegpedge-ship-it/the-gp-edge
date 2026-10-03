@@ -10,6 +10,7 @@ import {
   syncLocalAdminsWithDbAction,
   verifyAdminCredentialsAction,
   requestPasswordResetAction,
+  warmAdminDbAction,
 } from "@/actions/admin.actions";
 
 import {
@@ -43,6 +44,9 @@ export default function AdminLoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
+    // Pre-warm DB pool in background immediately so clicking "Log In" does not wait on cold TLS connect
+    warmAdminDbAction().catch(() => {});
+
     if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
       if (searchParams.get("resetSuccess") === "true") {
@@ -99,14 +103,16 @@ export default function AdminLoginPage() {
         localStorage.removeItem("gpedge_admin_remembered_username");
       }
 
-      try {
-        const dbAdmins = await getAdminsFromDbAction();
-        if (dbAdmins && dbAdmins.length > 0) {
-          localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
-        }
-      } catch (adminFetchErr) {
-        console.warn("Failed to fetch admin list post-login:", adminFetchErr);
-      }
+      // Sync admin list in background without blocking navigation to dashboard
+      getAdminsFromDbAction()
+        .then((dbAdmins) => {
+          if (dbAdmins && dbAdmins.length > 0) {
+            localStorage.setItem("gpedge_admin_credentials_list", JSON.stringify(dbAdmins));
+          }
+        })
+        .catch((adminFetchErr) => {
+          console.warn("Background admin list fetch failed:", adminFetchErr);
+        });
 
       if (foundUser.mustResetPassword) {
         localStorage.setItem("gpedge_temp_reset_admin_id", foundUser.id);
@@ -225,6 +231,7 @@ export default function AdminLoginPage() {
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  onFocus={() => warmAdminDbAction().catch(() => {})}
                   className={`w-full pl-10 pr-4 py-3 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
                 />
               </div>
@@ -250,6 +257,7 @@ export default function AdminLoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => warmAdminDbAction().catch(() => {})}
                   className={`w-full pl-10 pr-10 py-3 text-xs dark:text-slate-100 rounded-xl transition-all ${themeInput}`}
                   placeholder="••••••••"
                 />

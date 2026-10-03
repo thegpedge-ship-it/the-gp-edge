@@ -17,10 +17,30 @@ export const pool =
     // now processes a chunk's questions in parallel via Promise.all) down to 5-at-a-time
     // regardless of chunk size.
     max: 20,
+    idleTimeoutMillis: 300000, // 5 minutes: keep socket warm across page navigations & form fills
+    connectionTimeoutMillis: 15000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10000,
   });
 
 if (process.env.NODE_ENV !== "production") {
   globalForPool.pgPool = pool;
+}
+
+/** Pre-warm the pool by executing a lightweight query if idle */
+export async function warmDbPool(): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query("SELECT 1");
+    client.release();
+  } catch {
+    // Non-fatal background warmup
+  }
+}
+
+// Pre-warm on startup in background so the first user query doesn't pay a 3.5s cold TLS connection penalty
+if (process.env.DATABASE_URL) {
+  warmDbPool().catch(() => {});
 }
 
 /** Run a parameterised query and return all rows. */

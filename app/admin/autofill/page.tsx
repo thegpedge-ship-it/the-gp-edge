@@ -184,14 +184,31 @@ export default function AutofillPage() {
       formData.append("file", file);
       formData.append("type", "autofill");
 
+      const sessionToken = typeof window !== "undefined" ? sessionStorage.getItem("gpedge_admin_session_token") : null;
+      const adminId = typeof window !== "undefined" ? localStorage.getItem("gpedge_active_admin_id") : null;
+
+      const headers: Record<string, string> = {};
+      if (sessionToken) headers["x-admin-session-token"] = sessionToken;
+      if (adminId) headers["x-admin-id"] = adminId;
+
       const res = await fetch("/api/extract", {
         method: "POST",
+        headers,
         body: formData,
       });
 
       clearInterval(progressTimer);
 
-      const result = await res.json();
+      const text = await res.text();
+      let result: any = null;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        if (res.status === 401) {
+          throw new Error("Admin session expired. Please refresh and sign in again.");
+        }
+        throw new Error(`Extraction failed (HTTP ${res.status}).`);
+      }
       if (result.success) {
         setAutofillUploadQueue((prev) =>
           prev.map((item) =>
