@@ -116,6 +116,71 @@ export interface Question {
 
 export type QuestionBankItem = Question;
 
+/**
+ * Splits a question text or stem and lead-in so that:
+ * - stem contains ONLY the clinical scenario / patient vignette (no question prompt).
+ * - leadIn contains the specific question asked (e.g. "What is the MOST appropriate next step?").
+ */
+export function extractStemAndLeadIn(
+  rawStem?: string | null,
+  rawLeadIn?: string | null
+): { stem: string; leadIn: string } {
+  let stem = (rawStem || "").trim();
+  let leadIn = (rawLeadIn || "").trim();
+
+  if (leadIn) {
+    const normStem = stem.replace(/\r\n/g, "\n").trim();
+    const normLeadIn = leadIn.replace(/\r\n/g, "\n").trim();
+    if (normStem.endsWith(normLeadIn)) {
+      stem = normStem.slice(0, normStem.length - normLeadIn.length).trim();
+    } else {
+      const escaped = normLeadIn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+      const endRegex = new RegExp(`[\\s\\n]*${escaped}[\\s\\n]*$`, "i");
+      if (endRegex.test(normStem)) {
+        stem = normStem.replace(endRegex, "").trim();
+      }
+    }
+    return { stem, leadIn };
+  }
+
+  if (!stem) return { stem: "", leadIn: "" };
+  const normStem = stem.replace(/\r\n/g, "\n").trim();
+
+  const lastQMark = normStem.lastIndexOf("?");
+  if (lastQMark !== -1) {
+    const beforeQ = normStem.substring(0, lastQMark);
+    const lastDoubleNewline = beforeQ.lastIndexOf("\n\n");
+    const lastSingleNewline = beforeQ.lastIndexOf("\n");
+
+    let splitIdx = -1;
+    if (lastDoubleNewline !== -1) {
+      splitIdx = lastDoubleNewline + 2;
+    } else if (lastSingleNewline !== -1) {
+      const lineAfter = beforeQ.substring(lastSingleNewline + 1).trim();
+      if (/^(what|which|who|how|when|where|select|under|regarding|with|in|to|for|given|assuming)\b/i.test(lineAfter)) {
+        splitIdx = lastSingleNewline + 1;
+      }
+    }
+
+    if (splitIdx === -1) {
+      const lastPeriod = Math.max(beforeQ.lastIndexOf(". "), beforeQ.lastIndexOf(".\n"));
+      if (lastPeriod !== -1) {
+        splitIdx = lastPeriod + 2;
+      }
+    }
+
+    if (splitIdx > 0 && splitIdx < normStem.length) {
+      const candidateStem = normStem.substring(0, splitIdx).trim();
+      const candidateLeadIn = normStem.substring(splitIdx).trim();
+      if (candidateStem && candidateLeadIn) {
+        return { stem: candidateStem, leadIn: candidateLeadIn };
+      }
+    }
+  }
+
+  return { stem: normStem, leadIn: "" };
+}
+
 export const AVAILABLE_TOPICS = [
   "Cardiology",
   "Respiratory",

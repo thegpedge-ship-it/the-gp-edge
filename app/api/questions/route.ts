@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
+import { extractStemAndLeadIn } from "@/lib/quizData";
 
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
@@ -173,9 +174,8 @@ export async function GET(req: NextRequest) {
       // Per-option distractor rationales (parallel array to options[])
       const distractorRationales = opts.map((o: any) => o.distractor_rationale ?? "");
 
-      // Combine stem + leadIn as text for backward compat
-      const stem = q.stem ?? "";
-      const leadIn = q.leadIn ?? "";
+      // Combine stem + leadIn as text for backward compat, ensuring clean separation
+      const { stem, leadIn } = extractStemAndLeadIn(q.stem, q.leadIn);
       const text = leadIn ? `${stem}\n\n${leadIn}`.trim() : stem;
 
       return {

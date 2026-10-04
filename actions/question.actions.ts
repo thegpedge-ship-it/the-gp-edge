@@ -7,6 +7,7 @@ import crypto from "crypto";
 import { evaluateRelationalPermission, recordAuditLog, PermissionUser } from "@/lib/relationalPermissions";
 import { registerOrUpdateTopicWithCodeAction } from "@/actions/taxonomy.actions";
 import { buildBulkQuestionWhereClause, BulkQuestionFilters } from "@/lib/questionQueryFilters";
+import { extractStemAndLeadIn } from "@/lib/quizData";
 
 export type { BulkQuestionFilters } from "@/lib/questionQueryFilters";
 
@@ -358,8 +359,9 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
 
       // Upsert the question row
       let questionId: string | null = null;
-      const cleanStem = q.text.trim();
-      const stemKey = cleanStem.toLowerCase();
+      const { stem: cleanStem, leadIn: cleanLeadIn } = extractStemAndLeadIn(q.stem || q.text, q.leadIn);
+      const effectiveLeadIn = cleanLeadIn || q.leadIn || null;
+      const stemKey = (cleanStem || q.text.trim()).toLowerCase();
 
       if (q.dbId && uuidRegex.test(q.dbId) && questionById.has(q.dbId)) {
         questionId = q.dbId;
@@ -449,7 +451,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
           [cleanStem, q.rationale || q.whyCorrect || "", difficulty, status,
            examTypeCode, subjectId, subtopicId, imageFileId,
            correctCount,
-           q.leadIn || null, q.whyCorrect || null,
+           effectiveLeadIn, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,
            finalUqid,
            taskType, patientContext, keyDrugsMentioned,
@@ -473,7 +475,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
         const fieldsChanged: string[] = [];
         if (currentQ) {
           if ((currentQ.stem || "") !== cleanStem) fieldsChanged.push("stem");
-          if ((currentQ.lead_in || "") !== (q.leadIn || "")) fieldsChanged.push("leadIn");
+          if ((currentQ.lead_in || "") !== (effectiveLeadIn || "")) fieldsChanged.push("leadIn");
           if ((currentQ.why_correct || "") !== (q.whyCorrect || "")) fieldsChanged.push("whyCorrect");
           if ((currentQ.knowledge_bank || "") !== (q.knowledgeBank || "")) fieldsChanged.push("knowledgeBank");
           if ((currentQ.pearl || "") !== (q.pearl || "")) fieldsChanged.push("pearl");
@@ -531,7 +533,7 @@ export async function importQuestionsAction(questionsList: any[], adminUser?: Pe
            subjectId, subtopicId, imageFileId,
            isKfpNew ? (q.kfpCorrectCount ?? q.kftCorrectCount ?? null) : null,
            finalUqid,
-           q.leadIn || null, q.whyCorrect || null,
+           effectiveLeadIn, q.whyCorrect || null,
            q.knowledgeBank || null, q.pearl || null,
            autoBatchId,
            taskType, patientContext, keyDrugsMentioned, sourceRefs,

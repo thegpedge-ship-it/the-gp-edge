@@ -25,7 +25,7 @@ import {
   themeText,
 } from "@/lib/adminTheme";
 import { addUserNotification } from "@/utils/notifications";
-import { Question, fetchQuestions, getTopics, getCustomTags } from "@/lib/quizData";
+import { Question, fetchQuestions, getTopics, getCustomTags, extractStemAndLeadIn } from "@/lib/quizData";
 import { useTaxonomy } from "@/lib/hooks/useTaxonomy";
 import { uploadBase64ImageToR2 } from "@/lib/r2Client";
 import { importQuestionsAction, getNextBatchIdAction, deleteQuestionAction, restoreQuestionAction, permanentlyDeleteQuestionAction } from "@/actions/question.actions";
@@ -587,15 +587,16 @@ export default function QuestionsPage() {
     const correctIndex = newExamType === "AKT"
       ? Math.min(newCorrectAnswer.charCodeAt(0) - 65, newQuestionOptions.length - 1)
       : (newCorrectIndices[0] ?? 0);
-    // Combine stem + leadIn into text for backward compat
-    const combinedText = newLeadIn.trim()
-      ? `${stemText}\n\n${newLeadIn.trim()}`
-      : stemText;
+    // Combine stem + leadIn into text for backward compat, ensuring clean separation
+    const { stem: cleanStem, leadIn: cleanLeadIn } = extractStemAndLeadIn(stemText, newLeadIn.trim());
+    const combinedText = cleanLeadIn
+      ? `${cleanStem}\n\n${cleanLeadIn}`
+      : cleanStem;
 
     const baseQuestion = {
       text: combinedText,
-      stem: stemText,
-      leadIn: newLeadIn.trim() || undefined,
+      stem: cleanStem,
+      leadIn: cleanLeadIn || undefined,
       options: newQuestionOptions.map((opt, idx) => opt.trim() || `Option ${String.fromCharCode(65 + idx)}`),
       correctIndex,
       correctIndices: newExamType === "KFP" ? newCorrectIndices : undefined,
@@ -1492,9 +1493,10 @@ export default function QuestionsPage() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          setNewStem(q.stem || q.text || "");
-                          setNewLeadIn(q.leadIn || "");
-                          setNewQuestionText(q.text);
+                          const { stem: cleanStem, leadIn: cleanLeadIn } = extractStemAndLeadIn(q.stem || q.text, q.leadIn);
+                          setNewStem(cleanStem);
+                          setNewLeadIn(cleanLeadIn);
+                          setNewQuestionText(cleanLeadIn ? `${cleanStem}\n\n${cleanLeadIn}` : cleanStem);
                           setNewQuestionOptions([...q.options]);
                           setNewWhyCorrect(q.whyCorrect || q.rationale || "");
                           setNewDistractorRationales(q.distractorRationales ? [...q.distractorRationales] : q.options.map(() => ""));
@@ -1648,9 +1650,10 @@ export default function QuestionsPage() {
                       onClick={() => {
                         const q = previewQuestion;
                         setPreviewQuestion(null);
-                        setNewStem(q.stem || q.text || "");
-                        setNewLeadIn(q.leadIn || "");
-                        setNewQuestionText(q.text);
+                        const { stem: cleanStem, leadIn: cleanLeadIn } = extractStemAndLeadIn(q.stem || q.text, q.leadIn);
+                        setNewStem(cleanStem);
+                        setNewLeadIn(cleanLeadIn);
+                        setNewQuestionText(cleanLeadIn ? `${cleanStem}\n\n${cleanLeadIn}` : cleanStem);
                         setNewQuestionOptions([...q.options]);
                         setNewWhyCorrect(q.whyCorrect || q.rationale || "");
                         setNewDistractorRationales(q.distractorRationales ? [...q.distractorRationales] : q.options.map(() => ""));
@@ -1923,30 +1926,6 @@ export default function QuestionsPage() {
                   {/* ZONE 1: STEM & LEAD-IN */}
                   {activeZone === 1 && (
                     <div className="space-y-4">
-                      {/* Exam Type Toggle */}
-                      <div>
-                        <label className={`block text-xs font-semibold mb-2 ${themeLabel}`}>Exam Pattern / Format</label>
-                        <div className="flex rounded-xl overflow-hidden border divide-x divide-slate-200 dark:divide-slate-700 border-slate-200 dark:border-slate-700">
-                          {(["AKT", "KFP"] as const).map((type) => (
-                            <button
-                              key={type}
-                              type="button"
-                              onClick={() => {
-                                setNewExamType(type);
-                                setNewCorrectIndices([0]);
-                                setNewCorrectAnswer("A");
-                              }}
-                              className={`flex-1 py-2.5 text-xs font-bold transition-all ${
-                                newExamType === type
-                                  ? "bg-teal-800 text-white shadow-sm"
-                                  : "bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                              }`}
-                            >
-                              {type === "AKT" ? "AKT — Single Best Answer" : "KFP — Key Feature Test (Multi-Correct)"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
 
                       {/* Stem (Case Vignette) */}
                       <div>
