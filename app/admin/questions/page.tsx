@@ -2625,7 +2625,7 @@ export default function QuestionsPage() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className={`relative w-full ${
+              className={`relative w-full -mt-8 sm:-mt-12 ${
                 uploadState === "success" && extractionState === "success" ? "max-w-6xl" : "max-w-2xl"
               } bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${themeBorder}`}
             >
