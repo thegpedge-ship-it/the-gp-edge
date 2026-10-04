@@ -2606,7 +2606,7 @@ export default function QuestionsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6"
           >
             {/* Backdrop */}
             <div
@@ -2621,11 +2621,11 @@ export default function QuestionsPage() {
             />
             <motion.div
               key="upload-modal-dialog"
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className={`relative my-auto w-full ${
+              className={`relative w-full ${
                 uploadState === "success" && extractionState === "success" ? "max-w-6xl" : "max-w-2xl"
               } bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${themeBorder}`}
             >
