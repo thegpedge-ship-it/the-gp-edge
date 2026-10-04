@@ -2598,30 +2598,34 @@ export default function QuestionsPage() {
       </AnimatePresence>
 
       {/* Upload Questions Document Modal */}
-      <AnimatePresence>
-        {showUploadModal && (() => {
-          // uploadState is reused for both the initial extraction pass and the final
-          // Import & Publish save — either way, closing the modal mid-flight doesn't stop the
-          // underlying async work, it just hides it, so block dismissal until it settles.
-          const isProcessing = uploadState === "uploading" || extractionState === "extracting";
-          return (
-          <>
-            <motion.div
-              key="upload-backdrop"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className={`fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[60] ${isProcessing ? "" : "cursor-pointer"}`}
-              onClick={() => !isProcessing && setShowUploadModal(false)}
+      <AnimatePresence mode="wait">
+        {showUploadModal && (
+          <motion.div
+            key="upload-modal-wrapper"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          >
+            {/* Backdrop */}
+            <div
+              className={`fixed inset-0 bg-slate-950/40 backdrop-blur-sm ${
+                (uploadState === "uploading" || extractionState === "extracting") ? "" : "cursor-pointer"
+              }`}
+              onClick={() => {
+                if (uploadState !== "uploading" && extractionState !== "extracting") {
+                  setShowUploadModal(false);
+                }
+              }}
             />
             <motion.div
-              key="upload-modal"
-              initial={{ opacity: 0, scale: 0.96, y: 15 }}
+              key="upload-modal-dialog"
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 15 }}
-              transition={{ type: "spring", stiffness: 350, damping: 32, mass: 0.8 }}
-              className={`fixed inset-x-4 top-[5%] mx-auto w-full ${
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className={`relative my-auto w-full ${
                 uploadState === "success" && extractionState === "success" ? "max-w-6xl" : "max-w-2xl"
               } bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border rounded-2xl z-[70] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ${themeBorder}`}
             >
@@ -2641,9 +2645,16 @@ export default function QuestionsPage() {
                   <p className="text-xs text-slate-400">Upload a DOCX or PDF template to import multiple {uploadExamType} questions instantly</p>
                 </div>
                 <button
-                  onClick={() => !isProcessing && setShowUploadModal(false)}
-                  disabled={isProcessing}
-                  className={`text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-800 ${isProcessing ? "opacity-40 cursor-not-allowed" : ""}`}
+                  type="button"
+                  onClick={() => {
+                    if (uploadState !== "uploading" && extractionState !== "extracting") {
+                      setShowUploadModal(false);
+                    }
+                  }}
+                  disabled={uploadState === "uploading" || extractionState === "extracting"}
+                  className={`text-slate-400 hover:text-white transition p-1.5 rounded-lg hover:bg-slate-800 ${
+                    uploadState === "uploading" || extractionState === "extracting" ? "opacity-40 cursor-not-allowed" : ""
+                  }`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -3226,14 +3237,20 @@ export default function QuestionsPage() {
               {/* Modal Footer */}
               <div className="p-6 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-3 rounded-b-2xl">
                 <button
-                  onClick={() => !isProcessing && setShowUploadModal(false)}
-                  disabled={isProcessing}
+                  type="button"
+                  onClick={() => {
+                    if (uploadState !== "uploading" && extractionState !== "extracting") {
+                      setShowUploadModal(false);
+                    }
+                  }}
+                  disabled={uploadState === "uploading" || extractionState === "extracting"}
                   className={`${themeBtnGhost} disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   Cancel
                 </button>
                 {uploadState === "success" && extractionState === "success" && extractedQuestions.length > 0 && (
                   <button
+                    type="button"
                     onClick={handleSaveImportedQuestions}
                     className={`px-4 py-2.5 text-xs font-semibold rounded-xl transition-all ${themeBtnPrimary}`}
                   >
@@ -3242,9 +3259,8 @@ export default function QuestionsPage() {
                 )}
               </div>
             </motion.div>
-          </>
-          );
-        })()}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* High Resolution Lightbox Modal */}
