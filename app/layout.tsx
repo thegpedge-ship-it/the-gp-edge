@@ -25,13 +25,16 @@ export const metadata: Metadata = {
       ? process.env.NEXT_PUBLIC_APP_URL.startsWith("http")
         ? process.env.NEXT_PUBLIC_APP_URL
         : `https://${process.env.NEXT_PUBLIC_APP_URL}`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000"
+      : "https://thegpedge.com.au"
   ),
-  title: "The GP Edge | Smart Exam Prep for GP Registrars",
+  title: {
+    default: "The GP Edge | Smart Exam Prep & Clinical Tools for GP Registrars",
+    template: "%s | The GP Edge",
+  },
   description:
-    "Adaptive mock exams, MBS billing tools, and clinical templates for GP registrars in Australia. Study smarter. Pass with confidence.",
+    "Adaptive AKT & KFP mock exams, clinical consult templates, and MBS billing tools for GP registrars across Australia. Study smarter. Pass with confidence.",
+  applicationName: "The GP Edge",
+  authors: [{ name: "The GP Edge" }],
   keywords: [
     "GP registrar",
     "AKT exam",
@@ -40,20 +43,45 @@ export const metadata: Metadata = {
     "MBS billing",
     "clinical templates",
     "Australia",
+    "RACGP",
+    "ACRRM",
   ],
   icons: {
-    icon: '/assets/favicon-curved.png',
-    shortcut: '/assets/favicon-curved.png',
-    apple: '/assets/favicon-curved.png',
+    icon: "/assets/favicon-curved.png",
+    shortcut: "/assets/favicon-curved.png",
+    apple: "/assets/favicon-curved.png",
     other: {
-      rel: 'apple-touch-icon-precomposed',
-      url: '/assets/favicon-curved.png',
+      rel: "apple-touch-icon-precomposed",
+      url: "/assets/favicon-curved.png",
     },
   },
   openGraph: {
-    title: "The GP Edge | Smart Exam Prep for GP Registrars",
-    description: "Adaptive mock exams, MBS billing tools, and clinical templates for GP registrars in Australia.",
-    images: [{ url: "/assets/logo.png" }],
+    type: "website",
+    locale: "en_AU",
+    url: "https://thegpedge.com.au",
+    siteName: "The GP Edge",
+    title: "The GP Edge | Smart Exam Prep & Clinical Tools for GP Registrars",
+    description:
+      "Adaptive AKT & KFP mock exams, clinical consult templates, and MBS billing tools for GP registrars across Australia. Study smarter. Pass with confidence.",
+    images: [
+      {
+        url: "https://thegpedge.com.au/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "The GP Edge — Smart Exam Prep & Clinical Tools for GP Registrars",
+        type: "image/png",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The GP Edge | Smart Exam Prep & Clinical Tools for GP Registrars",
+    description:
+      "Adaptive AKT & KFP mock exams, clinical consult templates, and MBS billing tools for GP registrars across Australia. Study smarter. Pass with confidence.",
+    images: ["https://thegpedge.com.au/og-image.png"],
+  },
+  alternates: {
+    canonical: "https://thegpedge.com.au",
   },
 };
 
