@@ -1165,18 +1165,38 @@ export default function QuestionsPage() {
             <button
               onClick={() => {
                 if (isReadOnly) return;
+                setUploadExamType("AKT");
                 setShowUploadModal(true);
                 setUploadState("idle");
                 setExtractionState("idle");
                 setExtractedQuestions([]);
               }}
               disabled={isReadOnly}
-              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border ${themeBorder} ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border border-teal-200/80 dark:border-teal-800/60 hover:bg-teal-50 dark:hover:bg-teal-950/30 text-teal-800 dark:text-teal-300 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+              title="Upload AKT Single Best Answer question document"
             >
-              <svg className="w-3.5 h-3.5 text-teal-800 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-3.5 h-3.5 text-teal-700 dark:text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
               </svg>
-              Upload Document
+              <span>Upload AKT Doc</span>
+            </button>
+            <button
+              onClick={() => {
+                if (isReadOnly) return;
+                setUploadExamType("KFP");
+                setShowUploadModal(true);
+                setUploadState("idle");
+                setExtractionState("idle");
+                setExtractedQuestions([]);
+              }}
+              disabled={isReadOnly}
+              className={`px-3 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${themeBtnGhost} border border-purple-200/80 dark:border-purple-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/30 text-purple-800 dark:text-purple-300 ${isReadOnly ? "opacity-50 cursor-not-allowed" : ""}`}
+              title="Upload KFP Key Feature Problem question document"
+            >
+              <svg className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+              </svg>
+              <span>Upload KFP Doc</span>
             </button>
             <button
               onClick={() => {
@@ -2608,8 +2628,17 @@ export default function QuestionsPage() {
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-[#090d16] text-white rounded-t-2xl">
                 <div>
-                  <h3 className="font-serif text-lg font-bold">Import Questions from Document</h3>
-                  <p className="text-xs text-slate-400">Upload a DOCX or PDF template to import multiple questions instantly</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-lg font-bold">Import {uploadExamType} Questions</h3>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      uploadExamType === "KFP"
+                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                        : "bg-teal-500/20 text-teal-300 border border-teal-500/30"
+                    }`}>
+                      {uploadExamType} Format
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">Upload a DOCX or PDF template to import multiple {uploadExamType} questions instantly</p>
                 </div>
                 <button
                   onClick={() => !isProcessing && setShowUploadModal(false)}
