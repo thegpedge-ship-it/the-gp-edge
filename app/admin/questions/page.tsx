@@ -2655,52 +2655,6 @@ export default function QuestionsPage() {
               <div className="p-6 space-y-4 flex-1 overflow-y-auto max-h-[calc(90vh-160px)]">
                 {uploadState === "idle" && (
                   <div className="space-y-5">
-                    {/* Exam Type Selector Pill */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Select Question Exam Format</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setUploadExamType("AKT")}
-                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            uploadExamType === "AKT"
-                              ? "bg-teal-50/80 dark:bg-teal-950/40 border-teal-500 text-teal-900 dark:text-teal-200 ring-2 ring-teal-500/20 shadow-sm"
-                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                            uploadExamType === "AKT" ? "bg-teal-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                          }`}>
-                            AKT
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">AKT (Single MCQ)</p>
-                            <p className="text-[10px] opacity-75">Applied Knowledge Test single-answer format</p>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setUploadExamType("KFP")}
-                          className={`p-3.5 rounded-2xl border text-left transition-all flex items-center gap-3 cursor-pointer ${
-                            uploadExamType === "KFP"
-                              ? "bg-purple-50/80 dark:bg-purple-950/40 border-purple-500 text-purple-900 dark:text-purple-200 ring-2 ring-purple-500/20 shadow-sm"
-                              : "bg-slate-50/50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
-                          }`}
-                        >
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                            uploadExamType === "KFP" ? "bg-purple-600 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
-                          }`}>
-                            KFP
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">KFP (Multi-Select)</p>
-                            <p className="text-[10px] opacity-75">Key Feature Test multi-select clinical cases</p>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-
                     {/* Instructions Card */}
                     <div className={`border rounded-2xl p-4 space-y-3 ${
                       uploadExamType === "KFP" ? "bg-purple-50/40 dark:bg-purple-950/10 border-purple-100/50 dark:border-purple-900/30" : "bg-teal-50/40 dark:bg-teal-950/10 border-teal-100/50 dark:border-teal-900/30"
