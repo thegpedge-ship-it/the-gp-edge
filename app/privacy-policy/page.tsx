@@ -36,22 +36,48 @@ export default function PrivacyPolicyPage() {
           <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
             Privacy Policy
           </h1>
+
+          <div className="mt-4 flex flex-wrap justify-center items-center gap-3 text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">
+            <span>Effective date: 20/8/2026</span>
+            <span> </span>
+            <span>Last updated: 04/10/2026</span>
+          </div>
         </div>
 
         {/* Main Content Container */}
         <main className="w-full max-w-4xl mx-auto bg-white dark:bg-[#151922] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 sm:p-10 md:p-12 shadow-sm font-sans leading-relaxed text-slate-700 dark:text-slate-300 space-y-10">
-          
+
+          {/* Executive Summary / Short Version Box (No background fill) */}
+          <div className="p-6 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-slate-200 space-y-3">
+            <h2 className="font-serif text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100">
+              The short version
+            </h2>
+            <ul className="space-y-2 text-sm sm:text-base leading-relaxed list-disc list-inside text-slate-700 dark:text-slate-300">
+              <li>We collect what we need to run your account: your name and email, your subscription details, and your progress through the question bank.</li>
+              <li>We run no analytics, no tracking pixels, and no advertising cookies. We do not track you across other websites.</li>
+              <li>Your performance data is private. We never show an individual learner’s results to an employer, a practice, a training organisation, a supervisor, or the RACGP. Not on request, not as part of a group subscription, not at all.</li>
+              <li>You can delete everything, permanently, from your account settings. It is a genuine hard delete - your records are physically removed, not flagged as hidden.</li>
+              <li>Your study data is stored in Australia, in a Sydney data centre.</li>
+              <li>Some of the services we rely on are overseas. Your login details, your payments and your network traffic are handled by providers in the United States. Section 9 sets out exactly what goes where.</li>
+              <li>We never see your card details. Payments are handled by Stripe - your card number goes directly to them and never touches our systems.</li>
+              <li>We don’t sell your personal information to anyone.</li>
+            </ul>
+            <p className="text-xs sm:text-sm italic text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+              This summary is for convenience. The full policy below governs.
+            </p>
+          </div>
+
           {/* Section 1: Who we are */}
           <section id="section-1" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              1.  Who we are
+              1. Who we are
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
-                GP Edge is operated by The GP Edge (ABN [ABN &mdash; NOT YET OBTAINED]), registered in Queensland, Australia. In this policy, &ldquo;GP Edge&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo; and &ldquo;our&rdquo; refer to that entity.
+                GP Edge is operated by The GP Edge (ABN 66701866757), registered in Queensland, Australia. In this policy, &ldquo;GP Edge&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo; and &ldquo;our&rdquo; refer to that entity.
               </p>
               <p>
-                GP Edge is a platform for Australian general practitioners and registrars. It provides examination preparation for the Australian General Practitioner Fellowship examinations, and Billing Assist, a search tool for finding Medicare Benefits Schedule item numbers relevant to a described service. GP Edge is not affiliated with, endorsed by, or accredited by the Royal College of General Practitioners (RACGP) or Australian College of Rural Remote Medicine (ACRRM).
+                GP Edge is a platform for Australian general practitioners and registrars. It provides examination preparation for the Australian General Practitioner Fellowship examinations, and Billing Assist, a search tool for finding Medicare Benefits Schedule item numbers relevant to a described service. GP Edge is not affiliated with, endorsed by, or accredited by the Royal Australian College of General Practitioners (RACGP) or Australian College of Rural Remote Medicine (ACRRM).
               </p>
               <p>
                 We are committed to protecting your privacy and we comply with the Australian Privacy Principles (APPs) contained in the Privacy Act 1988 (Cth). A copy of the APPs is available from the Office of the Australian Information Commissioner at{" "}
@@ -68,24 +94,45 @@ export default function PrivacyPolicyPage() {
           {/* Section 2: What personal information we collect */}
           <section id="section-2" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              2.  What personal information we collect
+              2. What personal information we collect
             </h2>
             <div className="space-y-6 text-sm sm:text-base">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Account information</h3>
                 <p className="mb-2">Your account is created and managed through Clerk, our authentication provider. Clerk holds:</p>
                 <ul className="list-disc list-inside space-y-1.5 pl-2 text-slate-600 dark:text-slate-300">
-                  <li>Your name</li>
+                  <li>Your first name and last name</li>
                   <li>Your email address</li>
-                  <li>Your password &mdash; stored and managed entirely by Clerk. GP Edge never receives, stores or has access to your password.</li>
+                  <li>Your password - stored and managed entirely by Clerk. GP Edge never receives, stores or has access to your password.</li>
                   <li>Authentication events, such as sign-ins and verification codes</li>
+                  <li>Your postgraduate year</li>
+                  <li>Your exam target</li>
                 </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Profile information</h3>
+                <p className="mb-2">After you create your account we invite you to tell us a little more about yourself. All of this is optional and you can add, change or remove it at any time in your account settings:</p>
+                <ul className="list-disc list-inside space-y-1.5 pl-2 text-slate-600 dark:text-slate-300">
+                  <li>Where you completed your primary medical degree</li>
+                  <li>Which RACGP written exams you have sat, if any</li>
+                  <li>Whether you hold Fellowship</li>
+                  <li>Your country, and your state or territory if you are in Australia</li>
+                  <li>How you heard about GP Edge</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Your agreement to these terms</h3>
+                <p>
+                  When you create an account we record that you accepted our Terms of Service and this Privacy Policy, the date and time you did so, which version of each document you accepted, and whether you opted in to marketing emails.
+                </p>
               </div>
 
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Payment and subscription information</h3>
                 <p>
-                  We use Stripe to process payments. We do not collect or store your card number, expiry date or security code &mdash; these go directly to Stripe. Our database holds your subscription tier, status, billing period, and renewal or cancellation dates.
+                  We use Stripe to process payments. We do not collect or store your card number, expiry date or security code - these go directly to Stripe. Our database holds your subscription tier, status, billing period, and renewal or cancellation dates.
                 </p>
               </div>
 
@@ -103,7 +150,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Billing Assist</h3>
                 <p>
-                  When you search in Billing Assist, your search text is sent to Google&rsquo;s Gemini API so that matching MBS item numbers can be returned. This text is not stored by us &mdash; see section 8. Items you save to your favourites are stored against your account.
+                  When you search in Billing Assist, your search text is sent to Google&rsquo;s Gemini API so that matching MBS item numbers can be returned. This text is not stored by us - see section 8. Items you save to your favourites are stored against your account.
                 </p>
               </div>
 
@@ -117,7 +164,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Support and correspondence</h3>
                 <p>
-                  Anything you send us &mdash; support enquiries, error reports about specific questions, feedback &mdash; along with our replies.
+                  Anything you send us - support enquiries, error reports about specific questions, feedback - along with our replies.
                 </p>
               </div>
 
@@ -136,7 +183,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 3: Sensitive information */}
           <section id="section-3" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              3.  Sensitive information
+              3. Sensitive information
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
@@ -157,15 +204,16 @@ export default function PrivacyPolicyPage() {
           {/* Section 4: How we collect your information */}
           <section id="section-4" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              4.  How we collect your information
+              4. How we collect your information
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>We collect information:</p>
               <ul className="list-disc list-inside space-y-2 pl-2 text-slate-600 dark:text-slate-300">
                 <li>Directly from you, when you create an account, subscribe, use the platform, or contact us</li>
                 <li>Automatically, as you use the platform</li>
+                <li>From you during onboarding, and whenever you update your profile in account settings</li>
                 <li>From Clerk, in relation to your identity and authentication</li>
-                <li>From Stripe, in relation to your subscription &mdash; including automated webhook updates when your subscription status changes</li>
+                <li>From Stripe, in relation to your subscription - including automated webhook updates when your subscription status changes</li>
               </ul>
               <p>Wherever it is reasonable and practicable, we collect personal information only from you.</p>
             </div>
@@ -174,7 +222,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 5: Anonymity and pseudonymity */}
           <section id="section-5" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              5.  Anonymity and pseudonymity
+              5. Anonymity and pseudonymity
             </h2>
             <p className="text-sm sm:text-base">
               You cannot use GP Edge anonymously, because we need a persistent account to store your progress and manage your subscription.
@@ -184,7 +232,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 6: Why we use your information */}
           <section id="section-6" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              6.  Why we use your information
+              6. Why we use your information
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>We use your personal information to:</p>
@@ -194,7 +242,7 @@ export default function PrivacyPolicyPage() {
                 <li>Process payments, manage your subscription, and issue receipts</li>
                 <li>Respond to your support enquiries and error reports</li>
                 <li>Improve the accuracy and quality of our questions</li>
-                <li>Maintain security and prevent misuse &mdash; including detecting account sharing, which our Terms of Service prohibit</li>
+                <li>Maintain security and prevent misuse - including detecting account sharing, which our Terms of Service prohibit</li>
                 <li>Understand why subscribers leave, using cancellation feedback</li>
                 <li>Send you service messages about your account, billing or material changes to the service</li>
                 <li>Send you marketing about GP Edge, where you have not opted out (see section 10)</li>
@@ -207,7 +255,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 7: Your performance data */}
           <section id="section-7" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              7.  Your performance data
+              7. Your performance data
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p className="font-medium text-slate-700 dark:text-slate-300">
@@ -223,7 +271,7 @@ export default function PrivacyPolicyPage() {
                 <li>Any organisation that purchases a group or institutional subscription</li>
               </ul>
               <p>
-                This applies even where a third party pays for your subscription. An organisation that buys seats receives billing and seat-usage information only &mdash; who has an active account, and whether it is being used. It receives no scores, no topic breakdowns, and no individual results.
+                This applies even where a third party pays for your subscription. An organisation that buys seats receives billing and seat-usage information only - who has an active account, and whether it is being used. It receives no scores, no topic breakdowns, and no individual results.
               </p>
               <p className="font-semibold text-slate-900 dark:text-slate-100">
                 The only exceptions are where you expressly and specifically direct us to share your results, or where we are compelled by law.
@@ -234,7 +282,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 8: Who we share your information with */}
           <section id="section-8" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              8.  Who we share your information with
+              8. Who we share your information with
             </h2>
             <div className="space-y-6 text-sm sm:text-base">
               <p>
@@ -281,7 +329,7 @@ export default function PrivacyPolicyPage() {
                   We use Google Gemini to power the search in Billing Assist. When you search, your search text is sent to Google&rsquo;s embedding API so that matching MBS item numbers can be returned. We use Google&rsquo;s paid API tier, under terms that exclude customer content from being used to train Google&rsquo;s models.
                 </p>
                 <p>
-                  Your Billing Assist searches are not stored by us. They are processed and discarded &mdash; not written to our database, and not written to our application logs.
+                  Your Billing Assist searches are not stored by us. They are processed and discarded - not written to our database, and not written to our application logs.
                 </p>
                 <p>
                   Google does retain them briefly for its own safety purposes. Under Google&rsquo;s terms for paid API use, prompts and responses are logged for up to 55 days solely to detect misuse of the service and to meet legal obligations, and are not used to train Google&rsquo;s models. After that period they are deleted.
@@ -289,9 +337,9 @@ export default function PrivacyPolicyPage() {
                 <p>
                   If you save an MBS item to your favourites, that saved item is stored against your account.
                 </p>
-                <p className="p-4 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 font-medium">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                   Please do not enter patient-identifying details into Billing Assist. Describe the consultation without names, dates of birth, addresses or anything else that could identify the patient.
-                </p>
+                </div>
               </div>
 
               <div>
@@ -300,7 +348,7 @@ export default function PrivacyPolicyPage() {
                   <li>Where you consent</li>
                   <li>Where required or authorised by law, including to a court, tribunal or regulator</li>
                   <li>To our professional advisers, under obligations of confidentiality</li>
-                  <li>To a purchaser or successor entity, if GP Edge is sold or transferred &mdash; in which case we will notify you and the purchaser will be bound by this policy or one at least as protective</li>
+                  <li>To a purchaser or successor entity, if GP Edge is sold or transferred - in which case we will notify you and the purchaser will be bound by this policy or one at least as protective</li>
                 </ul>
               </div>
             </div>
@@ -309,7 +357,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 9: Where your information is stored */}
           <section id="section-9" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              9.  Where your information is stored
+              9. Where your information is stored
             </h2>
             <div className="space-y-6 text-sm sm:text-base">
               <p>
@@ -368,11 +416,11 @@ export default function PrivacyPolicyPage() {
           {/* Section 10: Direct marketing */}
           <section id="section-10" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              10.  Direct marketing
+              10. Direct marketing
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
-                We may send you information about GP Edge &mdash; new content, features, exam-relevant updates and offers.
+                We may send you information about GP Edge - new content, features, exam-relevant updates and offers.
               </p>
               <p>
                 Every marketing message includes an unsubscribe link, and you can opt out at any time by using that link or emailing{" "}
@@ -392,7 +440,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 11: Cookies and tracking */}
           <section id="section-11" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              11.  Cookies and tracking
+              11. Cookies and tracking
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>We use cookies only where they are necessary to run the platform:</p>
@@ -412,7 +460,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 12: Security */}
           <section id="section-12" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              12.  Security
+              12. Security
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
@@ -427,7 +475,7 @@ export default function PrivacyPolicyPage() {
                 <li>Identity verification before account deletion, so a compromised session cannot destroy your data.</li>
               </ul>
               <p>
-                No method of transmission or storage is completely secure, and we cannot guarantee absolute security. Keep your password confidential and do not share your account &mdash; account sharing is prohibited under our Terms of Service and materially increases the risk to your data.
+                No method of transmission or storage is completely secure, and we cannot guarantee absolute security. Keep your password confidential and do not share your account - account sharing is prohibited under our Terms of Service and materially increases the risk to your data.
               </p>
             </div>
           </section>
@@ -435,7 +483,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 13: Data breaches */}
           <section id="section-13" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              13.  Data breaches
+              13. Data breaches
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>We comply with the Notifiable Data Breaches scheme under Part IIIC of the Privacy Act.</p>
@@ -454,14 +502,14 @@ export default function PrivacyPolicyPage() {
           {/* Section 14: How long we keep your information */}
           <section id="section-14" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              14.  How long we keep your information
+              14. How long we keep your information
             </h2>
             <div className="space-y-6 text-sm sm:text-base">
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">While you hold an account</h3>
                 <p className="mb-2">We retain your account and performance data for as long as your account exists.</p>
                 <p>
-                  Ending a subscription does not delete your data. When a subscription is cancelled or expires, your account reverts to the free tier and your records &mdash; including your performance history &mdash; are retained. This means your progress is still there if you resubscribe.
+                  Ending a subscription does not delete your data. When a subscription is cancelled or expires, your account reverts to the free tier and your records - including your performance history - are retained. This means your progress is still there if you resubscribe.
                 </p>
               </div>
 
@@ -471,7 +519,7 @@ export default function PrivacyPolicyPage() {
                 <ul className="list-disc list-inside space-y-1.5 pl-2 text-slate-600 dark:text-slate-300">
                   <li><strong>Immediate.</strong> There is no grace period once you confirm.</li>
                   <li><strong>Verified.</strong> Clerk will ask you to confirm your identity first.</li>
-                  <li><strong>Complete.</strong> Every record linked to your account is removed &mdash; payments, subscriptions, test attempts, quiz configurations, badges, notifications and cancellation feedback.</li>
+                  <li><strong>Complete.</strong> Every record linked to your account is removed - payments, subscriptions, test attempts, quiz configurations, badges, notifications and cancellation feedback.</li>
                   <li><strong>Permanent.</strong> Records are physically deleted, not hidden or flagged. Nothing is retained. Your name and email address are removed from our database and your Clerk identity is deleted.</li>
                   <li><strong>Irreversible.</strong> Neither you nor we can recover your account or your history afterwards.</li>
                 </ul>
@@ -495,11 +543,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base mb-2">Data export</h3>
                 <p>
-                  We do not currently offer a self-service data export. If you would like a copy of your data before deleting your account, email{" "}
-                  <a href="mailto:admin@thegpedge.com.au" className="text-teal-600 dark:text-teal-400 font-semibold underline underline-offset-2 hover:text-teal-700">
-                    admin@thegpedge.com.au
-                  </a>{" "}
-                  and we will provide it (see section 15).
+                  You can download a copy of the personal information we hold about you at any time from your profile page. If you want a copy, download it before you delete your account.
                 </p>
               </div>
             </div>
@@ -508,20 +552,19 @@ export default function PrivacyPolicyPage() {
           {/* Section 15: Accessing and correcting your information */}
           <section id="section-15" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              15.  Accessing and correcting your information
+              15. Accessing and correcting your information
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
-                You may request access to the personal information we hold about you, and ask us to correct it if it is inaccurate, out of date, incomplete, irrelevant or misleading. Email{" "}
+                You can download a copy of the personal information we hold about you from your profile page (see section 14). If you need anything that is not in the download, or want us to correct something you cannot change yourself, email{" "}
                 <a href="mailto:admin@thegpedge.com.au" className="text-teal-600 dark:text-teal-400 font-semibold underline underline-offset-2 hover:text-teal-700">
                   admin@thegpedge.com.au
                 </a>.
               </p>
-              <p>There is no charge for making a request, or for us providing access.</p>
               <p>We will respond within 30 days.</p>
               <p>We may ask you to verify your identity before releasing information.</p>
               <p>
-                In limited circumstances we may refuse access or correction &mdash; for example where doing so would unreasonably affect another person&rsquo;s privacy. If we refuse, we will tell you why in writing and explain how to complain.
+                In limited circumstances we may refuse access or correction - for example where doing so would unreasonably affect another person&rsquo;s privacy. If we refuse, we will tell you why in writing and explain how to complain.
               </p>
               <p>You can update most of your account details yourself in your account settings.</p>
             </div>
@@ -530,7 +573,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 16: Complaints */}
           <section id="section-16" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              16.  Complaints
+              16. Complaints
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
@@ -556,13 +599,13 @@ export default function PrivacyPolicyPage() {
           {/* Section 17: Changes to this policy */}
           <section id="section-17" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              17.  Changes to this policy
+              17. Changes to this policy
             </h2>
             <div className="space-y-4 text-sm sm:text-base">
               <p>
                 We may update this policy from time to time. The current version is always available at{" "}
-                <a href="https://thegpedge.com.au/privacy" className="text-teal-600 dark:text-teal-400 font-semibold underline underline-offset-2 hover:text-teal-700">
-                  https://thegpedge.com.au/privacy
+                <a href="https://thegpedge.com.au/privacy-policy" className="text-teal-600 dark:text-teal-400 font-semibold underline underline-offset-2 hover:text-teal-700">
+                  https://thegpedge.com.au/privacy-policy
                 </a>{" "}
                 with its effective date at the top.
               </p>
@@ -575,7 +618,7 @@ export default function PrivacyPolicyPage() {
           {/* Section 18: Contact us */}
           <section id="section-18" className="scroll-mt-28">
             <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900 dark:text-slate-100 mb-4 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-              18.  Contact us
+              18. Contact us
             </h2>
             <div className="space-y-2 text-sm sm:text-base">
               <p>

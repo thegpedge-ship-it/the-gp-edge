@@ -31,7 +31,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative w-full pt-10 pb-8 md:pt-12 md:pb-9 bg-transparent border-t border-slate-200/60 dark:border-slate-800/80">
+    <footer suppressHydrationWarning className="relative w-full pt-10 pb-8 md:pt-12 md:pb-9 bg-transparent border-t border-slate-200/60 dark:border-slate-800/80">
       <style>{`
         .footer-animated-link {
           align-items: center;
@@ -143,8 +143,8 @@ export default function Footer() {
             <Link href="/terms" className="footer-animated-link">
               Terms of Service
             </Link>
-            <Link href="/disclaimer" className="footer-animated-link">
-              Disclaimer
+            <Link href="/refund-policy" className="footer-animated-link">
+              Refund Policy
             </Link>
           </div>
 
